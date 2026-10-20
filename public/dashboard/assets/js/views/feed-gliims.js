@@ -26,6 +26,8 @@ const hubView = {
     this.isModalOpen = false;
     this.feedLoaded = false;
     this.billingSummary = null;
+    this.draggedBlock = null;
+    this.editingDraftId = null;
 
     // Cached for the premium badge and the composer lock toggle; refreshed
     // when the composer opens. Fails silently pre-migration.
@@ -84,18 +86,12 @@ const hubView = {
       <div class="hub-filter-wrapper">
         <button class="hub-filter-btn" id="hub-filter-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-          <span class="hub-filter-label">Filter</span>
         </button>
         <div class="hub-filter-menu" id="hub-dropdown">
-          <div class="hub-filter-item active" data-filter="all">Everything</div>
           <div class="hub-filter-item" data-filter="mine">My Gliims</div>
-          <div class="hub-filter-item" data-filter="tagged">Tagged Gliims</div>
           <div class="hub-filter-item" data-filter="saved">Saved Gliims</div>
-          <div class="hub-filter-item" data-filter="Media">Media</div>
-          <div class="hub-filter-item" data-filter="Tech">Tech</div>
-          <div class="hub-filter-item" data-filter="Business">Business</div>
-          <div class="hub-filter-item" data-filter="Personal">Personal</div>
-          <div class="hub-filter-item" data-filter="Education">Education</div>
+          <div class="hub-filter-item" data-filter="tagged">Tagged Gliims</div>
+          <div class="hub-filter-item" data-filter="drafts">Drafts</div>
         </div>
       </div>
     `;
@@ -474,7 +470,10 @@ const hubView = {
           </div>
         </div>
 
-        <button id="submit-post-btn" class="btn-primary" style="width: 100%; margin-top: 32px;">Publish Bundle</button>
+        <div style="display: flex; gap: 12px; margin-top: 32px;">
+          <button id="save-draft-btn" class="btn-secondary" style="flex: 1;">Save Draft</button>
+          <button id="submit-post-btn" class="btn-primary" style="flex: 1;">Publish Bundle</button>
+        </div>
       </div>
     `;
     document.body.appendChild(modal);
@@ -573,6 +572,318 @@ const hubView = {
       modal.remove();
       this.fetchPosts();
     });
+
+    // Save as Draft handler
+    document.getElementById('save-draft-btn').addEventListener('click', async () => {
+      const title = document.getElementById('post-title').value.trim();
+      const category = document.getElementById('post-category').value;
+      const rawDescription = document.getElementById('post-description').value.trim();
+
+      if (!title) return alert("Title is required even for drafts.");
+
+      const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+
+      const finalBlocks = [];
+      let coverUrl = null;
+
+      document.querySelectorAll('.builder-block').forEach(b => {
+        const type = b.dataset.type;
+        const content = b.querySelector('.block-content-input').value.trim();
+        if (content) {
+          const blockData = { type, content };
+          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+          if (type === 'image') {
+            const capEl = b.querySelector('.block-caption-input');
+            const cap = capEl ? capEl.value.trim() : '';
+            if (cap) blockData.caption = cap;
+          }
+          finalBlocks.push(blockData);
+
+          if (!coverUrl && (type === 'image' || type === 'video')) {
+            coverUrl = content;
+          }
+        }
+      });
+
+      const btn = document.getElementById('save-draft-btn');
+      btn.innerText = "Saving...";
+      btn.disabled = true;
+
+      const newId = crypto.randomUUID();
+      const payload = {
+        id: newId,
+        title, category, description,
+        cover_url: coverUrl,
+        content: description,
+        user_id: store.user.id,
+        status: 'draft'
+      };
+
+      const { error } = await supabase.from('feed_gliims').insert(payload);
+
+      if (error) {
+        alert("Failed to save draft: " + error.message);
+        btn.innerText = "Save Draft";
+        btn.disabled = false;
+        return;
+      }
+
+      // Save blocks if any exist
+      if (finalBlocks.length > 0) {
+        const { error: bodyError } = await supabase
+          .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
+        if (bodyError) {
+          await supabase.from('feed_gliims').delete().eq('id', newId);
+          alert("Failed to save draft content: " + bodyError.message);
+          btn.innerText = "Save Draft";
+          btn.disabled = false;
+          return;
+        }
+      }
+
+      alert("Draft saved successfully!");
+      modal.remove();
+      this.fetchPosts();
+    });
+  },
+
+  async openDraftComposer(draft) {
+    // Open the composer modal first
+    await this.openCreateModal();
+    
+    // Store the draft ID so publish updates instead of inserts
+    this.editingDraftId = draft.id;
+    
+    // Pre-fill the fields
+    document.getElementById('post-title').value = draft.title || '';
+    document.getElementById('post-category').value = draft.category || 'Media';
+    document.getElementById('post-description').value = draft.description || '';
+    
+    // Pre-fill premium toggle if applicable
+    const premiumToggle = document.getElementById('post-premium-toggle');
+    if (premiumToggle && draft.is_premium) {
+      premiumToggle.checked = true;
+    }
+    
+    // Clear existing blocks and load draft blocks
+    const blocksContainer = document.getElementById('blocks-container');
+    blocksContainer.innerHTML = '';
+    
+    // Fetch the draft's content blocks
+    const { data: contentRow } = await supabase
+      .from('feed_gliim_contents')
+      .select('blocks')
+      .eq('post_id', draft.id)
+      .maybeSingle();
+    
+    if (contentRow?.blocks && Array.isArray(contentRow.blocks)) {
+      for (const block of contentRow.blocks) {
+        this.addBlock(block.type);
+        const blockDiv = blocksContainer.lastElementChild;
+        blockDiv.querySelector('.block-content-input').value = block.content || '';
+        
+        if (block.type === 'text' && block.style) {
+          blockDiv.querySelector('.block-style-select').value = block.style;
+        }
+        if (block.type === 'image') {
+          const capEl = blockDiv.querySelector('.block-caption-input');
+          if (capEl && block.caption) capEl.value = block.caption;
+          
+          // Show preview
+          const preview = blockDiv.querySelector('.block-preview');
+          if (preview) {
+            preview.innerHTML = `<img src="${block.content}" style="max-width:100%;border-radius:8px;margin-top:8px;">`;
+          }
+          blockDiv.querySelector('.block-file-name').innerText = 'Loaded image';
+          blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
+          blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
+        }
+        if (block.type === 'video' || block.type === 'audio') {
+          const preview = blockDiv.querySelector('.block-preview');
+          if (preview) {
+            const mediaEl = block.type === 'video' 
+              ? `<video src="${block.content}" controls style="max-width:100%;border-radius:8px;margin-top:8px;"></video>`
+              : `<audio src="${block.content}" controls style="width:100%;margin-top:8px;"></audio>`;
+            preview.innerHTML = mediaEl;
+          }
+          blockDiv.querySelector('.block-file-name').innerText = 'Loaded media';
+          blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
+          blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
+        }
+      }
+    } else {
+      // No blocks, add a default text block
+      this.addBlock('text');
+    }
+    
+    // Change the publish button text and handler
+    const publishBtn = document.getElementById('submit-post-btn');
+    publishBtn.innerText = 'Publish Draft';
+    
+    // Clone and replace the publish button to remove old handler
+    const newPublishBtn = publishBtn.cloneNode(true);
+    publishBtn.parentNode.replaceChild(newPublishBtn, publishBtn);
+    
+    // Attach new handler that updates the draft
+    newPublishBtn.addEventListener('click', async () => {
+      const title = document.getElementById('post-title').value.trim();
+      const category = document.getElementById('post-category').value;
+      const rawDescription = document.getElementById('post-description').value.trim();
+
+      if (!title) return alert("Title is required.");
+
+      const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+
+      const finalBlocks = [];
+      let coverUrl = null;
+
+      document.querySelectorAll('.builder-block').forEach(b => {
+        const type = b.dataset.type;
+        const content = b.querySelector('.block-content-input').value.trim();
+        if (content) {
+          const blockData = { type, content };
+          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+          if (type === 'image') {
+            const capEl = b.querySelector('.block-caption-input');
+            const cap = capEl ? capEl.value.trim() : '';
+            if (cap) blockData.caption = cap;
+          }
+          finalBlocks.push(blockData);
+
+          if (!coverUrl && (type === 'image' || type === 'video')) {
+            coverUrl = content;
+          }
+        }
+      });
+
+      if (finalBlocks.length === 0) return alert("Add some content blocks.");
+
+      const btn = newPublishBtn;
+      btn.innerText = "Publishing...";
+      btn.disabled = true;
+
+      const payload = {
+        title, category, description,
+        cover_url: coverUrl,
+        content: description,
+        status: 'approved'
+      };
+      const premiumToggle = document.getElementById('post-premium-toggle');
+      if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
+
+      // Update the existing draft
+      const { error } = await supabase.from('feed_gliims').update(payload).eq('id', this.editingDraftId);
+
+      if (error) {
+        alert("Failed: " + error.message);
+        btn.innerText = "Publish Draft";
+        btn.disabled = false;
+        return;
+      }
+
+      // Update the content blocks
+      const { error: bodyError } = await supabase
+        .from('feed_gliim_contents')
+        .update({ blocks: finalBlocks })
+        .eq('post_id', this.editingDraftId);
+      
+      if (bodyError) {
+        alert("Failed to save content: " + bodyError.message);
+        btn.innerText = "Publish Draft";
+        btn.disabled = false;
+        return;
+      }
+
+      // Tag pings
+      for (const u of this.taggedUsers) {
+        const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${this.editingDraftId}]]`;
+        await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+      }
+      
+      this.editingDraftId = null;
+      document.querySelector('.modal-overlay').remove();
+      this.fetchPosts();
+    });
+    
+    // Also update the save draft button to update instead of insert
+    const saveDraftBtn = document.getElementById('save-draft-btn');
+    const newSaveDraftBtn = saveDraftBtn.cloneNode(true);
+    saveDraftBtn.parentNode.replaceChild(newSaveDraftBtn, saveDraftBtn);
+    
+    newSaveDraftBtn.addEventListener('click', async () => {
+      const title = document.getElementById('post-title').value.trim();
+      const category = document.getElementById('post-category').value;
+      const rawDescription = document.getElementById('post-description').value.trim();
+
+      if (!title) return alert("Title is required even for drafts.");
+
+      const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+
+      const finalBlocks = [];
+      let coverUrl = null;
+
+      document.querySelectorAll('.builder-block').forEach(b => {
+        const type = b.dataset.type;
+        const content = b.querySelector('.block-content-input').value.trim();
+        if (content) {
+          const blockData = { type, content };
+          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+          if (type === 'image') {
+            const capEl = b.querySelector('.block-caption-input');
+            const cap = capEl ? capEl.value.trim() : '';
+            if (cap) blockData.caption = cap;
+          }
+          finalBlocks.push(blockData);
+
+          if (!coverUrl && (type === 'image' || type === 'video')) {
+            coverUrl = content;
+          }
+        }
+      });
+
+      const btn = newSaveDraftBtn;
+      btn.innerText = "Saving...";
+      btn.disabled = true;
+
+      const payload = {
+        title, category, description,
+        cover_url: coverUrl,
+        content: description,
+        status: 'draft'
+      };
+
+      const { error } = await supabase.from('feed_gliims').update(payload).eq('id', this.editingDraftId);
+
+      if (error) {
+        alert("Failed to save draft: " + error.message);
+        btn.innerText = "Save Draft";
+        btn.disabled = false;
+        return;
+      }
+
+      // Update blocks
+      if (finalBlocks.length > 0) {
+        const { error: bodyError } = await supabase
+          .from('feed_gliim_contents')
+          .update({ blocks: finalBlocks })
+          .eq('post_id', this.editingDraftId);
+        
+        if (bodyError) {
+          alert("Failed to save draft content: " + bodyError.message);
+          btn.innerText = "Save Draft";
+          btn.disabled = false;
+          return;
+        }
+      }
+
+      alert("Draft updated!");
+      this.editingDraftId = null;
+      document.querySelector('.modal-overlay').remove();
+      this.fetchPosts();
+    });
   },
 
   addBlock(type) {
@@ -607,8 +918,82 @@ const hubView = {
       `;
     }
 
-    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><span class="block-label">${iconHtml}</span><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">${removeIcon}</button></div>${inputHtml}`;
+    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
+
+    // Make block draggable
+    blockDiv.draggable = true;
+    const dragHandle = blockDiv.querySelector('.block-drag-handle');
+    
+    dragHandle.addEventListener('mousedown', () => {
+      blockDiv.draggable = true;
+    });
+    
+    blockDiv.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', blockDiv.outerHTML);
+      blockDiv.style.opacity = '0.4';
+      hubView.draggedBlock = blockDiv;
+    });
+    
+    blockDiv.addEventListener('dragend', (e) => {
+      blockDiv.style.opacity = '';
+      document.querySelectorAll('.builder-block').forEach(b => {
+        b.style.borderTop = '';
+        b.style.borderBottom = '';
+      });
+      hubView.draggedBlock = null;
+    });
+    
+    blockDiv.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      
+      const dragged = hubView.draggedBlock;
+      if (!dragged || dragged === blockDiv) return;
+      
+      const rect = blockDiv.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      
+      // Reset all borders
+      document.querySelectorAll('.builder-block').forEach(b => {
+        b.style.borderTop = '';
+        b.style.borderBottom = '';
+      });
+      
+      // Show indicator
+      if (e.clientY < midpoint) {
+        blockDiv.style.borderTop = '2px solid var(--brand-primary)';
+      } else {
+        blockDiv.style.borderBottom = '2px solid var(--brand-primary)';
+      }
+    });
+    
+    blockDiv.addEventListener('dragleave', (e) => {
+      blockDiv.style.borderTop = '';
+      blockDiv.style.borderBottom = '';
+    });
+    
+    blockDiv.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const dragged = hubView.draggedBlock;
+      if (!dragged || dragged === blockDiv) return;
+      
+      const rect = blockDiv.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      
+      if (e.clientY < midpoint) {
+        blocksContainer.insertBefore(dragged, blockDiv);
+      } else {
+        blocksContainer.insertBefore(dragged, blockDiv.nextSibling);
+      }
+      
+      // Clean up borders
+      document.querySelectorAll('.builder-block').forEach(b => {
+        b.style.borderTop = '';
+        b.style.borderBottom = '';
+      });
+    });
 
     if (type !== 'text') {
       blockDiv.querySelector('.block-file-input').addEventListener('change', async (e) => {
@@ -657,9 +1042,9 @@ const hubView = {
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
-    // A row with no status predates moderation and stays visible; otherwise
-    // only approved gliims reach the feed.
-    const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved');
+    // A row with no status predates moderation and stays visible; approved gliims
+    // reach the feed; drafts are visible to their owners.
+    const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved' || (p.status === 'draft' && p.user_id === store.user.id));
     this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.item_id) || []);
     this.feedLoaded = true;
@@ -684,6 +1069,8 @@ const hubView = {
         const inComments = this.allInteractions.some(i => i.post_id === p.id && i.comment_text && i.comment_text.includes(tag));
         return inDesc || inBlocks || inComments;
       });
+    } else if (this.currentFilter === 'drafts') {
+      filtered = filtered.filter(p => p.status === 'draft' && p.user_id === store.user.id);
     } else if (this.currentFilter !== 'all') {
       filtered = filtered.filter(p => p.category === this.currentFilter);
     }
@@ -705,9 +1092,10 @@ const hubView = {
     const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
     const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
     const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
+    const draftBadge = post.status === 'draft' ? `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,.15);color:#4B5563;font-size:11px;font-weight:700;">Draft</span>` : '';
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
   renderPosts(feed_gliims) {
@@ -819,6 +1207,13 @@ const hubView = {
     }
 
     if (!this.isModalOpen) return;
+
+    // Drafts open in the composer for editing, not the reader
+    if (post.status === 'draft' && post.user_id === store.user.id) {
+      this.isModalOpen = false;
+      this.openDraftComposer(post);
+      return;
+    }
 
     const isOwner = post.user_id === store.user.id;
 

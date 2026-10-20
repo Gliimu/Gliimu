@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=30';
-import hubView from './feed-gliims.js?v=36';
+import hubView from './feed-gliims.js?v=40';
 
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
@@ -56,6 +56,15 @@ export default {
   title: 'Feed',
   template: `
     <div class="libmerge hub-layout" id="library-container">
+      <div class="hub-category-tabs" id="hub-category-tabs">
+        <button class="hub-category-tab active" data-category="all">Everything</button>
+        <button class="hub-category-tab" data-category="Media">Media</button>
+        <button class="hub-category-tab" data-category="Tech">Tech</button>
+        <button class="hub-category-tab" data-category="Business">Business</button>
+        <button class="hub-category-tab" data-category="Personal">Personal</button>
+        <button class="hub-category-tab" data-category="Education">Education</button>
+      </div>
+
       <div class="libmerge-feed" id="library-feed">
         <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
       </div>
@@ -86,6 +95,7 @@ export default {
 
     this.setupTopbar();
     this.setupFab();
+    this.setupCategoryTabs();
 
     // Gliims and shelf items share one feed: hub hands its render calls back
     // here so both card types stay interleaved in a single list.
@@ -432,8 +442,20 @@ export default {
       });
     }
 
-    // The gliim filter menu (Mine / Tagged / Saved / categories).
+    // The gliim filter menu (Mine / Tagged / Saved / Drafts).
     hubView.setupTopbarActions();
+  },
+
+  setupCategoryTabs() {
+    const tabs = document.querySelectorAll('.hub-category-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        hubView.currentFilter = tab.dataset.category;
+        hubView.renderPosts(hubView.currentPosts);
+      });
+    });
   },
 
   async logInteraction(itemId, type) {
