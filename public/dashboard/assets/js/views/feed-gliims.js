@@ -1056,23 +1056,28 @@ const hubView = {
   filterPosts(feed_gliims) {
     let filtered = feed_gliims || this.currentPosts || [];
 
-    if (this.currentFilter === 'saved') {
-      filtered = filtered.filter(p => this.savedPosts.has(p.id));
-    } else if (this.currentFilter === 'mine') {
-      filtered = filtered.filter(p => p.user_id === store.user.id);
-    } else if (this.currentFilter === 'tagged') {
-      const myName = store.profile?.full_name || '';
-      const tag = `@${myName}`;
-      filtered = filtered.filter(p => {
-        const inDesc = p.description && p.description.includes(tag);
-        const inBlocks = p.blocks && p.blocks.some(b => b.type === 'text' && b.content.includes(tag));
-        const inComments = this.allInteractions.some(i => i.post_id === p.id && i.comment_text && i.comment_text.includes(tag));
-        return inDesc || inBlocks || inComments;
-      });
-    } else if (this.currentFilter === 'drafts') {
+    if (this.currentFilter === 'drafts') {
       filtered = filtered.filter(p => p.status === 'draft' && p.user_id === store.user.id);
-    } else if (this.currentFilter !== 'all') {
-      filtered = filtered.filter(p => p.category === this.currentFilter);
+    } else {
+      // Exclude drafts from all filters except 'drafts'
+      filtered = filtered.filter(p => p.status !== 'draft');
+      
+      if (this.currentFilter === 'saved') {
+        filtered = filtered.filter(p => this.savedPosts.has(p.id));
+      } else if (this.currentFilter === 'mine') {
+        filtered = filtered.filter(p => p.user_id === store.user.id);
+      } else if (this.currentFilter === 'tagged') {
+        const myName = store.profile?.full_name || '';
+        const tag = `@${myName}`;
+        filtered = filtered.filter(p => {
+          const inDesc = p.description && p.description.includes(tag);
+          const inBlocks = p.blocks && p.blocks.some(b => b.type === 'text' && b.content.includes(tag));
+          const inComments = this.allInteractions.some(i => i.post_id === p.id && i.comment_text && i.comment_text.includes(tag));
+          return inDesc || inBlocks || inComments;
+        });
+      } else if (this.currentFilter !== 'all') {
+        filtered = filtered.filter(p => p.category === this.currentFilter);
+      }
     }
 
     if (this.searchQuery) {
