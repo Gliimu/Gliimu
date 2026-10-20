@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { openReader } from '../reader.js?v=30';
-import hubView from './feed-gliims.js?v=42';
+import hubView from './feed-gliims.js?v=43';
 
 // Feed is the merged home of gliims (posts) and shelf items (books, audiolites). The shelf
 // keeps its database types; only the labels are member-facing.
@@ -207,18 +207,31 @@ export default {
     inputEl.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      statusEl.textContent = 'Uploading...';
-      statusEl.style.color = 'var(--brand-primary)';
-      try {
-        const url = await uploadFile(file, kind);
-        urlTarget.value = url;
-        statusEl.textContent = 'Upload complete.';
-        statusEl.style.color = 'var(--success)';
-        if (previewEl) previewEl.innerHTML = `<img src="${url}" style="max-width: 140px; border-radius: 8px; margin-top: 8px;">`;
-      } catch (err) {
-        statusEl.textContent = err.message || 'Upload failed.';
-        statusEl.style.color = 'var(--error)';
-      }
+      const run = async () => {
+        statusEl.textContent = 'Uploading... 0%';
+        statusEl.style.color = 'var(--brand-primary)';
+        try {
+          const url = await uploadFile(file, kind, (percent) => { statusEl.textContent = `Uploading... ${percent}%`; });
+          urlTarget.value = url;
+          statusEl.textContent = 'Upload complete.';
+          statusEl.style.color = 'var(--success)';
+          if (previewEl) previewEl.innerHTML = `<img src="${url}" style="max-width: 140px; border-radius: 8px; margin-top: 8px;">`;
+        } catch (err) {
+          statusEl.textContent = '';
+          statusEl.style.color = 'var(--error)';
+          statusEl.append(err.message || 'Upload failed.');
+          const retry = document.createElement('a');
+          retry.textContent = 'Retry';
+          retry.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
+          retry.onclick = (ev) => { ev.preventDefault(); run(); };
+          const reset = document.createElement('a');
+          reset.textContent = 'Start over';
+          reset.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
+          reset.onclick = (ev) => { ev.preventDefault(); urlTarget.value = ''; inputEl.value = ''; inputEl.click(); };
+          statusEl.append(retry, ' · ', reset);
+        }
+      };
+      run();
     });
   },
 

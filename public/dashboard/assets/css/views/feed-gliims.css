@@ -471,3 +471,51 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   font-weight: 700;
 }
 .hub-tag-empty { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
+
+/* ============================================
+   PDF BLOCK (composer slots + reader tiles)
+   ============================================ */
+/* Composer: up to two PDFs per block, side by side */
+.pdf-slot-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.pdf-slot {
+  flex: 1 1 220px;
+  min-width: 0;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.pdf-slot-title { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; }
+.pdf-slot .pdf-price-input { margin-top: 8px; width: 100%; }
+
+/* Reader: PDF tiles as small rectangles with cover + price */
+.pdf-block-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.pdf-tile {
+  position: relative;
+  width: 150px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+}
+.pdf-tile:hover { border-color: var(--brand-primary); }
+.pdf-tile-cover { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.pdf-tile-blank { display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.pdf-tile-blank svg { width: 28px; height: 28px; }
+.pdf-tile-price {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Mobile: exactly two PDF tiles per row */
+@media (max-width: 768px) {
+  .pdf-block-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pdf-tile { width: 100%; }
+}

@@ -703,7 +703,7 @@ const hubView = {
         if (block.type === 'video' || block.type === 'audio') {
           const preview = blockDiv.querySelector('.block-preview');
           if (preview) {
-            const mediaEl = block.type === 'video' 
+            const mediaEl = block.type === 'video'
               ? `<video src="${block.content}" controls style="max-width:100%;border-radius:8px;margin-top:8px;"></video>`
               : `<audio src="${block.content}" controls style="width:100%;margin-top:8px;"></audio>`;
             preview.innerHTML = mediaEl;
@@ -711,6 +711,29 @@ const hubView = {
           blockDiv.querySelector('.block-file-name').innerText = 'Loaded media';
           blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
           blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
+        }
+        if (block.type === 'pdf') {
+          let items = [];
+          try {
+            const parsed = JSON.parse(block.content || '');
+            if (Array.isArray(parsed && parsed.items)) items = parsed.items;
+          } catch { if (block.content) items = [{ pdf_url: block.content, cover_url: '', price: Number(block.price || 0) }]; }
+          items.forEach((it, i) => {
+            const slot = blockDiv.querySelectorAll('.pdf-slot')[i];
+            if (!slot || !it || !it.pdf_url) return;
+            slot.querySelector('.pdf-file-url').value = it.pdf_url;
+            slot.querySelector('.pdf-file-name').textContent = 'PDF loaded';
+            slot.querySelector('.pdf-file-status').textContent = 'Upload complete!';
+            slot.querySelector('.pdf-file-status').style.color = 'var(--success)';
+            if (it.cover_url) {
+              slot.querySelector('.pdf-cover-url').value = it.cover_url;
+              slot.querySelector('.pdf-cover-name').textContent = 'Cover loaded';
+              slot.querySelector('.pdf-cover-status').textContent = 'Upload complete!';
+              slot.querySelector('.pdf-cover-status').style.color = 'var(--success)';
+              slot.querySelector('.pdf-cover-preview').innerHTML = `<img src="${escapeHtml(it.cover_url)}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+            }
+            if (it.price) slot.querySelector('.pdf-price-input').value = it.price;
+          });
         }
       }
     } else {
@@ -905,8 +928,30 @@ const hubView = {
     let inputHtml = '';
     if (type === 'text') {
       inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
+    } else if (type === 'pdf') {
+      const pdfSlot = (i) => `
+        <div class="pdf-slot" data-slot="${i}">
+          <div class="pdf-slot-title">PDF ${i + 1}</div>
+          <label class="custom-file-upload">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span class="pdf-cover-name">Choose cover image</span>
+            <input type="file" class="pdf-cover-input" accept="image/*" hidden>
+          </label>
+          <div class="upload-status pdf-cover-status"></div>
+          <div class="pdf-cover-preview"></div>
+          <label class="custom-file-upload">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span class="pdf-file-name">Choose PDF file</span>
+            <input type="file" class="pdf-file-input" accept="application/pdf" hidden>
+          </label>
+          <div class="upload-status pdf-file-status"></div>
+          <input type="number" class="input pdf-price-input" min="0" step="1" placeholder="Price in ₦ (0 = free)">
+          <input type="hidden" class="pdf-cover-url">
+          <input type="hidden" class="pdf-file-url">
+        </div>`;
+      inputHtml = `<div class="pdf-slot-row">${pdfSlot(0)}${pdfSlot(1)}</div><input type="hidden" class="block-content-input">`;
     } else {
-      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : type === 'pdf' ? 'application/pdf' : '*/*';
+      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*';
       inputHtml = `
         <label class="custom-file-upload">
           <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
@@ -997,29 +1042,112 @@ const hubView = {
       });
     });
 
-    if (type !== 'text') {
-      blockDiv.querySelector('.block-file-input').addEventListener('change', async (e) => {
-        if (e.target.files[0]) {
-          blockDiv.querySelector('.block-file-name').innerText = e.target.files[0].name;
-          const statusEl = blockDiv.querySelector('.upload-status');
-          const hiddenInput = blockDiv.querySelector('.block-content-input');
-          statusEl.innerText = "Uploading... 0%"; statusEl.style.color = "var(--brand-primary)";
-          let fileUrl;
-          try {
-            fileUrl = await uploadFile(e.target.files[0], 'media', (percent) => {
-              statusEl.innerText = `Uploading... ${percent}%`;
-            });
-          } catch (err) {
-            statusEl.innerText = err.message || "Upload failed."; statusEl.style.color = "var(--error)";
-            return;
-          }
-          hiddenInput.value = fileUrl;
-          statusEl.innerText = "Upload complete!"; statusEl.style.color = "var(--success)";
+    const runUpload = async (file, kind, statusEl, urlEl, inputEl, onDone) => {
+      statusEl.style.color = 'var(--brand-primary)';
+      try {
+        statusEl.textContent = 'Uploading... 0%';
+        const fileUrl = await uploadFile(file, kind, (percent) => {
+          statusEl.textContent = `Uploading... ${percent}%`;
+        });
+        urlEl.value = fileUrl;
+        statusEl.textContent = 'Upload complete!';
+        statusEl.style.color = 'var(--success)';
+        if (onDone) onDone(fileUrl);
+      } catch (err) {
+        statusEl.style.color = 'var(--error)';
+        statusEl.textContent = '';
+        statusEl.append(err.message || 'Upload failed.');
+        const retry = document.createElement('a');
+        retry.textContent = 'Retry';
+        retry.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
+        retry.onclick = (ev) => { ev.preventDefault(); runUpload(file, kind, statusEl, urlEl, inputEl, onDone); };
+        const reset = document.createElement('a');
+        reset.textContent = 'Start over';
+        reset.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
+        reset.onclick = (ev) => { ev.preventDefault(); urlEl.value = ''; inputEl.value = ''; inputEl.click(); };
+        statusEl.append(retry, ' · ', reset);
+      }
+    };
+
+    if (type === 'pdf') {
+      const hiddenInput = blockDiv.querySelector('.block-content-input');
+      const syncPdfBlock = () => {
+        const items = [];
+        blockDiv.querySelectorAll('.pdf-slot').forEach(slot => {
+          const pdfUrl = slot.querySelector('.pdf-file-url').value;
+          if (!pdfUrl) return;
+          items.push({
+            cover_url: slot.querySelector('.pdf-cover-url').value || '',
+            pdf_url: pdfUrl,
+            price: Math.max(0, Math.round(Number(slot.querySelector('.pdf-price-input').value) || 0))
+          });
+        });
+        hiddenInput.value = items.length ? JSON.stringify({ items }) : '';
+      };
+      blockDiv.querySelectorAll('.pdf-slot').forEach(slot => {
+        const coverInput = slot.querySelector('.pdf-cover-input');
+        coverInput.addEventListener('change', () => {
+          const file = coverInput.files[0];
+          if (!file) return;
+          slot.querySelector('.pdf-cover-name').textContent = file.name;
+          runUpload(file, 'media', slot.querySelector('.pdf-cover-status'), slot.querySelector('.pdf-cover-url'), coverInput, (url) => {
+            slot.querySelector('.pdf-cover-preview').innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+            syncPdfBlock();
+          });
+        });
+        const fileInput = slot.querySelector('.pdf-file-input');
+        fileInput.addEventListener('change', () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+          slot.querySelector('.pdf-file-name').textContent = file.name;
+          runUpload(file, 'library', slot.querySelector('.pdf-file-status'), slot.querySelector('.pdf-file-url'), fileInput, syncPdfBlock);
+        });
+        slot.querySelector('.pdf-price-input').addEventListener('input', syncPdfBlock);
+      });
+    } else if (type !== 'text') {
+      blockDiv.querySelector('.block-file-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        blockDiv.querySelector('.block-file-name').innerText = file.name;
+        runUpload(file, 'media', blockDiv.querySelector('.upload-status'), blockDiv.querySelector('.block-content-input'), e.target, (fileUrl) => {
           const preview = blockDiv.querySelector('.block-preview');
           preview.innerHTML = type === 'image' ? `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
-        }
+        });
       });
     }
+  },
+
+  // A PDF tile click: owners and free files download directly; everyone else
+  // pays the creator-set price via billing_access (deduped server-side, so
+  // re-clicking a bought PDF never charges again) then downloads.
+  async openPdfTile(el) {
+    const url = el.dataset.pdf;
+    if (!url) return;
+    const price = Number(el.dataset.price || 0);
+    const isOwner = el.dataset.creator && el.dataset.creator === store.user.id;
+    const download = () => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+    if (isOwner || price <= 0) return download();
+
+    const { data, error } = await supabase.rpc('billing_access', {
+      p_event_type: 'premium_unlock',
+      p_item_id: `${el.dataset.post}::pdf::${el.dataset.idx}`,
+      p_request_id: crypto.randomUUID(),
+      p_creator: el.dataset.creator || null,
+      p_price_override: price
+    });
+    if (error) return alert('Purchase failed: ' + error.message);
+    if (data && data.allowed) return download();
+    alert(data && data.code === 'INSUFFICIENT_FUNDS'
+      ? 'Not enough wallet balance. Top up your wallet and try again.'
+      : 'This file could not be unlocked. Please try again.');
   },
 
   async fetchPosts() {
@@ -1301,13 +1429,21 @@ const hubView = {
         if (b.type === 'video') return `<video src="${b.content}" class="read-block-media" controls></video>`;
         if (b.type === 'audio') return `<div class="read-block-audio-wrapper"><i class="fas fa-podcast"></i><audio src="${b.content}" class="read-block-audio" controls></audio></div>`;
         if (b.type === 'pdf') {
-          const price = Number(b.price || 0);
-          const priceLabel = price > 0
-            ? `<span class="read-pdf-price">₦${price.toLocaleString()}</span>`
-            : '<span class="read-pdf-price read-pdf-free">Free</span>';
-          // Rendered in-page by renderFileInto after the modal is appended —
-          // the PDF stays inside this read view instead of opening a new tab.
-          return `<div class="read-block-pdf">${priceLabel}<div class="rdr-inline-file" data-file-src="${b.content}"></div></div>`;
+          let items = [];
+          try {
+            const parsed = JSON.parse(b.content);
+            if (Array.isArray(parsed && parsed.items)) items = parsed.items;
+          } catch { items = [{ pdf_url: b.content, cover_url: '', price: Number(b.price || 0) }]; }
+          const pdfTileIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+          const tiles = items.filter(it => it && it.pdf_url).map((it, idx) => {
+            const price = Number(it.price || 0);
+            const cover = it.cover_url
+              ? `<img class="pdf-tile-cover" src="${escapeHtml(it.cover_url)}" alt="" loading="lazy">`
+              : `<div class="pdf-tile-cover pdf-tile-blank">${pdfTileIcon}</div>`;
+            return `<div class="pdf-tile" data-pdf="${escapeHtml(it.pdf_url)}" data-price="${price}" data-post="${post.id}" data-idx="${idx}" data-creator="${post.user_id || ''}" onclick="hubInstance.openPdfTile(this)">${cover}<span class="pdf-tile-price">${price > 0 ? '₦' + price.toLocaleString() : 'Free'}</span></div>`;
+          }).join('');
+          if (!tiles) return '';
+          return `<div class="pdf-block-row">${tiles}</div>`;
         }
         return '';
       }).join('');
@@ -1612,6 +1748,7 @@ window.hubInstance = {
   toggleReadMenu: (id) => hubView.toggleReadMenu(id),
   closeModal: () => hubView.closeModal(),
   addBlock: (type) => hubView.addBlock(type),
+  openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
   replyToUser: (postId, fullName, userId) => hubView.replyToUser(postId, fullName, userId),
   viewAuthor: (userId) => hubView.viewAuthor(userId),
