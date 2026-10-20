@@ -14,14 +14,16 @@ function escapeHtml(value) {
 }
 
 // Client mirror of the gliim_kind classifier (sql/unify_feed.sql): video →
-// bundle; audio (no video) → audiolite; document (no video/audio) → book.
-// Cards use it to style audiolites, without ever loading the body.
+// bundle; audio (no video) → audiolite; document (no video/audio) → book;
+// image-only (no video/audio/document/pdf) → image-only.
+// Cards use it to style audiolites/books/image-only, without ever loading the body.
 function gliimKindOf(blocks) {
   const types = new Set((blocks || []).map(b => b && b.type).filter(Boolean));
   if (types.has('video')) return 'bundle';
   if (types.has('audio')) return 'audiolite';
   if (types.has('document')) return 'book';
   if (types.has('pdf')) return 'bundle';
+  if (types.has('image') && types.size === 1) return 'image-only';
   return null;
 }
 
@@ -143,6 +145,72 @@ const hubView = {
     document.querySelector('.modal-overlay')?.remove();
     this.isModalOpen = false;
     sessionStorage.removeItem('openReadViewId');
+    this.stopReadAloud();
+  },
+
+  // Read-aloud TTS: collects all visible text blocks in the read view and
+  // speaks them via the Web Speech API. Tapping again stops.
+  toggleReadAloud(btn) {
+    if (!('speechSynthesis' in window)) {
+      return alert('Read aloud is not supported in this browser.');
+    }
+    if (speechSynthesis.speaking || speechSynthesis.pending) {
+      this.stopReadAloud();
+      return;
+    }
+
+    const body = document.querySelector('.read-body');
+    if (!body) return;
+
+    const textEls = body.querySelectorAll('.read-block-title, .read-block-subtitle, .read-block-text, .read-block-list-item, .read-block-caption');
+    if (!textEls.length) return alert('No text to read aloud.');
+
+    const utterances = [];
+    textEls.forEach(el => {
+      const text = (el.textContent || '').trim();
+      if (!text) return;
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 1;
+      utt.pitch = 1;
+      utterances.push({ utt, el });
+    });
+    if (!utterances.length) return alert('No text to read aloud.');
+
+    this._readAloudActive = true;
+    btn.classList.add('active');
+    btn.querySelector('span').textContent = 'Stop';
+
+    let idx = 0;
+    const speakNext = () => {
+      if (!this._readAloudActive || idx >= utterances.length) {
+        this.stopReadAloud();
+        return;
+      }
+      utterances[idx].el.classList.add('read-aloud-highlight');
+      utterances[idx].utt.onend = () => {
+        utterances[idx].el.classList.remove('read-aloud-highlight');
+        idx++;
+        speakNext();
+      };
+      utterances[idx].utt.onerror = () => {
+        utterances[idx].el.classList.remove('read-aloud-highlight');
+        idx++;
+        speakNext();
+      };
+      speechSynthesis.speak(utterances[idx].utt);
+    };
+    speakNext();
+  },
+
+  stopReadAloud() {
+    this._readAloudActive = false;
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    document.querySelectorAll('.read-aloud-highlight').forEach(el => el.classList.remove('read-aloud-highlight'));
+    const btn = document.getElementById('read-aloud-btn');
+    if (btn) {
+      btn.classList.remove('active');
+      btn.querySelector('span').textContent = 'Read Aloud';
+    }
   },
 
   closeUserMenu() {
@@ -515,6 +583,10 @@ const hubView = {
 
     this.addBlock('text');
 
+    // Autosave: restore composer state if it exists, then wire up save on changes
+    this.restoreComposerState();
+    this.wireComposerAutosave();
+
     document.getElementById('submit-post-btn').addEventListener('click', async () => {
       const title = document.getElementById('post-title').value.trim();
       const category = document.getElementById('post-category').value;
@@ -592,6 +664,7 @@ const hubView = {
         const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
         await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
       }
+      this.clearComposerAutosave();
       modal.remove();
       this.fetchPosts();
     });
@@ -665,12 +738,17 @@ const hubView = {
       }
 
       alert("Draft saved successfully!");
+      this.clearComposerAutosave();
       modal.remove();
       this.fetchPosts();
     });
   },
 
   async openDraftComposer(draft) {
+    // Clear any stale autosave from a different session — the draft itself
+    // is the source of truth when editing.
+    this.clearComposerAutosave();
+
     // Open the composer modal first
     await this.openCreateModal();
     
@@ -857,6 +935,7 @@ const hubView = {
         await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
       }
       
+      this.clearComposerAutosave();
       this.editingDraftId = null;
       document.querySelector('.modal-overlay').remove();
       this.fetchPosts();
@@ -934,6 +1013,7 @@ const hubView = {
       }
 
       alert("Draft updated!");
+      this.clearComposerAutosave();
       this.editingDraftId = null;
       document.querySelector('.modal-overlay').remove();
       this.fetchPosts();
@@ -996,7 +1076,7 @@ const hubView = {
       `;
     }
 
-    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove()">${removeIcon}</button></div>${inputHtml}`;
+    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
 
     // Make block draggable
@@ -1150,6 +1230,117 @@ const hubView = {
     }
   },
 
+  // Autosave: serialize composer state to localStorage so a refresh doesn't
+  // wipe the user's work-in-progress.
+  saveComposerState() {
+    const modal = document.getElementById('create-modal');
+    if (!modal) return;
+    const blocks = [];
+    modal.querySelectorAll('.builder-block').forEach(block => {
+      const type = block.dataset.type;
+      const content = block.querySelector('.block-content-input')?.value || '';
+      const style = block.querySelector('.block-style-select')?.value || '';
+      const caption = block.querySelector('.block-caption-input')?.value || '';
+      blocks.push({ type, content, style, caption });
+    });
+    const state = {
+      title: document.getElementById('post-title')?.value || '',
+      description: document.getElementById('post-description')?.value || '',
+      category: document.getElementById('post-category')?.value || '',
+      taggedUsers: this.taggedUsers || [],
+      premium: document.getElementById('post-premium-toggle')?.checked || false,
+      blocks
+    };
+    try {
+      localStorage.setItem('gliim_composer_autosave', JSON.stringify(state));
+    } catch { /* quota exceeded — silently skip */ }
+  },
+
+  restoreComposerState() {
+    try {
+      const raw = localStorage.getItem('gliim_composer_autosave');
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      const modal = document.getElementById('create-modal');
+      if (!modal) return;
+
+      if (state.title) {
+        const titleInput = document.getElementById('post-title');
+        if (titleInput) titleInput.value = state.title;
+      }
+      if (state.description) {
+        const descInput = document.getElementById('post-description');
+        if (descInput) descInput.value = state.description;
+      }
+      if (state.category) {
+        const catSelect = document.getElementById('post-category');
+        if (catSelect) catSelect.value = state.category;
+      }
+      if (state.premium) {
+        const premiumToggle = document.getElementById('post-premium-toggle');
+        if (premiumToggle) premiumToggle.checked = true;
+      }
+      if (state.taggedUsers && state.taggedUsers.length) {
+        this.taggedUsers = state.taggedUsers;
+        const taggedDiv = document.getElementById('tagged-users-list');
+        if (taggedDiv) {
+          taggedDiv.innerHTML = state.taggedUsers.map(u =>
+            `<div class="tagged-user-chip">${escapeHtml(u.full_name)}<button type="button" class="tagged-user-remove" onclick="hubInstance.removeTaggedUser('${u.id}')">×</button></div>`
+          ).join('');
+        }
+      }
+
+      // Restore blocks: remove the default empty text block, then rebuild
+      if (state.blocks && state.blocks.length) {
+        const builder = modal.querySelector('.block-builder');
+        if (builder) {
+          builder.innerHTML = '';
+          for (const block of state.blocks) {
+            this.addBlock(block.type);
+            const blockDiv = builder.lastElementChild;
+            if (!blockDiv) continue;
+            if (block.content) {
+              const contentInput = blockDiv.querySelector('.block-content-input');
+              if (contentInput) contentInput.value = block.content;
+            }
+            if (block.style) {
+              const styleSelect = blockDiv.querySelector('.block-style-select');
+              if (styleSelect) styleSelect.value = block.style;
+            }
+            if (block.caption) {
+              const captionInput = blockDiv.querySelector('.block-caption-input');
+              if (captionInput) captionInput.value = block.caption;
+            }
+          }
+        }
+      }
+    } catch { /* corrupt data — ignore */ }
+  },
+
+  wireComposerAutosave() {
+    if (this._autosaveWired) return;
+    this._autosaveWired = true;
+    const modal = document.getElementById('create-modal');
+    if (!modal) return;
+
+    // Save on any input/change in the modal
+    modal.addEventListener('input', () => this.saveComposerState());
+    modal.addEventListener('change', () => this.saveComposerState());
+
+    // Also save when blocks are added (these don't always fire input)
+    const originalAddBlock = this.addBlock.bind(this);
+    this.addBlock = (type) => {
+      originalAddBlock(type);
+      this.saveComposerState();
+    };
+  },
+
+  clearComposerAutosave() {
+    try {
+      localStorage.removeItem('gliim_composer_autosave');
+    } catch { /* ignore */ }
+  },
+
   // A PDF tile click: owners and free files download directly; everyone else
   // pays the creator-set price via billing_access (deduped server-side, so
   // re-clicking a bought PDF never charges again) then downloads.
@@ -1290,6 +1481,27 @@ const hubView = {
       const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 21 12 6 21 6 3"></polygon></svg>';
       return `<article class="audiolite-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
         <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${eqSvg}Audiolite</span><span class="audiolite-play">${playSvg}</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+        <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
+        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
+      </article>`;
+    }
+
+    // Books render as 1:1 squares with the cover image as the card background.
+    if (this.cardKinds && this.cardKinds[post.id] === 'book') {
+      const bookCover = post.cover_url ? `background-image: url('${post.cover_url}');` : '';
+      const bookSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
+      return `<article class="audiolite-card book-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${bookCover}" onclick="hubInstance.openReadView('${post.id}')">
+        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bookSvg}Book</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+        <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
+        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
+      </article>`;
+    }
+
+    // Image-only gliims render as 1:1 squares with the first image as the card background.
+    if (this.cardKinds && this.cardKinds[post.id] === 'image-only' && post.cover_url) {
+      const imgCover = `background-image: url('${post.cover_url}');`;
+      return `<article class="audiolite-card image-only-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${imgCover}" onclick="hubInstance.openReadView('${post.id}')">
+        <div class="blog-meta audiolite-meta"><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
@@ -1574,6 +1786,13 @@ const hubView = {
                 <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span>
                 <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
               </div>
+            </div>
+
+            <div class="read-aloud-bar" id="read-aloud-bar">
+              <button class="read-aloud-btn" id="read-aloud-btn" onclick="hubInstance.toggleReadAloud(this)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+                <span>Read Aloud</span>
+              </button>
             </div>
 
             ${blocksHtml}
