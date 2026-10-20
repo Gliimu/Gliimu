@@ -303,6 +303,14 @@
   .modal-content .modal-close { width: 40px; height: 40px; font-size: 20px; }
 }
 
+/* Very small mobile: single column for better readability */
+@media (max-width: 480px) {
+  .library-feed { grid-template-columns: 1fr; }
+  .feed-item--gliim:has(.book-cover-card),
+  .feed-item--gliim:has(.audiolite-card:not(.bundle-card)),
+  .feed-item--gliim:has(.image-only-card) { grid-column: 1 / -1; }
+}
+
 /* Fix Filter SVG stealing clicks */
 .lib-filter-btn svg { pointer-events: none; }
 

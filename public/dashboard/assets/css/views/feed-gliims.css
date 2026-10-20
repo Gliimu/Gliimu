@@ -744,7 +744,7 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
