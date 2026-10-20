@@ -1397,6 +1397,7 @@ const hubView = {
   },
 
   calcParticipantCost(durationDays, pricing) {
+    if (!pricing) pricing = {};
     if (durationDays <= 7) return Number(pricing.cost_1_week || 4000);
     if (durationDays <= 14) return Number(pricing.cost_2_weeks || 3000);
     if (durationDays <= 30) return Number(pricing.cost_1_month || 2000);
@@ -1427,9 +1428,10 @@ const hubView = {
     endDate.setDate(endDate.getDate() + duration);
 
     const { data: pricing } = await supabase.rpc('event_pricing_get', {});
-    const perParticipantCost = this.calcParticipantCost(duration, pricing);
+    const safePricing = pricing || {};
+    const perParticipantCost = this.calcParticipantCost(duration, safePricing);
     const maxParticipants = Math.floor(budget / perParticipantCost);
-    const prizePool = budget * (1 - pricing.gliimu_fee_percent / 100);
+    const prizePool = budget * (1 - (safePricing.gliimu_fee_percent || 15) / 100);
 
     const previewModal = document.createElement('div');
     previewModal.className = 'modal-overlay';

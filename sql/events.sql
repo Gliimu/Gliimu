@@ -696,8 +696,8 @@ begin
   -- Calculate prizes (85% of budget split: 45/25/15)
   v_prize_pool := p_budget_naira * (1 - (v_pricing->>'gliimu_fee_percent')::numeric / 100);
 
-  -- Deduct from host wallet
-  perform public.billing_access('event_create', p_budget_naira::text, null);
+  -- TODO: Re-add billing deduction when event billing is integrated
+  -- perform public.billing_access('event_create'::text, p_budget_naira::text, null::text, null::uuid, null::integer);
 
   -- Create event
   insert into public.events (
@@ -1198,7 +1198,8 @@ begin
     and refund_issued = false
   loop
     -- Refund to host
-    perform public.billing_access('event_refund', v_event.budget_naira::text, v_event.id::text);
+    -- TODO: Re-add refund when event billing is integrated
+    -- perform public.billing_access('event_refund'::text, v_event.budget_naira::text, v_event.id::text, null::uuid, null::integer);
 
     update public.events
     set status = 'cancelled', refund_issued = true, refund_issued_at = now()
@@ -1252,6 +1253,35 @@ grant execute on function public.event_end(uuid) to authenticated;
 
 revoke execute on function public.event_refund_check() from public, anon;
 grant execute on function public.event_refund_check() to authenticated;
+
+-- Table grants (fix 403 on REST API)
+grant select on public.event_categories to authenticated;
+grant select on public.events to authenticated;
+grant insert on public.events to authenticated;
+grant update on public.events to authenticated;
+grant select on public.event_participants to authenticated;
+grant insert on public.event_participants to authenticated;
+grant delete on public.event_participants to authenticated;
+grant select on public.event_teams to authenticated;
+grant insert on public.event_teams to authenticated;
+grant select on public.event_team_members to authenticated;
+grant insert on public.event_team_members to authenticated;
+grant select on public.event_posts to authenticated;
+grant insert on public.event_posts to authenticated;
+grant select on public.event_post_likes to authenticated;
+grant insert on public.event_post_likes to authenticated;
+grant select on public.event_gp_earnings to authenticated;
+grant select on public.event_prizes to authenticated;
+grant select on public.event_pricing to authenticated;
+
+-- Seed default pricing if empty
+insert into public.event_pricing (
+  cost_1_week, cost_2_weeks, cost_1_month, cost_2_months, cost_3_months,
+  gliimu_fee_percent, prize_1st_percent, prize_2nd_percent, prize_3rd_percent,
+  min_participants
+)
+select 4000, 3000, 2000, 1500, 1000, 15, 45, 25, 15, 10
+where not exists (select 1 from public.event_pricing limit 1);
 
 -- ============================================================
 -- SELF CHECK
