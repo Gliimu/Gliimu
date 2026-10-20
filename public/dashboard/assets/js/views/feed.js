@@ -1032,18 +1032,11 @@ export default {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) return alert('Incorrect password. Deletion cancelled.');
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return alert('Session expired.');
-
     try {
-      const res = await fetch(`${API_BASE_URL}/api/content/${itemId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-      });
-      const result = await res.json();
-      if (!res.ok || !result.deleted) {
-        return alert('Delete failed: ' + (result.error || 'Unknown error'));
-      }
+      // Delete directly from Supabase (RLS ensures owners can only delete their own items)
+      const { error: deleteError } = await supabase.from('feed_items').delete().eq('id', itemId);
+      if (deleteError) return alert('Delete failed: ' + deleteError.message);
+      
       alert(`${label} deleted successfully.`);
       this.loadShelf();
     } catch (err) {
