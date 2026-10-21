@@ -1316,6 +1316,24 @@ select 4000, 3000, 2000, 1500, 1000, 15, 45, 25, 15, 10
 where not exists (select 1 from public.event_pricing limit 1);
 
 -- ============================================================
+-- EVENT TAGS ON GLIIMS (2026-10-21)
+-- A gliim can be tagged to an event the author participates in
+-- (or hosts) with # in the composer. Tagged gliims show up in
+-- the event's Posts tab.
+-- ============================================================
+
+-- Older live installs created events before min_participants had
+-- a default and before event_create inserted it, which aborts new
+-- events with a not-null violation. Force the default back.
+alter table public.events alter column min_participants set default 10;
+
+alter table public.feed_gliims add column if not exists event_id uuid references public.events(id) on delete set null;
+
+create index if not exists feed_gliims_event_idx
+  on public.feed_gliims (event_id)
+  where event_id is not null;
+
+-- ============================================================
 -- SELF CHECK
 -- ============================================================
 select 'event_categories table' as check_name,
@@ -1364,4 +1382,19 @@ select 'event_leaderboard function',
   (select case when to_regprocedure('public.event_leaderboard(uuid)') is not null then 'OK' else 'MISSING' end)
 union all
 select 'event_end function',
-  (select case when to_regprocedure('public.event_end(uuid)') is not null then 'OK' else 'MISSING' end);
+  (select case when to_regprocedure('public.event_end(uuid)') is not null then 'OK' else 'MISSING' end)
+union all
+select 'events.min_participants default is 10',
+  (select case when (select column_default from information_schema.columns
+    where table_schema='public' and table_name='events' and column_name='min_participants') = '10'
+  then 'OK' else 'CHECK' end)
+union all
+select 'feed_gliims.event_id column',
+  (select case when exists (select 1 from information_schema.columns
+    where table_schema='public' and table_name='feed_gliims' and column_name='event_id')
+  then 'OK' else 'MISSING' end)
+union all
+select 'event_create inserts min_participants',
+  (select case when (select count(*) from pg_proc
+    where proname='event_create' and prosrc like '%min_participants%') > 0
+  then 'OK' else 'CHECK' end);

@@ -363,9 +363,15 @@ const hubView = {
       const q = input.value.trim();
       clearTimeout(timer);
 
-      if (q.length < 2) { results.innerHTML = ''; return; }
+      if (q.length < 2 && !q.startsWith('#')) { results.innerHTML = ''; return; }
 
       timer = setTimeout(async () => {
+        // '#Tag an event': only events the user hosts or participates in.
+        if (q.startsWith('#')) {
+          await this.searchTaggableEvents(q.slice(1).trim(), input, results);
+          return;
+        }
+
         const { data } = await supabase.from('profiles')
           .select('id, full_name, avatar_url, total_gp')
           .ilike('full_name', `%${q}%`)
@@ -400,16 +406,70 @@ const hubView = {
     });
   },
 
+  async searchTaggableEvents(query, input, results) {
+    const [{ data: joined }, { data: hosted }] = await Promise.all([
+      supabase.from('event_participants').select('event_id').eq('user_id', store.user.id),
+      supabase.from('events').select('id, title, status').eq('host_id', store.user.id).in('status', ['recruiting', 'active'])
+    ]);
+
+    const joinedIds = (joined || []).map(r => r.event_id);
+    let participations = [];
+    if (joinedIds.length) {
+      const { data } = await supabase.from('events')
+        .select('id, title, status')
+        .in('id', joinedIds)
+        .in('status', ['recruiting', 'active']);
+      participations = data || [];
+    }
+
+    const lower = query.toLowerCase();
+    const seen = new Set(this.taggedEvent ? [this.taggedEvent.id] : []);
+    const list = [...(hosted || []), ...participations].filter(e => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return !query || (e.title || '').toLowerCase().includes(lower);
+    });
+
+    if (list.length === 0) {
+      results.innerHTML = '<div class="hub-tag-empty">No events found. You can only tag events you host or participate in.</div>';
+      return;
+    }
+
+    const calSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg>';
+    results.innerHTML = list.map(e => `
+      <div class="hub-tag-result" data-event-id="${e.id}">${calSvg}<span>#${escapeHtml(e.title)}</span></div>
+    `).join('');
+
+    results.querySelectorAll('.hub-tag-result').forEach(row => {
+      row.addEventListener('click', () => {
+        const e = list.find(x => x.id === row.dataset.eventId);
+        if (!e) return;
+        this.taggedEvent = { id: e.id, title: e.title };
+        input.value = '';
+        results.innerHTML = '';
+        this.renderTagChips();
+        input.focus();
+      });
+    });
+  },
+
   renderTagChips() {
     const chips = document.getElementById('tag-chips');
     if (!chips) return;
     chips.innerHTML = this.taggedUsers.map((u, i) => `
       <span class="hub-tag-chip"><span>@${escapeHtml(u.full_name)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeTag(${i})">&times;</button></span>
-    `).join('');
+    `).join('') + (this.taggedEvent ? `
+      <span class="hub-tag-chip"><span>#${escapeHtml(this.taggedEvent.title)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeEventTag()">&times;</button></span>
+    ` : '');
   },
 
   removeTag(index) {
     this.taggedUsers.splice(index, 1);
+    this.renderTagChips();
+  },
+
+  removeEventTag() {
+    this.taggedEvent = null;
     this.renderTagChips();
   },
 
@@ -460,10 +520,10 @@ const hubView = {
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
         <div class="form-group">
-          <label>Tag People (optional)</label>
+          <label>Tag People or Events (optional)</label>
           <div class="hub-tag-picker">
             <div class="hub-tag-chips" id="tag-chips"></div>
-            <input type="text" id="tag-search" class="input" placeholder="Type a full name to tag someone..." autocomplete="off">
+            <input type="text" id="tag-search" class="input" placeholder="Type a name to tag someone, or # to tag an event..." autocomplete="off">
             <div class="hub-tag-results" id="tag-results"></div>
           </div>
         </div>
@@ -507,6 +567,7 @@ const hubView = {
     document.body.appendChild(modal);
 
     this.taggedUsers = [];
+    this.taggedEvent = null;
     this.setupTagPicker();
 
     document.getElementById('add-block-trigger').addEventListener('click', (e) => {
@@ -544,7 +605,8 @@ const hubView = {
       }
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
+      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -587,6 +649,7 @@ const hubView = {
         cover_url: coverUrl,
         user_id: store.user.id
       };
+      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
       const premiumToggle = document.getElementById('post-premium-toggle');
       if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
@@ -633,7 +696,8 @@ const hubView = {
       if (!title) return alert("Title is required even for drafts.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
+      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -669,6 +733,7 @@ const hubView = {
         user_id: store.user.id,
         status: 'draft'
       };
+      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
 
       const { error } = await supabase.from('feed_gliims').insert(payload);
 
@@ -823,7 +888,8 @@ const hubView = {
       if (!title) return alert("Title is required.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
+      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -858,6 +924,7 @@ const hubView = {
         cover_url: coverUrl,
         status: 'approved'
       };
+      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
       const premiumToggle = document.getElementById('post-premium-toggle');
       if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
@@ -909,7 +976,8 @@ const hubView = {
       if (!title) return alert("Title is required even for drafts.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
+      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -942,6 +1010,7 @@ const hubView = {
         cover_url: coverUrl,
         status: 'draft'
       };
+      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
 
       const { error } = await supabase.from('feed_gliims').update(payload).eq('id', this.editingDraftId);
 
@@ -2031,15 +2100,19 @@ const hubView = {
     const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: eventId });
     const leaderboard = leaderboardData?.leaderboard || [];
 
-    // Fetch posts
-    const { data: posts } = await supabase
-      .from('event_posts')
+    // Tagged gliims: participants tag the event with # in the composer and
+    // the post lands here as well as in the main feed.
+    const { data: taggedPosts } = await supabase
+      .from('feed_gliims')
       .select(`
-        *,
-        profiles:profiles!author_id(full_name, avatar_url, total_gp)
+        id, title, category, description, cover_url, views, created_at, user_id, status,
+        profiles:profiles!user_id(full_name, avatar_url, total_gp)
       `)
       .eq('event_id', eventId)
       .order('created_at', { ascending: false });
+
+    // Same visibility rule as the feed: only live gliims (drafts stay private).
+    const posts = (taggedPosts || []).filter(p => !p.status || p.status === 'approved');
 
     // Check if user is participant
     const { data: participation } = await supabase
@@ -2130,60 +2203,41 @@ const hubView = {
 
           <div id="event-tab-posts" class="event-tab-content" style="display: none;">
             ${canPost ? `
-              <div style="margin-bottom: 24px; padding: 20px; border: 2px solid var(--border); border-radius: 12px;">
-                <h4 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700;">Share your progress</h4>
-                
-                <div id="event-blocks-container" style="margin-bottom: 16px;"></div>
-                
-                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                  <button class="btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;" onclick="hubInstance.addEventBlock('text')">
-                    <span style="font-weight: 700;">Aa</span> Text
-                  </button>
-                  <button class="btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;" onclick="hubInstance.addEventBlock('image')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    Image
-                  </button>
-                  <button class="btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;" onclick="hubInstance.addEventBlock('document')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                    Document
-                  </button>
-                </div>
-                
-                <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="hubInstance.createEventPost('${eventId}')">Post to Event</button>
+              <div style="text-align: center; padding: 24px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
+                <p style="color: var(--text-secondary); margin: 0 0 8px 0; font-weight: 700;">Share your progress from the composer</p>
+                <p style="color: var(--text-muted); margin: 0; font-size: 13px;">Publish a gliim and tag <span style="color: var(--brand-primary); font-weight: 700;">#${escapeHtml(event.title)}</span> — it appears here and in the feed.</p>
               </div>
             ` : !isParticipant ? `
               <div style="text-align: center; padding: 40px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
-                <p style="color: var(--text-muted); margin-bottom: 16px;">Join this event to participate and post.</p>
+                <p style="color: var(--text-muted); margin-bottom: 16px;">Join this event, then tag it with # in the composer to post here.</p>
                 ${event.status === 'recruiting' && event.current_participants < event.max_participants ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
               </div>
             ` : ''}
-            
-            ${(posts || []).length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No posts yet. Be the first to share your progress!</p>' : ''}
-            ${(posts || []).map(post => `
-              <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px;">
+
+            ${(posts || []).length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No posts yet.</p>' : ''}
+            ${(posts || []).map(post => {
+              const avClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
+              const av = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avClass}" style="object-fit:cover;">` : `<div class="${avClass}"></div>`;
+              return `
+              <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; cursor: pointer;" onclick="hubInstance.openReadView('${post.id}')">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                  ${post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">` : '<div style="width: 36px; height: 36px; border-radius: 50%; background: var(--gradient-primary);"></div>'}
+                  <div style="position: relative;">${av}</div>
                   <div>
                     <div style="font-weight: 700;">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</div>
                     <div style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
                   </div>
                 </div>
-                <div style="color: var(--text-secondary); line-height: 1.6;">
-                  ${(post.content_blocks || []).map(block => {
-                    if (block.type === 'text') return `<div style="margin-bottom: 12px;">${escapeHtml(block.content)}</div>`;
-                    if (block.type === 'image') return `<div style="margin-bottom: 12px;"><img src="${block.content}" style="max-width: 100%; border-radius: 8px;">${block.caption ? `<p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">${escapeHtml(block.caption)}</p>` : ''}</div>`;
-                    if (block.type === 'document') return `<div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;"><a href="${block.content}" target="_blank" style="color: var(--brand-primary);">${escapeHtml(block.filename || 'Download document')}</a></div>`;
-                    return '';
-                  }).join('')}
-                </div>
-                <div style="display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-                  <button style="background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;" onclick="hubInstance.likeEventPost('${post.id}')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                    ${post.total_likes}
-                  </button>
+                <div style="font-size: 17px; font-weight: 800; margin-bottom: 6px;">${escapeHtml(post.title)}</div>
+                ${post.cover_url ? `<img src="${post.cover_url}" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">` : ''}
+                ${post.description ? `<div style="color: var(--text-secondary); line-height: 1.6;">${escapeHtml(post.description)}</div>` : ''}
+                <div style="display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px;">
+                  <span style="display: flex; align-items: center; gap: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    ${post.views || 0}
+                  </span>
                 </div>
               </div>
-            `).join('')}
+            `; }).join('')}
           </div>
         </div>
       </div>
@@ -2206,173 +2260,6 @@ const hubView = {
         modal.querySelector(`#event-tab-${tab.dataset.tab}`).style.display = 'block';
       });
     });
-  },
-
-  addEventBlock(type) {
-    const container = document.getElementById('event-blocks-container');
-    if (!container) return;
-
-    const blockDiv = document.createElement('div');
-    blockDiv.className = 'event-block';
-    blockDiv.dataset.type = type;
-    blockDiv.style.cssText = 'margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-tertiary);';
-
-    if (type === 'text') {
-      blockDiv.innerHTML = `
-        <textarea class="event-block-content" placeholder="Write something..." style="width: 100%; min-height: 80px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
-        <button onclick="this.parentElement.remove()" style="margin-top: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">Remove</button>
-      `;
-    } else if (type === 'image') {
-      blockDiv.innerHTML = `
-        <input type="file" class="event-block-file" accept="image/*" style="margin-bottom: 8px;">
-        <div class="event-block-preview" style="margin-top: 8px;"></div>
-        <input type="text" class="event-block-caption" placeholder="Caption (optional)" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; margin-top: 8px;">
-        <div class="event-block-status" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
-        <button onclick="this.parentElement.remove()" style="margin-top: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">Remove</button>
-      `;
-
-      const fileInput = blockDiv.querySelector('.event-block-file');
-      fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const status = blockDiv.querySelector('.event-block-status');
-        status.innerText = 'Uploading...';
-        status.style.color = 'var(--brand-primary)';
-
-        try {
-          const { uploadFile } = await import('../upload.js');
-          const url = await uploadFile(file, 'media');
-
-          const preview = blockDiv.querySelector('.event-block-preview');
-          preview.innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 6px;">`;
-          
-          blockDiv.dataset.uploadedUrl = url;
-          status.innerText = 'Upload complete!';
-          status.style.color = 'var(--success, #10b981)';
-        } catch (err) {
-          status.innerText = 'Upload failed: ' + err.message;
-          status.style.color = 'var(--danger, #ef4444)';
-        }
-      });
-    } else if (type === 'document') {
-      blockDiv.innerHTML = `
-        <input type="file" class="event-block-file" accept=".pdf,.doc,.docx,.txt" style="margin-bottom: 8px;">
-        <div class="event-block-filename" style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;"></div>
-        <div class="event-block-status" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
-        <button onclick="this.parentElement.remove()" style="margin-top: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">Remove</button>
-      `;
-
-      const fileInput = blockDiv.querySelector('.event-block-file');
-      fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const status = blockDiv.querySelector('.event-block-status');
-        const filenameDiv = blockDiv.querySelector('.event-block-filename');
-        
-        status.innerText = 'Uploading...';
-        status.style.color = 'var(--brand-primary)';
-
-        try {
-          const { uploadFile } = await import('../upload.js');
-          // Documents ride the 'library' presign — 'media' only accepts
-          // images, audio and video.
-          const url = await uploadFile(file, 'library');
-
-          blockDiv.dataset.uploadedUrl = url;
-          blockDiv.dataset.filename = file.name;
-          filenameDiv.innerText = file.name;
-          status.innerText = 'Upload complete!';
-          status.style.color = 'var(--success, #10b981)';
-        } catch (err) {
-          status.innerText = 'Upload failed: ' + err.message;
-          status.style.color = 'var(--danger, #ef4444)';
-        }
-      });
-    }
-
-    container.appendChild(blockDiv);
-  },
-
-  async createEventPost(eventId) {
-    const container = document.getElementById('event-blocks-container');
-    if (!container || container.children.length === 0) {
-      alert('Please add at least one block (text, image, or document).');
-      return;
-    }
-
-    const contentBlocks = [];
-    let hasError = false;
-
-    container.querySelectorAll('.event-block').forEach(block => {
-      const type = block.dataset.type;
-
-      if (type === 'text') {
-        const content = block.querySelector('.event-block-content').value.trim();
-        if (content) {
-          contentBlocks.push({ type: 'text', content });
-        }
-      } else if (type === 'image') {
-        const url = block.dataset.uploadedUrl;
-        if (!url) {
-          hasError = true;
-          return;
-        }
-        const caption = block.querySelector('.event-block-caption')?.value.trim() || '';
-        contentBlocks.push({ type: 'image', content: url, caption });
-      } else if (type === 'document') {
-        const url = block.dataset.uploadedUrl;
-        const filename = block.dataset.filename;
-        if (!url) {
-          hasError = true;
-          return;
-        }
-        contentBlocks.push({ type: 'document', content: url, filename });
-      }
-    });
-
-    if (hasError) {
-      alert('Some files are still uploading. Please wait and try again.');
-      return;
-    }
-
-    if (contentBlocks.length === 0) {
-      alert('Please add some content before posting.');
-      return;
-    }
-
-    const { data, error } = await supabase.rpc('event_post_create', {
-      p_event_id: eventId,
-      p_content_blocks: contentBlocks
-    });
-
-    if (error || !data || !data.ok) {
-      alert(`Failed to create post: ${data?.code || error?.message || 'Unknown error'}`);
-      return;
-    }
-
-    // Refresh event page
-    document.getElementById('event-page-modal').remove();
-    this.openEventPage(eventId);
-  },
-
-  async likeEventPost(postId) {
-    const { data, error } = await supabase.rpc('event_post_like', { p_post_id: postId });
-
-    if (error || !data || !data.ok) {
-      alert(`Failed to like post: ${data?.code || error?.message || 'Unknown error'}`);
-      return;
-    }
-
-    // Find the event ID from the post and refresh
-    // For now, just refresh the page
-    const modal = document.getElementById('event-page-modal');
-    if (modal) {
-      // Extract event ID from the modal (we'd need to store it)
-      // For simplicity, just reload
-      location.reload();
-    }
   },
 
   async joinEvent(eventId) {
@@ -3039,9 +2926,6 @@ window.hubInstance = {
   pollVote: (postId, idx) => hubView.pollVote(postId, idx),
   openEventPage: (id) => hubView.openEventPage(id),
   joinEvent: (id) => hubView.joinEvent(id),
-  createEventPost: (id) => hubView.createEventPost(id),
-  likeEventPost: (id) => hubView.likeEventPost(id),
-  addEventBlock: (type) => hubView.addEventBlock(type),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
@@ -3049,6 +2933,7 @@ window.hubInstance = {
   viewAuthor: (userId) => hubView.viewAuthor(userId),
   promptReport: (targetType, targetId) => hubView.promptReport(targetType, targetId),
   removeTag: (index) => hubView.removeTag(index),
+  removeEventTag: () => hubView.removeEventTag(),
   isModalOpen: () => hubView.isModalOpen
 };
 
