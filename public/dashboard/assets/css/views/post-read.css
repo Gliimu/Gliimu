@@ -1,0 +1,115 @@
+/* Post Read Page — full-page post viewer (#/post?id=...) */
+
+.post-read-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+/* Scroll progress bar */
+.post-read-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: var(--brand-primary);
+  z-index: 1000;
+  transition: width 0.1s linear;
+}
+
+/* Header */
+.post-read-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+
+.post-read-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.post-read-back:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.post-read-header-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-read-menu-btn {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
+}
+.post-read-menu-btn:hover {
+  background: var(--border) !important;
+}
+
+/* Main content area */
+.post-read-main {
+  flex: 1;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 16px 100px;
+}
+
+.post-read-main .read-body {
+  padding: 32px 0;
+}
+
+/* Bottom engagement bar */
+.post-read-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+  z-index: 100;
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .post-read-header {
+    padding: 10px 16px;
+  }
+  .post-read-main {
+    padding: 0 12px 100px;
+  }
+  .post-read-main .read-body {
+    padding: 20px 0;
+  }
+  .post-read-bottom {
+    padding: 10px 16px;
+    gap: 24px;
+  }
+}

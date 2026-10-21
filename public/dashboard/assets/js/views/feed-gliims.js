@@ -409,7 +409,7 @@ const hubView = {
   async searchTaggableEvents(query, input, results) {
     const [{ data: joined }, { data: hosted }] = await Promise.all([
       supabase.from('event_participants').select('event_id').eq('user_id', store.user.id),
-      supabase.from('events').select('id, title, status').eq('host_id', store.user.id).in('status', ['recruiting', 'active'])
+      supabase.from('events').select('id, title, status').eq('host_id', store.user.id).in('status', ['live'])
     ]);
 
     const joinedIds = (joined || []).map(r => r.event_id);
@@ -418,7 +418,7 @@ const hubView = {
       const { data } = await supabase.from('events')
         .select('id, title, status')
         .in('id', joinedIds)
-        .in('status', ['recruiting', 'active']);
+        .in('status', ['live']);
       participations = data || [];
     }
 
@@ -1817,11 +1817,11 @@ const hubView = {
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
       supabase.from('events').select(`
-        id, host_id, title, description, cover_url, status, start_date, end_date,
-        duration_days, budget_naira, max_participants, current_participants,
-        team_mode, prize_1st, prize_2nd, prize_3rd, created_at,
+        id, host_id, title, description, cover_url, status,
+        budget_naira, cost_per_view, total_views,
+        team_mode, created_at,
         profiles:profiles!host_id(full_name, avatar_url, total_gp)
-      `).in('status', ['recruiting', 'active']).order('created_at', { ascending: false })
+      `).in('status', ['live', 'ended']).order('created_at', { ascending: false })
     ]);
 
     let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }, { data: events }] = await load(colsFull);
@@ -1835,10 +1835,9 @@ const hubView = {
     this.allInteractions = interactions || [];
     this.currentEvents = events || [];
     
-    // Fetch top 3 participants for full events
+    // Fetch top 3 participants for each event card
     this.eventLeaderboards = {};
-    const fullEvents = this.currentEvents.filter(e => e.current_participants >= e.max_participants);
-    for (const event of fullEvents) {
+    for (const event of this.currentEvents) {
       const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: event.id });
       if (leaderboardData?.leaderboard) {
         this.eventLeaderboards[event.id] = leaderboardData.leaderboard.slice(0, 3);
@@ -1993,95 +1992,73 @@ const hubView = {
   },
 
   renderEventCard(event) {
-    const isHost = event.host_id === store.user.id;
-    const isFull = event.current_participants >= event.max_participants;
-    const timeLeft = this.getEventTimeLeft(event);
-    const prizePool = (event.prize_1st || 0) + (event.prize_2nd || 0) + (event.prize_3rd || 0);
-    
-    // Hide recruiting badge when event is full
-    const statusBadge = (!isFull && event.status === 'recruiting') 
-      ? `<span style="background: #F59E0B; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Recruiting</span>`
-      : `<span style="background: #10B981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Live</span>`;
+    const remaining = Math.max(0, (event.budget_naira || 0) - ((event.total_views || 0) * (event.cost_per_view || 0)));
+    const budgetPct = event.budget_naira > 0 ? (remaining / event.budget_naira) * 100 : 0;
+    const isLive = event.status === 'live';
 
-    const coverHtml = event.cover_url 
+    const statusBadge = isLive
+      ? `<span style="background: #10B981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Live</span>`
+      : `<span style="background: #6B7280; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Ended</span>`;
+
+    const coverHtml = event.cover_url
       ? `<div class="event-card-cover" style="background-image: url('${event.cover_url}');"></div>`
       : `<div class="event-card-cover" style="background: var(--gradient-primary);"></div>`;
 
-    // Show top 3 participants when event is full
     const topParticipants = this.eventLeaderboards?.[event.id] || [];
-    const topParticipantsHtml = isFull && topParticipants.length > 0 ? `
-      <div style="margin: 16px 0; padding: 12px; background: var(--surface-secondary, #f8f9fa); border-radius: 8px;">
-        <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Top Participants</div>
-        ${topParticipants.map((p, i) => `
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: ${i < topParticipants.length - 1 ? '6px' : '0'};">
-            <div style="width: 20px; height: 20px; border-radius: 50%; background: ${i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : '#CD7F32'}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white;">${i + 1}</div>
-            <img src="${p.avatar_url || '/icon.png'}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/icon.png'">
-            <span style="font-size: 13px; font-weight: 600; color: var(--text-primary);">${escapeHtml(p.full_name)}</span>
-            <span style="font-size: 12px; color: var(--text-muted); margin-left: auto;">${Number(p.total_gp || 0).toLocaleString()} GP</span>
-          </div>
+    const topAvatarsHtml = topParticipants.length > 0 ? `
+      <div style="display: flex; align-items: center; gap: 0; margin: 12px 0;">
+        ${topParticipants.slice(0, 3).map((p, i) => `
+          <img src="${p.avatar_url || ''}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid white; margin-left: ${i > 0 ? '-8px' : '0'}; background: var(--surface-secondary);" onerror="this.style.visibility='hidden'">
         `).join('')}
+        ${topParticipants.length > 3 ? `<span style="margin-left: 4px; font-size: 12px; color: var(--text-muted);">+${topParticipants.length - 3}</span>` : ''}
       </div>
     ` : '';
 
-    // Hide join button when event is full
-    const actionButton = isFull ? '' : `
+    const joinButton = isLive ? `
       <button class="btn-primary event-card-btn" onclick="event.stopPropagation(); hubInstance.joinEvent('${event.id}')">
-        ${event.status === 'recruiting' ? 'Join Event' : 'View Event'}
+        Join Event
       </button>
-    `;
+    ` : '';
 
     return `
-      <article class="event-card" onclick="hubInstance.openEventPage('${event.id}')">
+      <article class="event-card" onclick="hubInstance.openEventPage('${event.id}')" style="position: relative;">
         ${coverHtml}
+        <div style="position: absolute; top: 12px; right: 12px; z-index: 2;">${statusBadge}</div>
         <div class="event-card-body">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-            <h3 class="event-card-title">${escapeHtml(event.title)}</h3>
-            ${statusBadge}
-          </div>
+          <h3 class="event-card-title" style="margin-bottom: 8px;">${escapeHtml(event.title)}</h3>
           <p class="event-card-desc">${escapeHtml((event.description || '').substring(0, 100))}${event.description && event.description.length > 100 ? '...' : ''}</p>
-          
-          ${topParticipantsHtml}
-          
+
+          ${topAvatarsHtml}
+
+          <div style="display: flex; align-items: center; gap: 12px; margin: 12px 0;">
+            <div style="flex: 1; height: 6px; background: var(--surface-secondary, #e5e7eb); border-radius: 3px; overflow: hidden;">
+              <div style="width: ${budgetPct}%; height: 100%; background: ${budgetPct > 30 ? '#10B981' : budgetPct > 10 ? '#F59E0B' : '#EF4444'}; border-radius: 3px; transition: width 0.3s;"></div>
+            </div>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); white-space: nowrap;">₦${remaining.toLocaleString()}</span>
+          </div>
+
           <div class="event-card-stats">
             <div class="event-stat">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              <span>${timeLeft}</span>
-            </div>
-            <div class="event-stat">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              <span>${event.current_participants}/${event.max_participants}</span>
+              <span>${event.current_participants || 0} joined</span>
             </div>
             <div class="event-stat">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-              <span>₦${prizePool.toLocaleString()}</span>
+              <span>₦${Number(event.budget_naira || 0).toLocaleString()} budget</span>
             </div>
           </div>
 
-          ${actionButton}
+          ${joinButton}
         </div>
       </article>
     `;
   },
 
-  getEventTimeLeft(event) {
-    const isFull = event.current_participants >= event.max_participants;
-    // Show countdown when event is full/active, not spots left
-    if (event.status === 'recruiting' && !isFull) {
-      return `${event.max_participants - event.current_participants} spots left`;
-    }
-    const end = new Date(event.end_date);
-    const now = new Date();
-    const diff = end - now;
-    if (diff <= 0) return 'Ended';
-    const days = Math.floor(diff / 86400000);
-    if (days > 30) return Math.floor(days / 30) + 'mo left';
-    if (days > 0) return days + 'd left';
-    const hrs = Math.floor(diff / 3600000);
-    return hrs + 'h left';
+  getEventBudgetRemaining(event) {
+    return Math.max(0, (event.budget_naira || 0) - ((event.total_views || 0) * (event.cost_per_view || 0)));
   },
 
   async openEventPage(eventId) {
-    // Fetch event details
     const { data: event, error } = await supabase
       .from('events')
       .select(`
@@ -2096,25 +2073,20 @@ const hubView = {
       return;
     }
 
-    // Fetch leaderboard
     const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: eventId });
     const leaderboard = leaderboardData?.leaderboard || [];
 
-    // Tagged gliims: participants tag the event with # in the composer and
-    // the post lands here as well as in the main feed.
     const { data: taggedPosts } = await supabase
       .from('feed_gliims')
       .select(`
-        id, title, category, description, cover_url, views, created_at, user_id, status,
+        id, title, category, description, cover_url, views, likes, created_at, user_id, status,
         profiles:profiles!user_id(full_name, avatar_url, total_gp)
       `)
       .eq('event_id', eventId)
       .order('created_at', { ascending: false });
 
-    // Same visibility rule as the feed: only live gliims (drafts stay private).
     const posts = (taggedPosts || []).filter(p => !p.status || p.status === 'approved');
 
-    // Check if user is participant
     const { data: participation } = await supabase
       .from('event_participants')
       .select('id')
@@ -2124,11 +2096,11 @@ const hubView = {
 
     const isParticipant = !!participation;
     const isHost = event.host_id === store.user.id;
-    // Participants can share submissions while the event is recruiting or
-    // live — the countdown starts when spots fill up, but posts don't wait.
-    const canPost = isParticipant && (event.status === 'recruiting' || event.status === 'active');
+    const isLive = event.status === 'live';
+    const canPost = isParticipant && isLive;
 
-    const prizePool = (event.prize_1st || 0) + (event.prize_2nd || 0) + (event.prize_3rd || 0);
+    const remaining = this.getEventBudgetRemaining(event);
+    const budgetPct = event.budget_naira > 0 ? (remaining / event.budget_naira) * 100 : 0;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -2138,39 +2110,48 @@ const hubView = {
       <div class="modal-content" style="max-width: 900px; max-height: 95vh; overflow-y: auto; padding: 0;">
         <div class="event-page-header" style="background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); padding: 32px; color: white; position: relative; overflow: hidden;">
           <button class="modal-close" onclick="document.getElementById('event-page-modal').remove()" style="position: absolute; top: 16px; right: 16px; color: white; z-index: 2; background: rgba(0,0,0,0.3); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
-          
+
           ${event.cover_url ? `<img src="${event.cover_url}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">` : ''}
-          
-          <!-- Dark overlay for better text contrast in both modes -->
+
           <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4)); z-index: 1;"></div>
-          
+
           <div style="position: relative; z-index: 2;">
             <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
-              <span style="background: rgba(255,255,255,0.25); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">${event.status === 'recruiting' ? 'Recruiting' : event.status === 'active' ? 'Live' : 'Ended'}</span>
+              <span style="background: ${isLive ? 'rgba(16,185,129,0.8)' : 'rgba(107,114,128,0.8)'}; backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">${isLive ? 'Live' : 'Ended'}</span>
               ${event.team_mode ? '<span style="background: rgba(255,255,255,0.25); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">Team Event</span>' : ''}
             </div>
-            
+
             <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 12px 0; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${escapeHtml(event.title)}</h1>
             <p style="font-size: 16px; margin: 0 0 24px 0; text-shadow: 0 1px 4px rgba(0,0,0,0.5); line-height: 1.5;">${escapeHtml(event.description)}</p>
-            
-            <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+
+            <div style="display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 20px;">
               <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Prize Pool</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">₦${prizePool.toLocaleString()}</div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Remaining Budget</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">₦${remaining.toLocaleString()}</div>
+              </div>
+              <div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Total Views</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${(event.total_views || 0).toLocaleString()}</div>
               </div>
               <div>
                 <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Participants</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${event.current_participants}/${event.max_participants}</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${event.current_participants || 0}</div>
               </div>
               <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Duration</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${event.duration_days} days</div>
-              </div>
-              <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Time Left</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${this.getEventTimeLeft(event)}</div>
+                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Cost / View</div>
+                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">₦${Number(event.cost_per_view || 0).toLocaleString()}</div>
               </div>
             </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
+                <div style="width: ${budgetPct}%; height: 100%; background: ${budgetPct > 30 ? '#10B981' : budgetPct > 10 ? '#F59E0B' : '#EF4444'}; border-radius: 4px; transition: width 0.3s;"></div>
+              </div>
+            </div>
+
+            ${!isParticipant && isLive ? `
+              <button class="btn-primary" style="margin-top: 20px;" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>
+            ` : ''}
           </div>
         </div>
 
@@ -2184,7 +2165,6 @@ const hubView = {
             ${leaderboard.length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No rankings yet. Be the first to post!</p>' : ''}
             ${leaderboard.map((entry, i) => `
               <div class="leaderboard-entry" style="display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; ${i < 3 ? 'background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(99,102,241,0.1));' : ''}">
-                <div style="font-size: 24px; font-weight: 800; color: ${i === 0 ? '#F59E0B' : i === 1 ? '#9CA3AF' : i === 2 ? '#CD7F32' : 'var(--text-muted)'}; min-width: 40px;">#${entry.rank}</div>
                 ${event.team_mode ? `
                   <div style="flex: 1;">
                     <div style="font-weight: 700; font-size: 16px;">${escapeHtml(entry.team_name)}</div>
@@ -2196,7 +2176,10 @@ const hubView = {
                     <div style="font-weight: 700; font-size: 16px;">${escapeHtml(entry.full_name)}</div>
                   </div>
                 `}
-                <div style="font-size: 20px; font-weight: 800; color: var(--brand-primary);">${entry.total_gp} GP</div>
+                <div style="text-align: right;">
+                  <div style="font-size: 20px; font-weight: 800; color: var(--brand-primary);">${entry.total_gp} GP</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">${entry.post_count || 0} posts</div>
+                </div>
               </div>
             `).join('')}
           </div>
@@ -2210,7 +2193,7 @@ const hubView = {
             ` : !isParticipant ? `
               <div style="text-align: center; padding: 40px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
                 <p style="color: var(--text-muted); margin-bottom: 16px;">Join this event, then tag it with # in the composer to post here.</p>
-                ${event.status === 'recruiting' && event.current_participants < event.max_participants ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
+                ${isLive ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
               </div>
             ` : ''}
 
@@ -2235,6 +2218,10 @@ const hubView = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     ${post.views || 0}
                   </span>
+                  <span style="display: flex; align-items: center; gap: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    ${post.likes || 0}
+                  </span>
                 </div>
               </div>
             `; }).join('')}
@@ -2244,7 +2231,6 @@ const hubView = {
     `;
     document.body.appendChild(modal);
 
-    // Tab switching
     modal.querySelectorAll('.event-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         modal.querySelectorAll('.event-tab').forEach(t => {
@@ -2353,6 +2339,11 @@ const hubView = {
   },
 
   async openReadView(postId) {
+    sessionStorage.setItem('openReadViewId', postId);
+    window.location.hash = `#/post?id=${postId}`;
+  },
+
+  async _openReadViewModal(postId) {
     if (this.isModalOpen) return;
     this.isModalOpen = true;
 

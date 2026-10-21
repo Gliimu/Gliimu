@@ -1,29 +1,26 @@
 -- ============================================================
--- EVENTS FEATURE — contests with prizes, participants, teams,
--- rankings, and real-time leaderboards
+-- EVENTS FEATURE — budget-based contests with per-view pricing
 -- 
 -- Tables:
 --   event_categories: admin-managed global categories
---   events: contest details, budget, duration, lifecycle
+--   events: contest details, budget, view tracking
 --   event_participants: users who joined an event
 --   event_teams: optional team grouping
 --   event_team_members: users in each team
---   event_posts: submissions within an event
---   event_post_likes: likes on event posts
---   event_gp_earnings: GP earned from likes/views
+--   event_gp_earnings: GP earned from views/likes
 --   event_prizes: prize distribution records
 -- 
 -- Lifecycle:
---   recruiting → active (when min_participants reached) → ended
---   Auto-refund if recruiting for 30 days without enough participants
+--   live → ended (when budget exhausted)
 -- 
--- Pricing formula (per-participant cost by duration):
---   1 week: ₦4,000 | 2 weeks: ₦3,000 | 1 month: ₦2,000
---   2 months: ₦1,500 | 3 months: ₦1,000
---   max_participants = floor(budget / per_participant_cost)
+-- Pricing model:
+--   Host sets budget, pays ₦100 per view on tagged posts
+--   Prize split: 30% (1st) + 20% (2nd) + 10% (3rd) + 40% (Gliimu)
+--   Top 10 participants earn 5 GP per post when event ends
 -- 
--- Prize split: 45% (1st) + 25% (2nd) + 15% (3rd) + 15% (Gliimu)
--- Every participant earns 20 GP when event ends
+-- Leaderboard:
+--   Ranked by views + likes on event-tagged posts
+--   Shows only top 10 participants
 -- ============================================================
 
 -- Drop existing functions (idempotent)
@@ -42,6 +39,8 @@ drop function if exists public.event_category_manage CASCADE;
 drop function if exists public.event_pricing_get CASCADE;
 drop function if exists public.event_pricing_set CASCADE;
 drop function if exists public.event_notify_participants CASCADE;
+drop function if exists public.event_calc_participant_cost CASCADE;
+drop function if exists public.event_track_view CASCADE;
 
 -- ============================================================
 -- EVENT CATEGORIES (admin-managed)
@@ -85,17 +84,10 @@ create table if not exists public.events (
   -- Categories (max 2)
   category_ids uuid[] not null default '{}',
   
-  -- Timing
-  start_date timestamptz not null,
-  end_date timestamptz not null,
-  duration_days int not null,
-  
-  -- Budget & participants
-  budget_naira numeric(12,2) not null check (budget_naira >= 10000),
-  per_participant_cost numeric(12,2) not null,
-  max_participants int not null,
-  min_participants int not null default 10,
-  current_participants int not null default 0,
+  -- Budget & view tracking
+  budget_naira numeric(12,2) not null check (budget_naira >= 1000),
+  cost_per_view numeric(12,2) not null default 100,
+  total_views int not null default 0,
   
   -- Team mode
   team_mode boolean not null default false,
@@ -105,48 +97,66 @@ create table if not exists public.events (
   rules_text text,
   
   -- Lifecycle
-  status text not null default 'recruiting' check (status in ('recruiting', 'active', 'ended', 'cancelled')),
-  started_at timestamptz,
+  status text not null default 'live' check (status in ('live', 'ended', 'cancelled')),
   ended_at timestamptz,
-  
-  -- Prize distribution (85% of budget split: 45/25/15)
-  prize_1st numeric(12,2),
-  prize_2nd numeric(12,2),
-  prize_3rd numeric(12,2),
-  gliimu_fee numeric(12,2),
-  
-  -- Refund tracking
-  refund_issued boolean not null default false,
-  refund_issued_at timestamptz,
   
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+-- Migration: drop old columns that no longer apply
+alter table public.events drop column if exists duration_days;
+alter table public.events drop column if exists per_participant_cost;
+alter table public.events drop column if exists max_participants;
+alter table public.events drop column if exists min_participants;
+alter table public.events drop column if exists current_participants;
+alter table public.events drop column if exists prize_1st;
+alter table public.events drop column if exists prize_2nd;
+alter table public.events drop column if exists prize_3rd;
+alter table public.events drop column if exists gliimu_fee;
+alter table public.events drop column if exists start_date;
+alter table public.events drop column if exists end_date;
+alter table public.events drop column if exists started_at;
+alter table public.events drop column if exists refund_issued;
+alter table public.events drop column if exists refund_issued_at;
+
+-- Migration: add new columns
+alter table public.events add column if not exists cost_per_view numeric(12,2) not null default 100;
+alter table public.events add column if not exists total_views int not null default 0;
+
+-- Migration: update status constraint (drop old, add new)
+alter table public.events drop constraint if exists events_status_check;
+alter table public.events add constraint events_status_check check (status in ('live', 'ended', 'cancelled'));
+
+-- Migration: update default status
+alter table public.events alter column status set default 'live';
+
+-- Migration: set any existing 'recruiting' or 'active' events to 'live'
+update public.events set status = 'live' where status in ('recruiting', 'active');
+
 create index if not exists idx_events_status on public.events(status);
 create index if not exists idx_events_host on public.events(host_id);
-create index if not exists idx_events_start on public.events(start_date);
 
 alter table public.events enable row level security;
 
--- Everyone can read active/ended events
+-- Everyone can read live/ended events
 drop policy if exists "events read" on public.events;
 create policy "events read" on public.events
   for select to authenticated
-  using (status in ('recruiting', 'active', 'ended'));
+  using (status in ('live', 'ended'));
 
--- Host can update their own event (only while recruiting)
+-- Host can update their own event (only while live)
 drop policy if exists "events update host" on public.events;
 create policy "events update host" on public.events
   for update to authenticated
-  using (host_id = auth.uid() and status = 'recruiting')
-  with check (host_id = auth.uid() and status = 'recruiting');
+  using (host_id = auth.uid() and status = 'live')
+  with check (host_id = auth.uid() and status = 'live');
 
--- Host can delete their own event (only while recruiting)
+-- Host can delete their own event (only while live)
 drop policy if exists "events delete host" on public.events;
 create policy "events delete host" on public.events
   for delete to authenticated
-  using (host_id = auth.uid() and status = 'recruiting');
+  using (host_id = auth.uid() and status = 'live');
 
 -- ============================================================
 -- EVENT PARTICIPANTS
@@ -179,16 +189,23 @@ create policy "event participants read event" on public.event_participants
   using (exists (
     select 1 from public.events e
     where e.id = event_id
-    and e.status in ('recruiting', 'active', 'ended')
+    and e.status in ('live', 'ended')
   ));
 
--- Users can join events themselves
+-- Users can join events themselves (any live event, no limit)
 drop policy if exists "event participants insert" on public.event_participants;
 create policy "event participants insert" on public.event_participants
   for insert to authenticated
-  with check (user_id = auth.uid());
+  with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from public.events e
+      where e.id = event_id
+      and e.status = 'live'
+    )
+  );
 
--- Users can leave events they joined (only while recruiting)
+-- Users can leave events they joined (only while live)
 drop policy if exists "event participants delete" on public.event_participants;
 create policy "event participants delete" on public.event_participants
   for delete to authenticated
@@ -197,7 +214,7 @@ create policy "event participants delete" on public.event_participants
     and exists (
       select 1 from public.events e
       where e.id = event_id
-      and e.status = 'recruiting'
+      and e.status = 'live'
     )
   );
 
@@ -224,7 +241,7 @@ create policy "event teams read" on public.event_teams
   using (exists (
     select 1 from public.events e
     where e.id = event_id
-    and e.status in ('recruiting', 'active', 'ended')
+    and e.status in ('live', 'ended')
   ));
 
 drop policy if exists "event teams insert" on public.event_teams;
@@ -236,7 +253,7 @@ create policy "event teams insert" on public.event_teams
       select 1 from public.events e
       where e.id = event_id
       and e.team_mode = true
-      and e.status = 'recruiting'
+      and e.status = 'live'
     )
   );
 
@@ -263,7 +280,7 @@ create policy "event team members read" on public.event_team_members
     select 1 from public.event_teams t
     join public.events e on e.id = t.event_id
     where t.id = team_id
-    and e.status in ('recruiting', 'active', 'ended')
+    and e.status in ('live', 'ended')
   ));
 
 drop policy if exists "event team members insert" on public.event_team_members;
@@ -276,7 +293,7 @@ create policy "event team members insert" on public.event_team_members
       join public.events e on e.id = t.event_id
       where t.id = team_id
       and e.team_mode = true
-      and e.status = 'recruiting'
+      and e.status = 'live'
       and (
         t.captain_id = auth.uid()
         or not exists (
@@ -316,7 +333,7 @@ create policy "event posts read" on public.event_posts
   using (exists (
     select 1 from public.events e
     where e.id = event_id
-    and e.status in ('recruiting', 'active', 'ended')
+    and e.status in ('live', 'ended')
   ));
 
 drop policy if exists "event posts insert" on public.event_posts;
@@ -327,7 +344,7 @@ create policy "event posts insert" on public.event_posts
     and exists (
       select 1 from public.events e
       where e.id = event_id
-      and e.status in ('recruiting', 'active')
+      and e.status = 'live'
       and exists (
         select 1 from public.event_participants ep
         where ep.event_id = e.id
@@ -397,7 +414,7 @@ create policy "event gp earnings read" on public.event_gp_earnings
   using (user_id = auth.uid() or exists (
     select 1 from public.events e
     where e.id = event_id
-    and e.status in ('active', 'ended')
+    and e.status in ('live', 'ended')
   ));
 
 -- ============================================================
@@ -435,22 +452,36 @@ create policy "event prizes read" on public.event_prizes
 -- ============================================================
 create table if not exists public.event_pricing (
   id int primary key check (id = 1),
-  cost_1_week numeric(12,2) not null default 4000,
-  cost_2_weeks numeric(12,2) not null default 3000,
-  cost_1_month numeric(12,2) not null default 2000,
-  cost_2_months numeric(12,2) not null default 1500,
-  cost_3_months numeric(12,2) not null default 1000,
-  min_budget numeric(12,2) not null default 10000,
-  min_participants int not null default 10,
-  gliimu_fee_percent numeric(5,2) not null default 15,
-  prize_1st_percent numeric(5,2) not null default 45,
-  prize_2nd_percent numeric(5,2) not null default 25,
-  prize_3rd_percent numeric(5,2) not null default 15,
-  completion_gp int not null default 20,
+  cost_per_view numeric(12,2) not null default 100,
+  min_budget numeric(12,2) not null default 1000,
+  gliimu_fee_percent numeric(5,2) not null default 40,
+  prize_1st_percent numeric(5,2) not null default 30,
+  prize_2nd_percent numeric(5,2) not null default 20,
+  prize_3rd_percent numeric(5,2) not null default 10,
+  completion_gp int not null default 5,
   updated_at timestamptz not null default now()
 );
 
 insert into public.event_pricing (id) values (1) on conflict (id) do nothing;
+
+-- Migration: drop old duration-based columns
+alter table public.event_pricing drop column if exists cost_1_week;
+alter table public.event_pricing drop column if exists cost_2_weeks;
+alter table public.event_pricing drop column if exists cost_1_month;
+alter table public.event_pricing drop column if exists cost_2_months;
+alter table public.event_pricing drop column if exists cost_3_months;
+alter table public.event_pricing drop column if exists min_participants;
+
+-- Migration: add new columns
+alter table public.event_pricing add column if not exists cost_per_view numeric(12,2) not null default 100;
+alter table public.event_pricing add column if not exists gliimu_fee_percent numeric(5,2) not null default 40;
+alter table public.event_pricing add column if not exists prize_1st_percent numeric(5,2) not null default 30;
+alter table public.event_pricing add column if not exists prize_2nd_percent numeric(5,2) not null default 20;
+alter table public.event_pricing add column if not exists prize_3rd_percent numeric(5,2) not null default 10;
+alter table public.event_pricing add column if not exists completion_gp int not null default 5;
+
+-- Migration: update min_budget default
+alter table public.event_pricing alter column min_budget set default 1000;
 
 alter table public.event_pricing enable row level security;
 
@@ -481,13 +512,8 @@ $$;
 
 -- Update pricing (registrar only, enforced by RLS)
 create or replace function public.event_pricing_set(
-  p_cost_1_week numeric,
-  p_cost_2_weeks numeric,
-  p_cost_1_month numeric,
-  p_cost_2_months numeric,
-  p_cost_3_months numeric,
+  p_cost_per_view numeric,
   p_min_budget numeric,
-  p_min_participants int,
   p_gliimu_fee_percent numeric,
   p_prize_1st_percent numeric,
   p_prize_2nd_percent numeric,
@@ -511,13 +537,8 @@ begin
   end if;
 
   update public.event_pricing
-  set cost_1_week = p_cost_1_week,
-      cost_2_weeks = p_cost_2_weeks,
-      cost_1_month = p_cost_1_month,
-      cost_2_months = p_cost_2_months,
-      cost_3_months = p_cost_3_months,
+  set cost_per_view = p_cost_per_view,
       min_budget = p_min_budget,
-      min_participants = p_min_participants,
       gliimu_fee_percent = p_gliimu_fee_percent,
       prize_1st_percent = p_prize_1st_percent,
       prize_2nd_percent = p_prize_2nd_percent,
@@ -611,30 +632,14 @@ begin
   end if;
 end $$;
 
--- Calculate per-participant cost based on duration
-create or replace function public.event_calc_participant_cost(p_duration_days int)
-returns numeric
-language sql
-stable
-as $$
-  select case
-    when p_duration_days <= 7 then (select cost_1_week from public.event_pricing where id = 1)
-    when p_duration_days <= 14 then (select cost_2_weeks from public.event_pricing where id = 1)
-    when p_duration_days <= 30 then (select cost_1_month from public.event_pricing where id = 1)
-    when p_duration_days <= 60 then (select cost_2_months from public.event_pricing where id = 1)
-    else (select cost_3_months from public.event_pricing where id = 1)
-  end;
-$$;
-
--- Create event
+-- Create event (budget-based, goes live immediately)
 create or replace function public.event_create(
   p_title text,
   p_description text,
   p_cover_url text,
   p_category_ids uuid[],
-  p_start_date timestamptz,
-  p_duration_days int,
   p_budget_naira numeric,
+  p_cost_per_view numeric,
   p_team_mode boolean,
   p_max_team_size int,
   p_rules_text text
@@ -647,16 +652,12 @@ as $$
 declare
   uid uuid := auth.uid();
   v_event_id uuid;
-  v_per_participant_cost numeric;
-  v_max_participants int;
   v_pricing jsonb;
-  v_prize_pool numeric;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
   end if;
 
-  -- Validation
   if coalesce(btrim(p_title), '') = '' then
     return jsonb_build_object('ok', false, 'code', 'TITLE_REQUIRED');
   end if;
@@ -669,15 +670,8 @@ begin
     return jsonb_build_object('ok', false, 'code', 'CATEGORIES_INVALID');
   end if;
 
-  if p_start_date < now() then
-    return jsonb_build_object('ok', false, 'code', 'START_DATE_PAST');
-  end if;
-
-  if p_duration_days < 7 or p_duration_days > 90 then
-    return jsonb_build_object('ok', false, 'code', 'DURATION_INVALID');
-  end if;
-
   select * into v_pricing from public.event_pricing where id = 1;
+  
   if p_budget_naira < (v_pricing->>'min_budget')::numeric then
     return jsonb_build_object('ok', false, 'code', 'BUDGET_TOO_LOW');
   end if;
@@ -686,50 +680,32 @@ begin
     return jsonb_build_object('ok', false, 'code', 'TEAM_SIZE_INVALID');
   end if;
 
-  -- Calculate max participants
-  v_per_participant_cost := public.event_calc_participant_cost(p_duration_days);
-  v_max_participants := floor(p_budget_naira / v_per_participant_cost);
-
-  if v_max_participants < (v_pricing->>'min_participants')::int then
-    return jsonb_build_object('ok', false, 'code', 'BUDGET_TOO_LOW_FOR_PARTICIPANTS');
+  -- Use provided cost_per_view or default from pricing
+  if p_cost_per_view is null or p_cost_per_view <= 0 then
+    p_cost_per_view := (v_pricing->>'cost_per_view')::numeric;
   end if;
-
-  -- Calculate prizes (85% of budget split: 45/25/15)
-  v_prize_pool := p_budget_naira * (1 - (v_pricing->>'gliimu_fee_percent')::numeric / 100);
 
   -- TODO: Re-add billing deduction when event billing is integrated
   -- perform public.billing_access('event_create'::text, p_budget_naira::text, null::text, null::uuid, null::integer);
 
-  -- Create event
   insert into public.events (
     host_id, title, description, cover_url, category_ids,
-    start_date, end_date, duration_days,
-    budget_naira, per_participant_cost, max_participants,
-    min_participants, team_mode, max_team_size, rules_text,
-    prize_1st, prize_2nd, prize_3rd, gliimu_fee
+    budget_naira, cost_per_view, team_mode, max_team_size, rules_text,
+    status
   ) values (
     uid, btrim(p_title), btrim(p_description), p_cover_url, p_category_ids,
-    p_start_date, p_start_date + (p_duration_days || ' days')::interval, p_duration_days,
-    p_budget_naira, v_per_participant_cost, v_max_participants,
-    (v_pricing->>'min_participants')::int, p_team_mode, p_max_team_size, p_rules_text,
-    v_prize_pool * (v_pricing->>'prize_1st_percent')::numeric / 100,
-    v_prize_pool * (v_pricing->>'prize_2nd_percent')::numeric / 100,
-    v_prize_pool * (v_pricing->>'prize_3rd_percent')::numeric / 100,
-    p_budget_naira * (v_pricing->>'gliimu_fee_percent')::numeric / 100
+    p_budget_naira, p_cost_per_view, p_team_mode, p_max_team_size, p_rules_text,
+    'live'
   ) returning id into v_event_id;
 
   -- Host auto-joins as participant
   insert into public.event_participants (event_id, user_id)
   values (v_event_id, uid);
 
-  update public.events
-  set current_participants = 1
-  where id = v_event_id;
-
   return jsonb_build_object('ok', true, 'event_id', v_event_id);
 end $$;
 
--- Join event
+-- Join event (unlimited participants, event must be live)
 create or replace function public.event_join(p_event_id uuid, p_team_id uuid default null)
 returns jsonb
 language plpgsql
@@ -749,12 +725,8 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
 
-  if v_event.status != 'recruiting' then
-    return jsonb_build_object('ok', false, 'code', 'NOT_RECRUITING');
-  end if;
-
-  if v_event.current_participants >= v_event.max_participants then
-    return jsonb_build_object('ok', false, 'code', 'FULL');
+  if v_event.status != 'live' then
+    return jsonb_build_object('ok', false, 'code', 'NOT_LIVE');
   end if;
 
   if exists (select 1 from public.event_participants where event_id = p_event_id and user_id = uid) then
@@ -786,24 +758,10 @@ begin
   insert into public.event_participants (event_id, user_id, team_id)
   values (p_event_id, uid, p_team_id);
 
-  update public.events
-  set current_participants = current_participants + 1
-  where id = p_event_id;
-
-  -- Check if event is now full and should start
-  if (select current_participants from public.events where id = p_event_id) >= v_event.max_participants then
-    update public.events
-    set status = 'active', started_at = now()
-    where id = p_event_id and status = 'recruiting';
-    
-    -- Notify all participants via support page
-    perform public.event_notify_participants(p_event_id);
-  end if;
-
   return jsonb_build_object('ok', true);
 end $$;
 
--- Leave event (only while recruiting)
+-- Leave event (only while live)
 create or replace function public.event_leave(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -824,7 +782,7 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
 
-  if v_event.status != 'recruiting' then
+  if v_event.status != 'live' then
     return jsonb_build_object('ok', false, 'code', 'CANNOT_LEAVE');
   end if;
 
@@ -838,10 +796,6 @@ begin
     delete from public.event_team_members
     where team_id = v_team_id and user_id = uid;
   end if;
-
-  update public.events
-  set current_participants = current_participants - 1
-  where id = p_event_id;
 
   return jsonb_build_object('ok', true);
 end $$;
@@ -871,8 +825,8 @@ begin
     return jsonb_build_object('ok', false, 'code', 'TEAMS_DISABLED');
   end if;
 
-  if v_event.status != 'recruiting' then
-    return jsonb_build_object('ok', false, 'code', 'NOT_RECRUITING');
+  if v_event.status != 'live' then
+    return jsonb_build_object('ok', false, 'code', 'NOT_LIVE');
   end if;
 
   if coalesce(btrim(p_name), '') = '' then
@@ -889,7 +843,7 @@ begin
   return jsonb_build_object('ok', true, 'team_id', v_team_id);
 end $$;
 
--- Create post in event
+-- Create post in event (deprecated: use feed_gliims.event_id instead)
 create or replace function public.event_post_create(
   p_event_id uuid,
   p_content_blocks jsonb
@@ -914,8 +868,8 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
 
-  if v_event.status not in ('recruiting', 'active') then
-    return jsonb_build_object('ok', false, 'code', 'EVENT_NOT_ACTIVE');
+  if v_event.status != 'live' then
+    return jsonb_build_object('ok', false, 'code', 'EVENT_NOT_LIVE');
   end if;
 
   if not exists (
@@ -935,7 +889,7 @@ begin
   return jsonb_build_object('ok', true, 'post_id', v_post_id);
 end $$;
 
--- Like post
+-- Like post (deprecated: use feed_gliims likes instead)
 create or replace function public.event_post_like(p_post_id uuid)
 returns jsonb
 language plpgsql
@@ -1015,7 +969,7 @@ begin
   end loop;
 end $$;
 
--- Get leaderboard
+-- Get leaderboard (top 10, ranked by views + likes on event-tagged feed_gliims)
 create or replace function public.event_leaderboard(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -1033,19 +987,17 @@ begin
 
   if v_event.team_mode then
     select jsonb_agg(jsonb_build_object(
-      'rank', row_number,
       'team_id', team_id,
       'team_name', team_name,
       'total_gp', total_gp,
       'members', members
-    ) order by row_number)
+    ) order by total_gp desc)
     into v_leaderboard
     from (
       select
-        row_number() over (order by t.total_gp_earned desc) as row_number,
         t.id as team_id,
         t.name as team_name,
-        t.total_gp_earned as total_gp,
+        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp,
         (
           select jsonb_agg(jsonb_build_object(
             'user_id', tm.user_id,
@@ -1057,34 +1009,41 @@ begin
           where tm.team_id = t.id
         ) as members
       from public.event_teams t
+      join public.event_team_members tm2 on tm2.team_id = t.id
+      join public.feed_gliims fg on fg.author_id = tm2.user_id and fg.event_id = p_event_id
       where t.event_id = p_event_id
+      group by t.id, t.name
+      order by total_gp desc
+      limit 10
     ) sub;
   else
     select jsonb_agg(jsonb_build_object(
-      'rank', row_number,
       'user_id', user_id,
       'full_name', full_name,
       'avatar_url', avatar_url,
       'total_gp', total_gp
-    ) order by row_number)
+    ) order by total_gp desc)
     into v_leaderboard
     from (
       select
-        row_number() over (order by ep.total_gp_earned desc) as row_number,
         p.id as user_id,
         p.full_name,
         p.avatar_url,
-        ep.total_gp_earned as total_gp
+        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
       from public.event_participants ep
       join public.profiles p on p.id = ep.user_id
+      left join public.feed_gliims fg on fg.author_id = ep.user_id and fg.event_id = p_event_id
       where ep.event_id = p_event_id
+      group by p.id, p.full_name, p.avatar_url
+      order by total_gp desc
+      limit 10
     ) sub;
   end if;
 
   return jsonb_build_object('ok', true, 'leaderboard', coalesce(v_leaderboard, '[]'::jsonb));
 end $$;
 
--- End event and distribute prizes
+-- End event: distribute prizes to top 3, award GP per post to top 10
 create or replace function public.event_end(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -1094,6 +1053,10 @@ as $$
 declare
   uid uuid := auth.uid();
   v_event public.events%rowtype;
+  v_pricing jsonb;
+  v_total_spent numeric;
+  v_prize_pool numeric;
+  v_total_prize_pct numeric;
   v_winners jsonb;
   v_completion_gp int;
 begin
@@ -1110,47 +1073,63 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHORIZED');
   end if;
 
-  if v_event.status != 'active' then
-    return jsonb_build_object('ok', false, 'code', 'NOT_ACTIVE');
+  if v_event.status != 'live' then
+    return jsonb_build_object('ok', false, 'code', 'NOT_LIVE');
   end if;
+
+  select * into v_pricing from public.event_pricing where id = 1;
+
+  v_total_spent := v_event.total_views * v_event.cost_per_view;
+  v_total_prize_pct := (v_pricing->>'prize_1st_percent')::numeric + (v_pricing->>'prize_2nd_percent')::numeric + (v_pricing->>'prize_3rd_percent')::numeric;
+  v_prize_pool := v_total_spent * v_total_prize_pct / 100;
 
   -- Get top 3 winners
   if v_event.team_mode then
     select jsonb_agg(jsonb_build_object('team_id', team_id, 'total_gp', total_gp))
     into v_winners
     from (
-      select id as team_id, total_gp_earned as total_gp
-      from public.event_teams
-      where event_id = p_event_id
-      order by total_gp_earned desc
+      select t.id as team_id,
+        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+      from public.event_teams t
+      join public.event_team_members tm on tm.team_id = t.id
+      left join public.feed_gliims fg on fg.author_id = tm.user_id and fg.event_id = p_event_id
+      where t.event_id = p_event_id
+      group by t.id
+      order by total_gp desc
       limit 3
     ) sub;
   else
     select jsonb_agg(jsonb_build_object('user_id', user_id, 'total_gp', total_gp))
     into v_winners
     from (
-      select user_id, total_gp_earned as total_gp
-      from public.event_participants
-      where event_id = p_event_id
-      order by total_gp_earned desc
+      select ep.user_id,
+        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+      from public.event_participants ep
+      left join public.feed_gliims fg on fg.author_id = ep.user_id and fg.event_id = p_event_id
+      where ep.event_id = p_event_id
+      group by ep.user_id
+      order by total_gp desc
       limit 3
     ) sub;
   end if;
 
-  -- Distribute prizes
+  -- Distribute prizes to top 3
   if v_winners is not null and jsonb_array_length(v_winners) > 0 then
     for i in 0..jsonb_array_length(v_winners) - 1 loop
       declare
         v_winner jsonb := v_winners->i;
         v_amount numeric;
         v_rank int := i + 1;
+        v_percent numeric;
       begin
-        v_amount := case v_rank
-          when 1 then v_event.prize_1st
-          when 2 then v_event.prize_2nd
-          when 3 then v_event.prize_3rd
+        v_percent := case v_rank
+          when 1 then (v_pricing->>'prize_1st_percent')::numeric
+          when 2 then (v_pricing->>'prize_2nd_percent')::numeric
+          when 3 then (v_pricing->>'prize_3rd_percent')::numeric
           else 0
         end;
+
+        v_amount := v_prize_pool * v_percent / v_total_prize_pct;
 
         if v_amount > 0 then
           if v_event.team_mode then
@@ -1165,27 +1144,64 @@ begin
     end loop;
   end if;
 
-  -- Award completion GP to all participants
+  -- Award GP per post to top 10 participants
   select completion_gp into v_completion_gp from public.event_pricing where id = 1;
 
   if v_event.team_mode then
+    with top_teams as (
+      select t.id as team_id,
+        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+      from public.event_teams t
+      join public.event_team_members tm on tm.team_id = t.id
+      left join public.feed_gliims fg on fg.author_id = tm.user_id and fg.event_id = p_event_id
+      where t.event_id = p_event_id
+      group by t.id
+      order by total_gp desc
+      limit 10
+    )
     update public.event_participants ep
-    set total_gp_earned = total_gp_earned + v_completion_gp
-    where ep.event_id = p_event_id;
+    set total_gp_earned = total_gp_earned + (
+      select count(*) * v_completion_gp
+      from public.feed_gliims fg
+      where fg.event_id = p_event_id and fg.author_id = ep.user_id
+    )
+    where ep.event_id = p_event_id
+    and ep.team_id in (select team_id from top_teams);
 
     insert into public.event_gp_earnings (event_id, user_id, team_id, gp_amount, source)
-    select p_event_id, ep.user_id, ep.team_id, v_completion_gp, 'completion'
+    select p_event_id, ep.user_id, ep.team_id,
+      (select count(*) * v_completion_gp from public.feed_gliims fg where fg.event_id = p_event_id and fg.author_id = ep.user_id),
+      'completion'
     from public.event_participants ep
-    where ep.event_id = p_event_id;
+    where ep.event_id = p_event_id
+    and ep.team_id in (select team_id from top_teams);
   else
-    update public.event_participants
-    set total_gp_earned = total_gp_earned + v_completion_gp
-    where event_id = p_event_id;
+    with top_users as (
+      select ep.user_id,
+        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+      from public.event_participants ep
+      left join public.feed_gliims fg on fg.author_id = ep.user_id and fg.event_id = p_event_id
+      where ep.event_id = p_event_id
+      group by ep.user_id
+      order by total_gp desc
+      limit 10
+    )
+    update public.event_participants ep
+    set total_gp_earned = total_gp_earned + (
+      select count(*) * v_completion_gp
+      from public.feed_gliims fg
+      where fg.event_id = p_event_id and fg.author_id = ep.user_id
+    )
+    where ep.event_id = p_event_id
+    and ep.user_id in (select user_id from top_users);
 
     insert into public.event_gp_earnings (event_id, user_id, gp_amount, source)
-    select p_event_id, user_id, v_completion_gp, 'completion'
-    from public.event_participants
-    where event_id = p_event_id;
+    select p_event_id, ep.user_id,
+      (select count(*) * v_completion_gp from public.feed_gliims fg where fg.event_id = p_event_id and fg.author_id = ep.user_id),
+      'completion'
+    from public.event_participants ep
+    where ep.event_id = p_event_id
+    and ep.user_id in (select user_id from top_users);
   end if;
 
   -- Update profiles.total_gp
@@ -1207,48 +1223,53 @@ begin
   return jsonb_build_object('ok', true, 'winners', coalesce(v_winners, '[]'::jsonb));
 end $$;
 
--- Check for refunds (events stuck in recruiting for 30 days)
-create or replace function public.event_refund_check()
+-- Track view on event-tagged post: increment event total_views, end if budget exhausted
+create or replace function public.event_track_view(p_post_id uuid)
 returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_event record;
-  v_refund_count int := 0;
+  v_post record;
+  v_event public.events%rowtype;
+  v_remaining numeric;
 begin
-  -- Only operations can trigger this
-  if not public.admin_has_role(auth.uid(), 'operations') then
-    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHORIZED');
+  -- Get the post and its event
+  select fg.event_id into v_post from public.feed_gliims fg where fg.id = p_post_id;
+  
+  if v_post.event_id is null then
+    return jsonb_build_object('ok', true, 'event_tracked', false);
   end if;
 
-  for v_event in
-    select * from public.events
-    where status = 'recruiting'
-    and created_at < now() - interval '30 days'
-    and refund_issued = false
-  loop
-    -- Refund to host
-    -- TODO: Re-add refund when event billing is integrated
-    -- perform public.billing_access('event_refund'::text, v_event.budget_naira::text, v_event.id::text, null::uuid, null::integer);
+  select * into v_event from public.events where id = v_post.event_id;
+  if not found or v_event.status != 'live' then
+    return jsonb_build_object('ok', true, 'event_tracked', false);
+  end if;
 
-    update public.events
-    set status = 'cancelled', refund_issued = true, refund_issued_at = now()
-    where id = v_event.id;
+  -- Increment total views
+  update public.events
+  set total_views = total_views + 1
+  where id = v_event.id;
 
-    v_refund_count := v_refund_count + 1;
-  end loop;
+  -- Check if budget is exhausted
+  v_remaining := v_event.budget_naira - ((v_event.total_views + 1) * v_event.cost_per_view);
 
-  return jsonb_build_object('ok', true, 'refunded_count', v_refund_count);
+  if v_remaining <= 0 then
+    -- Auto-end the event
+    perform public.event_end(v_event.id);
+    return jsonb_build_object('ok', true, 'event_tracked', true, 'event_ended', true);
+  end if;
+
+  return jsonb_build_object('ok', true, 'event_tracked', true, 'event_ended', false, 'remaining_budget', v_remaining);
 end $$;
 
 -- Grants
 revoke execute on function public.event_pricing_get() from public, anon;
 grant execute on function public.event_pricing_get() to authenticated;
 
-revoke execute on function public.event_pricing_set(numeric,numeric,numeric,numeric,numeric,numeric,int,numeric,numeric,numeric,numeric,int) from public, anon;
-grant execute on function public.event_pricing_set(numeric,numeric,numeric,numeric,numeric,numeric,int,numeric,numeric,numeric,numeric,int) to authenticated;
+revoke execute on function public.event_pricing_set(numeric,numeric,numeric,numeric,numeric,numeric,int) from public, anon;
+grant execute on function public.event_pricing_set(numeric,numeric,numeric,numeric,numeric,numeric,int) to authenticated;
 
 revoke execute on function public.event_categories_list() from public, anon;
 grant execute on function public.event_categories_list() to authenticated;
@@ -1256,11 +1277,8 @@ grant execute on function public.event_categories_list() to authenticated;
 revoke execute on function public.event_category_manage(text,uuid,text,text,text,int) from public, anon;
 grant execute on function public.event_category_manage(text,uuid,text,text,text,int) to authenticated;
 
-revoke execute on function public.event_calc_participant_cost(int) from public, anon;
-grant execute on function public.event_calc_participant_cost(int) to authenticated;
-
-revoke execute on function public.event_create(text,text,text,uuid[],timestamptz,int,numeric,boolean,int,text) from public, anon;
-grant execute on function public.event_create(text,text,text,uuid[],timestamptz,int,numeric,boolean,int,text) to authenticated;
+revoke execute on function public.event_create(text,text,text,uuid[],numeric,numeric,boolean,int,text) from public, anon;
+grant execute on function public.event_create(text,text,text,uuid[],numeric,numeric,boolean,int,text) to authenticated;
 
 revoke execute on function public.event_join(uuid,uuid) from public, anon;
 grant execute on function public.event_join(uuid,uuid) to authenticated;
@@ -1283,8 +1301,8 @@ grant execute on function public.event_leaderboard(uuid) to authenticated;
 revoke execute on function public.event_end(uuid) from public, anon;
 grant execute on function public.event_end(uuid) to authenticated;
 
-revoke execute on function public.event_refund_check() from public, anon;
-grant execute on function public.event_refund_check() to authenticated;
+revoke execute on function public.event_track_view(uuid) from public, anon;
+grant execute on function public.event_track_view(uuid) to authenticated;
 
 -- Table grants (fix 403 on REST API)
 grant select on public.event_categories to authenticated;
@@ -1308,11 +1326,11 @@ grant select on public.event_pricing to authenticated;
 
 -- Seed default pricing if empty
 insert into public.event_pricing (
-  cost_1_week, cost_2_weeks, cost_1_month, cost_2_months, cost_3_months,
+  cost_per_view, min_budget,
   gliimu_fee_percent, prize_1st_percent, prize_2nd_percent, prize_3rd_percent,
-  min_participants
+  completion_gp
 )
-select 4000, 3000, 2000, 1500, 1000, 15, 45, 25, 15, 10
+select 100, 1000, 40, 30, 20, 10, 5
 where not exists (select 1 from public.event_pricing limit 1);
 
 -- ============================================================
@@ -1321,11 +1339,6 @@ where not exists (select 1 from public.event_pricing limit 1);
 -- (or hosts) with # in the composer. Tagged gliims show up in
 -- the event's Posts tab.
 -- ============================================================
-
--- Older live installs created events before min_participants had
--- a default and before event_create inserted it, which aborts new
--- events with a not-null violation. Force the default back.
-alter table public.events alter column min_participants set default 10;
 
 alter table public.feed_gliims add column if not exists event_id uuid references public.events(id) on delete set null;
 
@@ -1351,12 +1364,6 @@ union all
 select 'event_team_members table',
   (select case when to_regclass('public.event_team_members') is not null then 'OK' else 'MISSING' end)
 union all
-select 'event_posts table',
-  (select case when to_regclass('public.event_posts') is not null then 'OK' else 'MISSING' end)
-union all
-select 'event_post_likes table',
-  (select case when to_regclass('public.event_post_likes') is not null then 'OK' else 'MISSING' end)
-union all
 select 'event_gp_earnings table',
   (select case when to_regclass('public.event_gp_earnings') is not null then 'OK' else 'MISSING' end)
 union all
@@ -1372,8 +1379,8 @@ union all
 select 'event_categories_list function',
   (select case when to_regprocedure('public.event_categories_list()') is not null then 'OK' else 'MISSING' end)
 union all
-select 'event_create function',
-  (select case when to_regprocedure('public.event_create(text,text,text,uuid[],timestamptz,int,numeric,boolean,int,text)') is not null then 'OK' else 'MISSING' end)
+select 'event_create function (new sig)',
+  (select case when to_regprocedure('public.event_create(text,text,text,uuid[],numeric,numeric,boolean,int,text)') is not null then 'OK' else 'MISSING' end)
 union all
 select 'event_join function',
   (select case when to_regprocedure('public.event_join(uuid,uuid)') is not null then 'OK' else 'MISSING' end)
@@ -1384,17 +1391,25 @@ union all
 select 'event_end function',
   (select case when to_regprocedure('public.event_end(uuid)') is not null then 'OK' else 'MISSING' end)
 union all
-select 'events.min_participants default is 10',
+select 'event_track_view function',
+  (select case when to_regprocedure('public.event_track_view(uuid)') is not null then 'OK' else 'MISSING' end)
+union all
+select 'events.cost_per_view column',
+  (select case when exists (select 1 from information_schema.columns
+    where table_schema='public' and table_name='events' and column_name='cost_per_view')
+  then 'OK' else 'MISSING' end)
+union all
+select 'events.total_views column',
+  (select case when exists (select 1 from information_schema.columns
+    where table_schema='public' and table_name='events' and column_name='total_views')
+  then 'OK' else 'MISSING' end)
+union all
+select 'events.status default is live',
   (select case when (select column_default from information_schema.columns
-    where table_schema='public' and table_name='events' and column_name='min_participants') = '10'
+    where table_schema='public' and table_name='events' and column_name='status') like '%live%'
   then 'OK' else 'CHECK' end)
 union all
 select 'feed_gliims.event_id column',
   (select case when exists (select 1 from information_schema.columns
     where table_schema='public' and table_name='feed_gliims' and column_name='event_id')
-  then 'OK' else 'MISSING' end)
-union all
-select 'event_create inserts min_participants',
-  (select case when (select count(*) from pg_proc
-    where proname='event_create' and prosrc like '%min_participants%') > 0
-  then 'OK' else 'CHECK' end);
+  then 'OK' else 'MISSING' end);

@@ -591,7 +591,7 @@ begin
 end;
 $$;
 
--- 14c. bump_post_views() — uses feed_gliims
+-- 14c. bump_post_views() — uses feed_gliims, also tracks event views
 drop function if exists public.bump_post_views(uuid);
 create or replace function public.bump_post_views(p_post uuid)
 returns void
@@ -599,10 +599,17 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_event_id uuid;
 begin
   update public.feed_gliims
      set views = views + 1
-   where id = p_post;
+   where id = p_post
+  returning event_id into v_event_id;
+
+  if v_event_id is not null then
+    perform public.event_track_view(p_post);
+  end if;
 end;
 $$;
 
