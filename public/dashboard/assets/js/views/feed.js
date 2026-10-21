@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=56';
+import hubView from './feed-gliims.js?v=57';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view

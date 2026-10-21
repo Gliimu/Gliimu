@@ -456,7 +456,7 @@ const hubView = {
         <h2 style="margin-bottom: 24px;">Publish to the Feed</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
-          <div class="form-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
+          <div class="form-group" id="post-category-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
         <div class="form-group">
@@ -493,7 +493,8 @@ const hubView = {
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
             <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
-            <div onclick="hubInstance.openEventCreator()" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg> Event</div>
+            <div onclick="hubInstance.addBlock('poll')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Pool</div>
+            <div onclick="hubInstance.addBlock('event')" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg> Event</div>
           </div>
         </div>
 
@@ -516,8 +517,6 @@ const hubView = {
       document.getElementById('add-block-menu')?.classList.remove('active');
     });
 
-    this.addBlock('text');
-
     // Autosave: restore composer state if it exists, then wire up save on changes
     this.restoreComposerState();
     this.wireComposerAutosave();
@@ -528,6 +527,21 @@ const hubView = {
       const rawDescription = document.getElementById('post-description').value.trim();
 
       if (!title) return alert("Title is required.");
+
+      // An Event block turns this gliim into an event — publish runs the
+      // event path instead of the normal feed_gliims insert.
+      const eventBlock = document.querySelector('.builder-block[data-type="event"]');
+      if (eventBlock) return this.createEvent(modal);
+
+      // Every pool block must be complete before we can publish.
+      for (const pb of document.querySelectorAll('.builder-block[data-type="poll"]')) {
+        let poll = null;
+        try { poll = JSON.parse(pb.querySelector('.block-content-input').value); } catch { poll = null; }
+        const opts = (poll && Array.isArray(poll.options)) ? poll.options.map(o => String(o).trim()).filter(Boolean) : [];
+        if (!poll || !String(poll.question || '').trim() || opts.length < 2) {
+          return alert("Your pool block needs a question and at least 2 filled options.");
+        }
+      }
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
       const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
@@ -545,6 +559,12 @@ const hubView = {
             const capEl = b.querySelector('.block-caption-input');
             const cap = capEl ? capEl.value.trim() : '';
             if (cap) blockData.caption = cap;
+          }
+          if (type === 'poll') {
+            const poll = JSON.parse(content);
+            blockData.question = poll.question;
+            blockData.options = poll.options;
+            delete blockData.content;
           }
           finalBlocks.push(blockData);
 
@@ -968,12 +988,83 @@ const hubView = {
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
     if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
     if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+    if (type === 'poll') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
+    if (type === 'event') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     let inputHtml = '';
     if (type === 'text') {
       inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
+    } else if (type === 'poll') {
+      inputHtml = `
+        <input type="text" class="input poll-question-input" placeholder="Ask a question..." style="margin-bottom: 8px;">
+        <div class="poll-options" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        <button type="button" class="btn-secondary poll-add-option" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">+ Add Option</button>
+        <input type="hidden" class="block-content-input">
+      `;
+    } else if (type === 'event') {
+      // Title and description come from the composer's common fields —
+      // this block only holds the event-specific settings.
+      inputHtml = `
+        <div class="form-group">
+          <label>Categories * (select up to 2)</label>
+          <div class="hub-tag-picker">
+            <div class="hub-tag-chips" id="event-category-chips"></div>
+            <input type="text" id="event-category-search" class="input" placeholder="Search categories..." autocomplete="off">
+            <div class="hub-tag-results" id="event-category-results"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Cover Image *</label>
+          <label class="custom-file-upload" style="display: block;">
+            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+            <span id="event-cover-name">Choose cover image</span>
+            <input type="file" id="event-cover-input" accept="image/*" hidden>
+          </label>
+          <div id="event-cover-status" style="font-size: 12px; margin-top: 8px;"></div>
+          <div id="event-cover-preview" style="margin-top: 8px;"></div>
+          <input type="hidden" id="event-cover-url">
+        </div>
+        <div class="form-row" style="gap: 16px;">
+          <div class="form-group" style="flex: 1;">
+            <label>Start Date & Time *</label>
+            <input type="datetime-local" id="event-start-date" class="input">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label>Duration *</label>
+            <select id="event-duration" class="input">
+              <option value="7">1 week</option>
+              <option value="14">2 weeks</option>
+              <option value="30" selected>1 month</option>
+              <option value="60">2 months</option>
+              <option value="90">3 months</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label id="event-budget-label">Budget / Prize Pool *</label>
+          <input type="number" id="event-budget" class="input" step="1000" placeholder="e.g., 50000">
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+            Max participants: <strong id="event-max-participants">-</strong> |
+            Prize pool: <strong id="event-prize-pool">₦0</strong>
+          </p>
+        </div>
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <input type="checkbox" id="event-team-mode" style="width: 18px; height: 18px; accent-color: var(--brand-primary);">
+            <span><strong>Team Mode</strong> — allow participants to form teams</span>
+          </label>
+          <div id="event-team-size-group" style="display: none; margin-top: 12px;">
+            <label>Max team size (1-3)</label>
+            <input type="number" id="event-max-team-size" class="input" min="1" max="3" value="3">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Rules & Guidelines (optional)</label>
+          <textarea id="event-rules" class="input" rows="3" placeholder="Any specific rules for participants..."></textarea>
+        </div>
+      `;
     } else if (type === 'pdf') {
       const pdfSlot = (i) => `
         <div class="pdf-slot" data-slot="${i}">
@@ -1013,6 +1104,74 @@ const hubView = {
 
     blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
+
+    if (type === 'event') {
+      // An event is the whole post — drop any other blocks, hide the
+      // block menu, and swap Save Draft for Preview (events can't draft).
+      blocksContainer.querySelectorAll('.builder-block:not([data-type="event"])').forEach(b => b.remove());
+      document.getElementById('add-block-trigger').style.display = 'none';
+      document.getElementById('post-category-group').style.display = 'none';
+      const draftBtn = document.getElementById('save-draft-btn');
+      if (draftBtn) draftBtn.style.display = 'none';
+      const btnRow = draftBtn ? draftBtn.parentElement : null;
+      if (btnRow && !document.getElementById('event-preview-btn')) {
+        const previewBtn = document.createElement('button');
+        previewBtn.id = 'event-preview-btn';
+        previewBtn.className = 'btn-secondary';
+        previewBtn.style.flex = '1';
+        previewBtn.textContent = 'Preview';
+        previewBtn.onclick = () => this.showEventPreview();
+        btnRow.insertBefore(previewBtn, btnRow.firstChild);
+      }
+      const eventRemoveBtn = blockDiv.querySelector('.block-remove-btn');
+      eventRemoveBtn.onclick = () => {
+        blockDiv.remove();
+        document.getElementById('add-block-trigger').style.display = '';
+        document.getElementById('post-category-group').style.display = '';
+        const preview = document.getElementById('event-preview-btn');
+        if (preview) preview.remove();
+        const restoredDraft = document.getElementById('save-draft-btn');
+        if (restoredDraft) restoredDraft.style.display = '';
+        this.saveComposerState();
+      };
+      this.initEventBlock();
+      return;
+    }
+
+    if (type === 'poll') {
+      const optionsDiv = blockDiv.querySelector('.poll-options');
+      const hiddenInput = blockDiv.querySelector('.block-content-input');
+      const syncPoll = () => {
+        const question = blockDiv.querySelector('.poll-question-input').value.trim();
+        const options = Array.from(optionsDiv.querySelectorAll('.poll-option-input'))
+          .map(i => i.value.trim()).filter(Boolean);
+        hiddenInput.value = (question || options.length)
+          ? JSON.stringify({ question, options })
+          : '';
+      };
+      const addOption = (value = '') => {
+        if (optionsDiv.children.length >= 6) return;
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+        row.innerHTML = `<input type="text" class="input poll-option-input" placeholder="Option ${optionsDiv.children.length + 1}" value="${escapeHtml(value)}"><button type="button" class="poll-option-remove" aria-label="Remove option" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;">×</button>`;
+        row.querySelector('.poll-option-input').addEventListener('input', syncPoll);
+        row.querySelector('.poll-option-remove').onclick = () => {
+          if (optionsDiv.children.length <= 2) return;
+          row.remove();
+          optionsDiv.querySelectorAll('.poll-option-input').forEach((inp, i) => { inp.placeholder = `Option ${i + 1}`; });
+          syncPoll();
+        };
+        optionsDiv.appendChild(row);
+      };
+      addOption();
+      addOption();
+      blockDiv.querySelector('.poll-question-input').addEventListener('input', syncPoll);
+      blockDiv.querySelector('.poll-add-option').onclick = () => {
+        addOption();
+        syncPoll();
+      };
+      return;
+    }
 
     // Make block draggable
     blockDiv.draggable = true;
@@ -1165,11 +1324,8 @@ const hubView = {
     }
   },
 
-  async openEventCreator() {
-    // Close the current composer modal
-    document.querySelector('.modal-overlay')?.remove();
-
-    // Fetch categories and pricing
+  async initEventBlock() {
+    // Fetch categories and pricing, then wire the event block's controls.
     const [catRes, pricingRes] = await Promise.all([
       supabase.rpc('event_categories_list', {}),
       supabase.rpc('event_pricing_get', {})
@@ -1178,99 +1334,15 @@ const hubView = {
     const categories = catRes.data || [];
     const pricing = pricingRes.data || {};
 
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'event-creator-modal';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
-        <button class="modal-close" onclick="document.getElementById('event-creator-modal').remove()">×</button>
-        <h2 style="margin-bottom: 24px;">Create Event</h2>
-        
-        <div class="form-group">
-          <label>Event Title *</label>
-          <input type="text" id="event-title" class="input" placeholder="e.g., Tech Innovation Challenge 2026">
-        </div>
-
-        <div class="form-group">
-          <label>Description *</label>
-          <textarea id="event-description" class="input" rows="4" placeholder="Describe the event concept, goals, and what participants will do..."></textarea>
-        </div>
-
-        <div class="form-group">
-          <label>Categories * (select up to 2)</label>
-          <div class="hub-tag-picker">
-            <div class="hub-tag-chips" id="event-category-chips"></div>
-            <input type="text" id="event-category-search" class="input" placeholder="Search categories..." autocomplete="off">
-            <div class="hub-tag-results" id="event-category-results"></div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Cover Image *</label>
-          <label class="custom-file-upload" style="display: block;">
-            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-            <span id="event-cover-name">Choose cover image</span>
-            <input type="file" id="event-cover-input" accept="image/*" hidden>
-          </label>
-          <div id="event-cover-status" style="font-size: 12px; margin-top: 8px;"></div>
-          <div id="event-cover-preview" style="margin-top: 8px;"></div>
-          <input type="hidden" id="event-cover-url">
-        </div>
-
-        <div class="form-row" style="gap: 16px;">
-          <div class="form-group" style="flex: 1;">
-            <label>Start Date & Time *</label>
-            <input type="datetime-local" id="event-start-date" class="input">
-          </div>
-          <div class="form-group" style="flex: 1;">
-            <label>Duration *</label>
-            <select id="event-duration" class="input">
-              <option value="7">1 week</option>
-              <option value="14">2 weeks</option>
-              <option value="30" selected>1 month</option>
-              <option value="60">2 months</option>
-              <option value="90">3 months</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Budget / Prize Pool * (minimum ₦${Number(pricing.min_budget || 10000).toLocaleString()})</label>
-          <input type="number" id="event-budget" class="input" min="${pricing.min_budget || 10000}" step="1000" placeholder="e.g., 50000">
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
-            Max participants: <strong id="event-max-participants">-</strong> | 
-            Prize pool: <strong id="event-prize-pool">₦0</strong>
-          </p>
-        </div>
-
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-            <input type="checkbox" id="event-team-mode" style="width: 18px; height: 18px; accent-color: var(--brand-primary);">
-            <span><strong>Team Mode</strong> — allow participants to form teams</span>
-          </label>
-          <div id="event-team-size-group" style="display: none; margin-top: 12px;">
-            <label>Max team size (1-3)</label>
-            <input type="number" id="event-max-team-size" class="input" min="1" max="3" value="3">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Rules & Guidelines (optional)</label>
-          <textarea id="event-rules" class="input" rows="3" placeholder="Any specific rules for participants..."></textarea>
-        </div>
-
-        <div style="display: flex; gap: 12px; margin-top: 32px;">
-          <button id="event-preview-btn" class="btn-secondary" style="flex: 1;">Preview</button>
-          <button id="event-create-btn" class="btn-primary" style="flex: 1;">Create Event</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    // Initialize category picker
     this.eventSelectedCategories = [];
     this.eventAllCategories = categories;
     this.setupEventCategoryPicker();
+
+    const budgetLabel = document.getElementById('event-budget-label');
+    const budgetInput = document.getElementById('event-budget');
+    const minBudget = Number(pricing.min_budget || 10000);
+    if (budgetLabel) budgetLabel.textContent = `Budget / Prize Pool * (minimum ₦${minBudget.toLocaleString()})`;
+    if (budgetInput) budgetInput.min = minBudget;
 
     // Cover image upload
     const coverInput = document.getElementById('event-cover-input');
@@ -1302,7 +1374,6 @@ const hubView = {
     });
 
     // Budget calculation
-    const budgetInput = document.getElementById('event-budget');
     const durationSelect = document.getElementById('event-duration');
     const updateCalc = () => {
       const budget = Number(budgetInput.value) || 0;
@@ -1315,16 +1386,6 @@ const hubView = {
     };
     budgetInput.addEventListener('input', updateCalc);
     durationSelect.addEventListener('change', updateCalc);
-
-    // Preview button
-    document.getElementById('event-preview-btn').addEventListener('click', () => {
-      this.showEventPreview();
-    });
-
-    // Create button
-    document.getElementById('event-create-btn').addEventListener('click', () => {
-      this.createEvent();
-    });
   },
 
   setupEventCategoryPicker() {
@@ -1386,7 +1447,7 @@ const hubView = {
     chipsDiv.innerHTML = this.eventSelectedCategories.map((c, i) => `
       <span class="hub-tag-chip">
         ${escapeHtml(c.name)}
-        <button type="button" onclick="hubView.removeEventCategory(${i})" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; margin-left: 4px;">×</button>
+        <button type="button" onclick="hubInstance.removeEventCategory(${i})" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; margin-left: 4px;">×</button>
       </span>
     `).join('');
   },
@@ -1406,9 +1467,10 @@ const hubView = {
   },
 
   async showEventPreview() {
-    // Validate required fields
-    const title = document.getElementById('event-title').value.trim();
-    const description = document.getElementById('event-description').value.trim();
+    // Validate required fields — title and description live in the
+    // composer's common section, the rest inside the event block.
+    const title = document.getElementById('post-title').value.trim();
+    const description = document.getElementById('post-description').value.trim();
     const coverUrl = document.getElementById('event-cover-url').value;
     const startDate = document.getElementById('event-start-date').value;
     const duration = Number(document.getElementById('event-duration').value);
@@ -1477,10 +1539,10 @@ const hubView = {
     document.body.appendChild(previewModal);
   },
 
-  async createEvent() {
-    // Validate
-    const title = document.getElementById('event-title').value.trim();
-    const description = document.getElementById('event-description').value.trim();
+  async createEvent(modalEl) {
+    // Title and description come from the composer's common fields.
+    const title = document.getElementById('post-title').value.trim();
+    const description = document.getElementById('post-description').value.trim();
     const coverUrl = document.getElementById('event-cover-url').value;
     const startDate = document.getElementById('event-start-date').value;
     const duration = Number(document.getElementById('event-duration').value);
@@ -1520,9 +1582,10 @@ const hubView = {
       return;
     }
 
-    document.getElementById('event-creator-modal').remove();
+    if (modalEl) modalEl.remove();
+    this.clearComposerAutosave();
     alert('Event created successfully! It will appear in the feed once enough participants join.');
-    
+
     // Refresh feed
     this.fetchPosts();
   },
@@ -1988,7 +2051,9 @@ const hubView = {
 
     const isParticipant = !!participation;
     const isHost = event.host_id === store.user.id;
-    const canPost = isParticipant && event.status === 'active';
+    // Participants can share submissions while the event is recruiting or
+    // live — the countdown starts when spots fill up, but posts don't wait.
+    const canPost = isParticipant && (event.status === 'recruiting' || event.status === 'active');
 
     const prizePool = (event.prize_1st || 0) + (event.prize_2nd || 0) + (event.prize_3rd || 0);
 
@@ -2177,8 +2242,8 @@ const hubView = {
 
         try {
           const { uploadFile } = await import('../upload.js');
-          const url = await uploadFile(file, 'event-posts');
-          
+          const url = await uploadFile(file, 'media');
+
           const preview = blockDiv.querySelector('.event-block-preview');
           preview.innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 6px;">`;
           
@@ -2211,8 +2276,10 @@ const hubView = {
 
         try {
           const { uploadFile } = await import('../upload.js');
-          const url = await uploadFile(file, 'event-posts');
-          
+          // Documents ride the 'library' presign — 'media' only accepts
+          // images, audio and video.
+          const url = await uploadFile(file, 'library');
+
           blockDiv.dataset.uploadedUrl = url;
           blockDiv.dataset.filename = file.name;
           filenameDiv.innerText = file.name;
@@ -2532,6 +2599,27 @@ const hubView = {
           if (!tiles) return '';
           return `<div class="pdf-block-row">${tiles}</div>`;
         }
+        if (b.type === 'poll') {
+          let question = b.question || '';
+          let options = Array.isArray(b.options) ? b.options : null;
+          if (!options && b.content) {
+            try {
+              const parsed = JSON.parse(b.content);
+              if (parsed && Array.isArray(parsed.options)) {
+                options = parsed.options;
+                if (!question) question = parsed.question || '';
+              }
+            } catch { options = null; }
+          }
+          if (!options || options.length < 2) return '';
+          const rows = options.map((opt, idx) => `
+            <button type="button" class="poll-option-row" data-idx="${idx}" onclick="hubInstance.pollVote('${post.id}', ${idx})">
+              <span class="poll-option-fill" style="width:0%"></span>
+              <span class="poll-option-label">${escapeHtml(String(opt))}</span>
+              <span class="poll-option-meta"></span>
+            </button>`).join('');
+          return `<div class="poll-block" data-poll-post="${post.id}"><h3 class="read-block-subtitle">${escapeHtml(question)}</h3><div class="poll-options-list">${rows}</div><div class="poll-total" data-poll-total></div></div>`;
+        }
         return '';
       }).join('');
     } else if (post.is_premium && !isOwner) {
@@ -2629,6 +2717,7 @@ const hubView = {
     `;
     document.body.appendChild(modal);
     this.setupMediaBlocks(modal);
+    this.hydratePolls(modal);
     // Hydrate document/PDF blocks in-page (pdf.js/mammoth/epub.js) so they
     // never leave the read view for a new browser tab.
     modal.querySelectorAll('.rdr-inline-file[data-file-src]').forEach(el => {
@@ -2636,6 +2725,56 @@ const hubView = {
       if (src) renderFileInto(src, el);
     });
     this.setupMentionPicker(post.id);
+  },
+
+  // Pool blocks: fetch counts from the SECURITY DEFINER RPC (nobody can read
+  // other people's votes directly) plus your own row, then size each bar to
+  // its share of the total votes.
+  async hydratePolls(scope) {
+    const root = scope || document;
+    const blocks = root.matches?.('.poll-block[data-poll-post]')
+      ? [root]
+      : Array.from(root.querySelectorAll('.poll-block[data-poll-post]'));
+    for (const block of blocks) {
+      const postId = block.dataset.pollPost;
+      const [resRes, mineRes] = await Promise.all([
+        supabase.rpc('poll_results', { p_post_id: postId }),
+        supabase.from('poll_votes').select('option_index').eq('post_id', postId).maybeSingle()
+      ]);
+      const res = resRes.data;
+      if (!res || !res.ok) continue;
+      const myVote = (mineRes.data && typeof mineRes.data.option_index === 'number')
+        ? mineRes.data.option_index
+        : null;
+      const maxCount = Math.max(...res.options.map(o => o.count));
+      res.options.forEach(o => {
+        const row = block.querySelector(`.poll-option-row[data-idx="${o.index}"]`);
+        if (!row) return;
+        row.querySelector('.poll-option-fill').style.width = `${o.percent || 0}%`;
+        row.querySelector('.poll-option-meta').textContent = res.total > 0 ? `${o.percent}% · ${o.count}` : '';
+        row.classList.toggle('poll-option-mine', myVote === o.index);
+        row.classList.toggle('poll-option-lead', res.total > 0 && o.count === maxCount);
+      });
+      const totalEl = block.querySelector('[data-poll-total]');
+      if (totalEl) totalEl.textContent = `${res.total} ${res.total === 1 ? 'vote' : 'votes'}`;
+    }
+  },
+
+  async pollVote(postId, optionIndex) {
+    const block = document.querySelector(`.poll-block[data-poll-post="${postId}"]`);
+    if (!block) return;
+    const { data, error } = await supabase.rpc('poll_vote', {
+      p_post_id: postId,
+      p_option_index: optionIndex
+    });
+    if (error || !data || !data.ok) {
+      const code = data && data.code;
+      if (code === 'NOT_AUTHENTICATED') return alert('Sign in to vote.');
+      return alert(code === 'BAD_OPTION'
+        ? 'That option no longer exists.'
+        : (error && error.message) || 'Could not save your vote.');
+    }
+    await this.hydratePolls(block);
   },
 
   // Read-view media wiring: the equalizer dances while an audio chapter
@@ -2895,8 +3034,9 @@ window.hubInstance = {
   toggleReadMenu: (id) => hubView.toggleReadMenu(id),
   closeModal: () => hubView.closeModal(),
   addBlock: (type) => hubView.addBlock(type),
-  openEventCreator: () => hubView.openEventCreator(),
   removeEventCategory: (index) => hubView.removeEventCategory(index),
+  hydratePolls: (scope) => hubView.hydratePolls(scope),
+  pollVote: (postId, idx) => hubView.pollVote(postId, idx),
   openEventPage: (id) => hubView.openEventPage(id),
   joinEvent: (id) => hubView.joinEvent(id),
   createEventPost: (id) => hubView.createEventPost(id),

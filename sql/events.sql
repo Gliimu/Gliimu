@@ -316,7 +316,7 @@ create policy "event posts read" on public.event_posts
   using (exists (
     select 1 from public.events e
     where e.id = event_id
-    and e.status in ('active', 'ended')
+    and e.status in ('recruiting', 'active', 'ended')
   ));
 
 drop policy if exists "event posts insert" on public.event_posts;
@@ -327,7 +327,7 @@ create policy "event posts insert" on public.event_posts
     and exists (
       select 1 from public.events e
       where e.id = event_id
-      and e.status = 'active'
+      and e.status in ('recruiting', 'active')
       and exists (
         select 1 from public.event_participants ep
         where ep.event_id = e.id
@@ -914,7 +914,7 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
 
-  if v_event.status != 'active' then
+  if v_event.status not in ('recruiting', 'active') then
     return jsonb_build_object('ok', false, 'code', 'EVENT_NOT_ACTIVE');
   end if;
 
@@ -1011,7 +1011,7 @@ begin
     select user_id from public.event_participants where event_id = p_event_id
   loop
     insert into public.support_messages (thread_user, sender_id, content, kind)
-    values (v_participant.user_id, v_event.host_id, v_message, 'answer');
+    values (v_participant.user_id, v_event.host_id, v_message, 'message');
   end loop;
 end $$;
 
