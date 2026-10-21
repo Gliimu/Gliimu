@@ -9,7 +9,7 @@ const routes = {
   // Deep links only: Live is folded into Ping, Profile opens from the avatar
   '/live': () => import('./views/live.js').then(m => m.default),
   '/profile': () => import('./views/profile.js?v=36').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=2').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=3').then(m => m.default),
 };
 
 // Routes with no sidebar entry borrow another tab's highlight

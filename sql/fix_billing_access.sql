@@ -4,6 +4,17 @@
 -- with all parameters. Safe to re-run: idempotent.
 -- ============================================================
 
+-- Add unique constraint on request_id (idempotent)
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'billing_events_request_id_key'
+  ) then
+    alter table public.billing_events add constraint billing_events_request_id_key unique (request_id);
+  end if;
+end $$;
+
 -- Drop all existing versions
 drop function if exists public.billing_access(text, text, text, uuid) cascade;
 drop function if exists public.billing_access(text, text, text, uuid, integer) cascade;

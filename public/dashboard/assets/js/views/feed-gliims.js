@@ -2186,7 +2186,7 @@ const hubView = {
               const av = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avClass}" style="object-fit:cover;">` : `<div class="${avClass}"></div>`;
               const stats = interactionsMap[post.id] || { comments: 0, shares: 0 };
               return `
-              <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; cursor: pointer;" onclick="hubInstance.openReadView('${post.id}')">
+              <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; cursor: pointer;" onclick="hubInstance._openReadViewModal('${post.id}')">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                   <div style="position: relative;">${av}</div>
                   <div>
@@ -2440,7 +2440,7 @@ const hubView = {
         }
         if (b.type === 'audio') {
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
-          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata"></audio></div>`;
+          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata" crossorigin="anonymous"></audio></div>`;
         }
         if (b.type === 'document') {
           // Reflowable book file — hydrated in-page below via renderFileInto

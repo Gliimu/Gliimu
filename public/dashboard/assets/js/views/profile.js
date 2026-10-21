@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { ensureAccess, showBillingDenied } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './feed-gliims.js?v=64';
+import hubView from './feed-gliims.js?v=66';
 
 export default {
   title: 'Profile',
