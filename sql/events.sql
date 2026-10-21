@@ -972,7 +972,7 @@ begin
   end loop;
 end $$;
 
--- Get leaderboard (top 10, ranked by views + likes on event-tagged feed_gliims)
+-- Get leaderboard (top 10, ranked by views on event-tagged feed_gliims)
 create or replace function public.event_leaderboard(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -1000,7 +1000,7 @@ begin
       select
         t.id as team_id,
         t.name as team_name,
-        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp,
+        coalesce(sum(fg.views), 0) as total_gp,
         (
           select jsonb_agg(jsonb_build_object(
             'user_id', tm.user_id,
@@ -1013,7 +1013,7 @@ begin
         ) as members
       from public.event_teams t
       join public.event_team_members tm2 on tm2.team_id = t.id
-      join public.feed_gliims fg on fg.author_id = tm2.user_id and fg.event_id = p_event_id
+      join public.feed_gliims fg on fg.user_id = tm2.user_id and fg.event_id = p_event_id
       where t.event_id = p_event_id
       group by t.id, t.name
       order by total_gp desc
@@ -1032,10 +1032,10 @@ begin
         p.id as user_id,
         p.full_name,
         p.avatar_url,
-        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+        coalesce(sum(fg.views), 0) as total_gp
       from public.event_participants ep
       join public.profiles p on p.id = ep.user_id
-      left join public.feed_gliims fg on fg.author_id = ep.user_id and fg.event_id = p_event_id
+      left join public.feed_gliims fg on fg.user_id = ep.user_id and fg.event_id = p_event_id
       where ep.event_id = p_event_id
       group by p.id, p.full_name, p.avatar_url
       order by total_gp desc
@@ -1092,10 +1092,10 @@ begin
     into v_winners
     from (
       select t.id as team_id,
-        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+        coalesce(sum(fg.views), 0) as total_gp
       from public.event_teams t
       join public.event_team_members tm on tm.team_id = t.id
-      left join public.feed_gliims fg on fg.author_id = tm.user_id and fg.event_id = p_event_id
+      left join public.feed_gliims fg on fg.user_id = tm.user_id and fg.event_id = p_event_id
       where t.event_id = p_event_id
       group by t.id
       order by total_gp desc
@@ -1106,9 +1106,9 @@ begin
     into v_winners
     from (
       select ep.user_id,
-        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+        coalesce(sum(fg.views), 0) as total_gp
       from public.event_participants ep
-      left join public.feed_gliims fg on fg.author_id = ep.user_id and fg.event_id = p_event_id
+      left join public.feed_gliims fg on fg.user_id = ep.user_id and fg.event_id = p_event_id
       where ep.event_id = p_event_id
       group by ep.user_id
       order by total_gp desc
@@ -1153,10 +1153,10 @@ begin
   if v_event.team_mode then
     with top_teams as (
       select t.id as team_id,
-        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+        coalesce(sum(fg.views), 0) as total_gp
       from public.event_teams t
       join public.event_team_members tm on tm.team_id = t.id
-      left join public.feed_gliims fg on fg.author_id = tm.user_id and fg.event_id = p_event_id
+      left join public.feed_gliims fg on fg.user_id = tm.user_id and fg.event_id = p_event_id
       where t.event_id = p_event_id
       group by t.id
       order by total_gp desc
@@ -1166,14 +1166,14 @@ begin
     set total_gp_earned = total_gp_earned + (
       select count(*) * v_completion_gp
       from public.feed_gliims fg
-      where fg.event_id = p_event_id and fg.author_id = ep.user_id
+      where fg.event_id = p_event_id and fg.user_id = ep.user_id
     )
     where ep.event_id = p_event_id
     and ep.team_id in (select team_id from top_teams);
 
     insert into public.event_gp_earnings (event_id, user_id, team_id, gp_amount, source)
     select p_event_id, ep.user_id, ep.team_id,
-      (select count(*) * v_completion_gp from public.feed_gliims fg where fg.event_id = p_event_id and fg.author_id = ep.user_id),
+      (select count(*) * v_completion_gp from public.feed_gliims fg where fg.event_id = p_event_id and fg.user_id = ep.user_id),
       'completion'
     from public.event_participants ep
     where ep.event_id = p_event_id
@@ -1181,9 +1181,9 @@ begin
   else
     with top_users as (
       select ep.user_id,
-        coalesce(sum(fg.views), 0) + coalesce(sum(fg.likes), 0) as total_gp
+        coalesce(sum(fg.views), 0) as total_gp
       from public.event_participants ep
-      left join public.feed_gliims fg on fg.author_id = ep.user_id and fg.event_id = p_event_id
+      left join public.feed_gliims fg on fg.user_id = ep.user_id and fg.event_id = p_event_id
       where ep.event_id = p_event_id
       group by ep.user_id
       order by total_gp desc
@@ -1193,14 +1193,14 @@ begin
     set total_gp_earned = total_gp_earned + (
       select count(*) * v_completion_gp
       from public.feed_gliims fg
-      where fg.event_id = p_event_id and fg.author_id = ep.user_id
+      where fg.event_id = p_event_id and fg.user_id = ep.user_id
     )
     where ep.event_id = p_event_id
     and ep.user_id in (select user_id from top_users);
 
     insert into public.event_gp_earnings (event_id, user_id, gp_amount, source)
     select p_event_id, ep.user_id,
-      (select count(*) * v_completion_gp from public.feed_gliims fg where fg.event_id = p_event_id and fg.author_id = ep.user_id),
+      (select count(*) * v_completion_gp from public.feed_gliims fg where fg.event_id = p_event_id and fg.user_id = ep.user_id),
       'completion'
     from public.event_participants ep
     where ep.event_id = p_event_id

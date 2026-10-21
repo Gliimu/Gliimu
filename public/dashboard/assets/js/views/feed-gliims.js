@@ -2050,13 +2050,29 @@ const hubView = {
     const { data: taggedPosts } = await supabase
       .from('feed_gliims')
       .select(`
-        id, title, category, description, cover_url, views, likes, created_at, user_id, status,
+        id, title, category, description, cover_url, views, created_at, user_id, status,
         profiles:profiles!user_id(full_name, avatar_url, total_gp)
       `)
       .eq('event_id', eventId)
       .order('created_at', { ascending: false });
 
     const posts = (taggedPosts || []).filter(p => !p.status || p.status === 'approved');
+
+    // Fetch interactions for comment/share counts
+    const postIds = posts.map(p => p.id);
+    let interactionsMap = {};
+    if (postIds.length > 0) {
+      const { data: interactions } = await supabase
+        .from('feed_interactions')
+        .select('post_id, interaction_type')
+        .in('post_id', postIds);
+      
+      (interactions || []).forEach(i => {
+        if (!interactionsMap[i.post_id]) interactionsMap[i.post_id] = { comments: 0, shares: 0 };
+        if (i.interaction_type === 'comment') interactionsMap[i.post_id].comments++;
+        if (i.interaction_type === 'share') interactionsMap[i.post_id].shares++;
+      });
+    }
 
     const { data: participation } = await supabase
       .from('event_participants')
@@ -2096,10 +2112,6 @@ const hubView = {
             <p style="font-size: 16px; margin: 0 0 24px 0; text-shadow: 0 1px 4px rgba(0,0,0,0.5); line-height: 1.5;">${escapeHtml(event.description)}</p>
 
             <div style="display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 20px;">
-              <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Remaining Budget</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">₦${remaining.toLocaleString()}</div>
-              </div>
               <div>
                 <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Total Views</div>
                 <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${(event.total_views || 0).toLocaleString()}</div>
@@ -2172,6 +2184,7 @@ const hubView = {
             ${(posts || []).map(post => {
               const avClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
               const av = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avClass}" style="object-fit:cover;">` : `<div class="${avClass}"></div>`;
+              const stats = interactionsMap[post.id] || { comments: 0, shares: 0 };
               return `
               <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; cursor: pointer;" onclick="hubInstance.openReadView('${post.id}')">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
@@ -2190,8 +2203,12 @@ const hubView = {
                     ${post.views || 0}
                   </span>
                   <span style="display: flex; align-items: center; gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                    ${post.likes || 0}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    ${stats.comments}
+                  </span>
+                  <span style="display: flex; align-items: center; gap: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    ${stats.shares}
                   </span>
                 </div>
               </div>
