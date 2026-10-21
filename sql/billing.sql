@@ -176,6 +176,7 @@ insert into public.billing_prices (event_type, amount) values
   ('live',            15),
   ('profile_print',  100),
   ('premium_unlock', 100),
+  ('comment',         50),
   ('plan_pro',     99900)
 on conflict (event_type) do nothing;
 
@@ -354,7 +355,7 @@ begin
   end if;
   if p_event_type is null or p_event_type not in
      ('publication', 'bundle', 'audiolite', 'gliim', 'gliim_av', 'gliim_image',
-      'live', 'profile_print', 'premium_unlock') then
+      'live', 'profile_print', 'premium_unlock', 'comment') then
     return jsonb_build_object('allowed', false, 'code', 'UNKNOWN_EVENT');
   end if;
 
@@ -1196,10 +1197,10 @@ begin
 
   -- Prices
   select count(*) into n from public.billing_prices;
-  raise notice 'billing_prices rows: % (expected 9).', n;
+  raise notice 'billing_prices rows: % (expected 10).', n;
   for f in
     select t.e from unnest(array['publication','bundle','audiolite','gliim_av','gliim_image',
-                                 'live','profile_print','premium_unlock','plan_pro']) as t(e)
+                                 'live','profile_print','premium_unlock','comment','plan_pro']) as t(e)
   loop
     if not exists (select 1 from public.billing_prices where event_type = f) then
       missing := missing || f || ' ';

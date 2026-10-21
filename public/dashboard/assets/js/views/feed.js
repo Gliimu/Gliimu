@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=60';
+import hubView from './feed-gliims.js?v=62';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view
@@ -10,6 +10,7 @@ export default {
     <div class="libmerge hub-layout" id="library-container">
       <div class="hub-category-tabs" id="hub-category-tabs">
         <button class="hub-category-tab active" data-category="all">Everything</button>
+        <button class="hub-category-tab" data-category="events">Events</button>
         <button class="hub-category-tab" data-category="Media">Media</button>
         <button class="hub-category-tab" data-category="Tech">Tech</button>
         <button class="hub-category-tab" data-category="Business">Business</button>
@@ -98,23 +99,30 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    // Events render at the top of the feed, interleaved with gliim posts
-    const eventCards = (hubView.currentEvents || []).map(event => ({
-      at: Date.parse(event.start_date) || Date.parse(event.created_at) || 0,
-      html: this.wrapItem(hubView.renderEventCard(event), 'event')
-    }));
+    const showEvents = hubView.currentFilter === 'all' || hubView.currentFilter === 'events';
+    const showPosts = hubView.currentFilter !== 'events';
 
-    const gliimCards = hubView.filterPosts().map(post => ({
-      at: Date.parse(post.created_at) || 0,
-      html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
-    }));
+    const eventCards = showEvents
+      ? (hubView.currentEvents || []).map(event => ({
+          at: Date.parse(event.created_at) || 0,
+          html: this.wrapItem(hubView.renderEventCard(event), 'event')
+        }))
+      : [];
+
+    const gliimCards = showPosts
+      ? hubView.filterPosts().map(post => ({
+          at: Date.parse(post.created_at) || 0,
+          html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
+        }))
+      : [];
 
     const cards = [...eventCards, ...gliimCards]
       .sort((a, b) => b.at - a.at)
       .map(c => c.html);
 
     if (!cards.length) {
-      container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
+      const msg = hubView.currentFilter === 'events' ? 'No events yet.' : 'Nothing here yet.';
+      container.innerHTML = `<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">${msg}</p>`;
       return;
     }
 

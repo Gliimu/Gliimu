@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { ensureAccess, showBillingDenied } from '../billing.js';
 import { renderFileInto } from '../reader.js?v=31';
-import hubView from './feed-gliims.js?v=60';
+import hubView from './feed-gliims.js?v=62';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -182,6 +182,7 @@ export default {
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </button>
             </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">₦50 per comment</div>
             <div class="comment-list" id="comment-list-${post.id}">
               ${commentsHtml}
             </div>
@@ -198,7 +199,7 @@ export default {
           <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
           <span>${comments}</span>
         </button>
-        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')">
+        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 2 GP">
           <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
           <span>${shares}</span>
         </button>

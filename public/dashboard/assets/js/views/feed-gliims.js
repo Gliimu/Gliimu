@@ -1097,27 +1097,17 @@ const hubView = {
         </div>
         <div class="form-row" style="gap: 16px;">
           <div class="form-group" style="flex: 1;">
-            <label>Start Date & Time *</label>
-            <input type="datetime-local" id="event-start-date" class="input">
+            <label id="event-budget-label">Budget *</label>
+            <input type="number" id="event-budget" class="input" step="1000" placeholder="e.g., 50000">
           </div>
           <div class="form-group" style="flex: 1;">
-            <label>Duration *</label>
-            <select id="event-duration" class="input">
-              <option value="7">1 week</option>
-              <option value="14">2 weeks</option>
-              <option value="30" selected>1 month</option>
-              <option value="60">2 months</option>
-              <option value="90">3 months</option>
-            </select>
+            <label>Cost per View (₦)</label>
+            <input type="number" id="event-cost-per-view" class="input" step="10" value="100" min="10">
           </div>
         </div>
-        <div class="form-group">
-          <label id="event-budget-label">Budget / Prize Pool *</label>
-          <input type="number" id="event-budget" class="input" step="1000" placeholder="e.g., 50000">
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
-            Max participants: <strong id="event-max-participants">-</strong> |
-            Prize pool: <strong id="event-prize-pool">₦0</strong>
-          </p>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: -8px; margin-bottom: 16px;">
+          Estimated views: <strong id="event-est-views">-</strong> |
+          Prize pool: <strong id="event-prize-pool">60%</strong> of budget (30% / 20% / 10%)
         </div>
         <div class="form-group">
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
@@ -1443,18 +1433,21 @@ const hubView = {
     });
 
     // Budget calculation
-    const durationSelect = document.getElementById('event-duration');
+    const costPerViewInput = document.getElementById('event-cost-per-view');
+    const defaultCpv = Number(pricing.cost_per_view || 100);
+    if (costPerViewInput && !costPerViewInput.value) costPerViewInput.value = defaultCpv;
+    const feePercent = Number(pricing.gliimu_fee_percent || 40);
     const updateCalc = () => {
       const budget = Number(budgetInput.value) || 0;
-      const duration = Number(durationSelect.value);
-      const perParticipantCost = this.calcParticipantCost(duration, pricing);
-      const maxParticipants = Math.floor(budget / perParticipantCost);
-      document.getElementById('event-max-participants').textContent = maxParticipants > 0 ? maxParticipants : '-';
-      const prizePool = budget * (1 - (pricing.gliimu_fee_percent || 15) / 100);
-      document.getElementById('event-prize-pool').textContent = `₦${prizePool.toLocaleString()}`;
+      const cpv = Number(costPerViewInput.value) || defaultCpv;
+      const estViews = cpv > 0 ? Math.floor(budget / cpv) : 0;
+      document.getElementById('event-est-views').textContent = estViews > 0 ? estViews.toLocaleString() : '-';
+      const prizePool = budget * (1 - feePercent / 100);
+      document.getElementById('event-prize-pool').textContent = `${100 - feePercent}% (₦${prizePool.toLocaleString()})`;
     };
     budgetInput.addEventListener('input', updateCalc);
-    durationSelect.addEventListener('change', updateCalc);
+    costPerViewInput.addEventListener('input', updateCalc);
+    updateCalc();
   },
 
   setupEventCategoryPicker() {
@@ -1526,26 +1519,14 @@ const hubView = {
     this.renderEventCategoryChips();
   },
 
-  calcParticipantCost(durationDays, pricing) {
-    if (!pricing) pricing = {};
-    if (durationDays <= 7) return Number(pricing.cost_1_week || 4000);
-    if (durationDays <= 14) return Number(pricing.cost_2_weeks || 3000);
-    if (durationDays <= 30) return Number(pricing.cost_1_month || 2000);
-    if (durationDays <= 60) return Number(pricing.cost_2_months || 1500);
-    return Number(pricing.cost_3_months || 1000);
-  },
-
   async showEventPreview() {
-    // Validate required fields — title and description live in the
-    // composer's common section, the rest inside the event block.
     const title = document.getElementById('post-title').value.trim();
     const description = document.getElementById('post-description').value.trim();
     const coverUrl = document.getElementById('event-cover-url').value;
-    const startDate = document.getElementById('event-start-date').value;
-    const duration = Number(document.getElementById('event-duration').value);
     const budget = Number(document.getElementById('event-budget').value);
+    const costPerView = Number(document.getElementById('event-cost-per-view').value) || 100;
 
-    if (!title || !description || !coverUrl || !startDate || !budget) {
+    if (!title || !description || !coverUrl || !budget) {
       alert('Please fill in all required fields.');
       return;
     }
@@ -1555,14 +1536,9 @@ const hubView = {
       return;
     }
 
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + duration);
-
-    const { data: pricing } = await supabase.rpc('event_pricing_get', {});
-    const safePricing = pricing || {};
-    const perParticipantCost = this.calcParticipantCost(duration, safePricing);
-    const maxParticipants = Math.floor(budget / perParticipantCost);
-    const prizePool = budget * (1 - (safePricing.gliimu_fee_percent || 15) / 100);
+    const estViews = costPerView > 0 ? Math.floor(budget / costPerView) : 0;
+    const feePercent = 40;
+    const prizePool = budget * (1 - feePercent / 100);
 
     const previewModal = document.createElement('div');
     previewModal.className = 'modal-overlay';
@@ -1579,13 +1555,14 @@ const hubView = {
             <p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 16px;">${escapeHtml(description.substring(0, 150))}${description.length > 150 ? '...' : ''}</p>
             
             <div style="display: flex; gap: 16px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-              <div><strong>${duration}</strong> days</div>
-              <div><strong>${maxParticipants}</strong> participants max</div>
+              <div><strong>${estViews.toLocaleString()}</strong> views funded</div>
+              <div><strong>₦${costPerView}</strong> per view</div>
             </div>
 
             <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Prize Pool</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Prize Pool (${100 - feePercent}% of budget)</div>
               <div style="font-size: 20px; font-weight: 700; color: var(--brand-primary);">₦${prizePool.toLocaleString()}</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">1st: 30% | 2nd: 20% | 3rd: 10%</div>
             </div>
 
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
@@ -1597,9 +1574,8 @@ const hubView = {
         </div>
 
         <div style="margin-top: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; font-size: 13px;">
-          <div style="margin-bottom: 8px;"><strong>Start:</strong> ${new Date(startDate).toLocaleString()}</div>
-          <div style="margin-bottom: 8px;"><strong>End:</strong> ${endDate.toLocaleString()}</div>
-          <div><strong>Budget:</strong> ₦${budget.toLocaleString()}</div>
+          <div style="margin-bottom: 8px;"><strong>Budget:</strong> ₦${budget.toLocaleString()}</div>
+          <div><strong>Status:</strong> Goes live immediately</div>
         </div>
 
         <button class="btn-secondary" style="width: 100%; margin-top: 20px;" onclick="document.getElementById('event-preview-modal').remove()">Close Preview</button>
@@ -1609,18 +1585,16 @@ const hubView = {
   },
 
   async createEvent(modalEl) {
-    // Title and description come from the composer's common fields.
     const title = document.getElementById('post-title').value.trim();
     const description = document.getElementById('post-description').value.trim();
     const coverUrl = document.getElementById('event-cover-url').value;
-    const startDate = document.getElementById('event-start-date').value;
-    const duration = Number(document.getElementById('event-duration').value);
     const budget = Number(document.getElementById('event-budget').value);
+    const costPerView = Number(document.getElementById('event-cost-per-view').value) || 100;
     const teamMode = document.getElementById('event-team-mode').checked;
     const maxTeamSize = teamMode ? Number(document.getElementById('event-max-team-size').value) : null;
     const rules = document.getElementById('event-rules').value.trim();
 
-    if (!title || !description || !coverUrl || !startDate || !budget) {
+    if (!title || !description || !coverUrl || !budget) {
       alert('Please fill in all required fields.');
       return;
     }
@@ -1632,15 +1606,13 @@ const hubView = {
 
     const categoryIds = this.eventSelectedCategories.map(c => c.id);
 
-    // Create event via RPC
     const { data, error } = await supabase.rpc('event_create', {
       p_title: title,
       p_description: description,
       p_cover_url: coverUrl,
       p_category_ids: categoryIds,
-      p_start_date: new Date(startDate).toISOString(),
-      p_duration_days: duration,
       p_budget_naira: budget,
+      p_cost_per_view: costPerView,
       p_team_mode: teamMode,
       p_max_team_size: maxTeamSize,
       p_rules_text: rules || null
@@ -1653,9 +1625,8 @@ const hubView = {
 
     if (modalEl) modalEl.remove();
     this.clearComposerAutosave();
-    alert('Event created successfully! It will appear in the feed once enough participants join.');
+    alert('Event created and live! Participants can join now.');
 
-    // Refresh feed
     this.fetchPosts();
   },
 
@@ -2565,6 +2536,7 @@ const hubView = {
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                 </button>
               </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">₦50 per comment</div>
               <div class="comment-list" id="comment-list-${post.id}">
                 ${commentsHtml}
               </div>
@@ -2581,7 +2553,7 @@ const hubView = {
             <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
             <span>${comments}</span>
           </button>
-          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')">
+          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')" title="Earn 2 GP">
             <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
             <span>${shares}</span>
           </button>
@@ -2809,6 +2781,9 @@ const hubView = {
     const text = input.value.trim();
     if (!text) return;
 
+    const gate = await ensureAccess('comment', { itemId: postId });
+    if (!gate.allowed) { await showBillingDenied(gate); return; }
+
     const post = this.currentPosts.find(p => p.id === postId);
     const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();
 
@@ -2880,6 +2855,7 @@ const hubView = {
     if (data) this.allInteractions.push(data);
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
+    await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 2 });
 
     this.closeModal();
     this.openReadView(postId);

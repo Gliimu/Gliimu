@@ -757,7 +757,7 @@ begin
 
   if p_event_type is null or p_event_type not in
      ('publication', 'bundle', 'audiolite', 'gliim', 'gliim_av', 'gliim_image',
-      'live', 'profile_print', 'premium_unlock') then
+      'live', 'profile_print', 'premium_unlock', 'comment') then
     return jsonb_build_object('allowed', false, 'code', 'UNKNOWN_EVENT');
   end if;
 
