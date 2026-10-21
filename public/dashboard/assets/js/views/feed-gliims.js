@@ -2651,9 +2651,24 @@ const hubView = {
     root.querySelectorAll('.read-block-audio').forEach(a => {
       const eq = a.closest('.read-block-audio-wrapper')?.querySelector('.lib-eq');
       if (!eq) return;
-      a.addEventListener('play', () => eq.classList.add('playing'));
+      
+      // Ensure audio can play (fix for browser autoplay policies)
+      a.preload = 'metadata';
+      a.setAttribute('playsinline', '');
+      
+      a.addEventListener('play', () => {
+        eq.classList.add('playing');
+        // Ensure volume is up
+        if (a.muted) a.muted = false;
+        if (a.volume === 0) a.volume = 1.0;
+      });
       a.addEventListener('pause', () => eq.classList.remove('playing'));
       a.addEventListener('ended', () => eq.classList.remove('playing'));
+      
+      // Add error handling
+      a.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e, 'Source:', a.src);
+      });
     });
 
     root.querySelectorAll('.read-video-player').forEach(fig => {
