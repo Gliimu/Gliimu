@@ -126,6 +126,9 @@ alter table public.events add column if not exists total_views int not null defa
 
 -- Migration: update status constraint (drop old, add new)
 alter table public.events drop constraint if exists events_status_check;
+-- Map old status values to the new lifecycle before re-adding the constraint
+update public.events set status = 'live' where status in ('recruiting', 'active', 'full');
+update public.events set status = 'ended' where status in ('completed', 'archived');
 alter table public.events add constraint events_status_check check (status in ('live', 'ended', 'cancelled'));
 
 -- Migration: update default status
