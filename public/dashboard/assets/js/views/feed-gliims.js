@@ -2066,17 +2066,34 @@ const hubView = {
           <div id="event-tab-posts" class="event-tab-content" style="display: none;">
             ${canPost ? `
               <div style="margin-bottom: 24px; padding: 20px; border: 2px solid var(--border); border-radius: 12px;">
-                <textarea id="event-post-content" class="input" rows="4" placeholder="Share your progress, ideas, or submission..."></textarea>
-                <button class="btn-primary" style="margin-top: 12px; width: 100%;" onclick="hubInstance.createEventPost('${eventId}')">Post</button>
+                <h4 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700;">Share your progress</h4>
+                
+                <div id="event-blocks-container" style="margin-bottom: 16px;"></div>
+                
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                  <button class="btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;" onclick="hubInstance.addEventBlock('text')">
+                    <span style="font-weight: 700;">Aa</span> Text
+                  </button>
+                  <button class="btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;" onclick="hubInstance.addEventBlock('image')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    Image
+                  </button>
+                  <button class="btn-secondary" style="flex: 1; padding: 10px; font-size: 13px;" onclick="hubInstance.addEventBlock('document')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                    Document
+                  </button>
+                </div>
+                
+                <button class="btn-primary" style="width: 100%; padding: 12px;" onclick="hubInstance.createEventPost('${eventId}')">Post to Event</button>
               </div>
             ` : !isParticipant ? `
               <div style="text-align: center; padding: 40px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
                 <p style="color: var(--text-muted); margin-bottom: 16px;">Join this event to participate and post.</p>
-                ${event.status === 'recruiting' ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
+                ${event.status === 'recruiting' && event.current_participants < event.max_participants ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
               </div>
             ` : ''}
             
-            ${(posts || []).length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No posts yet.</p>' : ''}
+            ${(posts || []).length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No posts yet. Be the first to share your progress!</p>' : ''}
             ${(posts || []).map(post => `
               <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
@@ -2086,7 +2103,14 @@ const hubView = {
                     <div style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
                   </div>
                 </div>
-                <div style="color: var(--text-secondary); line-height: 1.6;">${escapeHtml(JSON.stringify(post.content_blocks))}</div>
+                <div style="color: var(--text-secondary); line-height: 1.6;">
+                  ${(post.content_blocks || []).map(block => {
+                    if (block.type === 'text') return `<div style="margin-bottom: 12px;">${escapeHtml(block.content)}</div>`;
+                    if (block.type === 'image') return `<div style="margin-bottom: 12px;"><img src="${block.content}" style="max-width: 100%; border-radius: 8px;">${block.caption ? `<p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">${escapeHtml(block.caption)}</p>` : ''}</div>`;
+                    if (block.type === 'document') return `<div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px;"><a href="${block.content}" target="_blank" style="color: var(--brand-primary);">${escapeHtml(block.filename || 'Download document')}</a></div>`;
+                    return '';
+                  }).join('')}
+                </div>
                 <div style="display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
                   <button style="background: none; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px;" onclick="hubInstance.likeEventPost('${post.id}')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -2119,14 +2143,137 @@ const hubView = {
     });
   },
 
+  addEventBlock(type) {
+    const container = document.getElementById('event-blocks-container');
+    if (!container) return;
+
+    const blockDiv = document.createElement('div');
+    blockDiv.className = 'event-block';
+    blockDiv.dataset.type = type;
+    blockDiv.style.cssText = 'margin-bottom: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-tertiary);';
+
+    if (type === 'text') {
+      blockDiv.innerHTML = `
+        <textarea class="event-block-content" placeholder="Write something..." style="width: 100%; min-height: 80px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
+        <button onclick="this.parentElement.remove()" style="margin-top: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">Remove</button>
+      `;
+    } else if (type === 'image') {
+      blockDiv.innerHTML = `
+        <input type="file" class="event-block-file" accept="image/*" style="margin-bottom: 8px;">
+        <div class="event-block-preview" style="margin-top: 8px;"></div>
+        <input type="text" class="event-block-caption" placeholder="Caption (optional)" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; margin-top: 8px;">
+        <div class="event-block-status" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
+        <button onclick="this.parentElement.remove()" style="margin-top: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">Remove</button>
+      `;
+
+      const fileInput = blockDiv.querySelector('.event-block-file');
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const status = blockDiv.querySelector('.event-block-status');
+        status.innerText = 'Uploading...';
+        status.style.color = 'var(--brand-primary)';
+
+        try {
+          const { uploadFile } = await import('../upload.js');
+          const url = await uploadFile(file, 'event-posts');
+          
+          const preview = blockDiv.querySelector('.event-block-preview');
+          preview.innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 6px;">`;
+          
+          blockDiv.dataset.uploadedUrl = url;
+          status.innerText = 'Upload complete!';
+          status.style.color = 'var(--success, #10b981)';
+        } catch (err) {
+          status.innerText = 'Upload failed: ' + err.message;
+          status.style.color = 'var(--danger, #ef4444)';
+        }
+      });
+    } else if (type === 'document') {
+      blockDiv.innerHTML = `
+        <input type="file" class="event-block-file" accept=".pdf,.doc,.docx,.txt" style="margin-bottom: 8px;">
+        <div class="event-block-filename" style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;"></div>
+        <div class="event-block-status" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></div>
+        <button onclick="this.parentElement.remove()" style="margin-top: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;">Remove</button>
+      `;
+
+      const fileInput = blockDiv.querySelector('.event-block-file');
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const status = blockDiv.querySelector('.event-block-status');
+        const filenameDiv = blockDiv.querySelector('.event-block-filename');
+        
+        status.innerText = 'Uploading...';
+        status.style.color = 'var(--brand-primary)';
+
+        try {
+          const { uploadFile } = await import('../upload.js');
+          const url = await uploadFile(file, 'event-posts');
+          
+          blockDiv.dataset.uploadedUrl = url;
+          blockDiv.dataset.filename = file.name;
+          filenameDiv.innerText = file.name;
+          status.innerText = 'Upload complete!';
+          status.style.color = 'var(--success, #10b981)';
+        } catch (err) {
+          status.innerText = 'Upload failed: ' + err.message;
+          status.style.color = 'var(--danger, #ef4444)';
+        }
+      });
+    }
+
+    container.appendChild(blockDiv);
+  },
+
   async createEventPost(eventId) {
-    const content = document.getElementById('event-post-content').value.trim();
-    if (!content) {
-      alert('Please write something.');
+    const container = document.getElementById('event-blocks-container');
+    if (!container || container.children.length === 0) {
+      alert('Please add at least one block (text, image, or document).');
       return;
     }
 
-    const contentBlocks = [{ type: 'text', content }];
+    const contentBlocks = [];
+    let hasError = false;
+
+    container.querySelectorAll('.event-block').forEach(block => {
+      const type = block.dataset.type;
+
+      if (type === 'text') {
+        const content = block.querySelector('.event-block-content').value.trim();
+        if (content) {
+          contentBlocks.push({ type: 'text', content });
+        }
+      } else if (type === 'image') {
+        const url = block.dataset.uploadedUrl;
+        if (!url) {
+          hasError = true;
+          return;
+        }
+        const caption = block.querySelector('.event-block-caption')?.value.trim() || '';
+        contentBlocks.push({ type: 'image', content: url, caption });
+      } else if (type === 'document') {
+        const url = block.dataset.uploadedUrl;
+        const filename = block.dataset.filename;
+        if (!url) {
+          hasError = true;
+          return;
+        }
+        contentBlocks.push({ type: 'document', content: url, filename });
+      }
+    });
+
+    if (hasError) {
+      alert('Some files are still uploading. Please wait and try again.');
+      return;
+    }
+
+    if (contentBlocks.length === 0) {
+      alert('Please add some content before posting.');
+      return;
+    }
 
     const { data, error } = await supabase.rpc('event_post_create', {
       p_event_id: eventId,
@@ -2754,6 +2901,7 @@ window.hubInstance = {
   joinEvent: (id) => hubView.joinEvent(id),
   createEventPost: (id) => hubView.createEventPost(id),
   likeEventPost: (id) => hubView.likeEventPost(id),
+  addEventBlock: (type) => hubView.addEventBlock(type),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
