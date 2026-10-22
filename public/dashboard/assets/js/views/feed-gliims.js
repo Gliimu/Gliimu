@@ -363,16 +363,9 @@ const hubView = {
       const q = input.value.trim();
       clearTimeout(timer);
 
-      if (q.length < 2 && !q.startsWith('#')) { results.innerHTML = ''; return; }
+      if (q.length < 2) { results.innerHTML = ''; return; }
 
-      timer = setTimeout(async () => {
-        // '#Tag an event': only events the user hosts or participates in.
-        if (q.startsWith('#')) {
-          await this.searchTaggableEvents(q.slice(1).trim(), input, results);
-          return;
-        }
-
-        const { data } = await supabase.from('profiles')
+      timer = setTimeout(async () => {        const { data } = await supabase.from('profiles')
           .select('id, full_name, avatar_url, total_gp')
           .ilike('full_name', `%${q}%`)
           .neq('id', store.user.id)
@@ -406,70 +399,16 @@ const hubView = {
     });
   },
 
-  async searchTaggableEvents(query, input, results) {
-    const [{ data: joined }, { data: hosted }] = await Promise.all([
-      supabase.from('event_participants').select('event_id').eq('user_id', store.user.id),
-      supabase.from('events').select('id, title, status').eq('host_id', store.user.id).in('status', ['live'])
-    ]);
-
-    const joinedIds = (joined || []).map(r => r.event_id);
-    let participations = [];
-    if (joinedIds.length) {
-      const { data } = await supabase.from('events')
-        .select('id, title, status')
-        .in('id', joinedIds)
-        .in('status', ['live']);
-      participations = data || [];
-    }
-
-    const lower = query.toLowerCase();
-    const seen = new Set(this.taggedEvent ? [this.taggedEvent.id] : []);
-    const list = [...(hosted || []), ...participations].filter(e => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return !query || (e.title || '').toLowerCase().includes(lower);
-    });
-
-    if (list.length === 0) {
-      results.innerHTML = '<div class="hub-tag-empty">No events found. You can only tag events you host or participate in.</div>';
-      return;
-    }
-
-    const calSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg>';
-    results.innerHTML = list.map(e => `
-      <div class="hub-tag-result" data-event-id="${e.id}">${calSvg}<span>#${escapeHtml(e.title)}</span></div>
-    `).join('');
-
-    results.querySelectorAll('.hub-tag-result').forEach(row => {
-      row.addEventListener('click', () => {
-        const e = list.find(x => x.id === row.dataset.eventId);
-        if (!e) return;
-        this.taggedEvent = { id: e.id, title: e.title };
-        input.value = '';
-        results.innerHTML = '';
-        this.renderTagChips();
-        input.focus();
-      });
-    });
-  },
-
   renderTagChips() {
     const chips = document.getElementById('tag-chips');
     if (!chips) return;
     chips.innerHTML = this.taggedUsers.map((u, i) => `
       <span class="hub-tag-chip"><span>@${escapeHtml(u.full_name)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeTag(${i})">&times;</button></span>
-    `).join('') + (this.taggedEvent ? `
-      <span class="hub-tag-chip"><span>#${escapeHtml(this.taggedEvent.title)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeEventTag()">&times;</button></span>
-    ` : '');
+    `).join('');
   },
 
   removeTag(index) {
     this.taggedUsers.splice(index, 1);
-    this.renderTagChips();
-  },
-
-  removeEventTag() {
-    this.taggedEvent = null;
     this.renderTagChips();
   },
 
@@ -520,10 +459,10 @@ const hubView = {
           <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
         </div>
         <div class="form-group">
-          <label>Tag People or Events (optional)</label>
+          <label>Tag People (optional)</label>
           <div class="hub-tag-picker">
             <div class="hub-tag-chips" id="tag-chips"></div>
-            <input type="text" id="tag-search" class="input" placeholder="Type a name to tag someone, or # to tag an event..." autocomplete="off">
+            <input type="text" id="tag-search" class="input" placeholder="Type a name to tag someone..." autocomplete="off">
             <div class="hub-tag-results" id="tag-results"></div>
           </div>
         </div>
@@ -554,7 +493,6 @@ const hubView = {
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
             <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
             <div onclick="hubInstance.addBlock('poll')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Pool</div>
-            <div onclick="hubInstance.addBlock('event')" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg> Event</div>
           </div>
         </div>
 
@@ -567,7 +505,6 @@ const hubView = {
     document.body.appendChild(modal);
 
     this.taggedUsers = [];
-    this.taggedEvent = null;
     this.setupTagPicker();
 
     document.getElementById('add-block-trigger').addEventListener('click', (e) => {
@@ -589,11 +526,6 @@ const hubView = {
 
       if (!title) return alert("Title is required.");
 
-      // An Event block turns this gliim into an event — publish runs the
-      // event path instead of the normal feed_gliims insert.
-      const eventBlock = document.querySelector('.builder-block[data-type="event"]');
-      if (eventBlock) return this.createEvent(modal);
-
       // Every pool block must be complete before we can publish.
       for (const pb of document.querySelectorAll('.builder-block[data-type="poll"]')) {
         let poll = null;
@@ -605,8 +537,7 @@ const hubView = {
       }
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
-      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -649,7 +580,6 @@ const hubView = {
         cover_url: coverUrl,
         user_id: store.user.id
       };
-      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
       const premiumToggle = document.getElementById('post-premium-toggle');
       if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
@@ -696,8 +626,7 @@ const hubView = {
       if (!title) return alert("Title is required even for drafts.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
-      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -733,7 +662,6 @@ const hubView = {
         user_id: store.user.id,
         status: 'draft'
       };
-      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
 
       const { error } = await supabase.from('feed_gliims').insert(payload);
 
@@ -888,8 +816,7 @@ const hubView = {
       if (!title) return alert("Title is required.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
-      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -924,7 +851,6 @@ const hubView = {
         cover_url: coverUrl,
         status: 'approved'
       };
-      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
       const premiumToggle = document.getElementById('post-premium-toggle');
       if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
@@ -976,8 +902,7 @@ const hubView = {
       if (!title) return alert("Title is required even for drafts.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const eventSuffix = this.taggedEvent ? `#${this.taggedEvent.title}` : '';
-      const description = [rawDescription, tagSuffix, eventSuffix].filter(Boolean).join(' ');
+      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -1010,7 +935,6 @@ const hubView = {
         cover_url: coverUrl,
         status: 'draft'
       };
-      if (this.taggedEvent) payload.event_id = this.taggedEvent.id;
 
       const { error } = await supabase.from('feed_gliims').update(payload).eq('id', this.editingDraftId);
 
@@ -1058,7 +982,6 @@ const hubView = {
     if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
     if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
     if (type === 'poll') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
-    if (type === 'event') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
@@ -1071,58 +994,6 @@ const hubView = {
         <div class="poll-options" style="display: flex; flex-direction: column; gap: 8px;"></div>
         <button type="button" class="btn-secondary poll-add-option" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">+ Add Option</button>
         <input type="hidden" class="block-content-input">
-      `;
-    } else if (type === 'event') {
-      // Title and description come from the composer's common fields —
-      // this block only holds the event-specific settings.
-      inputHtml = `
-        <div class="form-group">
-          <label>Categories * (select up to 2)</label>
-          <div class="hub-tag-picker">
-            <div class="hub-tag-chips" id="event-category-chips"></div>
-            <input type="text" id="event-category-search" class="input" placeholder="Search categories..." autocomplete="off">
-            <div class="hub-tag-results" id="event-category-results"></div>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Cover Image *</label>
-          <label class="custom-file-upload" style="display: block;">
-            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-            <span id="event-cover-name">Choose cover image</span>
-            <input type="file" id="event-cover-input" accept="image/*" hidden>
-          </label>
-          <div id="event-cover-status" style="font-size: 12px; margin-top: 8px;"></div>
-          <div id="event-cover-preview" style="margin-top: 8px;"></div>
-          <input type="hidden" id="event-cover-url">
-        </div>
-        <div class="form-row" style="gap: 16px;">
-          <div class="form-group" style="flex: 1;">
-            <label id="event-budget-label">Budget *</label>
-            <input type="number" id="event-budget" class="input" step="1000" placeholder="e.g., 50000">
-          </div>
-          <div class="form-group" style="flex: 1;">
-            <label>Cost per View (₦)</label>
-            <input type="number" id="event-cost-per-view" class="input" step="10" value="100" min="10">
-          </div>
-        </div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: -8px; margin-bottom: 16px;">
-          Estimated views: <strong id="event-est-views">-</strong> |
-          Prize pool: <strong id="event-prize-pool">60%</strong> of budget (30% / 20% / 10%)
-        </div>
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-            <input type="checkbox" id="event-team-mode" style="width: 18px; height: 18px; accent-color: var(--brand-primary);">
-            <span><strong>Team Mode</strong> — allow participants to form teams</span>
-          </label>
-          <div id="event-team-size-group" style="display: none; margin-top: 12px;">
-            <label>Max team size (1-3)</label>
-            <input type="number" id="event-max-team-size" class="input" min="1" max="3" value="3">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Rules & Guidelines (optional)</label>
-          <textarea id="event-rules" class="input" rows="3" placeholder="Any specific rules for participants..."></textarea>
-        </div>
       `;
     } else if (type === 'pdf') {
       const pdfSlot = (i) => `
@@ -1163,39 +1034,6 @@ const hubView = {
 
     blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
-
-    if (type === 'event') {
-      // An event is the whole post — drop any other blocks, hide the
-      // block menu, and swap Save Draft for Preview (events can't draft).
-      blocksContainer.querySelectorAll('.builder-block:not([data-type="event"])').forEach(b => b.remove());
-      document.getElementById('add-block-trigger').style.display = 'none';
-      document.getElementById('post-category-group').style.display = 'none';
-      const draftBtn = document.getElementById('save-draft-btn');
-      if (draftBtn) draftBtn.style.display = 'none';
-      const btnRow = draftBtn ? draftBtn.parentElement : null;
-      if (btnRow && !document.getElementById('event-preview-btn')) {
-        const previewBtn = document.createElement('button');
-        previewBtn.id = 'event-preview-btn';
-        previewBtn.className = 'btn-secondary';
-        previewBtn.style.flex = '1';
-        previewBtn.textContent = 'Preview';
-        previewBtn.onclick = () => this.showEventPreview();
-        btnRow.insertBefore(previewBtn, btnRow.firstChild);
-      }
-      const eventRemoveBtn = blockDiv.querySelector('.block-remove-btn');
-      eventRemoveBtn.onclick = () => {
-        blockDiv.remove();
-        document.getElementById('add-block-trigger').style.display = '';
-        document.getElementById('post-category-group').style.display = '';
-        const preview = document.getElementById('event-preview-btn');
-        if (preview) preview.remove();
-        const restoredDraft = document.getElementById('save-draft-btn');
-        if (restoredDraft) restoredDraft.style.display = '';
-        this.saveComposerState();
-      };
-      this.initEventBlock();
-      return;
-    }
 
     if (type === 'poll') {
       const optionsDiv = blockDiv.querySelector('.poll-options');
@@ -1383,253 +1221,6 @@ const hubView = {
     }
   },
 
-  async initEventBlock() {
-    // Fetch categories and pricing, then wire the event block's controls.
-    const [catRes, pricingRes] = await Promise.all([
-      supabase.rpc('event_categories_list', {}),
-      supabase.rpc('event_pricing_get', {})
-    ]);
-
-    const categories = catRes.data || [];
-    const pricing = pricingRes.data || {};
-
-    this.eventSelectedCategories = [];
-    this.eventAllCategories = categories;
-    this.setupEventCategoryPicker();
-
-    const budgetLabel = document.getElementById('event-budget-label');
-    const budgetInput = document.getElementById('event-budget');
-    const minBudget = Number(pricing.min_budget || 10000);
-    if (budgetLabel) budgetLabel.textContent = `Budget / Prize Pool * (minimum ₦${minBudget.toLocaleString()})`;
-    if (budgetInput) budgetInput.min = minBudget;
-
-    // Cover image upload
-    const coverInput = document.getElementById('event-cover-input');
-    coverInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const statusEl = document.getElementById('event-cover-status');
-      const urlEl = document.getElementById('event-cover-url');
-      statusEl.style.color = 'var(--brand-primary)';
-      statusEl.textContent = 'Uploading... 0%';
-      try {
-        const fileUrl = await uploadFile(file, 'media', (percent) => {
-          statusEl.textContent = `Uploading... ${percent}%`;
-        });
-        urlEl.value = fileUrl;
-        statusEl.textContent = 'Upload complete!';
-        statusEl.style.color = 'var(--success)';
-        document.getElementById('event-cover-name').textContent = 'Cover uploaded';
-        document.getElementById('event-cover-preview').innerHTML = `<img src="${fileUrl}" style="max-width: 200px; border-radius: 8px;">`;
-      } catch (err) {
-        statusEl.style.color = 'var(--error)';
-        statusEl.textContent = err.message || 'Upload failed.';
-      }
-    });
-
-    // Team mode toggle
-    document.getElementById('event-team-mode').addEventListener('change', (e) => {
-      document.getElementById('event-team-size-group').style.display = e.target.checked ? 'block' : 'none';
-    });
-
-    // Budget calculation
-    const costPerViewInput = document.getElementById('event-cost-per-view');
-    const defaultCpv = Number(pricing.cost_per_view || 100);
-    if (costPerViewInput && !costPerViewInput.value) costPerViewInput.value = defaultCpv;
-    const feePercent = Number(pricing.gliimu_fee_percent || 40);
-    const updateCalc = () => {
-      const budget = Number(budgetInput.value) || 0;
-      const cpv = Number(costPerViewInput.value) || defaultCpv;
-      const estViews = cpv > 0 ? Math.floor(budget / cpv) : 0;
-      document.getElementById('event-est-views').textContent = estViews > 0 ? estViews.toLocaleString() : '-';
-      const prizePool = budget * (1 - feePercent / 100);
-      document.getElementById('event-prize-pool').textContent = `${100 - feePercent}% (₦${prizePool.toLocaleString()})`;
-    };
-    budgetInput.addEventListener('input', updateCalc);
-    costPerViewInput.addEventListener('input', updateCalc);
-    updateCalc();
-  },
-
-  setupEventCategoryPicker() {
-    const searchInput = document.getElementById('event-category-search');
-    const resultsDiv = document.getElementById('event-category-results');
-    const chipsDiv = document.getElementById('event-category-chips');
-
-    searchInput.addEventListener('input', () => {
-      const query = searchInput.value.toLowerCase().trim();
-      if (!query) {
-        resultsDiv.style.display = 'none';
-        return;
-      }
-
-      const matches = this.eventAllCategories.filter(c =>
-        c.name.toLowerCase().includes(query) &&
-        !this.eventSelectedCategories.find(sc => sc.id === c.id)
-      ).slice(0, 5);
-
-      if (matches.length === 0) {
-        resultsDiv.style.display = 'none';
-        return;
-      }
-
-      resultsDiv.innerHTML = matches.map(c => `
-        <div class="hub-tag-result" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
-          ${c.icon_url ? `<img src="${c.icon_url}" alt="" style="width: 20px; height: 20px; border-radius: 4px;">` : ''}
-          <div>
-            <div style="font-weight: 500;">${escapeHtml(c.name)}</div>
-            ${c.description ? `<div style="font-size: 12px; color: var(--text-muted);">${escapeHtml(c.description)}</div>` : ''}
-          </div>
-        </div>
-      `).join('');
-      resultsDiv.style.display = 'block';
-
-      resultsDiv.querySelectorAll('.hub-tag-result').forEach(el => {
-        el.addEventListener('click', () => {
-          if (this.eventSelectedCategories.length >= 2) {
-            alert('You can select up to 2 categories.');
-            return;
-          }
-          const id = el.dataset.id;
-          const name = el.dataset.name;
-          this.eventSelectedCategories.push({ id, name });
-          this.renderEventCategoryChips();
-          searchInput.value = '';
-          resultsDiv.style.display = 'none';
-        });
-      });
-    });
-
-    searchInput.addEventListener('blur', () => {
-      setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
-    });
-  },
-
-  renderEventCategoryChips() {
-    const chipsDiv = document.getElementById('event-category-chips');
-    chipsDiv.innerHTML = this.eventSelectedCategories.map((c, i) => `
-      <span class="hub-tag-chip">
-        ${escapeHtml(c.name)}
-        <button type="button" onclick="hubInstance.removeEventCategory(${i})" style="background: none; border: none; color: inherit; cursor: pointer; padding: 0; margin-left: 4px;">×</button>
-      </span>
-    `).join('');
-  },
-
-  removeEventCategory(index) {
-    this.eventSelectedCategories.splice(index, 1);
-    this.renderEventCategoryChips();
-  },
-
-  async showEventPreview() {
-    const title = document.getElementById('post-title').value.trim();
-    const description = document.getElementById('post-description').value.trim();
-    const coverUrl = document.getElementById('event-cover-url').value;
-    const budget = Number(document.getElementById('event-budget').value);
-    const costPerView = Number(document.getElementById('event-cost-per-view').value) || 100;
-
-    if (!title || !description || !coverUrl || !budget) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
-    if (this.eventSelectedCategories.length === 0) {
-      alert('Please select at least one category.');
-      return;
-    }
-
-    const estViews = costPerView > 0 ? Math.floor(budget / costPerView) : 0;
-    const feePercent = 40;
-    const prizePool = budget * (1 - feePercent / 100);
-
-    const previewModal = document.createElement('div');
-    previewModal.className = 'modal-overlay';
-    previewModal.id = 'event-preview-modal';
-    previewModal.innerHTML = `
-      <div class="modal-content" style="max-width: 500px;">
-        <button class="modal-close" onclick="document.getElementById('event-preview-modal').remove()">×</button>
-        <h2 style="margin-bottom: 24px;">Event Preview</h2>
-        
-        <div class="event-card-preview" style="border: 2px solid var(--border); border-radius: 12px; overflow: hidden;">
-          <div style="height: 200px; background: url('${coverUrl}') center/cover no-repeat;"></div>
-          <div style="padding: 20px;">
-            <h3 style="margin: 0 0 12px;">${escapeHtml(title)}</h3>
-            <p style="color: var(--text-secondary); font-size: 14px; margin: 0 0 16px;">${escapeHtml(description.substring(0, 150))}${description.length > 150 ? '...' : ''}</p>
-            
-            <div style="display: flex; gap: 16px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-              <div><strong>${estViews.toLocaleString()}</strong> views funded</div>
-              <div><strong>₦${costPerView}</strong> per view</div>
-            </div>
-
-            <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
-              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Prize Pool (${100 - feePercent}% of budget)</div>
-              <div style="font-size: 20px; font-weight: 700; color: var(--brand-primary);">₦${prizePool.toLocaleString()}</div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">1st: 30% | 2nd: 20% | 3rd: 10%</div>
-            </div>
-
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
-              ${this.eventSelectedCategories.map(c => `<span style="background: var(--brand-primary); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px;">${escapeHtml(c.name)}</span>`).join('')}
-            </div>
-
-            <button class="btn-primary" style="width: 100%;">Join Event</button>
-          </div>
-        </div>
-
-        <div style="margin-top: 20px; padding: 16px; background: var(--bg-tertiary); border-radius: 8px; font-size: 13px;">
-          <div style="margin-bottom: 8px;"><strong>Budget:</strong> ₦${budget.toLocaleString()}</div>
-          <div><strong>Status:</strong> Goes live immediately</div>
-        </div>
-
-        <button class="btn-secondary" style="width: 100%; margin-top: 20px;" onclick="document.getElementById('event-preview-modal').remove()">Close Preview</button>
-      </div>
-    `;
-    document.body.appendChild(previewModal);
-  },
-
-  async createEvent(modalEl) {
-    const title = document.getElementById('post-title').value.trim();
-    const description = document.getElementById('post-description').value.trim();
-    const coverUrl = document.getElementById('event-cover-url').value;
-    const budget = Number(document.getElementById('event-budget').value);
-    const costPerView = Number(document.getElementById('event-cost-per-view').value) || 100;
-    const teamMode = document.getElementById('event-team-mode').checked;
-    const maxTeamSize = teamMode ? Number(document.getElementById('event-max-team-size').value) : null;
-    const rules = document.getElementById('event-rules').value.trim();
-
-    if (!title || !description || !coverUrl || !budget) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
-    if (this.eventSelectedCategories.length === 0) {
-      alert('Please select at least one category.');
-      return;
-    }
-
-    const categoryIds = this.eventSelectedCategories.map(c => c.id);
-
-    const { data, error } = await supabase.rpc('event_create', {
-      p_title: title,
-      p_description: description,
-      p_cover_url: coverUrl,
-      p_category_ids: categoryIds,
-      p_budget_naira: budget,
-      p_cost_per_view: costPerView,
-      p_team_mode: teamMode,
-      p_max_team_size: maxTeamSize,
-      p_rules_text: rules || null
-    });
-
-    if (error || !data || !data.ok) {
-      alert(`Failed to create event: ${data?.code || error?.message || 'Unknown error'}`);
-      return;
-    }
-
-    if (modalEl) modalEl.remove();
-    this.clearComposerAutosave();
-    alert('Event created and live! Participants can join now.');
-
-    this.fetchPosts();
-  },
-
   // Autosave: serialize composer state to localStorage so a refresh doesn't
   // wipe the user's work-in-progress.
   saveComposerState() {
@@ -1786,34 +1377,18 @@ const hubView = {
       supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }),
       supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
-      supabase.from('saved_items').select('item_id').eq('user_id', store.user.id),
-      supabase.from('events').select(`
-        id, host_id, title, description, cover_url, status,
-        budget_naira, cost_per_view, total_views,
-        team_mode, created_at,
-        profiles:profiles!host_id(full_name, avatar_url, total_gp)
-      `).in('status', ['live', 'ended']).order('created_at', { ascending: false })
+      supabase.from('saved_items').select('item_id').eq('user_id', store.user.id)
     ]);
 
-    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }, { data: events }] = await load(colsFull);
+    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
     if (error) {
       // Pre-migration fallback: feed_gliims.is_premium / feed_gliims.status may not exist yet.
-      [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }, { data: events }] = await load(colsLegacy);
+      [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsLegacy);
     }
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
     this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
-    this.currentEvents = events || [];
-    
-    // Fetch top 3 participants for each event card
-    this.eventLeaderboards = {};
-    for (const event of this.currentEvents) {
-      const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: event.id });
-      if (leaderboardData?.leaderboard) {
-        this.eventLeaderboards[event.id] = leaderboardData.leaderboard.slice(0, 3);
-      }
-    }
     
     // A row with no status predates moderation and stays visible; approved gliims
     // reach the feed; drafts are visible to their owners.
@@ -1949,306 +1524,15 @@ const hubView = {
     if (!container) return;
     const filtered = this.filterPosts(feed_gliims);
     
-    // Render events first (if any), then regular posts
-    const eventsHtml = (this.currentEvents || []).map(event => this.renderEventCard(event)).join('');
     const postsHtml = filtered.map(post => this.renderPostCard(post)).join('');
     
-    if (!eventsHtml && filtered.length === 0) { 
+    if (filtered.length === 0) { 
       container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; 
       return; 
     }
     
     container.className = 'blog-feed';
-    container.innerHTML = eventsHtml + postsHtml;
-  },
-
-  renderEventCard(event) {
-    const remaining = Math.max(0, (event.budget_naira || 0) - ((event.total_views || 0) * (event.cost_per_view || 0)));
-    const budgetPct = event.budget_naira > 0 ? (remaining / event.budget_naira) * 100 : 0;
-    const isLive = event.status === 'live';
-
-    const statusBadge = isLive
-      ? `<span style="background: #10B981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Live</span>`
-      : `<span style="background: #6B7280; color: white; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 700;">Ended</span>`;
-
-    const coverHtml = event.cover_url
-      ? `<div class="event-card-cover" style="background-image: url('${event.cover_url}');"></div>`
-      : `<div class="event-card-cover" style="background: var(--gradient-primary);"></div>`;
-
-    const topParticipants = this.eventLeaderboards?.[event.id] || [];
-    const topAvatarsHtml = topParticipants.length > 0 ? `
-      <div style="display: flex; align-items: center; gap: 0; margin: 12px 0;">
-        ${topParticipants.slice(0, 3).map((p, i) => `
-          <img src="${p.avatar_url || ''}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid white; margin-left: ${i > 0 ? '-8px' : '0'}; background: var(--surface-secondary);" onerror="this.style.visibility='hidden'">
-        `).join('')}
-        ${topParticipants.length > 3 ? `<span style="margin-left: 4px; font-size: 12px; color: var(--text-muted);">+${topParticipants.length - 3}</span>` : ''}
-      </div>
-    ` : '';
-
-    const joinButton = isLive ? `
-      <button class="btn-primary event-card-btn" onclick="event.stopPropagation(); hubInstance.joinEvent('${event.id}')">
-        Join Event
-      </button>
-    ` : '';
-
-    return `
-      <article class="event-card" onclick="hubInstance.openEventPage('${event.id}')" style="position: relative;">
-        ${coverHtml}
-        <div style="position: absolute; top: 12px; right: 12px; z-index: 2;">${statusBadge}</div>
-        <div class="event-card-body">
-          <h3 class="event-card-title" style="margin-bottom: 8px;">${escapeHtml(event.title)}</h3>
-          <p class="event-card-desc">${escapeHtml((event.description || '').substring(0, 100))}${event.description && event.description.length > 100 ? '...' : ''}</p>
-
-          ${topAvatarsHtml}
-
-          <div style="display: flex; align-items: center; gap: 12px; margin: 12px 0;">
-            <div style="flex: 1; height: 6px; background: var(--surface-secondary, #e5e7eb); border-radius: 3px; overflow: hidden;">
-              <div style="width: ${budgetPct}%; height: 100%; background: ${budgetPct > 30 ? '#10B981' : budgetPct > 10 ? '#F59E0B' : '#EF4444'}; border-radius: 3px; transition: width 0.3s;"></div>
-            </div>
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-secondary); white-space: nowrap;">₦${remaining.toLocaleString()}</span>
-          </div>
-
-          <div class="event-card-stats">
-            <div class="event-stat">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              <span>${event.current_participants || 0} joined</span>
-            </div>
-            <div class="event-stat">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-              <span>₦${Number(event.budget_naira || 0).toLocaleString()} budget</span>
-            </div>
-          </div>
-
-          ${joinButton}
-        </div>
-      </article>
-    `;
-  },
-
-  getEventBudgetRemaining(event) {
-    return Math.max(0, (event.budget_naira || 0) - ((event.total_views || 0) * (event.cost_per_view || 0)));
-  },
-
-  async openEventPage(eventId) {
-    const { data: event, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        profiles:profiles!host_id(full_name, avatar_url, total_gp)
-      `)
-      .eq('id', eventId)
-      .single();
-
-    if (error || !event) {
-      alert('Event not found.');
-      return;
-    }
-
-    const { data: leaderboardData } = await supabase.rpc('event_leaderboard', { p_event_id: eventId });
-    const leaderboard = leaderboardData?.leaderboard || [];
-
-    const { data: taggedPosts } = await supabase
-      .from('feed_gliims')
-      .select(`
-        id, title, category, description, cover_url, views, created_at, user_id, status,
-        profiles:profiles!user_id(full_name, avatar_url, total_gp)
-      `)
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false });
-
-    const posts = (taggedPosts || []).filter(p => !p.status || p.status === 'approved');
-
-    // Fetch interactions for comment/share counts
-    const postIds = posts.map(p => p.id);
-    let interactionsMap = {};
-    if (postIds.length > 0) {
-      const { data: interactions } = await supabase
-        .from('feed_interactions')
-        .select('post_id, interaction_type')
-        .in('post_id', postIds);
-      
-      (interactions || []).forEach(i => {
-        if (!interactionsMap[i.post_id]) interactionsMap[i.post_id] = { comments: 0, shares: 0 };
-        if (i.interaction_type === 'comment') interactionsMap[i.post_id].comments++;
-        if (i.interaction_type === 'share') interactionsMap[i.post_id].shares++;
-      });
-    }
-
-    const { data: participation } = await supabase
-      .from('event_participants')
-      .select('id')
-      .eq('event_id', eventId)
-      .eq('user_id', store.user.id)
-      .maybeSingle();
-
-    const isParticipant = !!participation;
-    const isHost = event.host_id === store.user.id;
-    const isLive = event.status === 'live';
-    const canPost = isParticipant && isLive;
-
-    const remaining = this.getEventBudgetRemaining(event);
-    const budgetPct = event.budget_naira > 0 ? (remaining / event.budget_naira) * 100 : 0;
-
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.id = 'event-page-modal';
-    modal.style.zIndex = '9999';
-    modal.innerHTML = `
-      <div class="modal-content" style="max-width: 900px; max-height: 95vh; overflow-y: auto; padding: 0;">
-        <div class="event-page-header" style="background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); padding: 32px; color: white; position: relative; overflow: hidden;">
-          <button class="modal-close" onclick="document.getElementById('event-page-modal').remove()" style="position: absolute; top: 16px; right: 16px; color: white; z-index: 2; background: rgba(0,0,0,0.3); border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
-
-          ${event.cover_url ? `<img src="${event.cover_url}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">` : ''}
-
-          <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4)); z-index: 1;"></div>
-
-          <div style="position: relative; z-index: 2;">
-            <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
-              <span style="background: ${isLive ? 'rgba(16,185,129,0.8)' : 'rgba(107,114,128,0.8)'}; backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">${isLive ? 'Live' : 'Ended'}</span>
-              ${event.team_mode ? '<span style="background: rgba(255,255,255,0.25); backdrop-filter: blur(8px); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.3);">Team Event</span>' : ''}
-            </div>
-
-            <h1 style="font-size: 32px; font-weight: 800; margin: 0 0 12px 0; text-shadow: 0 2px 8px rgba(0,0,0,0.5);">${escapeHtml(event.title)}</h1>
-            <p style="font-size: 16px; margin: 0 0 24px 0; text-shadow: 0 1px 4px rgba(0,0,0,0.5); line-height: 1.5;">${escapeHtml(event.description)}</p>
-
-            <div style="display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 20px;">
-              <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Total Views</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${(event.total_views || 0).toLocaleString()}</div>
-              </div>
-              <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Participants</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${event.current_participants || 0}</div>
-              </div>
-              <div>
-                <div style="font-size: 12px; opacity: 0.8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Cost / View</div>
-                <div style="font-size: 24px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">₦${Number(event.cost_per_view || 0).toLocaleString()}</div>
-              </div>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden;">
-                <div style="width: ${budgetPct}%; height: 100%; background: ${budgetPct > 30 ? '#10B981' : budgetPct > 10 ? '#F59E0B' : '#EF4444'}; border-radius: 4px; transition: width 0.3s;"></div>
-              </div>
-            </div>
-
-            ${!isParticipant && isLive ? `
-              <button class="btn-primary" style="margin-top: 20px;" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>
-            ` : ''}
-          </div>
-        </div>
-
-        <div class="event-page-tabs" style="display: flex; border-bottom: 2px solid var(--border); background: var(--surface);">
-          <button class="event-tab active" data-tab="leaderboard" style="flex: 1; padding: 16px; border: none; background: none; font-size: 15px; font-weight: 700; cursor: pointer; border-bottom: 3px solid var(--brand-primary); color: var(--brand-primary);">Leaderboard</button>
-          <button class="event-tab" data-tab="posts" style="flex: 1; padding: 16px; border: none; background: none; font-size: 15px; font-weight: 700; cursor: pointer; color: var(--text-muted);">Posts</button>
-        </div>
-
-        <div class="event-page-content" style="padding: 24px;">
-          <div id="event-tab-leaderboard" class="event-tab-content">
-            ${leaderboard.length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No rankings yet. Be the first to post!</p>' : ''}
-            ${leaderboard.map((entry, i) => `
-              <div class="leaderboard-entry" style="display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; ${i < 3 ? 'background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(99,102,241,0.1));' : ''}">
-                ${event.team_mode ? `
-                  <div style="flex: 1;">
-                    <div style="font-weight: 700; font-size: 16px;">${escapeHtml(entry.team_name)}</div>
-                    <div style="font-size: 13px; color: var(--text-muted);">${entry.members?.length || 0} members</div>
-                  </div>
-                ` : `
-                  <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                    ${entry.avatar_url ? `<img src="${entry.avatar_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">` : '<div style="width: 40px; height: 40px; border-radius: 50%; background: var(--gradient-primary);"></div>'}
-                    <div style="font-weight: 700; font-size: 16px;">${escapeHtml(entry.full_name)}</div>
-                  </div>
-                `}
-                <div style="text-align: right;">
-                  <div style="font-size: 20px; font-weight: 800; color: var(--brand-primary);">${entry.total_gp} GP</div>
-                  <div style="font-size: 12px; color: var(--text-muted);">${entry.post_count || 0} posts</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-
-          <div id="event-tab-posts" class="event-tab-content" style="display: none;">
-            ${canPost ? `
-              <div style="text-align: center; padding: 24px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
-                <p style="color: var(--text-secondary); margin: 0 0 8px 0; font-weight: 700;">Share your progress from the composer</p>
-                <p style="color: var(--text-muted); margin: 0; font-size: 13px;">Publish a gliim and tag <span style="color: var(--brand-primary); font-weight: 700;">#${escapeHtml(event.title)}</span> — it appears here and in the feed.</p>
-              </div>
-            ` : !isParticipant ? `
-              <div style="text-align: center; padding: 40px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 24px;">
-                <p style="color: var(--text-muted); margin-bottom: 16px;">Join this event, then tag it with # in the composer to post here.</p>
-                ${isLive ? `<button class="btn-primary" onclick="hubInstance.joinEvent('${eventId}')">Join Event</button>` : ''}
-              </div>
-            ` : ''}
-
-            ${(posts || []).length === 0 ? '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No posts yet.</p>' : ''}
-            ${(posts || []).map(post => {
-              const avClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
-              const av = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avClass}" style="object-fit:cover;">` : `<div class="${avClass}"></div>`;
-              const stats = interactionsMap[post.id] || { comments: 0, shares: 0 };
-              return `
-              <div class="event-post" style="padding: 20px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; cursor: pointer;" onclick="hubInstance._openReadViewModal('${post.id}')">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                  <div style="position: relative;">${av}</div>
-                  <div>
-                    <div style="font-weight: 700;">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleString()}</div>
-                  </div>
-                </div>
-                <div style="font-size: 17px; font-weight: 800; margin-bottom: 6px;">${escapeHtml(post.title)}</div>
-                ${post.cover_url ? `<img src="${post.cover_url}" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">` : ''}
-                ${post.description ? `<div style="color: var(--text-secondary); line-height: 1.6;">${escapeHtml(post.description)}</div>` : ''}
-                <div style="display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px;">
-                  <span style="display: flex; align-items: center; gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    ${post.views || 0}
-                  </span>
-                  <span style="display: flex; align-items: center; gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                    ${stats.comments}
-                  </span>
-                  <span style="display: flex; align-items: center; gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                    ${stats.shares}
-                  </span>
-                </div>
-              </div>
-            `; }).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    modal.querySelectorAll('.event-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        modal.querySelectorAll('.event-tab').forEach(t => {
-          t.classList.remove('active');
-          t.style.borderBottom = 'none';
-          t.style.color = 'var(--text-muted)';
-        });
-        tab.classList.add('active');
-        tab.style.borderBottom = '3px solid var(--brand-primary)';
-        tab.style.color = 'var(--brand-primary)';
-
-        modal.querySelectorAll('.event-tab-content').forEach(c => c.style.display = 'none');
-        modal.querySelector(`#event-tab-${tab.dataset.tab}`).style.display = 'block';
-      });
-    });
-  },
-
-  async joinEvent(eventId) {
-    const { data, error } = await supabase.rpc('event_join', {
-      p_event_id: eventId,
-      p_team_id: null
-    });
-
-    if (error || !data || !data.ok) {
-      alert(`Failed to join event: ${data?.code || error?.message || 'Unknown error'}`);
-      return;
-    }
-
-    alert('You have joined the event!');
-    this.fetchPosts(); // Refresh to update participant count
+    container.innerHTML = postsHtml;
   },
 
   parseTags(text) {
@@ -2920,11 +2204,8 @@ window.hubInstance = {
   toggleReadMenu: (id) => hubView.toggleReadMenu(id),
   closeModal: () => hubView.closeModal(),
   addBlock: (type) => hubView.addBlock(type),
-  removeEventCategory: (index) => hubView.removeEventCategory(index),
   hydratePolls: (scope) => hubView.hydratePolls(scope),
   pollVote: (postId, idx) => hubView.pollVote(postId, idx),
-  openEventPage: (id) => hubView.openEventPage(id),
-  joinEvent: (id) => hubView.joinEvent(id),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
@@ -2932,7 +2213,6 @@ window.hubInstance = {
   viewAuthor: (userId) => hubView.viewAuthor(userId),
   promptReport: (targetType, targetId) => hubView.promptReport(targetType, targetId),
   removeTag: (index) => hubView.removeTag(index),
-  removeEventTag: () => hubView.removeEventTag(),
   isModalOpen: () => hubView.isModalOpen
 };
 

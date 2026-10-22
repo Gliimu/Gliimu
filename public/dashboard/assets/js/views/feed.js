@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=66';
+import hubView from './feed-gliims.js?v=67';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view
@@ -99,15 +99,7 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const showEvents = hubView.currentFilter === 'all' || hubView.currentFilter === 'events';
     const showPosts = hubView.currentFilter !== 'events';
-
-    const eventCards = showEvents
-      ? (hubView.currentEvents || []).map(event => ({
-          at: Date.parse(event.created_at) || 0,
-          html: this.wrapItem(hubView.renderEventCard(event), 'event')
-        }))
-      : [];
 
     const gliimCards = showPosts
       ? hubView.filterPosts().map(post => ({
@@ -116,12 +108,12 @@ export default {
         }))
       : [];
 
-    const cards = [...eventCards, ...gliimCards]
+    const cards = gliimCards
       .sort((a, b) => b.at - a.at)
       .map(c => c.html);
 
     if (!cards.length) {
-      const msg = hubView.currentFilter === 'events' ? 'No events yet.' : 'Nothing here yet.';
+      const msg = 'Nothing here yet.';
       container.innerHTML = `<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">${msg}</p>`;
       return;
     }
