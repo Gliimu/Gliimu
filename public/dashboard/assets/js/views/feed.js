@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=68';
+import hubView from './feed-gliims.js?v=70';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view
@@ -10,6 +10,7 @@ export default {
     <div class="libmerge hub-layout" id="library-container">
       <div class="hub-category-tabs" id="hub-category-tabs">
         <button class="hub-category-tab active" data-category="all">Everything</button>
+        <button class="hub-category-tab" data-category="xploring">Xploring</button>
         <button class="hub-category-tab" data-category="events">Events</button>
         <button class="hub-category-tab" data-category="Media">Media</button>
         <button class="hub-category-tab" data-category="Tech">Tech</button>

@@ -715,3 +715,12 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   .pdf-block-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pdf-tile { width: 100%; }
 }
+
+.hub-hashtag {
+  color: var(--brand-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.hub-hashtag:hover {
+  text-decoration: underline;
+}

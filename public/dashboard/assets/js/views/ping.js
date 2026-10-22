@@ -14,6 +14,19 @@ export default {
   // Ping hosts two panes: DMs and the live session board (the Live tab was
   // folded in here). liveView renders its board into #live-board-content.
   template: `
+    <div class="ping-tabs-wrapper">
+      <div class="ping-tabs">
+        <button class="ping-tab active" data-mode="chats" onclick="pingInstance.setMode('chats')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Chats</span>
+        </button>
+        <button class="ping-tab" data-mode="live" onclick="pingInstance.setMode('live')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+          <span>Live</span>
+        </button>
+      </div>
+    </div>
+
     <div class="ping-chats-pane" id="ping-chats-pane">
       <div class="ping-layout" id="ping-container">
         <div class="ping-sidebar" id="ping-sidebar">
@@ -109,7 +122,6 @@ export default {
       deleteMessage: (msgId) => this.deleteMessage(msgId),
       saveEdit: (msgId) => this.saveEdit(msgId),
       cancelEdit: () => this.renderChatWindow(),
-      toggleMode: () => this.toggleMode(),
       showLive: () => this.setMode('live'),
       onSearch: (query) => this.onSearch(query)
     };
@@ -157,14 +169,8 @@ export default {
       `;
     }
 
-    // One button flips the page between DMs and the live session board
-    if (topbarRight) {
-      topbarRight.innerHTML = `
-        <button class="ping-filter-btn" id="ping-filter-btn" title="Switch between chats and live posts" onclick="pingInstance.toggleMode()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-        </button>
-      `;
-    }
+    // Clear right actions — tabs handle mode switching now
+    if (topbarRight) topbarRight.innerHTML = '';
   },
 
   onSearch(query) {
@@ -174,10 +180,6 @@ export default {
       return;
     }
     this.searchUsers(query);
-  },
-
-  toggleMode() {
-    this.setMode(this.mode === 'live' ? 'chats' : 'live');
   },
 
   setMode(mode) {
@@ -194,6 +196,11 @@ export default {
     const livePane = document.getElementById('ping-live-pane');
     if (chatsPane) chatsPane.style.display = live ? 'none' : '';
     if (livePane) livePane.style.display = live ? '' : 'none';
+
+    // Update active tab
+    document.querySelectorAll('.ping-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.mode === this.mode);
+    });
 
     const input = document.getElementById('ping-top-search');
     if (input) {

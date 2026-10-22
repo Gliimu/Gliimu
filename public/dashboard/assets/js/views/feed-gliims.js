@@ -13,6 +13,13 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function parseHashtags(text) {
+  if (!text) return '';
+  return escapeHtml(text).replace(/#([a-z0-9_]+)/gi, (match, tag) =>
+    `<a href="#/collection?name=${tag.toLowerCase()}" class="hub-hashtag" onclick="event.stopPropagation()">#${escapeHtml(tag.toLowerCase())}</a>`
+  );
+}
+
 // Client mirror of the gliim_kind classifier (sql/unify_feed.sql): video →
 // bundle; audio (no video) → audiolite; document (no video/audio) → book;
 // image-only (no video/audio/document/pdf) → image-only.
@@ -1492,6 +1499,12 @@ const hubView = {
           const inComments = this.allInteractions.some(i => i.post_id === p.id && i.comment_text && i.comment_text.includes(tag));
           return inDesc || inBlocks || inComments;
         });
+      } else if (this.currentFilter === 'xploring') {
+        // Xploring: sort by interest score
+        const interest = this.loadInterest();
+        filtered = filtered.map(p => ({ post: p, score: this.feedScore(p, interest) }))
+          .sort((a, b) => b.score - a.score)
+          .map(x => x.post);
       } else if (this.currentFilter !== 'all') {
         filtered = filtered.filter(p => p.category === this.currentFilter);
       }
@@ -1569,7 +1582,7 @@ const hubView = {
       </article>`;
     }
 
-    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${post.description || ''}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
   renderPosts(feed_gliims) {

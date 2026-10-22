@@ -1,3 +1,43 @@
+/* Ping Tabs */
+.ping-tabs-wrapper {
+  margin-bottom: var(--space-4);
+}
+.ping-tabs {
+  display: flex;
+  gap: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: var(--space-1);
+}
+.ping-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.ping-tab:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.ping-tab.active {
+  background: var(--brand-primary);
+  color: white;
+}
+.ping-tab svg {
+  pointer-events: none;
+}
+
 /* Ping Layout */
 .ping-layout {
   display: flex;
@@ -42,23 +82,6 @@
 }
 .ping-top-search-wrapper svg { color: var(--text-muted); flex-shrink: 0; }
 .ping-top-search-input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
-
-/* Chats / Live posts filter toggle in the topbar */
-.ping-filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px 14px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
-}
-.ping-filter-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
-.ping-filter-btn svg { pointer-events: none; }
-.ping-filter-label { font-size: 13px; font-weight: 700; white-space: nowrap; }
 
 /* Live posts pane (the Live tab, folded into Ping) */
 .ping-live-pane { display: flex; flex-direction: column; gap: 16px; }
@@ -357,10 +380,6 @@
 
   /* Topbar is the bottom bar on mobile: search results drop up */
   .ping-search-dropdown { top: auto; bottom: 110%; }
-
-  /* Compact filter toggle in the bottom bar */
-  .ping-filter-btn { padding: 8px; border-radius: 50%; }
-  .ping-filter-label { display: none; }
 
   .ping-live-bar { flex-direction: column; align-items: stretch; gap: 12px; }
 }
