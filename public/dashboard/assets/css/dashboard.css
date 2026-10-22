@@ -69,6 +69,8 @@
   align-items: center;
 }
 .brand-logo-img { height: 32px; width: auto; }
+.brand-logo-rect { display: block; }
+.brand-logo-square { display: none; }
 
 .sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; }
 
@@ -109,40 +111,32 @@
 
 /* Sidebar Footer */
 .sidebar-footer {
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.sidebar-toggle-btn {
-  display: flex;
   align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px solid var(--border);
+  gap: 0;
+}
+
+.sidebar-menu-icon {
+  width: 24px;
+  height: 24px;
   cursor: pointer;
-  color: var(--text-primary);
-  padding: 8px;
-  border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
-  width: 100%;
+  padding: 8px 0 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  display: block;
 }
 
-.sidebar-toggle-btn:hover { background: var(--surface-hover); }
-
-.sidebar-toggle-btn .sidebar-toggle-icon {
-  width: 18px;
-  height: 18px;
-  transition: opacity var(--transition-fast);
+.sidebar-menu-icon:hover {
+  opacity: 1;
 }
 
-[data-theme="light"] .sidebar-toggle-btn .sidebar-toggle-icon { filter: brightness(0); opacity: 0.75; }
-[data-theme="dark"] .sidebar-toggle-btn .sidebar-toggle-icon { filter: brightness(0) invert(1); opacity: 0.85; }
-.sidebar-toggle-btn:hover .sidebar-toggle-icon { opacity: 1; }
+[data-theme="light"] .sidebar-menu-icon { filter: brightness(0); }
+[data-theme="dark"] .sidebar-menu-icon { filter: brightness(0) invert(1); }
 
 .user-card {
   display: flex;
@@ -399,6 +393,9 @@
   .sidebar { width: 64px; }
   .main-content { margin-left: 64px; }
   .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
+  .brand-logo-rect { display: none; }
+  .brand-logo-square { display: block; }
+  .sidebar-menu-icon { display: none; }
   .sidebar-nav { padding: var(--space-4) var(--space-2); }
   .nav-label, .nav-text { display: none; }
   .nav-item { justify-content: center; padding: var(--space-3) 0; }
@@ -423,6 +420,10 @@
     height: 80px;
   }
 
+  body.sidebar-collapsed .brand-logo-rect { display: none; }
+  body.sidebar-collapsed .brand-logo-square { display: block; }
+  body.sidebar-collapsed .sidebar-menu-icon { display: none; }
+
   body.sidebar-collapsed .sidebar-nav { padding: var(--space-4) var(--space-2); }
 
   body.sidebar-collapsed .nav-label,
@@ -446,12 +447,6 @@
 
   body.sidebar-collapsed .user-card { justify-content: center; padding: var(--space-2) 0; }
   body.sidebar-collapsed .user-info { display: none; }
-
-  /* Keep toggle button in same visual position when collapsed */
-  body.sidebar-collapsed .sidebar-toggle-btn {
-    width: 48px;
-    margin: 0 auto;
-  }
 }
 
 /* Mobile (768px and down) */

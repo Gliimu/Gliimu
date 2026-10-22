@@ -17,10 +17,17 @@ export default {
   template: `
     <div class="search-layout">
       <div class="search-hero">
-        <div class="search-hero-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <div class="search-hero-brand">
+          <img src="/icons/icon.png" alt="Gliimu">
+          <span>Gliimu Search</span>
         </div>
-        <input type="text" id="global-search-input" class="search-hero-input" placeholder="Search gliims, collections, users..." autocomplete="off">
+        <div class="search-bar-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="global-search-input" class="search-hero-input" placeholder="Search gliims, collections, users..." autocomplete="off">
+          <button class="search-go-btn" id="search-go-btn" aria-label="Search">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </div>
       </div>
 
       <div class="search-history" id="search-history"></div>
@@ -37,18 +44,44 @@ export default {
     this.query = '';
     this.results = { gliims: [], collections: [], users: [] };
 
+    const savedScroll = sessionStorage.getItem('gliimu_search_scroll');
+    if (savedScroll) {
+      requestAnimationFrame(() => window.scrollTo(0, parseInt(savedScroll, 10)));
+    }
+
     const input = document.getElementById('global-search-input');
     if (input) {
       input.addEventListener('input', (e) => this.onSearch(e.target.value));
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
+          e.preventDefault();
           const val = e.target.value.trim();
-          if (val.length >= 2) this.addToHistory(val);
+          if (val.length >= 2) {
+            this.addToHistory(val);
+            this.onSearch(val);
+          }
         }
       });
       input.addEventListener('focus', () => this.renderHistory());
       input.focus();
     }
+
+    const goBtn = document.getElementById('search-go-btn');
+    if (goBtn) {
+      goBtn.addEventListener('click', () => {
+        const val = input ? input.value.trim() : '';
+        if (val.length >= 2) {
+          this.addToHistory(val);
+          this.onSearch(val);
+        }
+      });
+    }
+
+    window.addEventListener('scroll', () => {
+      if (window.location.hash === '#/search') {
+        sessionStorage.setItem('gliimu_search_scroll', String(window.scrollY));
+      }
+    });
 
     window.searchInstance = {
       openGliim: (id) => this.openGliim(id),
@@ -60,6 +93,10 @@ export default {
     };
 
     this.renderHistory();
+  },
+
+  destroy() {
+    sessionStorage.removeItem('gliimu_search_scroll');
   },
 
   getHistory() {
