@@ -45,7 +45,20 @@ export default {
   },
 
   async loadData() {
-    const pattern = `%#${this.hashtag}%`;
+    // Use the post_hashtags index table for fast lookups
+    const { data: hashtagRows } = await supabase
+      .from('post_hashtags')
+      .select('post_id')
+      .eq('hashtag', this.hashtag);
+
+    const postIds = (hashtagRows || []).map(r => r.post_id);
+
+    if (postIds.length === 0) {
+      this.posts = [];
+      this.interactions = [];
+      this.cardKinds = {};
+      return;
+    }
 
     const { data: posts } = await supabase
       .from('feed_gliims')
@@ -53,13 +66,12 @@ export default {
         id, title, category, description, cover_url, cover_color, views, created_at, user_id, is_premium, status,
         profiles:profiles!user_id(full_name, avatar_url, total_gp)
       `)
-      .ilike('description', pattern)
+      .in('id', postIds)
       .eq('status', 'approved')
       .order('created_at', { ascending: false });
 
     this.posts = posts || [];
 
-    const postIds = this.posts.map(p => p.id);
     if (postIds.length) {
       const { data: interactions } = await supabase
         .from('feed_interactions')
