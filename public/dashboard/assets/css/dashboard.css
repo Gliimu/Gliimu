@@ -212,6 +212,11 @@
   flex-shrink: 0;
 }
 
+/* Hide topbar on desktop (769px+) */
+@media (min-width: 769px) {
+  .topbar { display: none; }
+}
+
 /* Topbar alignment fix */
 .topbar #topbar-dynamic-content {
   flex: 1;
@@ -447,17 +452,38 @@
   /* Hide desktop elements */
   .topbar-logo-img { display: none !important; }
 
-  /* Bottom-bar hint text on pages without search/actions */
-  .mobile-bar-hint {
-    display: block !important;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-align: center;
-    width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  /* Hide bottom bar (topbar moved to bottom) */
+  .topbar { display: none !important; }
+
+  /* Floating menu toggle button */
+  .floating-menu-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--brand-primary);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .floating-menu-btn:hover {
+    transform: translateX(-50%) scale(1.05);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+  }
+
+  .floating-menu-btn svg {
+    width: 24px;
+    height: 24px;
+    color: white;
   }
 
   .sidebar {
@@ -468,23 +494,9 @@
     margin-left: 0;
   }
 
-  /* Move Topbar to Bottom on Mobile */
-  .topbar {
-    position: fixed;
-    bottom: 0;
-    top: auto;
-    left: 0;
-    right: 0;
-    border-bottom: none;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    z-index: 50;
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-
-  /* Add padding to bottom of content so it isn't hidden behind bottom bar */
+  /* Add padding to bottom of content so it isn't hidden behind floating button */
   .view-container {
-    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* When body has 'sidebar-open' class on mobile */

@@ -108,26 +108,13 @@ const hubView = {
     }
   },
 
-  // The gliim filter menu. Library owns the topbar and calls this.
+  // The gliim filter menu. The button lives in the Xplore page template
+  // (below the category tabs); this just wires up the event listeners.
   setupTopbarActions() {
-    const rightActions = document.getElementById('topbar-right-actions');
-    if (!rightActions) return;
+    const filterBtn = document.getElementById('hub-filter-btn');
+    if (!filterBtn) return;
 
-    rightActions.innerHTML = `
-      <div class="hub-filter-wrapper">
-        <button class="hub-filter-btn" id="hub-filter-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-        </button>
-        <div class="hub-filter-menu" id="hub-dropdown">
-          <div class="hub-filter-item" data-filter="mine">My Gliims</div>
-          <div class="hub-filter-item" data-filter="saved">Saved Gliims</div>
-          <div class="hub-filter-item" data-filter="tagged">Tagged Gliims</div>
-          <div class="hub-filter-item" data-filter="drafts">Drafts</div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('hub-filter-btn').addEventListener('click', (e) => {
+    filterBtn.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       document.getElementById('hub-dropdown').classList.toggle('active');
     });

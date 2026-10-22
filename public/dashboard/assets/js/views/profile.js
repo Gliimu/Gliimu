@@ -54,14 +54,7 @@ export default {
 
   setupTopbar() {
     const topbarRight = document.getElementById('topbar-right-actions');
-
-    if (topbarRight) {
-      topbarRight.innerHTML = `
-        <button class="lib-filter-btn" id="profile-print-btn" title="Print / Save as PDF" onclick="profileInstance.printProfile()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-        </button>
-      `;
-    }
+    if (topbarRight) topbarRight.innerHTML = '';
   },
 
   async fetchAllUsers() {
@@ -227,19 +220,24 @@ export default {
       </div>
 
       <!-- Works Published -->
-      <div class="profile-tabs-card card">
-        <div class="profile-tabs">
-          <button class="profile-tab active">Projects</button>
+      <div class="profile-projects-section">
+        <div class="profile-projects-header">
+          <h2>Projects</h2>
+          ${isMe ? `
+            <button class="profile-print-btn" onclick="profileInstance.printProfile()" title="Print / Save as PDF">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            </button>
+          ` : ''}
         </div>
-        <div class="profile-tab-content">
+        <div class="profile-projects-grid">
           ${(posts && posts.length > 0) ? posts.map(item => `
-            <div class="profile-item-row" onclick="profileInstance.openProject('${item.id}')">
-              <div class="profile-item-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            <div class="profile-project-card" onclick="profileInstance.openProject('${item.id}')">
+              <div class="profile-project-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
               </div>
-              <div class="profile-item-info">
+              <div class="profile-project-info">
                 <h4>${item.title}</h4>
-                <span>${item.category || 'General'} • ${new Date(item.created_at).toLocaleDateString()}</span>
+                <span>${item.category || 'General'} · ${new Date(item.created_at).toLocaleDateString()}</span>
               </div>
             </div>
           `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No projects yet.</p>'}

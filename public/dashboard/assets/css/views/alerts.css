@@ -85,40 +85,57 @@
   max-width: 300px;
 }
 
-/* Notice Balance Card */
-.notice-balance-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
+/* Notice List */
+.notice-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.notice-balance-row {
+.notice-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
 }
 
-.notice-balance-label {
+.notice-gp-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.notice-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.notice-title {
   font-size: 14px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.notice-balance-amount {
-  font-size: 24px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.notice-balance-gp {
-  font-size: 18px;
+.notice-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.notice-amount {
+  font-size: 16px;
   font-weight: 700;
   color: var(--brand-primary);
+  flex-shrink: 0;
 }
 
 .notice-empty {

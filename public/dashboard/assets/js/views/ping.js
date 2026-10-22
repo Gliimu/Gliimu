@@ -15,26 +15,18 @@ export default {
   // folded in here). liveView renders its board into #live-board-content.
   template: `
     <div class="ping-shell">
-      <div class="ping-tabs-wrapper">
-        <div class="ping-tabs">
-          <button class="ping-tab active" data-mode="chats" onclick="pingInstance.setMode('chats')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            <span>Chats</span>
-          </button>
-          <button class="ping-tab" data-mode="live" onclick="pingInstance.setMode('live')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-            <span>Live</span>
-          </button>
-        </div>
-      </div>
-
       <div class="ping-chats-pane" id="ping-chats-pane">
         <div class="ping-layout" id="ping-container">
           <div class="ping-sidebar" id="ping-sidebar">
-            <div class="ping-sidebar-search">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-              <input type="text" id="ping-sidebar-search-input" class="ping-sidebar-search-input" placeholder="Search users..." oninput="pingInstance.onSearch(this.value)">
-              <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
+            <div class="ping-sidebar-tabs">
+              <button class="ping-sidebar-tab active" data-mode="chats" onclick="pingInstance.setMode('chats')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Chats</span>
+              </button>
+              <button class="ping-sidebar-tab" data-mode="live" onclick="pingInstance.setMode('live')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                <span>Live</span>
+              </button>
             </div>
             <div class="ping-chat-list" id="ping-chat-list">
               <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
@@ -193,15 +185,10 @@ export default {
     if (livePane) livePane.style.display = live ? '' : 'none';
 
     // Update active tab
-    document.querySelectorAll('.ping-tab').forEach(tab => {
+    document.querySelectorAll('.ping-sidebar-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.mode === this.mode);
     });
 
-    const input = document.getElementById('ping-top-search');
-    if (input) {
-      input.value = '';
-      input.placeholder = live ? 'Search live topics...' : 'Search users to add...';
-    }
     const dropdown = document.getElementById('ping-search-dropdown');
     if (dropdown) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; }
 
@@ -253,7 +240,6 @@ export default {
     await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
     if (this.disposed) return;
 
-    document.getElementById('ping-top-search').value = '';
     document.getElementById('ping-search-dropdown').style.display = 'none';
     document.getElementById('ping-search-dropdown').innerHTML = '';
 
