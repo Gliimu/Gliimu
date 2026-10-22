@@ -31,6 +31,9 @@
   width: auto;
 }
 
+[data-theme="light"] .search-hero-brand img { filter: brightness(0); }
+[data-theme="dark"] .search-hero-brand img { filter: brightness(0) invert(1); }
+
 .search-hero-brand span {
   font-size: 18px;
   font-weight: 700;

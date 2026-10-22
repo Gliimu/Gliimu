@@ -18,7 +18,7 @@ export default {
     <div class="search-layout">
       <div class="search-hero">
         <div class="search-hero-brand">
-          <img src="/icons/icon.png" alt="Gliimu">
+          <img src="/icons/logo.png" alt="Gliimu">
           <span>Search Gliimu</span>
         </div>
         <div class="search-bar-wrap">
