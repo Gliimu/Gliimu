@@ -6,6 +6,7 @@ import { uploadFile } from '../upload.js';
 const TABS = [
   { id: 'landing', label: 'Landing page' },
   { id: 'partners', label: 'Partners' },
+  { id: 'sponsors', label: 'Sponsors' },
   { id: 'release', label: 'App release' }
 ];
 
@@ -81,6 +82,7 @@ export default {
     this.tab = 'landing';
     this.settings = null;
     this.partners = null;
+    this.sponsors = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -105,6 +107,7 @@ export default {
     }
 
     pane.innerHTML = this.tab === 'partners' ? this.partnersHtml()
+      : this.tab === 'sponsors' ? this.sponsorsHtml()
       : this.tab === 'release' ? this.releaseHtml()
       : this.landingHtml();
     this.wire(pane);
@@ -122,6 +125,17 @@ export default {
       return null;
     }
 
+    if (this.tab === 'sponsors') {
+      if (this.sponsors) return null;
+      const { data, error } = await supabase
+        .from('sponsor_posts')
+        .select('*')
+        .order('position', { ascending: true });
+      if (error) return error.message;
+      this.sponsors = data || [];
+      return null;
+    }
+
     if (this.settings) return null;
     const { data, error } = await supabase.rpc('operations_settings');
     if (error) return error.message;
@@ -133,6 +147,7 @@ export default {
   invalidate() {
     this.settings = null;
     this.partners = null;
+    this.sponsors = null;
   },
 
   value(key) {
@@ -263,6 +278,43 @@ export default {
               </tr>`).join('')}
             </tbody>
           </table></div>` : empty('No partners yet. Add the first logo.')}
+      </div>`;
+  },
+
+  // ============================================
+  // TAB 3 — sponsor posts
+  // ============================================
+  sponsorsHtml() {
+    const rows = this.sponsors || [];
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Sponsor posts</div>
+            <div class="card-sub">Carousel ads on the XpLoRe page. Ordered by position, filtered by active status and date range.</div>
+          </div>
+          <div class="card-actions"><button class="btn-primary btn-small" data-add-sponsor>Add sponsor</button></div>
+        </div>
+        ${rows.length ? `
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th style="width:80px;">Image</th><th>Sponsor</th><th>Title</th><th class="num" style="width:80px;">Position</th><th style="width:80px;">Active</th><th class="num" style="width:180px;"></th></tr></thead>
+            <tbody>${rows.map(s => `
+              <tr data-sponsor="${escapeHtml(s.id)}">
+                <td>${s.image_url
+                  ? `<img src="${escapeHtml(s.image_url)}" alt="" style="width:60px;height:40px;object-fit:cover;border-radius:6px;">`
+                  : '<span class="muted small">none</span>'}</td>
+                <td>${escapeHtml(s.sponsor_name || '—')}</td>
+                <td>${escapeHtml(s.title || '—')}</td>
+                <td class="num">${Number(s.position || 0)}</td>
+                <td>${s.active ? '<span style="color:var(--brand-primary);font-weight:600;">Yes</span>' : '<span class="muted">No</span>'}</td>
+                <td class="num" style="white-space:nowrap;">
+                  <button class="btn-quiet btn-small" data-edit-sponsor="${escapeHtml(s.id)}">Edit</button>
+                  <button class="btn-danger btn-small" data-remove-sponsor="${escapeHtml(s.id)}"
+                          data-name="${escapeHtml(s.title || 'that sponsor')}">Remove</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table></div>` : empty('No sponsor posts yet. Add the first one.')}
       </div>`;
   },
 
@@ -462,6 +514,165 @@ export default {
   },
 
   // ============================================
+  // Sponsor posts
+  // ============================================
+  sponsorDrawer(existing) {
+    const editing = !!existing;
+    const image = editing ? (existing.image_url || '') : '';
+
+    const { overlay, close } = openDrawer({
+      title: editing ? `Edit ${escapeHtml(existing.title || 'sponsor')}` : 'Add a sponsor',
+      sub: 'Sponsor posts appear in the carousel on the XpLoRe page.',
+      body: `
+        <div class="form-group">
+          <label for="sp-sponsor">Sponsor name</label>
+          <input type="text" id="sp-sponsor" class="input" maxlength="80" autocomplete="off"
+                 value="${escapeHtml(editing ? (existing.sponsor_name || '') : '')}" placeholder="e.g. Acme Corp">
+        </div>
+        <div class="form-group">
+          <label for="sp-title">Title</label>
+          <input type="text" id="sp-title" class="input" maxlength="120" autocomplete="off"
+                 value="${escapeHtml(editing ? (existing.title || '') : '')}" placeholder="e.g. Summer Sale">
+        </div>
+        <div class="form-group">
+          <label for="sp-desc">Description</label>
+          <textarea id="sp-desc" class="input" maxlength="400" rows="3" placeholder="Short description...">${escapeHtml(editing ? (existing.description || '') : '')}</textarea>
+        </div>
+        <div class="form-group">
+          <label for="sp-image">Image</label>
+          <input type="text" id="sp-image" class="input" value="${escapeHtml(image)}"
+                 placeholder="https://cdn.gliimu.com/…" autocomplete="off">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+            <label class="btn-quiet btn-small" for="sp-file" style="cursor:pointer;">Upload a file</label>
+            <input type="file" id="sp-file" accept="image/*" hidden>
+            <span class="muted small" id="sp-status"></span>
+          </div>
+          <div id="sp-preview" style="margin-top:10px;">${image
+            ? `<img class="cover-preview" src="${escapeHtml(image)}" alt="">`
+            : '<span class="muted small">No image yet.</span>'}</div>
+        </div>
+        <div class="form-group">
+          <label for="sp-link">Link URL</label>
+          <input type="text" id="sp-link" class="input" value="${escapeHtml(editing ? (existing.link_url || '') : '')}"
+                 placeholder="https://… — where the card links to" autocomplete="off">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label for="sp-position">Position</label>
+            <input type="number" id="sp-position" class="input" min="0" max="999" step="1"
+                   value="${Number(editing ? (existing.position || 0) : 0)}" style="width:100%;padding:8px;">
+          </div>
+          <div class="form-group">
+            <label for="sp-active">Active</label>
+            <select id="sp-active" class="input" style="width:100%;padding:8px;">
+              <option value="true" ${editing && existing.active !== false ? 'selected' : ''}>Yes</option>
+              <option value="false" ${editing && existing.active === false ? 'selected' : ''}>No</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label for="sp-starts">Starts at</label>
+            <input type="datetime-local" id="sp-starts" class="input"
+                   value="${editing && existing.starts_at ? existing.starts_at.slice(0, 16) : ''}">
+          </div>
+          <div class="form-group">
+            <label for="sp-ends">Ends at</label>
+            <input type="datetime-local" id="sp-ends" class="input"
+                   value="${editing && existing.ends_at ? existing.ends_at.slice(0, 16) : ''}">
+          </div>
+        </div>`,
+      foot: `
+        <button class="btn-quiet" data-cancel>Cancel</button>
+        <button class="btn-primary" id="sp-save">${editing ? 'Save changes' : 'Add sponsor'}</button>`
+    });
+
+    const sponsorEl = overlay.querySelector('#sp-sponsor');
+    const titleEl = overlay.querySelector('#sp-title');
+    const descEl = overlay.querySelector('#sp-desc');
+    const imageEl = overlay.querySelector('#sp-image');
+    const statusEl = overlay.querySelector('#sp-status');
+    const previewEl = overlay.querySelector('#sp-preview');
+    const linkEl = overlay.querySelector('#sp-link');
+    const positionEl = overlay.querySelector('#sp-position');
+    const activeEl = overlay.querySelector('#sp-active');
+    const startsEl = overlay.querySelector('#sp-starts');
+    const endsEl = overlay.querySelector('#sp-ends');
+    const saveBtn = overlay.querySelector('#sp-save');
+    sponsorEl.focus();
+
+    overlay.querySelector('[data-cancel]').addEventListener('click', close);
+
+    overlay.querySelector('#sp-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      statusEl.textContent = 'Uploading…';
+      try {
+        const url = await uploadFile(file, 'site');
+        imageEl.value = url;
+        previewEl.innerHTML = `<img class="cover-preview" src="${escapeHtml(url)}" alt="">`;
+        statusEl.textContent = '';
+      } catch (err) {
+        statusEl.textContent = '';
+        await appAlert(err.message || 'That upload failed.');
+      }
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const sponsorName = sponsorEl.value.trim();
+      const title = titleEl.value.trim();
+      if (sponsorName.length < 2) return appAlert('Give the sponsor a name of at least 2 characters.');
+      if (title.length < 2) return appAlert('Give the sponsor post a title of at least 2 characters.');
+
+      const params = {
+        p_sponsor_name: sponsorName,
+        p_title: title,
+        p_description: descEl.value.trim() || null,
+        p_image_url: imageEl.value.trim(),
+        p_link_url: linkEl.value.trim() || null,
+        p_position: parseInt(positionEl.value, 10) || 0,
+        p_active: activeEl.value === 'true',
+        p_starts_at: startsEl.value ? new Date(startsEl.value).toISOString() : null,
+        p_ends_at: endsEl.value ? new Date(endsEl.value).toISOString() : null
+      };
+
+      if (!params.p_image_url) return appAlert('Upload or paste an image URL for the sponsor post.');
+
+      saveBtn.disabled = true;
+
+      const call = editing
+        ? supabase.from('sponsor_posts').update(params).eq('id', existing.id)
+        : supabase.from('sponsor_posts').insert(params);
+      const { data, error } = await call;
+
+      saveBtn.disabled = false;
+      if (error) {
+        return appAlert(`Could not save that sponsor: ${error.message}`);
+      }
+
+      close();
+      this.sponsors = null;
+      await this.render();
+    });
+
+    sponsorEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+  },
+
+  async removeSponsor(id, name) {
+    const ok = await appConfirm(
+      `${name} is removed from the sponsor carousel immediately.`,
+      { title: 'Remove sponsor', okText: 'Remove', danger: true });
+    if (!ok) return;
+
+    const { error } = await supabase.from('sponsor_posts').delete().eq('id', id);
+    if (error) {
+      await appAlert(`Could not remove that sponsor: ${error.message}`);
+    }
+    this.sponsors = null;
+    await this.render();
+  },
+
+  // ============================================
   // Wiring
   // ============================================
   wire(pane) {
@@ -507,6 +718,21 @@ export default {
         const row = input.closest('[data-partner]');
         if (row) this.setOrder(row.dataset.partner, input.value);
       });
+    });
+
+    // Sponsor post handlers
+    const addSponsor = pane.querySelector('[data-add-sponsor]');
+    if (addSponsor) addSponsor.addEventListener('click', () => this.sponsorDrawer(null));
+
+    pane.querySelectorAll('[data-edit-sponsor]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const row = (this.sponsors || []).find(s => s.id === btn.dataset.editSponsor);
+        if (row) this.sponsorDrawer(row);
+      });
+    });
+
+    pane.querySelectorAll('[data-remove-sponsor]').forEach((btn) => {
+      btn.addEventListener('click', () => this.removeSponsor(btn.dataset.removeSponsor, btn.dataset.name));
     });
   }
 };
