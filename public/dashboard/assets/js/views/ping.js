@@ -31,6 +31,11 @@ export default {
       <div class="ping-chats-pane" id="ping-chats-pane">
         <div class="ping-layout" id="ping-container">
           <div class="ping-sidebar" id="ping-sidebar">
+            <div class="ping-sidebar-search">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="ping-sidebar-search-input" class="ping-sidebar-search-input" placeholder="Search users..." oninput="pingInstance.onSearch(this.value)">
+              <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
+            </div>
             <div class="ping-chat-list" id="ping-chat-list">
               <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
             </div>

@@ -61,6 +61,40 @@
 
 /* Sidebar */
 .ping-sidebar { width: 300px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-secondary); flex-shrink: 0; }
+
+.ping-sidebar-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ping-sidebar-search svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ping-sidebar-search-input {
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--text-primary);
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.ping-sidebar-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ping-sidebar-search .ping-search-dropdown {
+  top: 100%;
+  left: 0;
+  right: 0;
+}
 .ping-sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid var(--border); }
 .ping-sidebar-header h3 { font-size: 18px; font-weight: 700; }
 .ping-chat-list { flex: 1; overflow-y: auto; }

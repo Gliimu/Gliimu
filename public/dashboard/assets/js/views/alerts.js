@@ -19,10 +19,8 @@ export default {
 
       <div class="alerts-content" id="alerts-content">
         <div class="alerts-pane" id="alerts-notices-pane">
-          <div class="alerts-empty">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-            <h3>No notices yet</h3>
-            <p>System notifications and updates will appear here.</p>
+          <div id="notices-content">
+            <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading...</p>
           </div>
         </div>
 
@@ -39,6 +37,7 @@ export default {
     window.alertsInstance = {
       switchTab: (tab) => this.switchTab(tab)
     };
+    this.loadNotices();
   },
 
   destroy() {
@@ -46,6 +45,38 @@ export default {
       supportView.destroy();
       this.supportMounted = false;
     }
+  },
+
+  async loadNotices() {
+    const container = document.getElementById('notices-content');
+    if (!container) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('wallet_balance, total_gp')
+      .eq('id', store.user.id)
+      .single();
+
+    const walletBalance = profile?.wallet_balance || 0;
+    const totalGp = profile?.total_gp || 0;
+
+    container.innerHTML = `
+      <div class="notice-balance-card">
+        <div class="notice-balance-row">
+          <span class="notice-balance-label">Wallet Balance</span>
+          <span class="notice-balance-amount">₦${walletBalance.toLocaleString()}</span>
+        </div>
+        <div class="notice-balance-row">
+          <span class="notice-balance-label">Total GP</span>
+          <span class="notice-balance-gp">${totalGp.toLocaleString()} GP</span>
+        </div>
+      </div>
+      <div class="notice-empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        <h3>No new notices</h3>
+        <p>System notifications and updates will appear here.</p>
+      </div>
+    `;
   },
 
   switchTab(tab) {
