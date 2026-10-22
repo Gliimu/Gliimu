@@ -3,6 +3,9 @@
   max-width: 800px;
   margin: 0 auto;
   padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px - var(--space-8) - var(--space-8));
 }
 
 /* Alerts Tabs */
@@ -49,11 +52,24 @@
 
 /* Alerts Content */
 .alerts-content {
-  min-height: 400px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .alerts-pane {
   animation: fadeIn 0.2s ease-in;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Support chat inside alerts needs full height */
+.alerts-pane .ping-layout {
+  flex: 1;
+  min-height: 0;
 }
 
 @keyframes fadeIn {

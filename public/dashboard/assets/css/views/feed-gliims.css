@@ -665,10 +665,10 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   .hub-filter-btn { width: 38px; padding: 0; justify-content: center; }
   .hub-filter-label { display: none; }
 
-  /* Dropup for the filter menu (desktop keeps the standard dropdown) */
+  /* Dropdown for the filter menu on mobile */
   .hub-filter-menu {
-    top: auto;
-    bottom: 120%; /* Opens upwards away from the bottom bar */
+    top: 120%;
+    bottom: auto;
   }
 }
 

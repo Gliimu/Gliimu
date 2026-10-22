@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import hubView from './feed-gliims.js?v=71';
+import hubView from './feed-gliims.js?v=72';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view
@@ -19,17 +19,6 @@ export default {
         </button>
       </div>
 
-      <div class="hub-category-tabs" id="hub-category-tabs">
-        <button class="hub-category-tab active" data-category="all">Everything</button>
-        <button class="hub-category-tab" data-category="xploring">Xploring</button>
-        <button class="hub-category-tab" data-category="events">Events</button>
-        <button class="hub-category-tab" data-category="Media">Media</button>
-        <button class="hub-category-tab" data-category="Tech">Tech</button>
-        <button class="hub-category-tab" data-category="Business">Business</button>
-        <button class="hub-category-tab" data-category="Personal">Personal</button>
-        <button class="hub-category-tab" data-category="Education">Education</button>
-      </div>
-
       <div class="hub-filter-bar">
         <div class="hub-filter-wrapper">
           <button class="hub-filter-btn" id="hub-filter-btn">
@@ -42,6 +31,17 @@ export default {
             <div class="hub-filter-item" data-filter="drafts">Drafts</div>
           </div>
         </div>
+      </div>
+
+      <div class="hub-category-tabs" id="hub-category-tabs">
+        <button class="hub-category-tab active" data-category="all">Everything</button>
+        <button class="hub-category-tab" data-category="xploring">Xploring</button>
+        <button class="hub-category-tab" data-category="events">Events</button>
+        <button class="hub-category-tab" data-category="Media">Media</button>
+        <button class="hub-category-tab" data-category="Tech">Tech</button>
+        <button class="hub-category-tab" data-category="Business">Business</button>
+        <button class="hub-category-tab" data-category="Personal">Personal</button>
+        <button class="hub-category-tab" data-category="Education">Education</button>
       </div>
 
       <div class="libmerge-feed" id="library-feed">

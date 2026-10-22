@@ -52,6 +52,8 @@
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  height: 80px;
+  box-sizing: border-box;
 }
 
 .brand-logo {
@@ -418,6 +420,7 @@
   body.sidebar-collapsed .sidebar-header {
     padding: var(--space-4) 0;
     justify-content: center;
+    height: 80px;
   }
 
   body.sidebar-collapsed .sidebar-nav { padding: var(--space-4) var(--space-2); }
@@ -443,6 +446,12 @@
 
   body.sidebar-collapsed .user-card { justify-content: center; padding: var(--space-2) 0; }
   body.sidebar-collapsed .user-info { display: none; }
+
+  /* Keep toggle button in same visual position when collapsed */
+  body.sidebar-collapsed .sidebar-toggle-btn {
+    width: 48px;
+    margin: 0 auto;
+  }
 }
 
 /* Mobile (768px and down) */
@@ -461,7 +470,7 @@
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 999;
+    z-index: 1001;
     width: 56px;
     height: 56px;
     border-radius: 50%;
@@ -502,6 +511,22 @@
   /* When body has 'sidebar-open' class on mobile */
   body.sidebar-open .sidebar {
     transform: translateX(0);
+  }
+
+  /* Backdrop overlay for mobile sidebar */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  body.sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* Mobile drawer order: user card on top, nav in middle, logo at the bottom */
