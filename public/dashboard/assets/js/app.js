@@ -218,7 +218,7 @@ function initSidebarAutoClose() {
   document.addEventListener('click', (e) => {
     if (window.innerWidth > 768) return;
     if (!document.body.classList.contains('sidebar-open')) return;
-    if (sidebar.contains(e.target) || e.target.closest('.menu-toggle')) return;
+    if (sidebar.contains(e.target) || e.target.closest('.sidebar-toggle-btn')) return;
     document.body.classList.remove('sidebar-open');
     updateSidebarToggleIcon();
   });

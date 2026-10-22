@@ -1,13 +1,22 @@
+/* Ping Shell — tabs + panes wrapper */
+.ping-shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px - var(--space-8) - var(--space-8));
+}
+
 /* Ping Tabs */
 .ping-tabs-wrapper {
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 .ping-tabs {
   display: flex;
-  gap: var(--space-2);
+  gap: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
   padding: var(--space-1);
 }
 .ping-tab {
@@ -40,11 +49,12 @@
 
 /* Ping Layout */
 .ping-layout {
-  display: flex;
-  height: calc(100vh - 64px - var(--space-8) - var(--space-8));
+  flex: 1;
+  min-height: 0;
   background: var(--surface);
-  border-radius: 16px;
+  border-radius: 0 0 16px 16px;
   border: 1px solid var(--border);
+  border-top: none;
   overflow: hidden;
   position: relative;
 }
@@ -84,7 +94,18 @@
 .ping-top-search-input { background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); width: 100%; font-family: var(--font-sans); }
 
 /* Live posts pane (the Live tab, folded into Ping) */
-.ping-live-pane { display: flex; flex-direction: column; gap: 16px; }
+.ping-live-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+  border-radius: 0 0 16px 16px;
+  border: 1px solid var(--border);
+  border-top: none;
+  overflow: hidden;
+}
 .ping-live-bar {
   display: flex;
   align-items: center;
@@ -369,6 +390,7 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
+  .ping-shell { height: calc(100vh - 64px - env(safe-area-inset-bottom)); }
   .ping-sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 100%; z-index: 10; transition: transform 0.3s ease; }
   /* Open chat covers the full screen, including the bottom bar */
   .ping-main { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; z-index: 2000; transform: translateX(100%); transition: transform 0.3s ease; }

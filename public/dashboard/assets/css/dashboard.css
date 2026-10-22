@@ -111,7 +111,36 @@
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
+
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-primary);
+  padding: 8px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+  width: 100%;
+}
+
+.sidebar-toggle-btn:hover { background: var(--surface-hover); }
+
+.sidebar-toggle-btn .sidebar-toggle-icon {
+  width: 18px;
+  height: 18px;
+  transition: opacity var(--transition-fast);
+}
+
+[data-theme="light"] .sidebar-toggle-btn .sidebar-toggle-icon { filter: brightness(0); opacity: 0.75; }
+[data-theme="dark"] .sidebar-toggle-btn .sidebar-toggle-icon { filter: brightness(0) invert(1); opacity: 0.85; }
+.sidebar-toggle-btn:hover .sidebar-toggle-icon { opacity: 1; }
 
 .user-card {
   display: flex;
@@ -184,10 +213,6 @@
 }
 
 /* Topbar alignment fix */
-.topbar .menu-toggle {
-  margin-right: 12px;
-  flex-shrink: 0;
-}
 .topbar #topbar-dynamic-content {
   flex: 1;
   justify-content: center;
@@ -203,31 +228,6 @@
   margin-left: auto;
   flex-shrink: 0;
 }
-
-.menu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-primary);
-  padding: 4px;
-  border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
-}
-
-.menu-toggle:hover { background: var(--surface-hover); }
-
-.menu-toggle .sidebar-toggle-icon {
-  width: 20px;
-  height: 20px;
-  transition: opacity var(--transition-fast);
-}
-
-[data-theme="light"] .menu-toggle .sidebar-toggle-icon { filter: brightness(0); opacity: 0.75; }
-[data-theme="dark"] .menu-toggle .sidebar-toggle-icon { filter: brightness(0) invert(1); opacity: 0.85; }
-.menu-toggle:hover .sidebar-toggle-icon { opacity: 1; }
 
 .view-container { padding: var(--space-8); flex: 1; min-width: 0; box-sizing: border-box; }
 
@@ -446,9 +446,6 @@
 
   /* Hide desktop elements */
   .topbar-logo-img { display: none !important; }
-
-  /* Always show hamburger on mobile */
-  .menu-toggle { display: flex !important; }
 
   /* Bottom-bar hint text on pages without search/actions */
   .mobile-bar-hint {

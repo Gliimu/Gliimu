@@ -77,23 +77,6 @@ export default {
   },
 
   setupTopbar() {
-    const topbarDynamic = document.getElementById('topbar-dynamic-content');
-    if (topbarDynamic) {
-      topbarDynamic.innerHTML = `
-        <div class="lib-topbar-search">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="lib-search" class="lib-topbar-search-input" placeholder="Search gliims, books and audiolites...">
-        </div>
-      `;
-      document.getElementById('lib-search').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase();
-        this.searchQuery = q;
-        hubView.searchQuery = q;
-        if (q.length >= 3) hubView.interestSignal(0, null, q);
-        this.renderFeed();
-      });
-    }
-
     // The gliim filter menu (Mine / Tagged / Saved / Drafts).
     hubView.setupTopbarActions();
   },

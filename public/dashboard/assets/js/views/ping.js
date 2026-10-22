@@ -14,46 +14,48 @@ export default {
   // Ping hosts two panes: DMs and the live session board (the Live tab was
   // folded in here). liveView renders its board into #live-board-content.
   template: `
-    <div class="ping-tabs-wrapper">
-      <div class="ping-tabs">
-        <button class="ping-tab active" data-mode="chats" onclick="pingInstance.setMode('chats')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          <span>Chats</span>
-        </button>
-        <button class="ping-tab" data-mode="live" onclick="pingInstance.setMode('live')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-          <span>Live</span>
-        </button>
+    <div class="ping-shell">
+      <div class="ping-tabs-wrapper">
+        <div class="ping-tabs">
+          <button class="ping-tab active" data-mode="chats" onclick="pingInstance.setMode('chats')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>Chats</span>
+          </button>
+          <button class="ping-tab" data-mode="live" onclick="pingInstance.setMode('live')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            <span>Live</span>
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div class="ping-chats-pane" id="ping-chats-pane">
-      <div class="ping-layout" id="ping-container">
-        <div class="ping-sidebar" id="ping-sidebar">
-          <div class="ping-chat-list" id="ping-chat-list">
-            <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
+      <div class="ping-chats-pane" id="ping-chats-pane">
+        <div class="ping-layout" id="ping-container">
+          <div class="ping-sidebar" id="ping-sidebar">
+            <div class="ping-chat-list" id="ping-chat-list">
+              <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
+            </div>
+          </div>
+
+          <div class="ping-main" id="ping-main">
+            <div class="ping-empty-state">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              <h3>Select a chat to start pinging</h3>
+              <p>Your direct messages live here.</p>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="ping-main" id="ping-main">
-          <div class="ping-empty-state">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            <h3>Select a chat to start pinging</h3>
-            <p>Your direct messages live here.</p>
+      <div class="ping-live-pane" id="ping-live-pane" style="display: none;">
+        <div class="ping-live-bar">
+          <div>
+            <h3 class="ping-live-title">Live posts</h3>
+            <p class="ping-live-sub">Ask for a live 1-on-1, or step into someone else's session.</p>
           </div>
+          <button class="btn-primary btn-sm" id="ping-live-new">Post a live request</button>
         </div>
+        ${liveView.template}
       </div>
-    </div>
-
-    <div class="ping-live-pane" id="ping-live-pane" style="display: none;">
-      <div class="ping-live-bar">
-        <div>
-          <h3 class="ping-live-title">Live posts</h3>
-          <p class="ping-live-sub">Ask for a live 1-on-1, or step into someone else's session.</p>
-        </div>
-        <button class="btn-primary btn-sm" id="ping-live-new">Post a live request</button>
-      </div>
-      ${liveView.template}
     </div>
   `,
 
@@ -156,19 +158,7 @@ export default {
   },
 
   setupTopbar() {
-    const topbarDynamic = document.getElementById('topbar-dynamic-content');
     const topbarRight = document.getElementById('topbar-right-actions');
-
-    if (topbarDynamic) {
-      topbarDynamic.innerHTML = `
-        <div class="ping-top-search-wrapper">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="ping-top-search" class="ping-top-search-input" placeholder="Search users to add..." oninput="pingInstance.onSearch(this.value)">
-          <div class="ping-search-dropdown" id="ping-search-dropdown"></div>
-        </div>
-      `;
-    }
-
     // Clear right actions — tabs handle mode switching now
     if (topbarRight) topbarRight.innerHTML = '';
   },

@@ -53,18 +53,7 @@ export default {
   },
 
   setupTopbar() {
-    const topbarDynamic = document.getElementById('topbar-dynamic-content');
     const topbarRight = document.getElementById('topbar-right-actions');
-
-    if (topbarDynamic) {
-      topbarDynamic.innerHTML = `
-        <div class="lib-topbar-search">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="profile-search" class="lib-topbar-search-input" placeholder="Search Gliimaits..." oninput="profileInstance.searchUsers(this.value)">
-          <div class="lib-dropdown-menu" id="profile-search-dropdown" style="display:none; top: 110%;"></div>
-        </div>
-      `;
-    }
 
     if (topbarRight) {
       topbarRight.innerHTML = `
@@ -73,11 +62,6 @@ export default {
         </button>
       `;
     }
-
-    document.addEventListener('click', () => {
-      const dd = document.getElementById('profile-search-dropdown');
-      if (dd) dd.style.display = 'none';
-    });
   },
 
   async fetchAllUsers() {
