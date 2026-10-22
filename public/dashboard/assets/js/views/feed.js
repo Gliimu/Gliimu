@@ -1,3 +1,4 @@
+import { supabase } from '/shared/js/config.js';
 import hubView from './feed-gliims.js?v=70';
 
 // Feed is the merged home of every published work — gliims, books and
@@ -8,6 +9,16 @@ export default {
   title: 'XpLoRe',
   template: `
     <div class="libmerge hub-layout" id="library-container">
+      <div class="sponsor-carousel-wrapper" id="sponsor-carousel-wrapper" style="display: none;">
+        <div class="sponsor-carousel" id="sponsor-carousel"></div>
+        <button class="sponsor-carousel-nav sponsor-carousel-prev" id="sponsor-prev" style="display: none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <button class="sponsor-carousel-nav sponsor-carousel-next" id="sponsor-next" style="display: none;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+
       <div class="hub-category-tabs" id="hub-category-tabs">
         <button class="hub-category-tab active" data-category="all">Everything</button>
         <button class="hub-category-tab" data-category="xploring">Xploring</button>
@@ -33,10 +44,13 @@ export default {
 
   init() {
     this.searchQuery = '';
+    this.sponsors = [];
+    this.sponsorIndex = 0;
 
     this.setupTopbar();
     this.setupFab();
     this.setupCategoryTabs();
+    this.loadSponsors();
 
     // Gliim cards render through this view so they sit in the shared masonry
     // feed; hub hands its render calls back here.
@@ -144,5 +158,80 @@ export default {
       const height = inner.getBoundingClientRect().height;
       item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((height + GAP) / ROW))}`;
     });
+  },
+
+  async loadSponsors() {
+    const { data: sponsors, error } = await supabase
+      .from('sponsor_posts')
+      .select('*')
+      .eq('active', true)
+      .order('position', { ascending: true });
+
+    if (error || !sponsors || sponsors.length === 0) {
+      return;
+    }
+
+    this.sponsors = sponsors;
+    this.renderSponsorCarousel();
+  },
+
+  renderSponsorCarousel() {
+    if (!this.sponsors.length) return;
+
+    const wrapper = document.getElementById('sponsor-carousel-wrapper');
+    const carousel = document.getElementById('sponsor-carousel');
+    const prevBtn = document.getElementById('sponsor-prev');
+    const nextBtn = document.getElementById('sponsor-next');
+
+    if (!wrapper || !carousel) return;
+
+    wrapper.style.display = '';
+
+    const renderSlide = () => {
+      const sponsor = this.sponsors[this.sponsorIndex];
+      if (!sponsor) return;
+
+      carousel.innerHTML = `
+        <a href="${sponsor.link_url || '#'}" class="sponsor-slide" target="_blank" rel="noopener">
+          <img src="${sponsor.image_url}" alt="${sponsor.title}" class="sponsor-image">
+          <div class="sponsor-overlay">
+            <div class="sponsor-badge">Sponsored</div>
+            <h3 class="sponsor-title">${sponsor.title}</h3>
+            ${sponsor.description ? `<p class="sponsor-desc">${sponsor.description}</p>` : ''}
+            <div class="sponsor-meta">${sponsor.sponsor_name}</div>
+          </div>
+        </a>
+      `;
+
+      // Show/hide nav buttons based on number of sponsors
+      if (this.sponsors.length > 1) {
+        prevBtn.style.display = '';
+        nextBtn.style.display = '';
+      } else {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+      }
+    };
+
+    prevBtn.onclick = () => {
+      this.sponsorIndex = (this.sponsorIndex - 1 + this.sponsors.length) % this.sponsors.length;
+      renderSlide();
+    };
+
+    nextBtn.onclick = () => {
+      this.sponsorIndex = (this.sponsorIndex + 1) % this.sponsors.length;
+      renderSlide();
+    };
+
+    renderSlide();
+
+    // Auto-advance every 5 seconds if multiple sponsors
+    if (this.sponsors.length > 1) {
+      if (this.sponsorInterval) clearInterval(this.sponsorInterval);
+      this.sponsorInterval = setInterval(() => {
+        this.sponsorIndex = (this.sponsorIndex + 1) % this.sponsors.length;
+        renderSlide();
+      }, 5000);
+    }
   }
 };

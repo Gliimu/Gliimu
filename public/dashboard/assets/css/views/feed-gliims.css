@@ -1,6 +1,147 @@
 /* Hub Layout */
 .hub-layout { max-width: 800px; margin: 0 auto; padding-bottom: 100px; }
 
+/* Sponsor Carousel */
+.sponsor-carousel-wrapper {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.sponsor-carousel {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.sponsor-slide {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 280px;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+
+.sponsor-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.sponsor-slide:hover .sponsor-image {
+  transform: scale(1.05);
+}
+
+.sponsor-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 70%, transparent 100%);
+  color: white;
+}
+
+.sponsor-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
+  padding: 4px 10px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.sponsor-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  line-height: 1.2;
+}
+
+.sponsor-desc {
+  font-size: 14px;
+  margin: 0 0 8px 0;
+  opacity: 0.9;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sponsor-meta {
+  font-size: 12px;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+.sponsor-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  z-index: 10;
+}
+
+.sponsor-carousel-nav:hover {
+  background: white;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.sponsor-carousel-prev {
+  left: 12px;
+}
+
+.sponsor-carousel-next {
+  right: 12px;
+}
+
+@media (max-width: 768px) {
+  .sponsor-slide {
+    height: 200px;
+  }
+
+  .sponsor-overlay {
+    padding: 16px;
+  }
+
+  .sponsor-title {
+    font-size: 18px;
+  }
+
+  .sponsor-desc {
+    font-size: 13px;
+  }
+
+  .sponsor-carousel-nav {
+    width: 36px;
+    height: 36px;
+  }
+
+  .sponsor-carousel-prev {
+    left: 8px;
+  }
+
+  .sponsor-carousel-next {
+    right: 8px;
+  }
+}
+
 /* Gliim feed — one list of cards */
 .blog-feed { display: flex; flex-direction: column; gap: 32px; }
 
