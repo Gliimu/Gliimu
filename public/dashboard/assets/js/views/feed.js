@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import hubView from './feed-gliims.js?v=72';
+import hubView from './feed-gliims.js?v=73';
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view

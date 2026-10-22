@@ -72,7 +72,7 @@
 .brand-logo-rect { display: block; }
 .brand-logo-square { display: none; }
 
-.sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; }
+.sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; display: flex; flex-direction: column; justify-content: center; }
 
 .nav-section { margin-bottom: var(--space-6); }
 
@@ -125,7 +125,7 @@
   width: 24px;
   height: 24px;
   cursor: pointer;
-  padding: 8px 0 4px;
+  padding: 10px 0 6px;
   opacity: 0.6;
   transition: opacity 0.15s;
   display: block;
@@ -137,6 +137,15 @@
 
 [data-theme="light"] .sidebar-menu-icon { filter: brightness(0); }
 [data-theme="dark"] .sidebar-menu-icon { filter: brightness(0) invert(1); }
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  width: 100%;
+  margin-bottom: 4px;
+}
 
 .user-card {
   display: flex;
@@ -463,32 +472,41 @@
   .floating-menu-btn {
     position: fixed;
     bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: calc(50% - 64px);
+    transform: none;
     z-index: 1001;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--brand-primary);
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.5);
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: background 0.2s;
+  }
+
+  [data-theme="dark"] .floating-menu-btn {
+    background: rgba(128, 128, 128, 0.5);
   }
 
   .floating-menu-btn:hover {
-    transform: translateX(-50%) scale(1.05);
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    background: rgba(0, 0, 0, 0.7);
   }
 
-  .floating-menu-btn svg {
+  [data-theme="dark"] .floating-menu-btn:hover {
+    background: rgba(128, 128, 128, 0.7);
+  }
+
+  .floating-menu-btn img {
     width: 24px;
     height: 24px;
-    color: white;
+    opacity: 0.8;
   }
+
+  [data-theme="light"] .floating-menu-btn img { filter: brightness(0) invert(1); }
+  [data-theme="dark"] .floating-menu-btn img { filter: brightness(0) invert(1); }
 
   .sidebar {
     transform: translateX(-100%);

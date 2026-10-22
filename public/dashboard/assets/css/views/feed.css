@@ -299,8 +299,13 @@
     bottom: 120%; /* Opens upwards */
   }
 
-  /* Keep the FAB clear of the fixed bottom bar */
-  body .library-fab-wrapper { bottom: 80px !important; }
+  /* Keep the FAB clear of the fixed bottom bar, side by side with menu button */
+  body .library-fab-wrapper {
+    bottom: 24px !important;
+    left: calc(50% + 16px) !important;
+    right: auto !important;
+    transform: none !important;
+  }
 
   /* Touch-friendly close button on modals */
   .modal-content .modal-close { width: 40px; height: 40px; font-size: 20px; }
