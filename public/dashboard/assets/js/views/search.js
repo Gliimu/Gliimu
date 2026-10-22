@@ -19,7 +19,7 @@ export default {
       <div class="search-hero">
         <div class="search-hero-brand">
           <img src="/icons/logo.png" alt="Gliimu">
-          <span>Search Gliimu</span>
+          <span>Ideas that inspire</span>
         </div>
         <div class="search-bar-wrap">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -195,40 +195,43 @@ export default {
     const container = document.getElementById('search-results');
     if (!container) return;
     const { gliims, collections, users } = this.results;
-    const hasResults = gliims.length || collections.length || users.length;
-    if (!hasResults) {
+    const total = gliims.length + collections.length + users.length;
+    if (!total) {
       container.innerHTML = `<div class="search-empty"><p>No results found for "${escapeHtml(this.query)}"</p></div>`;
       return;
     }
-    let html = '';
+    let html = `<div class="search-result-count">About ${total} results</div>`;
     if (collections.length) {
-      html += `<div class="search-section"><h3 class="search-section-title">Collections</h3><div class="search-section-grid">
-        ${collections.map(name => `<div class="search-collection-card" onclick="searchInstance.openCollection('${escapeHtml(name)}')">
-          <span class="search-collection-tag">#${escapeHtml(name)}</span></div>`).join('')}</div></div>`;
+      html += collections.map(name => `<div class="search-result-item" onclick="searchInstance.openCollection('${escapeHtml(name)}')">
+        <div class="search-result-url">gliimu.com/collection</div>
+        <div class="search-result-title">#${escapeHtml(name)}</div>
+        <div class="search-result-desc">Browse all gliims tagged with #${escapeHtml(name)}</div>
+      </div>`).join('');
     }
     if (users.length) {
-      html += `<div class="search-section"><h3 class="search-section-title">Users</h3><div class="search-section-list">
-        ${users.map(u => {
-          const ac = tierClass(u.total_gp, 'blog-avatar');
-          const av = u.avatar_url ? `<img src="${escapeHtml(u.avatar_url)}" class="${ac}" style="object-fit:cover;">` : `<div class="${ac}"></div>`;
-          return `<div class="search-user-item" onclick="searchInstance.openProfile('${u.id}')">${av}<span class="search-user-name">${escapeHtml(u.full_name || 'Gliimait')}</span></div>`;
-        }).join('')}</div></div>`;
+      html += users.map(u => {
+        const av = u.avatar_url ? `<img src="${escapeHtml(u.avatar_url)}" class="search-result-avatar" alt="">` : `<div class="search-result-avatar search-result-avatar-empty"></div>`;
+        return `<div class="search-result-item" onclick="searchInstance.openProfile('${u.id}')">
+          <div class="search-result-url">gliimu.com/profile</div>
+          <div class="search-result-title">${av}${escapeHtml(u.full_name || 'Gliimait')}</div>
+          <div class="search-result-desc">${u.total_gp ? u.total_gp.toLocaleString() + ' GP' : 'Gliimait member'}</div>
+        </div>`;
+      }).join('');
     }
     if (gliims.length) {
-      html += `<div class="search-section"><h3 class="search-section-title">Gliims</h3><div class="search-section-grid">
-        ${gliims.map(g => this.renderGliimCard(g)).join('')}</div></div>`;
+      html += gliims.map(g => this.renderGliimCard(g)).join('');
     }
     container.innerHTML = html;
   },
 
   renderGliimCard(gliim) {
-    const coverStyle = gliim.cover_url
-      ? `background-image: url('${escapeHtml(gliim.cover_url)}')`
-      : `background: ${gliim.cover_color || 'var(--bg-tertiary)'}`;
-    return `<div class="search-gliim-card" onclick="searchInstance.openGliim('${gliim.id}')">
-      <div class="search-gliim-cover" style="${coverStyle}"></div>
-      <div class="search-gliim-content"><span class="blog-category">${escapeHtml(gliim.category || 'General')}</span>
-      <h4 class="search-gliim-title">${escapeHtml(gliim.title || 'Untitled')}</h4></div></div>`;
+    const desc = gliim.description || '';
+    const cat = gliim.category || 'General';
+    return `<div class="search-result-item" onclick="searchInstance.openGliim('${gliim.id}')">
+      <div class="search-result-url">gliimu.com/gliim/${escapeHtml(cat.toLowerCase())}</div>
+      <div class="search-result-title">${escapeHtml(gliim.title || 'Untitled')}</div>
+      <div class="search-result-desc">${escapeHtml(desc)}</div>
+    </div>`;
   },
 
   openGliim(id) {

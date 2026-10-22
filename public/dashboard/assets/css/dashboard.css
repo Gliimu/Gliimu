@@ -74,8 +74,6 @@
 
 [data-theme="light"] .brand-logo-rect { filter: brightness(0); }
 [data-theme="dark"] .brand-logo-rect { filter: brightness(0) invert(1); }
-[data-theme="light"] .brand-logo-square { filter: brightness(0); }
-[data-theme="dark"] .brand-logo-square { filter: brightness(0) invert(1); }
 
 .sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; display: flex; flex-direction: column; justify-content: center; }
 
