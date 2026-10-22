@@ -412,6 +412,43 @@ const hubView = {
     this.renderTagChips();
   },
 
+  setupHashtagInput() {
+    const input = document.getElementById('hashtag-input');
+    if (!input) return;
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const raw = input.value.replace(/,/g, '').trim().replace(/^#/, '');
+        if (!raw) return;
+        if (this.hashtags.length >= 3) { input.value = ''; return; }
+        const tag = raw.toLowerCase().replace(/[^a-z0-9_]/g, '');
+        if (!tag || this.hashtags.includes(tag)) { input.value = ''; return; }
+        this.hashtags.push(tag);
+        input.value = '';
+        this.renderHashtagChips();
+      }
+    });
+  },
+
+  renderHashtagChips() {
+    const chips = document.getElementById('hashtag-chips');
+    if (!chips) return;
+    chips.innerHTML = this.hashtags.map((t, i) => `
+      <span class="hub-tag-chip" style="background: rgba(99,102,241,0.12); color: var(--brand-primary);"><span>#${escapeHtml(t)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeHashtag(${i})">&times;</button></span>
+    `).join('');
+    const input = document.getElementById('hashtag-input');
+    if (input) {
+      input.placeholder = this.hashtags.length >= 3 ? 'Max 3 reached' : 'Type and press Enter...';
+      input.disabled = this.hashtags.length >= 3;
+    }
+  },
+
+  removeHashtag(index) {
+    this.hashtags.splice(index, 1);
+    this.renderHashtagChips();
+  },
+
   async promptDelete(postId) {
     const password = await appPrompt("To permanently delete this Gliim, please enter your password:", { inputType: 'password', okText: 'Delete', danger: true });
     if (!password) return;
@@ -466,6 +503,13 @@ const hubView = {
             <div class="hub-tag-results" id="tag-results"></div>
           </div>
         </div>
+        <div class="form-group">
+          <label>Hashtags (optional, max 3)</label>
+          <div class="hub-tag-picker">
+            <div class="hub-tag-chips" id="hashtag-chips"></div>
+            <input type="text" id="hashtag-input" class="input" placeholder="Type and press Enter..." autocomplete="off">
+          </div>
+        </div>
         ${canLock ? `
         <div class="form-group">
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
@@ -505,7 +549,9 @@ const hubView = {
     document.body.appendChild(modal);
 
     this.taggedUsers = [];
+    this.hashtags = [];
     this.setupTagPicker();
+    this.setupHashtagInput();
 
     document.getElementById('add-block-trigger').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -537,7 +583,8 @@ const hubView = {
       }
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
+      const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -626,7 +673,8 @@ const hubView = {
       if (!title) return alert("Title is required even for drafts.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
+      const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -816,7 +864,8 @@ const hubView = {
       if (!title) return alert("Title is required.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
+      const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -902,7 +951,8 @@ const hubView = {
       if (!title) return alert("Title is required even for drafts.");
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
-      const description = [rawDescription, tagSuffix].filter(Boolean).join(' ');
+      const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
+      const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
       const finalBlocks = [];
       let coverUrl = null;
@@ -1239,6 +1289,7 @@ const hubView = {
       description: document.getElementById('post-description')?.value || '',
       category: document.getElementById('post-category')?.value || '',
       taggedUsers: this.taggedUsers || [],
+      hashtags: this.hashtags || [],
       premium: document.getElementById('post-premium-toggle')?.checked || false,
       blocks
     };
@@ -1279,6 +1330,11 @@ const hubView = {
             `<div class="tagged-user-chip">${escapeHtml(u.full_name)}<button type="button" class="tagged-user-remove" onclick="hubInstance.removeTaggedUser('${u.id}')">×</button></div>`
           ).join('');
         }
+        this.renderTagChips();
+      }
+      if (state.hashtags && state.hashtags.length) {
+        this.hashtags = state.hashtags;
+        this.renderHashtagChips();
       }
 
       // Restore blocks: remove the default empty text block, then rebuild
@@ -2213,6 +2269,7 @@ window.hubInstance = {
   viewAuthor: (userId) => hubView.viewAuthor(userId),
   promptReport: (targetType, targetId) => hubView.promptReport(targetType, targetId),
   removeTag: (index) => hubView.removeTag(index),
+  removeHashtag: (index) => hubView.removeHashtag(index),
   isModalOpen: () => hubView.isModalOpen
 };
 
