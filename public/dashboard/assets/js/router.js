@@ -1,6 +1,6 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=5').then(m => m.default),
-  '/search': () => import('./views/search.js?v=3').then(m => m.default),
+  '/search': () => import('./views/search.js?v=4').then(m => m.default),
   '/xplore': () => import('./views/feed.js?v=58').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=58').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=41').then(m => m.default),
@@ -13,6 +13,9 @@ const routes = {
   '/post': () => import('./views/post-read.js?v=6').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=3').then(m => m.default),
 };
+
+// Routes with no sidebar entry borrow another tab's highlight
+const NAV_ALIAS = { '/live': '/ping', '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore', '/support': '/alerts' };
 
 // Routes with no sidebar entry borrow another tab's highlight
 const NAV_ALIAS = { '/live': '/ping', '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore', '/support': '/alerts' };

@@ -20,23 +20,24 @@
 
 .search-hero-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .search-hero-brand img {
-  height: 28px;
+  height: 64px;
   width: auto;
 }
 
 .search-hero-brand span {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 700;
   background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
 }
 
 .search-bar-wrap {
