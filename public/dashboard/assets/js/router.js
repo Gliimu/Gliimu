@@ -17,9 +17,6 @@ const routes = {
 // Routes with no sidebar entry borrow another tab's highlight
 const NAV_ALIAS = { '/live': '/ping', '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore', '/support': '/alerts' };
 
-// Routes with no sidebar entry borrow another tab's highlight
-const NAV_ALIAS = { '/live': '/ping', '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore', '/support': '/alerts' };
-
 let previousHash = window.location.hash;
 let currentView = null;
 let navigationRequest = 0;
