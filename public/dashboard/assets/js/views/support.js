@@ -447,8 +447,8 @@ const supportView = {
     if (teamBtn) teamBtn.classList.toggle('active', team);
     if (hold) hold.hidden = !this.paused;
     if (input) input.placeholder = team ? 'Message the Gliimu team...' : 'Ask Gliim P.A. anything...';
-    if (clip) clip.style.display = team ? '' : 'none';
-    if (mic) mic.style.display = team ? '' : 'none';
+    if (clip) clip.style.display = '';
+    if (mic) mic.style.display = '';
     if (status) status.textContent = this.paused
       ? 'An admin is handling this. Gliim P.A. resumes after 5 quiet minutes.'
       : 'Gliim P.A. answers instantly. A human can step in at any time.';

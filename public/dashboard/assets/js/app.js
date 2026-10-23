@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { router } from './router.js?v=56';
+import { router } from './router.js?v=57';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=31';
@@ -210,7 +210,6 @@ function initSidebarAutoClose() {
     if (window.innerWidth > 768) return;
     if (e.target.closest('.nav-item') || e.target.closest('.user-card')) {
       document.body.classList.remove('sidebar-open');
-      updateSidebarToggleIcon();
     }
   });
 
@@ -220,7 +219,6 @@ function initSidebarAutoClose() {
     if (!document.body.classList.contains('sidebar-open')) return;
     if (sidebar.contains(e.target) || e.target.closest('.sidebar-toggle-btn')) return;
     document.body.classList.remove('sidebar-open');
-    updateSidebarToggleIcon();
   });
 }
 

@@ -106,7 +106,14 @@
   flex-shrink: 0;
 }
 .sidebar-toggle-inline:hover { background: var(--surface-hover); color: var(--text-primary); }
-.sidebar-toggle-inline svg { flex-shrink: 0; }
+.sidebar-toggle-inline img {
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+[data-theme="light"] .sidebar-toggle-inline img { filter: brightness(0); }
+[data-theme="dark"] .sidebar-toggle-inline img { filter: brightness(0) invert(1); }
 .sidebar-toggle-label { white-space: nowrap; }
 
 .nav-label {

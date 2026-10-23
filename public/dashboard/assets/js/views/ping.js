@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import supportView from './support.js?v=36';
+import supportView from './support.js?v=37';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -201,7 +201,9 @@ export default {
     const results = await Promise.all([
       supabase.from('hidden_chats').select('contact_id, hidden_at').eq('user_id', store.user.id),
       supabase.from('messages').select('sender_id, receiver_id, created_at, read_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('receiver_id', store.user.id),
-      supabase.from('messages').select('sender_id, receiver_id, created_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('sender_id', store.user.id).not('receiver_id', 'is', null)
+      supabase.from('messages').select('sender_id, receiver_id, created_at, room, is_ai, is_admin, content, attachment_url, attachment_type').eq('sender_id', store.user.id).not('receiver_id', 'is', null),
+      supabase.from('messages').select('created_at').eq('sender_id', store.user.id).is('receiver_id', null).is('room', null).order('created_at', { ascending: false }).limit(1),
+      supabase.from('support_messages').select('created_at').eq('thread_user', store.user.id).order('created_at', { ascending: false }).limit(1)
     ]);
     if (this.disposed || request !== this.contactsRequest) return;
     const failure = results.find(result => result.error);
@@ -211,13 +213,18 @@ export default {
       if (list && !this.contacts.length) list.textContent = 'Could not load chats. Please reopen Ping to retry.';
       return;
     }
-    const [hiddenChats, received, sent] = results.map(result => result.data || []);
+    const [hiddenChats, received, sent, paMsgs, supportMsgs] = results.map(result => result.data || []);
     const receivedMsgs = received.filter(m => isIncomingDm(store.user.id, m));
     const sentMsgs = sent.filter(m => !m.room && !m.is_ai && !m.is_admin);
     const hiddenMap = Object.fromEntries(hiddenChats.map(h => [h.contact_id, new Date(h.hidden_at).getTime()]));
     const userIds = new Set();
     const lastMsgMap = {};
     const previewMap = {};
+
+    const paTime = paMsgs[0] ? new Date(paMsgs[0].created_at).getTime() : 0;
+    const supTime = supportMsgs[0] ? new Date(supportMsgs[0].created_at).getTime() : 0;
+    this.supportLastTime = Math.max(paTime, supTime);
+    this.supportPreview = paMsgs[0]?.content || supportMsgs[0]?.content || '';
 
     [...receivedMsgs, ...sentMsgs].forEach(m => {
       const otherId = m.sender_id === store.user.id ? m.receiver_id : m.sender_id;
@@ -258,41 +265,71 @@ export default {
     if (!list) return;
 
     const isSupportActive = this.activeChat?.type === 'support';
-    const supportHtml = `
-      <div class="ping-chat-item ${isSupportActive ? 'active' : ''}" onclick="pingInstance.openSupportChat()">
-        <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:contain;">
-        <div class="ping-chat-info">
-          <span class="ping-chat-name">Support</span>
-          <span class="ping-chat-preview">Gliim P.A. & team</span>
-        </div>
-      </div>
-    `;
+    const supportSnippet = this.supportPreview ? previewText({ content: this.supportPreview }) || 'Gliim P.A. & team' : 'Gliim P.A. & team';
+    const supportItem = {
+      id: '__support__',
+      type: 'support',
+      name: 'Support',
+      avatar_url: '/icons/gliimpa.png',
+      isSupport: true,
+      lastTime: this.supportLastTime || 0,
+      snippet: supportSnippet
+    };
 
-    const usersHtml = this.contacts.map(u => {
-      const avatarClass = tierClass(u.total_gp, 'ping-avatar');
-      const avatar = u.avatar_url
-        ? `<img src="${escapeHtml(u.avatar_url)}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')">`
-        : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${u.id}')"></div>`;
+    const userItems = this.contacts.map(u => ({
+      id: u.id,
+      type: 'dm',
+      name: u.full_name || 'Gliimait',
+      avatar_url: u.avatar_url,
+      total_gp: u.total_gp,
+      lastTime: 0,
+      snippet: ''
+    }));
 
-      const unreadCount = this.unreadMap[u.id] || 0;
-      const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
+    const lastMsgMap = {};
+    this.contacts.forEach(u => {
       const preview = this.previewMap[u.id];
       const snippet = preview ? (preview.mine ? `You: ${preview.text}` : preview.text) : 'No messages yet';
+      const item = userItems.find(i => i.id === u.id);
+      if (item) item.snippet = snippet;
+    });
+
+    const allItems = [supportItem, ...userItems].sort((a, b) => b.lastTime - a.lastTime);
+
+    const itemsHtml = allItems.map(item => {
+      if (item.isSupport) {
+        return `
+          <div class="ping-chat-item ${isSupportActive ? 'active' : ''}" onclick="pingInstance.openSupportChat()">
+            <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:contain;">
+            <div class="ping-chat-info">
+              <span class="ping-chat-name">Support</span>
+              <span class="ping-chat-preview">${escapeHtml(item.snippet)}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      const avatarClass = tierClass(item.total_gp, 'ping-avatar');
+      const avatar = item.avatar_url
+        ? `<img src="${escapeHtml(item.avatar_url)}" class="${avatarClass}" style="object-fit:cover;" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${item.id}')">`
+        : `<div class="${avatarClass}" onclick="event.stopPropagation(); pingInstance.showChatMenu(event, '${item.id}')"></div>`;
+
+      const unreadCount = this.unreadMap[item.id] || 0;
+      const unreadBadge = unreadCount > 0 ? `<span class="chat-unread-badge">${unreadCount > 9 ? '9+' : unreadCount}</span>` : '';
 
       return `
-        <div class="ping-chat-item ${this.activeChat?.id === u.id ? 'active' : ''} ${unreadCount > 0 ? 'unread' : ''}" onclick="pingInstance.openChat('dm', '${u.id}')">
+        <div class="ping-chat-item ${this.activeChat?.id === item.id ? 'active' : ''} ${unreadCount > 0 ? 'unread' : ''}" onclick="pingInstance.openChat('dm', '${item.id}')">
           ${avatar}
           <div class="ping-chat-info">
-            <span class="ping-chat-name">${escapeHtml(u.full_name || 'Gliimait')}</span>
-            <span class="ping-chat-preview">${escapeHtml(snippet)}</span>
+            <span class="ping-chat-name">${escapeHtml(item.name)}</span>
+            <span class="ping-chat-preview">${escapeHtml(item.snippet)}</span>
           </div>
           ${unreadBadge}
         </div>
       `;
     }).join('');
 
-
-    list.innerHTML = supportHtml + usersHtml;
+    list.innerHTML = itemsHtml;
   },
 
   async openChat(type, id) {
