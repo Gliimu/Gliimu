@@ -79,7 +79,7 @@ body.sidebar-open .sidebar-backdrop {
   bottom: 35%;
   right: 24px;
   left: auto;
-  z-index: 1100;
+  z-index: 3000;
   width: 56px;
   height: 56px;
   border-radius: 50%;

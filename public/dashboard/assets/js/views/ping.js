@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import supportView from './support.js?v=38';
+import supportView from './support.js?v=39';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -365,7 +365,7 @@ export default {
   },
 
   isChatVisible() {
-    return !this.disposed && this.chatReady && this.mode === 'chats' && this.activeChat
+    return !this.disposed && this.chatReady && this.activeChat
       && document.visibilityState === 'visible'
       && document.getElementById('ping-container')?.classList.contains('chat-open');
   },
