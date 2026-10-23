@@ -73,6 +73,41 @@ body.sidebar-open .sidebar-backdrop {
   pointer-events: auto;
 }
 
+/* Floating draggable menu toggle — visible on all screens */
+.floating-menu-btn {
+  position: fixed;
+  bottom: 35%;
+  right: 24px;
+  left: auto;
+  z-index: 1100;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  border: none;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 0;
+  transition: box-shadow 0.2s;
+}
+.floating-menu-btn:active { cursor: grabbing; }
+.floating-menu-btn:hover {
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
+}
+.floating-menu-btn img {
+  width: 24px;
+  height: 24px;
+  filter: brightness(0) invert(1);
+  pointer-events: none;
+}
+.floating-menu-btn.dragging { cursor: grabbing; }
+
 .sidebar-header {
   padding: var(--space-6);
   border-bottom: 1px solid var(--border);
@@ -113,38 +148,6 @@ body.sidebar-open .sidebar-backdrop {
   padding-top: var(--space-4);
   border-top: 1px solid var(--border);
 }
-
-/* Sidebar toggle as nav item — under Publish */
-.sidebar-toggle-nav {
-  display: flex;
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  font-family: inherit;
-  cursor: pointer;
-  margin-bottom: var(--space-1);
-  width: 100%;
-  text-align: left;
-  transition: none;
-}
-.sidebar-toggle-nav:hover,
-.sidebar-toggle-nav:focus,
-.sidebar-toggle-nav:active {
-  background: none;
-  color: var(--text-secondary);
-}
-.sidebar-toggle-nav img {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-[data-theme="light"] .sidebar-toggle-nav img { filter: brightness(0); }
-[data-theme="dark"] .sidebar-toggle-nav img { filter: brightness(0) invert(1); }
 
 .nav-label {
   display: block;
@@ -462,9 +465,6 @@ body.sidebar-open .sidebar-backdrop {
 
 /* Desktop (769px and up) — icon rail by default, full overlay when open */
 @media (min-width: 769px) {
-  /* Hide floating button on desktop */
-  .floating-menu-btn { display: none !important; }
-
   /* Default state: icon rail (narrow sidebar visible, content starts after it) */
   .sidebar {
     transform: translateX(0);
@@ -485,17 +485,7 @@ body.sidebar-open .sidebar-backdrop {
   .user-card { justify-content: center; padding: var(--space-2) 0; }
   .user-info { display: none; }
 
-  /* Toggle button stays left-aligned in collapsed rail */
-  .sidebar-toggle-nav {
-    justify-content: flex-start !important;
-    padding: var(--space-3) var(--space-4) !important;
-  }
-  .sidebar-toggle-nav:hover,
-  .sidebar-toggle-nav:focus,
-  .sidebar-toggle-nav:active {
-    background: none !important;
-    color: var(--text-secondary) !important;
-  }
+  /* When sidebar-open: full width overlay */
   body.sidebar-open .sidebar {
     width: 170px;
   }
@@ -510,12 +500,6 @@ body.sidebar-open .sidebar-backdrop {
   body.sidebar-open .nav-item svg { margin-right: 12px; }
   body.sidebar-open .user-card { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
   body.sidebar-open .user-info { display: flex; }
-
-  /* Toggle button stays left-aligned when expanded too */
-  body.sidebar-open .sidebar-toggle-nav {
-    justify-content: flex-start !important;
-    padding: var(--space-3) var(--space-4) !important;
-  }
 }
 
 /* Mobile (768px and down) */
@@ -527,50 +511,6 @@ body.sidebar-open .sidebar-backdrop {
 
   /* Hide topbar (moved to bottom) */
   .topbar { display: none !important; }
-
-  /* Round floating menu toggle button */
-  .floating-menu-btn {
-    position: fixed;
-    bottom: 35%;
-    right: 24px;
-    left: auto;
-    transform: none;
-    z-index: 1100;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.6);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-
-  [data-theme="dark"] .floating-menu-btn {
-    background: rgba(128, 128, 128, 0.6);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-
-  .floating-menu-btn:hover {
-    background: rgba(0, 0, 0, 0.8);
-    transform: scale(1.05);
-  }
-
-  [data-theme="dark"] .floating-menu-btn:hover {
-    background: rgba(128, 128, 128, 0.8);
-  }
-
-  .floating-menu-btn img {
-    width: 24px;
-    height: 24px;
-    opacity: 0.9;
-  }
-
-  [data-theme="light"] .floating-menu-btn img { filter: brightness(0) invert(1); }
-  [data-theme="dark"] .floating-menu-btn img { filter: brightness(0) invert(1); }
 
   /* Natural order: logo on top, nav in middle, profile at bottom */
   .sidebar-footer {

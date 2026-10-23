@@ -212,13 +212,112 @@ function initSidebarAutoClose() {
     }
   });
 
-  // Tapping anywhere outside the drawer (and toggle buttons) closes it
+  // Tapping anywhere outside the drawer closes it
   document.addEventListener('click', (e) => {
     if (!document.body.classList.contains('sidebar-open')) return;
     if (sidebar.contains(e.target)) return;
-    if (e.target.closest('.sidebar-toggle-inline') || e.target.closest('.floating-menu-btn')) return;
+    if (e.target.closest('.floating-menu-btn')) return;
     document.body.classList.remove('sidebar-open');
   });
+}
+
+// ============================================
+// DRAGGABLE FLOATING MENU BUTTON
+// ============================================
+function initFloatingButton() {
+  const btn = document.getElementById('floating-menu-btn');
+  if (!btn) return;
+
+  const STORAGE_KEY = 'gliimu_fab_pos';
+  const DRAG_THRESHOLD = 5;
+  let startX, startY, startLeft, startTop;
+  let dragging = false;
+  let moved = false;
+
+  function loadPosition() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved && typeof saved.right === 'number' && typeof saved.bottom === 'number') {
+        btn.style.right = saved.right + 'px';
+        btn.style.bottom = saved.bottom + 'px';
+        btn.style.left = 'auto';
+        btn.style.top = 'auto';
+      }
+    } catch {}
+  }
+
+  function savePosition() {
+    const rect = btn.getBoundingClientRect();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      right: window.innerWidth - rect.right,
+      bottom: window.innerHeight - rect.bottom
+    }));
+  }
+
+  function clampPosition() {
+    const rect = btn.getBoundingClientRect();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let newRight = w - rect.right;
+    let newBottom = h - rect.bottom;
+    newRight = Math.max(8, Math.min(newRight, w - rect.width - 8));
+    newBottom = Math.max(8, Math.min(newBottom, h - rect.height - 8));
+    btn.style.right = newRight + 'px';
+    btn.style.bottom = newBottom + 'px';
+    btn.style.left = 'auto';
+    btn.style.top = 'auto';
+  }
+
+  function onPointerDown(e) {
+    e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX;
+    startY = pt.clientY;
+    const rect = btn.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    dragging = true;
+    moved = false;
+    btn.classList.add('dragging');
+  }
+
+  function onPointerMove(e) {
+    if (!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+    if (!moved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+    moved = true;
+    const newLeft = startLeft + dx;
+    const newTop = startTop + dy;
+    btn.style.left = newLeft + 'px';
+    btn.style.top = newTop + 'px';
+    btn.style.right = 'auto';
+    btn.style.bottom = 'auto';
+  }
+
+  function onPointerUp() {
+    if (!dragging) return;
+    dragging = false;
+    btn.classList.remove('dragging');
+    if (moved) {
+      clampPosition();
+      savePosition();
+    } else {
+      toggleSidebar();
+    }
+  }
+
+  btn.addEventListener('mousedown', onPointerDown);
+  btn.addEventListener('touchstart', onPointerDown, { passive: false });
+  document.addEventListener('mousemove', onPointerMove);
+  document.addEventListener('touchmove', onPointerMove, { passive: false });
+  document.addEventListener('mouseup', onPointerUp);
+  document.addEventListener('touchend', onPointerUp);
+
+  window.addEventListener('resize', () => { clampPosition(); savePosition(); });
+
+  loadPosition();
 }
 
 // ============================================
@@ -268,6 +367,7 @@ async function initApp() {
   Presence.init();
   window.GliimuPresence = Presence;
   initSidebarAutoClose();
+  initFloatingButton();
 
   setInterval(checkGpTiers, 45000);
 

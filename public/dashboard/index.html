@@ -19,7 +19,7 @@
 
   <!-- Use absolute paths starting with / to prevent Vercel routing issues -->
   <link rel="stylesheet" href="/shared/css/design-system.css">
-  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=54">
+  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=55">
   <link rel="stylesheet" href="/dashboard/assets/css/views/profile.css?v=1">
   <link rel="stylesheet" href="/dashboard/assets/css/views/feed-gliims.css?v=54">
   <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css">
@@ -87,9 +87,6 @@
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
               <span class="nav-text">Publish</span>
             </a>
-            <button class="nav-item sidebar-toggle-nav" onclick="toggleSidebar()" aria-label="Toggle menu" style="background:none;border:none;cursor:pointer;width:100%;text-align:left;font-family:inherit;color:inherit;">
-              <img src="/icons/menu.svg" alt="Menu" style="width:18px;height:18px;flex-shrink:0;">
-            </button>
           </div>
         </nav>
 
@@ -118,18 +115,18 @@
         </div>
       </main>
 
-      <!-- Floating menu toggle for mobile (outside main-content for z-index) -->
-      <button class="floating-menu-btn mobile-only" onclick="toggleSidebar()" aria-label="Toggle menu">
+      <!-- Floating draggable menu toggle -->
+      <button class="floating-menu-btn" id="floating-menu-btn" aria-label="Toggle menu">
         <img src="/icons/menu.svg" alt="Menu">
       </button>
 
-      <!-- Backdrop overlay for mobile sidebar -->
-      <div class="sidebar-backdrop mobile-only" onclick="toggleSidebar()"></div>
+      <!-- Backdrop overlay for sidebar -->
+      <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
   </div>
 
   <!-- Use absolute paths for JS as well -->
   <script src="/shared/js/theme.js"></script>
-  <script type="module" src="/dashboard/assets/js/app.js?v=58"></script>
+  <script type="module" src="/dashboard/assets/js/app.js?v=59"></script>
 
   <script>
     function toggleSidebar() {
