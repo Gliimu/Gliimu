@@ -114,35 +114,37 @@ body.sidebar-open .sidebar-backdrop {
   border-top: 1px solid var(--border);
 }
 
-/* Sidebar inline toggle — sits right under the logo */
-.sidebar-toggle-inline {
+/* Sidebar toggle as nav item — under Publish */
+.sidebar-toggle-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: calc(100% - var(--space-6) * 2);
-  margin: 0 var(--space-6) var(--space-2);
-  padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+  margin-bottom: var(--space-1);
+  width: 100%;
+  text-align: left;
+  transition: none;
 }
-.sidebar-toggle-inline:hover { background: var(--surface-hover); color: var(--text-primary); }
-.sidebar-toggle-inline img {
+.sidebar-toggle-nav:hover,
+.sidebar-toggle-nav:focus,
+.sidebar-toggle-nav:active {
+  background: none;
+  color: var(--text-secondary);
+}
+.sidebar-toggle-nav img {
   width: 18px;
   height: 18px;
-  opacity: 0.7;
   flex-shrink: 0;
 }
-[data-theme="light"] .sidebar-toggle-inline img { filter: brightness(0); }
-[data-theme="dark"] .sidebar-toggle-inline img { filter: brightness(0) invert(1); }
-.sidebar-toggle-label { white-space: nowrap; }
+[data-theme="light"] .sidebar-toggle-nav img { filter: brightness(0); }
+[data-theme="dark"] .sidebar-toggle-nav img { filter: brightness(0) invert(1); }
 
 .nav-label {
   display: block;
@@ -460,9 +462,6 @@ body.sidebar-open .sidebar-backdrop {
 
 /* Desktop (769px and up) — icon rail by default, full overlay when open */
 @media (min-width: 769px) {
-  /* Show inline toggle button */
-  .sidebar-toggle-inline { display: flex; }
-
   /* Hide floating button on desktop */
   .floating-menu-btn { display: none !important; }
 
@@ -479,13 +478,6 @@ body.sidebar-open .sidebar-backdrop {
   .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
   .brand-logo-rect { display: none; }
   .brand-logo-square { display: block; }
-  .sidebar-toggle-inline {
-    width: 36px;
-    margin: 0 auto var(--space-2);
-    padding: 8px 0;
-    justify-content: center;
-  }
-  .sidebar-toggle-label { display: none; }
   .sidebar-nav { padding: var(--space-4) var(--space-2); }
   .nav-label, .nav-text { display: none; }
   .nav-item { justify-content: center; padding: var(--space-3) 0; }
@@ -493,7 +485,17 @@ body.sidebar-open .sidebar-backdrop {
   .user-card { justify-content: center; padding: var(--space-2) 0; }
   .user-info { display: none; }
 
-  /* When sidebar-open: full width overlay */
+  /* Toggle button stays left-aligned in collapsed rail */
+  .sidebar-toggle-nav {
+    justify-content: flex-start !important;
+    padding: var(--space-3) var(--space-4) !important;
+  }
+  .sidebar-toggle-nav:hover,
+  .sidebar-toggle-nav:focus,
+  .sidebar-toggle-nav:active {
+    background: none !important;
+    color: var(--text-secondary) !important;
+  }
   body.sidebar-open .sidebar {
     width: 170px;
   }
@@ -501,13 +503,6 @@ body.sidebar-open .sidebar-backdrop {
   body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: flex-start; }
   body.sidebar-open .brand-logo-rect { display: block; }
   body.sidebar-open .brand-logo-square { display: none; }
-  body.sidebar-open .sidebar-toggle-inline {
-    width: calc(100% - var(--space-6) * 2);
-    margin: 0 var(--space-6) var(--space-2);
-    padding: 8px 12px;
-    justify-content: flex-start;
-  }
-  body.sidebar-open .sidebar-toggle-label { display: inline; }
   body.sidebar-open .sidebar-nav { padding: var(--space-4); }
   body.sidebar-open .nav-label,
   body.sidebar-open .nav-text { display: inline; }
@@ -515,6 +510,12 @@ body.sidebar-open .sidebar-backdrop {
   body.sidebar-open .nav-item svg { margin-right: 12px; }
   body.sidebar-open .user-card { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
   body.sidebar-open .user-info { display: flex; }
+
+  /* Toggle button stays left-aligned when expanded too */
+  body.sidebar-open .sidebar-toggle-nav {
+    justify-content: flex-start !important;
+    padding: var(--space-3) var(--space-4) !important;
+  }
 }
 
 /* Mobile (768px and down) */
@@ -523,7 +524,6 @@ body.sidebar-open .sidebar-backdrop {
 
   /* Hide desktop elements */
   .topbar-logo-img { display: none !important; }
-  .sidebar-toggle-inline { display: none; }
 
   /* Hide topbar (moved to bottom) */
   .topbar { display: none !important; }
