@@ -33,7 +33,7 @@ export default {
       </div>
 
       <div class="hub-category-tabs" id="hub-category-tabs">
-        <button class="hub-category-tab active" data-category="all">Everything</button>
+        <button class="hub-category-tab active" data-category="all">For You</button>
         <button class="hub-category-tab" data-category="xploring">Xploring</button>
         <button class="hub-category-tab" data-category="Media">Media</button>
         <button class="hub-category-tab" data-category="Tech">Tech</button>
@@ -43,6 +43,8 @@ export default {
         <button class="hub-category-tab" data-category="collections">Collections</button>
       </div>
 
+      <div class="collections-carousel" id="collections-carousel" style="display:none;"></div>
+
       <div class="libmerge-feed" id="library-feed">
         <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
       </div>
@@ -51,15 +53,13 @@ export default {
 
   init() {
     this.searchQuery = '';
+    this._carouselData = null;
 
     this.setupTopbar();
     this.setupCategoryTabs();
 
-    // Gliim cards render through this view so they sit in the shared masonry
-    // feed; hub hands its render calls back here.
     hubView.onFeedChange = () => this.renderFeed();
 
-    // Column widths change with the viewport, so re-pack the masonry on resize.
     if (!this._masonryResize) {
       this._masonryResize = () => {
         clearTimeout(this._masonryTimer);
@@ -69,6 +69,96 @@ export default {
     }
 
     hubView.init();
+    this.loadCollectionsCarousel();
+  },
+
+  async loadCollectionsCarousel() {
+    const { data: rows } = await supabase
+      .from('post_hashtags')
+      .select('hashtag, post_id');
+
+    if (!rows || !rows.length) return;
+
+    const postIds = [...new Set(rows.map(r => r.post_id))];
+    const { data: posts } = await supabase
+      .from('feed_gliims')
+      .select('id, user_id, cover_url')
+      .in('id', postIds);
+
+    const postMap = {};
+    (posts || []).forEach(p => { postMap[p.id] = p; });
+
+    const userIds = [...new Set((posts || []).map(p => p.user_id).filter(Boolean))];
+    const { data: profiles } = userIds.length
+      ? await supabase.from('profiles').select('id, avatar_url').in('id', userIds)
+      : { data: [] };
+
+    const avatarMap = {};
+    (profiles || []).forEach(p => { avatarMap[p.id] = p.avatar_url; });
+
+    const counts = {};
+    const contributors = {};
+    const previews = {};
+    rows.forEach(r => {
+      const tag = (r.hashtag || '').toLowerCase();
+      if (!tag) return;
+      counts[tag] = (counts[tag] || 0) + 1;
+      const post = postMap[r.post_id];
+      if (!post) return;
+      const userId = post.user_id;
+      if (userId) {
+        if (!contributors[tag]) contributors[tag] = {};
+        contributors[tag][userId] = (contributors[tag][userId] || 0) + 1;
+      }
+      if (post.cover_url) {
+        if (!previews[tag]) previews[tag] = [];
+        if (previews[tag].length < 3) previews[tag].push(post.cover_url);
+      }
+    });
+
+    this._carouselData = Object.keys(counts)
+      .sort((a, b) => counts[b] - counts[a])
+      .slice(0, 8)
+      .map(t => {
+        const contribMap = contributors[t] || {};
+        const topContribs = Object.entries(contribMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([uid]) => ({ user_id: uid, avatar_url: avatarMap[uid] }));
+        return { tag: t, count: counts[t], contribs: topContribs, previews: previews[t] || [] };
+      });
+
+    this.renderCollectionsCarousel();
+  },
+
+  renderCollectionsCarousel() {
+    const el = document.getElementById('collections-carousel');
+    if (!el || !this._carouselData || !this._carouselData.length) return;
+
+    el.innerHTML = `
+      <div class="carousel-header">
+        <span class="carousel-title">Trending Collections</span>
+        <a href="javascript:void(0)" class="carousel-see-all" onclick="document.querySelector('[data-category=collections]').click()">See all</a>
+      </div>
+      <div class="carousel-track">
+        ${this._carouselData.map(c => {
+          const previewHtml = c.previews.length
+            ? `<img src="${c.previews[0]}" alt="" class="carousel-card-img">`
+            : `<div class="carousel-card-img carousel-card-img-empty"></div>`;
+          const avatarsHtml = c.contribs.length
+            ? `<div class="carousel-card-avatars">${c.contribs.map(a => a.avatar_url ? `<img src="${a.avatar_url}" alt="" class="carousel-card-avatar">` : `<div class="carousel-card-avatar carousel-card-avatar-fallback"></div>`).join('')}</div>`
+            : '';
+          return `<div class="carousel-card" onclick="window.location.hash='#/collection?name=${encodeURIComponent(c.tag)}'">
+            ${previewHtml}
+            <div class="carousel-card-info">
+              <span class="carousel-card-name">#${escapeHtml(c.tag)}</span>
+              <span class="carousel-card-count">${c.count} ${c.count === 1 ? 'gliim' : 'gliims'}</span>
+              ${avatarsHtml}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
   },
 
   setupTopbar() {
@@ -82,9 +172,12 @@ export default {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
+        const carousel = document.getElementById('collections-carousel');
         if (tab.dataset.category === 'collections') {
+          if (carousel) carousel.style.display = 'none';
           this.renderCollections();
         } else {
+          if (carousel && this._carouselData && this._carouselData.length) carousel.style.display = '';
           hubView.currentFilter = tab.dataset.category;
           hubView.renderPosts(hubView.currentPosts);
           this.renderFeed();

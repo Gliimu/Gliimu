@@ -117,10 +117,12 @@ export default {
 
     const postCount = this.posts.length;
     const contributorCount = this.leaderboard.length;
+    const topAvatars = this.leaderboard.slice(0, 3);
 
     container.innerHTML = `
       <div class="collection-hero">
         <div class="collection-hero-inner">
+          ${topAvatars.length ? `<div class="collection-hero-avatars">${topAvatars.map(c => c.avatar_url ? `<img src="${c.avatar_url}" alt="" class="collection-hero-avatar">` : `<div class="collection-hero-avatar collection-hero-avatar-fallback"></div>`).join('')}</div>` : ''}
           <h1 class="collection-hero-title">#${escapeHtml(this.hashtag)}</h1>
           <div class="collection-hero-stats">
             <span>${postCount} post${postCount !== 1 ? 's' : ''}</span>

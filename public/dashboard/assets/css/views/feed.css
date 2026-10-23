@@ -573,3 +573,123 @@
     height: 22px;
   }
 }
+
+/* Collections carousel (horizontal scroll above feed) */
+.collections-carousel {
+  margin-bottom: 20px;
+  padding: 0 0 4px;
+}
+.carousel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.carousel-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.carousel-see-all {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+.carousel-see-all:hover {
+  text-decoration: underline;
+}
+.carousel-track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.carousel-track::-webkit-scrollbar {
+  display: none;
+}
+.carousel-card {
+  flex: 0 0 180px;
+  scroll-snap-align: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.carousel-card:hover {
+  border-color: var(--brand-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.carousel-card-img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+.carousel-card-img-empty {
+  background: linear-gradient(135deg, var(--brand-primary-light), var(--bg-tertiary));
+}
+.carousel-card-info {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.carousel-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4F46E5;
+  line-height: 1.2;
+}
+.carousel-card-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.carousel-card-avatars {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+.carousel-card-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--surface);
+  margin-left: -6px;
+}
+.carousel-card-avatar:first-child {
+  margin-left: 0;
+}
+.carousel-card-avatar-fallback {
+  background: var(--gradient-primary);
+}
+@media (max-width: 768px) {
+  .collections-carousel {
+    margin-bottom: 14px;
+  }
+  .carousel-card {
+    flex: 0 0 155px;
+  }
+  .carousel-card-img {
+    height: 85px;
+  }
+  .carousel-card-info {
+    padding: 8px 10px;
+  }
+  .carousel-card-name {
+    font-size: 13px;
+  }
+  .carousel-card-avatar {
+    width: 20px;
+    height: 20px;
+  }
+}
