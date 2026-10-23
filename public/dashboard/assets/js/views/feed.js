@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=75';
+import hubView from './feed-gliims.js?v=76';
 import { supabase } from '/shared/js/config.js';
 
 function escapeHtml(value) {
@@ -46,12 +46,6 @@ export default {
       <div class="libmerge-feed" id="library-feed">
         <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
       </div>
-
-      <div class="library-fab-wrapper">
-        <button class="library-fab-main" id="library-fab-main" title="Publish">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </button>
-      </div>
     </div>
   `,
 
@@ -59,7 +53,6 @@ export default {
     this.searchQuery = '';
 
     this.setupTopbar();
-    this.setupFab();
     this.setupCategoryTabs();
 
     // Gliim cards render through this view so they sit in the shared masonry
@@ -76,14 +69,6 @@ export default {
     }
 
     hubView.init();
-  },
-
-  setupFab() {
-    const fab = document.getElementById('library-fab-main');
-    if (!fab) return;
-    // One compiler for every kind: the composer auto-classifies the work from
-    // its blocks (video → bundle, audio → audiolite, document → book).
-    fab.addEventListener('click', () => hubView.openCreateModal());
   },
 
   setupTopbar() {
@@ -115,13 +100,33 @@ export default {
 
     const { data: rows } = await supabase
       .from('post_hashtags')
-      .select('hashtag')
-      .order('hashtag');
+      .select('hashtag, post_id');
+
+    if (!rows || !rows.length) {
+      container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">No collections yet.</p>';
+      return;
+    }
+
+    const postIds = [...new Set(rows.map(r => r.post_id))];
+    const { data: posts } = await supabase
+      .from('feed_gliims')
+      .select('id, user_id')
+      .in('id', postIds);
+
+    const postUserMap = {};
+    (posts || []).forEach(p => { postUserMap[p.id] = p.user_id; });
 
     const counts = {};
-    (rows || []).forEach(r => {
+    const participants = {};
+    rows.forEach(r => {
       const tag = (r.hashtag || '').toLowerCase();
-      if (tag) counts[tag] = (counts[tag] || 0) + 1;
+      if (!tag) return;
+      counts[tag] = (counts[tag] || 0) + 1;
+      const userId = postUserMap[r.post_id];
+      if (userId) {
+        if (!participants[tag]) participants[tag] = new Set();
+        participants[tag].add(userId);
+      }
     });
 
     const tags = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
@@ -131,12 +136,14 @@ export default {
       return;
     }
 
-    container.innerHTML = `<div class="collections-grid">${tags.map(t =>
-      `<div class="collection-tag-card" onclick="window.location.hash='#/collection?name=${encodeURIComponent(t)}'">
+    container.innerHTML = `<div class="collections-grid">${tags.map(t => {
+      const pCount = participants[t] ? participants[t].size : 0;
+      return `<div class="collection-tag-card" onclick="window.location.hash='#/collection?name=${encodeURIComponent(t)}'">
         <span class="collection-tag-name">#${escapeHtml(t)}</span>
         <span class="collection-tag-count">${counts[t]} ${counts[t] === 1 ? 'gliim' : 'gliims'}</span>
-      </div>`
-    ).join('')}</div>`;
+        <span class="collection-tag-participants">${pCount} ${pCount === 1 ? 'participant' : 'participants'}</span>
+      </div>`;
+    }).join('')}</div>`;
   },
 
   renderFeed() {

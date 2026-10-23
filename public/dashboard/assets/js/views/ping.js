@@ -2,7 +2,6 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import liveView from './live.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -11,47 +10,22 @@ function escapeHtml(value) {
 
 export default {
   title: 'Ping',
-  // Ping hosts two panes: DMs and the live session board (the Live tab was
-  // folded in here). liveView renders its board into #live-board-content.
   template: `
     <div class="ping-shell">
-      <div class="ping-chats-pane" id="ping-chats-pane">
-        <div class="ping-layout" id="ping-container">
-          <div class="ping-sidebar" id="ping-sidebar">
-            <div class="ping-sidebar-tabs">
-              <button class="ping-sidebar-tab active" data-mode="chats" onclick="pingInstance.setMode('chats')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                <span>Chats</span>
-              </button>
-              <button class="ping-sidebar-tab" data-mode="live" onclick="pingInstance.setMode('live')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                <span>Live</span>
-              </button>
-            </div>
-            <div class="ping-chat-list" id="ping-chat-list">
-              <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
-            </div>
-          </div>
-
-          <div class="ping-main" id="ping-main">
-            <div class="ping-empty-state">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-              <h3>Select a chat to start pinging</h3>
-              <p>Your direct messages live here.</p>
-            </div>
+      <div class="ping-layout" id="ping-container">
+        <div class="ping-sidebar" id="ping-sidebar">
+          <div class="ping-chat-list" id="ping-chat-list">
+            <p style="color: var(--text-muted); text-align: center; padding: 20px;">Loading chats...</p>
           </div>
         </div>
-      </div>
 
-      <div class="ping-live-pane" id="ping-live-pane" style="display: none;">
-        <div class="ping-live-bar">
-          <div>
-            <h3 class="ping-live-title">Live posts</h3>
-            <p class="ping-live-sub">Ask for a live 1-on-1, or step into someone else's session.</p>
+        <div class="ping-main" id="ping-main">
+          <div class="ping-empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3; margin-bottom: 16px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <h3>Select a chat to start pinging</h3>
+            <p>Your direct messages live here.</p>
           </div>
-          <button class="btn-primary btn-sm" id="ping-live-new">Post a live request</button>
         </div>
-        ${liveView.template}
       </div>
     </div>
   `,
@@ -66,8 +40,6 @@ export default {
     this.chatHistory = [];
     this.unreadMap = {};
     this.previewMap = {};
-    this.mode = localStorage.getItem('gliimu-ping-mode') === 'live' ? 'live' : 'chats';
-    this.liveMounted = false;
 
     this.recorder = createRecorder({
       instanceName: 'pingInstance',
@@ -121,12 +93,10 @@ export default {
       deleteMessage: (msgId) => this.deleteMessage(msgId),
       saveEdit: (msgId) => this.saveEdit(msgId),
       cancelEdit: () => this.renderChatWindow(),
-      showLive: () => this.setMode('live'),
       onSearch: (query) => this.onSearch(query)
     };
 
     this.setupTopbar();
-    this.applyMode();
     this.fetchUsers();
     this.setupRealtime();
     this.fetchContacts().then(() => { if (!this.disposed) this.checkPendingPing(); });
@@ -161,48 +131,7 @@ export default {
   },
 
   onSearch(query) {
-    if (this.mode === 'live') {
-      liveView.searchQuery = query;
-      liveView.renderBoard();
-      return;
-    }
     this.searchUsers(query);
-  },
-
-  setMode(mode) {
-    this.mode = mode;
-    localStorage.setItem('gliimu-ping-mode', mode);
-    this.applyMode();
-    if (mode === 'chats' && this.activeChat) this.openChat('dm', this.activeChat.id);
-  },
-
-  applyMode() {
-    const live = this.mode === 'live';
-
-    const chatsPane = document.getElementById('ping-chats-pane');
-    const livePane = document.getElementById('ping-live-pane');
-    if (chatsPane) chatsPane.style.display = live ? 'none' : '';
-    if (livePane) livePane.style.display = live ? '' : 'none';
-
-    // Update active tab
-    document.querySelectorAll('.ping-sidebar-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.mode === this.mode);
-    });
-
-    const dropdown = document.getElementById('ping-search-dropdown');
-    if (dropdown) { dropdown.style.display = 'none'; dropdown.innerHTML = ''; }
-
-    if (live) this.mountLive();
-  },
-
-  // The board is mounted on first use so the chat-only visit pays nothing for
-  // its realtime channel.
-  mountLive() {
-    if (this.liveMounted) return;
-    this.liveMounted = true;
-
-    liveView.init({ embedded: true });
-    document.getElementById('ping-live-new')?.addEventListener('click', () => liveView.openRequestModal());
   },
 
   searchUsers(query) {
@@ -461,7 +390,7 @@ export default {
             contentHtml = `<p>${readable}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.openHubMention('${hubPost}', '${hubComment}')">Check it out</button>`;
           } else if (m.content.startsWith('🎥 Session accepted:')) {
             const formattedText = escapeHtml(m.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
-            contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.showLive()">Open Live Posts</button>`;
+            contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="window.location.hash='#/live'">Open Live</button>`;
           } else {
             const formattedText = escapeHtml(m.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
             contentHtml = `<p>${formattedText}</p>`;

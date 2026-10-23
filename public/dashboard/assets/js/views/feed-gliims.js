@@ -465,7 +465,7 @@ const hubView = {
     window.profileInstance?.refreshProjects?.();
   },
 
-  async openCreateModal() {
+  async openCreateModal(opts = {}) {
     // Eligibility ladder: 50 GP to post in the Feed at all.
     const userGP = (store.profile && store.profile.total_gp) || 0;
     if (userGP < 50) {
@@ -478,11 +478,8 @@ const hubView = {
     const canLock = userGP >= 1000;
     const premiumPrice = Number((summary && summary.prices && summary.prices.premium_unlock) || 0);
 
-    const modal = document.createElement('div');
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content gliim-builder">
-        <button class="modal-close" onclick="hubInstance.closeModal()">×</button>
+    const composerInnerHtml = `
+        ${opts.inline ? '' : '<button class="modal-close" onclick="hubInstance.closeModal()">×</button>'}
         <h2 style="margin-bottom: 24px;">Publish to the Feed</h2>
         <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
         <div class="form-row" style="gap: 16px;">
@@ -532,6 +529,7 @@ const hubView = {
             <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
             <div onclick="hubInstance.addBlock('poll')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Poll</div>
             <div onclick="hubInstance.addBlock('table')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg> Table</div>
+            <div onclick="hubInstance.addBlock('slide')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v16"></path><path d="M14 4v16"></path></svg> Slide</div>
           </div>
         </div>
 
@@ -541,7 +539,29 @@ const hubView = {
         </div>
       </div>
     `;
-    document.body.appendChild(modal);
+
+    let modal;
+    const closeComposer = () => {
+      if (opts.inline) {
+        window.location.hash = '#/xplore';
+      } else {
+        modal.remove();
+        this.isModalOpen = false;
+      }
+    };
+
+    if (opts.inline) {
+      const mount = document.querySelector(opts.mountPoint || '#publish-mount');
+      if (!mount) return;
+      mount.innerHTML = `<div class="modal-content gliim-builder">${composerInnerHtml}`;
+      modal = mount;
+    } else {
+      modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `<div class="modal-content gliim-builder">${composerInnerHtml}`;
+      document.body.appendChild(modal);
+      this.isModalOpen = true;
+    }
 
     this.taggedUsers = [];
     this.hashtags = [];
@@ -655,7 +675,7 @@ const hubView = {
         await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
       }
       this.clearComposerAutosave();
-      modal.remove();
+      closeComposer();
       this.fetchPosts();
     });
 
@@ -730,7 +750,7 @@ const hubView = {
 
       alert("Draft saved successfully!");
       this.clearComposerAutosave();
-      modal.remove();
+      closeComposer();
       this.fetchPosts();
     });
   },
@@ -1047,6 +1067,7 @@ const hubView = {
     if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
     if (type === 'poll') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
     if (type === 'table') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
+    if (type === 'slide') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v16"></path><path d="M14 4v16"></path></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
@@ -1092,6 +1113,14 @@ const hubView = {
           <button type="button" class="btn-secondary table-generate-btn" style="padding:6px 12px;font-size:13px;">Generate</button>
         </div>
         <div class="table-grid-wrapper" style="overflow-x:auto;"></div>
+        <input type="hidden" class="block-content-input">
+      `;
+    } else if (type === 'slide') {
+      inputHtml = `
+        <div class="slide-carousel-wrapper">
+          <div class="slide-list"></div>
+          <button type="button" class="btn-secondary slide-add-btn" style="margin-top:8px;padding:6px 12px;font-size:13px;width:100%;">+ Add Slide</button>
+        </div>
         <input type="hidden" class="block-content-input">
       `;
     } else {
@@ -1212,6 +1241,122 @@ const hubView = {
       });
 
       buildTable(parseInt(rowsInput.value) || 2, parseInt(colsInput.value) || 2);
+      return;
+    }
+
+    if (type === 'slide') {
+      const slideList = blockDiv.querySelector('.slide-list');
+      const hiddenInput = blockDiv.querySelector('.block-content-input');
+      let slideIndex = 0;
+
+      const syncSlides = () => {
+        const slides = [];
+        slideList.querySelectorAll('.slide-item').forEach(item => {
+          const sType = item.dataset.slideType;
+          if (sType === 'text') {
+            const content = item.querySelector('.slide-text-input').value.trim();
+            if (content) slides.push({ type: 'text', content });
+          } else if (sType === 'image') {
+            const url = item.querySelector('.slide-file-url').value;
+            const caption = item.querySelector('.slide-caption-input')?.value.trim() || '';
+            if (url) slides.push({ type: 'image', url, caption });
+          } else if (sType === 'video') {
+            const url = item.querySelector('.slide-file-url').value;
+            if (url) slides.push({ type: 'video', url });
+          } else if (sType === 'audio') {
+            const url = item.querySelector('.slide-file-url').value;
+            const title = item.querySelector('.slide-caption-input')?.value.trim() || '';
+            if (url) slides.push({ type: 'audio', url, title });
+          }
+        });
+        hiddenInput.value = slides.length ? JSON.stringify({ slides }) : '';
+      };
+
+      const addSlide = () => {
+        const idx = slideIndex++;
+        const item = document.createElement('div');
+        item.className = 'slide-item';
+        item.dataset.slideType = 'image';
+        item.innerHTML = `
+          <div class="slide-item-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <select class="input slide-type-select" style="width:auto;font-size:12px;padding:4px 8px;">
+              <option value="image" selected>Image</option>
+              <option value="video">Video</option>
+              <option value="text">Text</option>
+              <option value="audio">Audio</option>
+            </select>
+            <button type="button" class="slide-remove-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;">×</button>
+          </div>
+          <div class="slide-item-body"></div>
+        `;
+        slideList.appendChild(item);
+
+        const body = item.querySelector('.slide-item-body');
+        const typeSelect = item.querySelector('.slide-type-select');
+
+        const renderBody = (sType) => {
+          item.dataset.slideType = sType;
+          if (sType === 'text') {
+            body.innerHTML = `<textarea class="input slide-text-input" placeholder="Slide text..." rows="3" style="font-size:13px;"></textarea>`;
+            body.querySelector('.slide-text-input').addEventListener('input', syncSlides);
+          } else {
+            const accept = sType === 'image' ? 'image/*' : sType === 'video' ? 'video/*' : 'audio/*';
+            const captionLabel = sType === 'image' ? 'Caption (optional)' : sType === 'audio' ? 'Title (optional)' : '';
+            body.innerHTML = `
+              <label class="custom-file-upload" style="font-size:12px;">
+                <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+                <span class="slide-file-name">Choose ${sType}</span>
+                <input type="file" class="slide-file-input" accept="${accept}" hidden>
+              </label>
+              <div class="upload-status slide-upload-status" style="font-size:11px;margin-top:4px;"></div>
+              <input type="hidden" class="slide-file-url">
+              ${captionLabel ? `<input type="text" class="input slide-caption-input" placeholder="${captionLabel}" style="margin-top:6px;font-size:12px;">` : ''}
+            `;
+            const fileInput = body.querySelector('.slide-file-input');
+            const urlInput = body.querySelector('.slide-file-url');
+            const statusEl = body.querySelector('.slide-upload-status');
+            const nameEl = body.querySelector('.slide-file-name');
+            fileInput.addEventListener('change', async () => {
+              const file = fileInput.files[0];
+              if (!file) return;
+              statusEl.textContent = 'Uploading...';
+              statusEl.style.color = 'var(--brand-primary)';
+              try {
+                const url = await uploadFile(file, sType, (percent) => {
+                  statusEl.textContent = `Uploading... ${percent}%`;
+                });
+                urlInput.value = url;
+                nameEl.textContent = file.name;
+                statusEl.textContent = 'Done';
+                statusEl.style.color = 'var(--success)';
+              } catch (err) {
+                statusEl.textContent = err.message || 'Upload failed';
+                statusEl.style.color = 'var(--error)';
+              }
+              syncSlides();
+            });
+            urlInput.addEventListener('change', syncSlides);
+            const captionInput = body.querySelector('.slide-caption-input');
+            if (captionInput) captionInput.addEventListener('input', syncSlides);
+          }
+        };
+
+        typeSelect.addEventListener('change', () => renderBody(typeSelect.value));
+        renderBody('image');
+
+        item.querySelector('.slide-remove-btn').onclick = () => {
+          if (slideList.querySelectorAll('.slide-item').length <= 1) return;
+          item.remove();
+          syncSlides();
+        };
+      };
+
+      blockDiv.querySelector('.slide-add-btn').onclick = () => {
+        if (slideList.querySelectorAll('.slide-item').length >= 20) return;
+        addSlide();
+      };
+
+      addSlide();
       return;
     }
 
@@ -1963,6 +2108,29 @@ const hubView = {
           html += '</tbody></table></div>';
           return html;
         }
+        if (b.type === 'slide') {
+          let data = null;
+          try { data = JSON.parse(b.content); } catch { data = null; }
+          if (!data || !Array.isArray(data.slides) || !data.slides.length) return '';
+          const slidesHtml = data.slides.map((s, idx) => {
+            if (s.type === 'image') {
+              const cap = s.caption ? `<div class="slide-caption">${escapeHtml(s.caption)}</div>` : '';
+              return `<div class="slide-item-view"><img src="${escapeHtml(s.url)}" alt="" loading="lazy">${cap}</div>`;
+            }
+            if (s.type === 'video') {
+              return `<div class="slide-item-view"><video controls preload="metadata" src="${escapeHtml(s.url)}"></video></div>`;
+            }
+            if (s.type === 'audio') {
+              const title = s.title ? `<div class="slide-caption">${escapeHtml(s.title)}</div>` : '';
+              return `<div class="slide-item-view"><audio controls preload="metadata" src="${escapeHtml(s.url)}"></audio>${title}</div>`;
+            }
+            if (s.type === 'text') {
+              return `<div class="slide-item-view slide-text-view"><p>${escapeHtml(s.content)}</p></div>`;
+            }
+            return '';
+          }).join('');
+          return `<div class="slide-carousel-view" data-slide-idx="0"><div class="slide-track">${slidesHtml}</div><div class="slide-nav"><button class="slide-nav-btn slide-prev" onclick="hubInstance.slideNav(this,-1)">&#8249;</button><span class="slide-counter">1 / ${data.slides.length}</span><button class="slide-nav-btn slide-next" onclick="hubInstance.slideNav(this,1)">&#8250;</button></div></div>`;
+        }
         return '';
       }).join('');
     } else if (post.is_premium && !isOwner) {
@@ -2119,6 +2287,24 @@ const hubView = {
         : (error && error.message) || 'Could not save your vote.');
     }
     await this.hydratePolls(block);
+  },
+
+  slideNav(btn, dir) {
+    const carousel = btn.closest('.slide-carousel-view');
+    if (!carousel) return;
+    const track = carousel.querySelector('.slide-track');
+    const items = track.querySelectorAll('.slide-item-view');
+    if (!items.length) return;
+    let idx = parseInt(carousel.dataset.slideIdx || '0');
+    idx = Math.max(0, Math.min(items.length - 1, idx + dir));
+    carousel.dataset.slideIdx = idx;
+    track.style.transform = `translateX(-${idx * 100}%)`;
+    const counter = carousel.querySelector('.slide-counter');
+    if (counter) counter.textContent = `${idx + 1} / ${items.length}`;
+    const prev = carousel.querySelector('.slide-prev');
+    const next = carousel.querySelector('.slide-next');
+    if (prev) prev.disabled = idx === 0;
+    if (next) next.disabled = idx === items.length - 1;
   },
 
   // Read-view media wiring: the equalizer dances while an audio chapter
@@ -2399,6 +2585,7 @@ window.hubInstance = {
   addBlock: (type) => hubView.addBlock(type),
   hydratePolls: (scope) => hubView.hydratePolls(scope),
   pollVote: (postId, idx) => hubView.pollVote(postId, idx),
+  slideNav: (btn, dir) => hubView.slideNav(btn, dir),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
