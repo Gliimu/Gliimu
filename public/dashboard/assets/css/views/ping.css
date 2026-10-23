@@ -2,11 +2,11 @@
 .ping-shell {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--space-8) - var(--space-8));
+  height: calc(100dvh - 64px);
 }
 
 @media (max-width: 768px) {
-  .ping-shell { height: calc(100vh - 64px - env(safe-area-inset-bottom)); }
+  .ping-shell { height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
 }
 
 /* Ping Layout */
@@ -342,7 +342,7 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .ping-shell { height: calc(100vh - 64px - env(safe-area-inset-bottom)); }
+  .ping-shell { height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
   .ping-sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 100%; z-index: 10; transition: transform 0.3s ease; }
   .ping-main { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; z-index: 2000; transform: translateX(100%); transition: transform 0.3s ease; }
   .ping-layout.chat-open .ping-sidebar { transform: translateX(-100%); }

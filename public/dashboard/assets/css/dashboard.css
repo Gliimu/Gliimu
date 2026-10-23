@@ -32,7 +32,7 @@
 
 /* Sidebar - Uses bg-secondary (swapped) */
 .sidebar {
-  width: 200px;
+  width: 170px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
@@ -178,7 +178,7 @@
 /* Main Content */
 .main-content {
   flex: 1;
-  margin-left: 200px;
+  margin-left: 170px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -296,7 +296,7 @@
 .sidebar-toggle-fixed {
   position: fixed;
   top: 16px;
-  left: 192px;
+  left: 162px;
   z-index: 99;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -411,8 +411,8 @@
 
 /* Large desktop (1024px and up) — full sidebar */
 @media (min-width: 1024px) {
-  .sidebar { width: 200px; }
-  .main-content { margin-left: 200px; }
+  .sidebar { width: 170px; }
+  .main-content { margin-left: 170px; }
 }
 
 /* Tablet to small desktop (769px-1023px) — auto-collapsed sidebar (icon rail) */

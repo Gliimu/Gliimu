@@ -531,7 +531,7 @@ const hubView = {
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
             <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
             <div onclick="hubInstance.addBlock('poll')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Poll</div>
-            <div onclick="hubInstance.addBlock('sponsor')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg> Sponsor</div>
+            <div onclick="hubInstance.addBlock('table')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg> Table</div>
           </div>
         </div>
 
@@ -605,9 +605,6 @@ const hubView = {
 
           if (!coverUrl && (type === 'image' || type === 'video')) {
             coverUrl = content;
-          }
-          if (!coverUrl && type === 'sponsor') {
-            try { const sd = JSON.parse(content); if (sd.image_url) coverUrl = sd.image_url; } catch {}
           }
         }
       });
@@ -839,19 +836,24 @@ const hubView = {
             if (it.price) slot.querySelector('.pdf-price-input').value = it.price;
           });
         }
-        if (block.type === 'sponsor') {
-          let data = {};
-          try { data = JSON.parse(block.content || '{}'); } catch {}
-          if (data.image_url) {
-            blockDiv.querySelector('.sponsor-image-url').value = data.image_url;
-            blockDiv.querySelector('.block-preview').innerHTML = `<img src="${escapeHtml(data.image_url)}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
-            blockDiv.querySelector('.block-file-name').innerText = 'Image loaded';
-            blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
-            blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
+        if (block.type === 'table') {
+          let data = null;
+          try { data = JSON.parse(block.content || ''); } catch { data = null; }
+          if (data && data.rows && data.cols) {
+            blockDiv.querySelector('.table-rows-input').value = data.rows;
+            blockDiv.querySelector('.table-cols-input').value = data.cols;
+            blockDiv.querySelector('.table-generate-btn').click();
+            if (Array.isArray(data.cells)) {
+              data.cells.forEach((row, r) => {
+                if (!Array.isArray(row)) return;
+                row.forEach((val, c) => {
+                  const inp = blockDiv.querySelector(`.table-cell-input[data-r="${r}"][data-c="${c}"]`);
+                  if (inp) inp.value = val || '';
+                });
+              });
+              blockDiv.querySelector('.block-content-input').value = block.content || '';
+            }
           }
-          if (data.title) blockDiv.querySelector('.sponsor-title-input').value = data.title;
-          if (data.description) blockDiv.querySelector('.sponsor-desc-input').value = data.description;
-          if (data.link_url) blockDiv.querySelector('.sponsor-link-input').value = data.link_url;
         }
       }
     } else {
@@ -1044,7 +1046,7 @@ const hubView = {
     if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
     if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
     if (type === 'poll') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
-    if (type === 'sponsor') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>';
+    if (type === 'table') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
@@ -1080,19 +1082,16 @@ const hubView = {
           <input type="hidden" class="pdf-file-url">
         </div>`;
       inputHtml = `<div class="pdf-slot-row">${pdfSlot(0)}${pdfSlot(1)}</div><input type="hidden" class="block-content-input">`;
-    } else if (type === 'sponsor') {
+    } else if (type === 'table') {
       inputHtml = `
-        <label class="custom-file-upload">
-          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-          <span class="block-file-name">Choose sponsor banner image</span>
-          <input type="file" class="block-file-input" accept="image/*" hidden>
-        </label>
-        <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
-        <div class="block-preview"></div>
-        <input type="text" class="input sponsor-title-input" placeholder="Sponsor title" style="margin-top: 8px;">
-        <input type="text" class="input sponsor-desc-input" placeholder="Short description">
-        <input type="text" class="input sponsor-link-input" placeholder="Link URL (https://...)">
-        <input type="hidden" class="sponsor-image-url">
+        <div class="table-config" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Rows</label>
+          <input type="number" class="input table-rows-input" min="1" max="20" value="2" style="width:60px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Cols</label>
+          <input type="number" class="input table-cols-input" min="1" max="10" value="2" style="width:60px;">
+          <button type="button" class="btn-secondary table-generate-btn" style="padding:6px 12px;font-size:13px;">Generate</button>
+        </div>
+        <div class="table-grid-wrapper" style="overflow-x:auto;"></div>
         <input type="hidden" class="block-content-input">
       `;
     } else {
@@ -1148,31 +1147,71 @@ const hubView = {
       return;
     }
 
-    if (type === 'sponsor') {
+    if (type === 'table') {
+      const wrapper = blockDiv.querySelector('.table-grid-wrapper');
       const hiddenInput = blockDiv.querySelector('.block-content-input');
-      const imageUrlInput = blockDiv.querySelector('.sponsor-image-url');
-      const syncSponsor = () => {
-        const data = {
-          image_url: imageUrlInput.value,
-          title: blockDiv.querySelector('.sponsor-title-input').value.trim(),
-          description: blockDiv.querySelector('.sponsor-desc-input').value.trim(),
-          link_url: blockDiv.querySelector('.sponsor-link-input').value.trim()
-        };
-        hiddenInput.value = (data.image_url || data.title || data.link_url)
-          ? JSON.stringify(data) : '';
-      };
-      blockDiv.querySelector('.sponsor-title-input').addEventListener('input', syncSponsor);
-      blockDiv.querySelector('.sponsor-desc-input').addEventListener('input', syncSponsor);
-      blockDiv.querySelector('.sponsor-link-input').addEventListener('input', syncSponsor);
-      blockDiv.querySelector('.block-file-input').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        blockDiv.querySelector('.block-file-name').innerText = file.name;
-        runUpload(file, 'media', blockDiv.querySelector('.upload-status'), imageUrlInput, e.target, (fileUrl) => {
-          blockDiv.querySelector('.block-preview').innerHTML = `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
-          syncSponsor();
+      const rowsInput = blockDiv.querySelector('.table-rows-input');
+      const colsInput = blockDiv.querySelector('.table-cols-input');
+      const genBtn = blockDiv.querySelector('.table-generate-btn');
+
+      const buildTable = (rows, cols, existingCells) => {
+        let html = '<table class="table-grid" style="border-collapse:collapse;width:max-content;min-width:100%;">';
+        for (let r = 0; r < rows; r++) {
+          html += '<tr>';
+          for (let c = 0; c < cols; c++) {
+            const val = existingCells && existingCells[r] ? (existingCells[r][c] || '') : '';
+            html += `<td style="border:1px solid var(--border);padding:0;min-width:100px;"><input type="text" class="input table-cell-input" data-r="${r}" data-c="${c}" value="${escapeHtml(val)}" placeholder="Cell ${r+1},${c+1}" style="border:none;border-radius:0;font-size:13px;padding:8px;min-width:90px;background:transparent;"></td>`;
+          }
+          html += '</tr>';
+        }
+        html += '</table>';
+        wrapper.innerHTML = html;
+        wrapper.querySelectorAll('.table-cell-input').forEach(inp => {
+          inp.addEventListener('input', syncTable);
         });
+        syncTable();
+      };
+
+      const syncTable = () => {
+        const rows = parseInt(rowsInput.value) || 0;
+        const cols = parseInt(colsInput.value) || 0;
+        if (rows < 1 || cols < 1) { hiddenInput.value = ''; return; }
+        const cells = [];
+        for (let r = 0; r < rows; r++) {
+          cells[r] = [];
+          for (let c = 0; c < cols; c++) {
+            const inp = wrapper.querySelector(`.table-cell-input[data-r="${r}"][data-c="${c}"]`);
+            cells[r][c] = inp ? inp.value : '';
+          }
+        }
+        const hasContent = cells.some(row => row.some(c => c.trim()));
+        hiddenInput.value = hasContent ? JSON.stringify({ rows, cols, cells }) : '';
+      };
+
+      genBtn.onclick = () => {
+        const rows = Math.min(20, Math.max(1, parseInt(rowsInput.value) || 2));
+        const cols = Math.min(10, Math.max(1, parseInt(colsInput.value) || 2));
+        rowsInput.value = rows;
+        colsInput.value = cols;
+        buildTable(rows, cols);
+      };
+
+      rowsInput.addEventListener('change', () => {
+        const rows = Math.min(20, Math.max(1, parseInt(rowsInput.value) || 2));
+        const cols = Math.min(10, Math.max(1, parseInt(colsInput.value) || 2));
+        rowsInput.value = rows;
+        colsInput.value = cols;
+        buildTable(rows, cols);
       });
+      colsInput.addEventListener('change', () => {
+        const rows = Math.min(20, Math.max(1, parseInt(rowsInput.value) || 2));
+        const cols = Math.min(10, Math.max(1, parseInt(colsInput.value) || 2));
+        rowsInput.value = rows;
+        colsInput.value = cols;
+        buildTable(rows, cols);
+      });
+
+      buildTable(parseInt(rowsInput.value) || 2, parseInt(colsInput.value) || 2);
       return;
     }
 
@@ -1413,6 +1452,26 @@ const hubView = {
             if (block.caption) {
               const captionInput = blockDiv.querySelector('.block-caption-input');
               if (captionInput) captionInput.value = block.caption;
+            }
+            if (block.type === 'table' && block.content) {
+              let data = null;
+              try { data = JSON.parse(block.content); } catch { data = null; }
+              if (data && data.rows && data.cols) {
+                blockDiv.querySelector('.table-rows-input').value = data.rows;
+                blockDiv.querySelector('.table-cols-input').value = data.cols;
+                blockDiv.querySelector('.table-generate-btn').click();
+                if (Array.isArray(data.cells)) {
+                  data.cells.forEach((row, r) => {
+                    if (!Array.isArray(row)) return;
+                    row.forEach((val, c) => {
+                      const inp = blockDiv.querySelector(`.table-cell-input[data-r="${r}"][data-c="${c}"]`);
+                      if (inp) inp.value = val || '';
+                    });
+                  });
+                  const ci = blockDiv.querySelector('.block-content-input');
+                  if (ci) ci.value = block.content;
+                }
+              }
             }
           }
         }
@@ -1888,15 +1947,21 @@ const hubView = {
             </button>`).join('');
           return `<div class="poll-block" data-poll-post="${post.id}"><h3 class="read-block-subtitle">${escapeHtml(question)}</h3><div class="poll-options-list">${rows}</div><div class="poll-total" data-poll-total></div></div>`;
         }
-        if (b.type === 'sponsor') {
-          let data = {};
-          try { data = JSON.parse(b.content || '{}'); } catch {}
-          if (!data.image_url && !data.title) return '';
-          const img = data.image_url ? `<img src="${escapeHtml(data.image_url)}" style="width:100%;border-radius:12px;margin-bottom:12px;" alt="">` : '';
-          const title = data.title ? `<h3 style="margin:0 0 4px;font-size:18px;font-weight:700;">${escapeHtml(data.title)}</h3>` : '';
-          const desc = data.description ? `<p style="margin:0 0 8px;font-size:14px;color:var(--text-secondary);">${escapeHtml(data.description)}</p>` : '';
-          const link = data.link_url ? `<a href="${escapeHtml(data.link_url)}" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;color:var(--brand-primary);">Learn more</a>` : '';
-          return `<div style="border:1px solid var(--border);border-radius:16px;padding:16px;margin:16px 0;background:var(--bg-tertiary);">${img}${title}${desc}${link}</div>`;
+        if (b.type === 'table') {
+          let data = null;
+          try { data = JSON.parse(b.content); } catch { data = null; }
+          if (!data || !Array.isArray(data.cells) || !data.rows || !data.cols) return '';
+          let html = '<div class="read-block-table-wrap"><table class="read-block-table"><tbody>';
+          for (let r = 0; r < data.rows; r++) {
+            html += '<tr>';
+            for (let c = 0; c < data.cols; c++) {
+              const val = data.cells[r] && data.cells[r][c] ? escapeHtml(data.cells[r][c]) : '';
+              html += `<td>${val}</td>`;
+            }
+            html += '</tr>';
+          }
+          html += '</tbody></table></div>';
+          return html;
         }
         return '';
       }).join('');

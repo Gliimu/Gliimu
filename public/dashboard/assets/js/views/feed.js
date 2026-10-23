@@ -1,5 +1,14 @@
+import hubView from './feed-gliims.js?v=75';
 import { supabase } from '/shared/js/config.js';
-import hubView from './feed-gliims.js?v=73';
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 // Feed is the merged home of every published work — gliims, books and
 // audiolites all live in feed_gliims, classified by their blocks. This view
@@ -9,16 +18,6 @@ export default {
   title: 'XpLoRe',
   template: `
     <div class="libmerge hub-layout" id="library-container">
-      <div class="sponsor-carousel-wrapper" id="sponsor-carousel-wrapper" style="display: none;">
-        <div class="sponsor-carousel" id="sponsor-carousel"></div>
-        <button class="sponsor-carousel-nav sponsor-carousel-prev" id="sponsor-prev" style="display: none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
-        <button class="sponsor-carousel-nav sponsor-carousel-next" id="sponsor-next" style="display: none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-        </button>
-      </div>
-
       <div class="hub-filter-bar">
         <div class="hub-filter-wrapper">
           <button class="hub-filter-btn" id="hub-filter-btn">
@@ -36,12 +35,12 @@ export default {
       <div class="hub-category-tabs" id="hub-category-tabs">
         <button class="hub-category-tab active" data-category="all">Everything</button>
         <button class="hub-category-tab" data-category="xploring">Xploring</button>
-        <button class="hub-category-tab" data-category="events">Events</button>
         <button class="hub-category-tab" data-category="Media">Media</button>
         <button class="hub-category-tab" data-category="Tech">Tech</button>
         <button class="hub-category-tab" data-category="Business">Business</button>
         <button class="hub-category-tab" data-category="Personal">Personal</button>
         <button class="hub-category-tab" data-category="Education">Education</button>
+        <button class="hub-category-tab" data-category="collections">Collections</button>
       </div>
 
       <div class="libmerge-feed" id="library-feed">
@@ -58,13 +57,10 @@ export default {
 
   init() {
     this.searchQuery = '';
-    this.sponsors = [];
-    this.sponsorIndex = 0;
 
     this.setupTopbar();
     this.setupFab();
     this.setupCategoryTabs();
-    this.loadSponsors();
 
     // Gliim cards render through this view so they sit in the shared masonry
     // feed; hub hands its render calls back here.
@@ -101,24 +97,56 @@ export default {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-        hubView.currentFilter = tab.dataset.category;
-        hubView.renderPosts(hubView.currentPosts);
+        if (tab.dataset.category === 'collections') {
+          this.renderCollections();
+        } else {
+          hubView.currentFilter = tab.dataset.category;
+          hubView.renderPosts(hubView.currentPosts);
+          this.renderFeed();
+        }
       });
     });
+  },
+
+  async renderCollections() {
+    const container = document.getElementById('library-feed');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Loading collections...</p>';
+
+    const { data: rows } = await supabase
+      .from('post_hashtags')
+      .select('hashtag')
+      .order('hashtag');
+
+    const counts = {};
+    (rows || []).forEach(r => {
+      const tag = (r.hashtag || '').toLowerCase();
+      if (tag) counts[tag] = (counts[tag] || 0) + 1;
+    });
+
+    const tags = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+    if (!tags.length) {
+      container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">No collections yet.</p>';
+      return;
+    }
+
+    container.innerHTML = `<div class="collections-grid">${tags.map(t =>
+      `<div class="collection-tag-card" onclick="window.location.hash='#/collection?name=${encodeURIComponent(t)}'">
+        <span class="collection-tag-name">#${escapeHtml(t)}</span>
+        <span class="collection-tag-count">${counts[t]} ${counts[t] === 1 ? 'gliim' : 'gliims'}</span>
+      </div>`
+    ).join('')}</div>`;
   },
 
   renderFeed() {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const showPosts = hubView.currentFilter !== 'events';
-
-    const gliimCards = showPosts
-      ? hubView.filterPosts().map(post => ({
-          at: Date.parse(post.created_at) || 0,
-          html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
-        }))
-      : [];
+    const gliimCards = hubView.filterPosts().map(post => ({
+        at: Date.parse(post.created_at) || 0,
+        html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
+      }));
 
     const cards = gliimCards
       .sort((a, b) => b.at - a.at)
@@ -155,80 +183,5 @@ export default {
       const height = inner.getBoundingClientRect().height;
       item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((height + GAP) / ROW))}`;
     });
-  },
-
-  async loadSponsors() {
-    const { data: sponsors, error } = await supabase
-      .from('sponsor_posts')
-      .select('*')
-      .eq('active', true)
-      .order('position', { ascending: true });
-
-    if (error || !sponsors || sponsors.length === 0) {
-      return;
-    }
-
-    this.sponsors = sponsors;
-    this.renderSponsorCarousel();
-  },
-
-  renderSponsorCarousel() {
-    if (!this.sponsors.length) return;
-
-    const wrapper = document.getElementById('sponsor-carousel-wrapper');
-    const carousel = document.getElementById('sponsor-carousel');
-    const prevBtn = document.getElementById('sponsor-prev');
-    const nextBtn = document.getElementById('sponsor-next');
-
-    if (!wrapper || !carousel) return;
-
-    wrapper.style.display = '';
-
-    const renderSlide = () => {
-      const sponsor = this.sponsors[this.sponsorIndex];
-      if (!sponsor) return;
-
-      carousel.innerHTML = `
-        <a href="${sponsor.link_url || '#'}" class="sponsor-slide" target="_blank" rel="noopener">
-          <img src="${sponsor.image_url}" alt="${sponsor.title}" class="sponsor-image">
-          <div class="sponsor-overlay">
-            <div class="sponsor-badge">Sponsored</div>
-            <h3 class="sponsor-title">${sponsor.title}</h3>
-            ${sponsor.description ? `<p class="sponsor-desc">${sponsor.description}</p>` : ''}
-            <div class="sponsor-meta">${sponsor.sponsor_name}</div>
-          </div>
-        </a>
-      `;
-
-      // Show/hide nav buttons based on number of sponsors
-      if (this.sponsors.length > 1) {
-        prevBtn.style.display = '';
-        nextBtn.style.display = '';
-      } else {
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
-      }
-    };
-
-    prevBtn.onclick = () => {
-      this.sponsorIndex = (this.sponsorIndex - 1 + this.sponsors.length) % this.sponsors.length;
-      renderSlide();
-    };
-
-    nextBtn.onclick = () => {
-      this.sponsorIndex = (this.sponsorIndex + 1) % this.sponsors.length;
-      renderSlide();
-    };
-
-    renderSlide();
-
-    // Auto-advance every 5 seconds if multiple sponsors
-    if (this.sponsors.length > 1) {
-      if (this.sponsorInterval) clearInterval(this.sponsorInterval);
-      this.sponsorInterval = setInterval(() => {
-        this.sponsorIndex = (this.sponsorIndex + 1) % this.sponsors.length;
-        renderSlide();
-      }, 5000);
-    }
   }
 };
