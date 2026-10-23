@@ -1,6 +1,19 @@
 /* Support — one thread where Gliim P.A. and the Gliimu team take turns.
    The page fills the view-container directly; no card wrapper. */
 
+/* When support is embedded inside the Ping chat window */
+.support-in-ping {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+}
+.support-in-ping .support-page-layout {
+  min-height: 100%;
+  margin: 0;
+  height: 100%;
+}
+
 .support-page-layout {
   display: flex;
   flex-direction: column;

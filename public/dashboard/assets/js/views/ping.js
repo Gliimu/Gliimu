@@ -2,6 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
+import supportView from './support.js?v=36';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -63,6 +64,7 @@ export default {
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
+      openSupportChat: () => this.openSupportChat(),
       getActiveChat: () => this.activeChat?.id || null,
       openHubMention: (postId, commentId) => this.openHubMention(postId, commentId),
       sendMessage: () => this.sendMessage(),
@@ -114,6 +116,7 @@ export default {
     this.disposed = true;
     this.contactsRequest = (this.contactsRequest || 0) + 1;
     this.chatRequest = (this.chatRequest || 0) + 1;
+    this.destroySupport();
     if (this.messageChannel) supabase.removeChannel(this.messageChannel);
     this.messageChannel = null;
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
@@ -254,6 +257,17 @@ export default {
     const list = document.getElementById('ping-chat-list');
     if (!list) return;
 
+    const isSupportActive = this.activeChat?.type === 'support';
+    const supportHtml = `
+      <div class="ping-chat-item ${isSupportActive ? 'active' : ''}" onclick="pingInstance.openSupportChat()">
+        <img src="/icons/gliimpa.png" class="ping-avatar" style="object-fit:contain;">
+        <div class="ping-chat-info">
+          <span class="ping-chat-name">Support</span>
+          <span class="ping-chat-preview">Gliim P.A. & team</span>
+        </div>
+      </div>
+    `;
+
     const usersHtml = this.contacts.map(u => {
       const avatarClass = tierClass(u.total_gp, 'ping-avatar');
       const avatar = u.avatar_url
@@ -278,13 +292,14 @@ export default {
     }).join('');
 
 
-    list.innerHTML = usersHtml;
+    list.innerHTML = supportHtml + usersHtml;
   },
 
   async openChat(type, id) {
     if (type !== 'dm') return;
     const user = this.contacts.find(u => u.id === id);
     if (!user) return;
+    this.destroySupport();
     const request = this.chatRequest = (this.chatRequest || 0) + 1;
     const draft = this.activeChat?.id === id ? document.getElementById('ping-input')?.value || '' : '';
     this.activeChat = null;
@@ -333,6 +348,7 @@ export default {
 
   closeChat() {
     this.chatRequest = (this.chatRequest || 0) + 1;
+    this.destroySupport();
     this.activeChat = null;
     this.chatReady = false;
     this.recorder?.cancel();
@@ -340,6 +356,25 @@ export default {
     const main = document.getElementById('ping-main');
     if (main) main.innerHTML = '<div class="ping-empty-state"><h3>Select a chat</h3></div>';
     this.renderChatList();
+  },
+
+  openSupportChat() {
+    this.destroySupport();
+    this.chatRequest = (this.chatRequest || 0) + 1;
+    this.activeChat = null;
+    this.chatReady = false;
+    this.recorder?.cancel();
+    this.activeChat = { type: 'support', id: '__support__', name: 'Support' };
+    document.getElementById('ping-main').innerHTML = `<div class="support-in-ping">${supportView.template}</div>`;
+    document.getElementById('ping-container').classList.add('chat-open');
+    supportView.init();
+    this.renderChatList();
+  },
+
+  destroySupport() {
+    if (this.activeChat?.type === 'support' || supportView && !supportView.disposed) {
+      supportView.destroy();
+    }
   },
 
   openHubMention(postId, commentId) {
