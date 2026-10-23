@@ -121,6 +121,9 @@ export default {
 
     container.innerHTML = `
       <div class="collection-hero">
+        <button class="collection-back-btn" onclick="history.back()" aria-label="Go back">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        </button>
         <div class="collection-hero-inner">
           ${topAvatars.length ? `<div class="collection-hero-avatars">${topAvatars.map(c => c.avatar_url ? `<img src="${c.avatar_url}" alt="" class="collection-hero-avatar">` : `<div class="collection-hero-avatar collection-hero-avatar-fallback"></div>`).join('')}</div>` : ''}
           <h1 class="collection-hero-title">#${escapeHtml(this.hashtag)}</h1>

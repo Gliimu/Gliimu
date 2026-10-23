@@ -21,6 +21,28 @@
   pointer-events: none;
 }
 
+.collection-back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: background 0.2s;
+}
+
+.collection-back-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 .collection-hero-inner {
   position: relative;
   z-index: 1;

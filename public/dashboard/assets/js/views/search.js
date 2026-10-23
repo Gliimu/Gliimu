@@ -30,6 +30,8 @@ export default {
         </div>
       </div>
 
+      <div class="search-collections" id="search-collections"></div>
+
       <div class="search-history" id="search-history"></div>
 
       <div class="search-results" id="search-results">
@@ -93,6 +95,95 @@ export default {
     };
 
     this.renderHistory();
+    this.loadCollections();
+  },
+
+  async loadCollections() {
+    const { data: rows } = await supabase
+      .from('post_hashtags')
+      .select('hashtag, post_id');
+
+    if (!rows || !rows.length) return;
+
+    const postIds = [...new Set(rows.map(r => r.post_id))];
+    const { data: posts } = await supabase
+      .from('feed_gliims')
+      .select('id, user_id, cover_url')
+      .in('id', postIds);
+
+    const postMap = {};
+    (posts || []).forEach(p => { postMap[p.id] = p; });
+
+    const userIds = [...new Set((posts || []).map(p => p.user_id).filter(Boolean))];
+    const { data: profiles } = userIds.length
+      ? await supabase.from('profiles').select('id, avatar_url').in('id', userIds)
+      : { data: [] };
+
+    const avatarMap = {};
+    (profiles || []).forEach(p => { avatarMap[p.id] = p.avatar_url; });
+
+    const counts = {};
+    const contributors = {};
+    const previews = {};
+    rows.forEach(r => {
+      const tag = (r.hashtag || '').toLowerCase();
+      if (!tag) return;
+      counts[tag] = (counts[tag] || 0) + 1;
+      const post = postMap[r.post_id];
+      if (!post) return;
+      const userId = post.user_id;
+      if (userId) {
+        if (!contributors[tag]) contributors[tag] = {};
+        contributors[tag][userId] = (contributors[tag][userId] || 0) + 1;
+      }
+      if (post.cover_url) {
+        if (!previews[tag]) previews[tag] = [];
+        if (previews[tag].length < 3) previews[tag].push(post.cover_url);
+      }
+    });
+
+    this._collectionsData = Object.keys(counts)
+      .sort((a, b) => counts[b] - counts[a])
+      .slice(0, 12)
+      .map(t => {
+        const contribMap = contributors[t] || {};
+        const topContribs = Object.entries(contribMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([uid]) => ({ user_id: uid, avatar_url: avatarMap[uid] }));
+        return { tag: t, count: counts[t], contribs: topContribs, previews: previews[t] || [] };
+      });
+
+    this.renderCollections();
+  },
+
+  renderCollections() {
+    const el = document.getElementById('search-collections');
+    if (!el || !this._collectionsData || !this._collectionsData.length) return;
+
+    el.innerHTML = `
+      <div class="search-collections-header">
+        <span class="search-collections-title">Browse Collections</span>
+      </div>
+      <div class="collections-grid">
+        ${this._collectionsData.map(c => {
+          const previewHtml = c.previews.length
+            ? `<div class="collection-tag-previews">${c.previews.map(url => `<img src="${url}" alt="" class="collection-tag-preview-img">`).join('')}</div>`
+            : `<div class="collection-tag-previews collection-tag-previews-empty"></div>`;
+          const avatarsHtml = c.contribs.length
+            ? `<div class="collection-tag-avatars">${c.contribs.map(a => a.avatar_url ? `<img src="${a.avatar_url}" alt="" class="collection-tag-avatar">` : `<div class="collection-tag-avatar collection-tag-avatar-fallback"></div>`).join('')}</div>`
+            : '';
+          return `<div class="collection-tag-card" onclick="searchInstance.openCollection('${encodeURIComponent(c.tag)}')">
+            ${previewHtml}
+            <div class="collection-tag-info">
+              <span class="collection-tag-name">#${escapeHtml(c.tag)}</span>
+              <span class="collection-tag-count">${c.count} ${c.count === 1 ? 'gliim' : 'gliims'}</span>
+              ${avatarsHtml}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
   },
 
   destroy() {
@@ -161,11 +252,14 @@ export default {
 
   async onSearch(value) {
     this.query = value.trim().toLowerCase();
+    const collEl = document.getElementById('search-collections');
     if (this.query.length < 2) {
+      if (collEl) collEl.style.display = '';
       this.renderHistory();
       this.renderEmpty();
       return;
     }
+    if (collEl) collEl.style.display = 'none';
     const hist = document.getElementById('search-history');
     if (hist) hist.innerHTML = '';
     await this.performSearch();

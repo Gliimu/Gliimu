@@ -215,6 +215,27 @@
   background: var(--bg-tertiary);
 }
 
+/* Search Collections — browse collections below search bar */
+.search-collections {
+  padding: 20px 0 8px;
+}
+
+.search-collections-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 0 4px;
+}
+
+.search-collections-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* Search Results — Google-style list */
 .search-results {
   display: flex;
