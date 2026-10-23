@@ -55,6 +55,22 @@ body.sidebar-open .sidebar {
   margin-left: 0;
   width: 100%;
 }
+
+/* Backdrop for all screen sizes */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+body.sidebar-open .sidebar-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
   position: fixed;
   height: 100vh;
   height: 100dvh;
@@ -449,29 +465,59 @@ body.sidebar-open .sidebar-backdrop {
   pointer-events: auto;
 }
 
-/* Desktop (769px and up) */
+/* Desktop (769px and up) — icon rail by default, full overlay when open */
 @media (min-width: 769px) {
   /* Show inline toggle button */
   .sidebar-toggle-inline { display: flex; }
 
-  /* Hide floating button and backdrop on desktop by default */
+  /* Hide floating button on desktop */
   .floating-menu-btn { display: none !important; }
 
-  /* Sidebar shows full content when open */
-  .sidebar-header { padding: var(--space-6); }
-  .brand-logo-rect { display: block; }
-  .brand-logo-square { display: none; }
+  /* Default state: icon rail (narrow sidebar visible) */
+  .sidebar {
+    transform: translateX(0);
+    width: 64px;
+  }
+
+  .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
+  .brand-logo-rect { display: none; }
+  .brand-logo-square { display: block; }
   .sidebar-toggle-inline {
+    width: 36px;
+    margin: 0 auto var(--space-2);
+    padding: 8px 0;
+    justify-content: center;
+  }
+  .sidebar-toggle-label { display: none; }
+  .sidebar-nav { padding: var(--space-4) var(--space-2); }
+  .nav-label, .nav-text { display: none; }
+  .nav-item { justify-content: center; padding: var(--space-3) 0; }
+  .nav-item svg { margin-right: 0; }
+  .user-card { justify-content: center; padding: var(--space-2) 0; }
+  .user-info { display: none; }
+
+  /* When sidebar-open: full width overlay */
+  body.sidebar-open .sidebar {
+    width: 170px;
+  }
+
+  body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: flex-start; }
+  body.sidebar-open .brand-logo-rect { display: block; }
+  body.sidebar-open .brand-logo-square { display: none; }
+  body.sidebar-open .sidebar-toggle-inline {
     width: calc(100% - var(--space-6) * 2);
     margin: 0 var(--space-6) var(--space-2);
+    padding: 8px 12px;
+    justify-content: flex-start;
   }
-  .sidebar-toggle-label { display: inline; }
-  .sidebar-nav { padding: var(--space-4); }
-  .nav-label, .nav-text { display: inline; }
-  .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
-  .nav-item svg { margin-right: 12px; }
-  .user-card { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
-  .user-info { display: flex; }
+  body.sidebar-open .sidebar-toggle-label { display: inline; }
+  body.sidebar-open .sidebar-nav { padding: var(--space-4); }
+  body.sidebar-open .nav-label,
+  body.sidebar-open .nav-text { display: inline; }
+  body.sidebar-open .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
+  body.sidebar-open .nav-item svg { margin-right: 12px; }
+  body.sidebar-open .user-card { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
+  body.sidebar-open .user-info { display: flex; }
 }
 
 /* Mobile (768px and down) */
@@ -528,28 +574,29 @@ body.sidebar-open .sidebar-backdrop {
   [data-theme="light"] .floating-menu-btn img { filter: brightness(0) invert(1); }
   [data-theme="dark"] .floating-menu-btn img { filter: brightness(0) invert(1); }
 
-  /* Mobile drawer order: user card on top, nav in middle, logo at the bottom */
+  /* Natural order: logo on top, nav in middle, profile at bottom */
   .sidebar-footer {
-    order: -1;
-    border-top: none;
-    border-bottom: 1px solid var(--border);
+    order: 3;
+    border-top: 1px solid var(--border);
+    border-bottom: none;
   }
   .sidebar-header {
     order: 1;
-    border-bottom: none;
-    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-top: none;
   }
 
-  /* Account tabs above Main tabs */
+  /* Nav sections */
   .sidebar-nav {
+    order: 2;
     display: flex;
     flex-direction: column;
   }
   .sidebar-nav .nav-section:first-child {
-    order: 2;
+    order: 1;
   }
   .sidebar-nav .nav-section-bottom {
-    order: 3;
+    order: 2;
   }
 
   /* Half-size avatar with username visible beside it */
