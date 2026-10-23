@@ -361,7 +361,7 @@ const supportView = {
     box.innerHTML = `${this.items.map(item => this.renderItem(item)).join('')}${
       this.note ? `<p class="sup-note">${escapeHtml(this.note)}</p>` : ''}`;
     this.syncChrome();
-    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    box.scrollTop = box.scrollHeight;
   },
 
   renderItem(item) {

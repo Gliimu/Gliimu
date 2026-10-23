@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import supportView from './support.js?v=37';
+import supportView from './support.js?v=38';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -250,6 +250,7 @@ export default {
     }
     this.unreadMap = computeUnread(store.user.id, receivedMsgs).unreadMap;
     this.previewMap = previewMap;
+    this.lastMsgMap = lastMsgMap;
     this.contacts = profiles.sort((a, b) => (lastMsgMap[b.id] || 0) - (lastMsgMap[a.id] || 0));
     if (this.activeChat) {
       const header = document.querySelector('#ping-main .ping-chat-header');
@@ -282,11 +283,10 @@ export default {
       name: u.full_name || 'Gliimait',
       avatar_url: u.avatar_url,
       total_gp: u.total_gp,
-      lastTime: 0,
+      lastTime: this.lastMsgMap?.[u.id] || 0,
       snippet: ''
     }));
 
-    const lastMsgMap = {};
     this.contacts.forEach(u => {
       const preview = this.previewMap[u.id];
       const snippet = preview ? (preview.mine ? `You: ${preview.text}` : preview.text) : 'No messages yet';

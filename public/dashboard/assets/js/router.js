@@ -3,7 +3,7 @@ const routes = {
   '/search': () => import('./views/search.js?v=6').then(m => m.default),
   '/xplore': () => import('./views/feed.js?v=63').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=63').then(m => m.default),
-  '/ping': () => import('./views/ping.js?v=44').then(m => m.default),
+  '/ping': () => import('./views/ping.js?v=45').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=32').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
