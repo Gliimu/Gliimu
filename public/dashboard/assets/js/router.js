@@ -1,8 +1,8 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=6').then(m => m.default),
   '/search': () => import('./views/search.js?v=6').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=61').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=61').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=63').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=63').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=42').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=32').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
@@ -10,9 +10,9 @@ const routes = {
   '/live': () => import('./views/live-page.js').then(m => m.default),
   '/publish': () => import('./views/publish.js').then(m => m.default),
   '/support': () => import('./views/support-page.js').then(m => m.default),
-  '/profile': () => import('./views/profile.js?v=42').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=7').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=5').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=44').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=9').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=7').then(m => m.default),
 };
 
 // Routes with no sidebar entry borrow another tab's highlight

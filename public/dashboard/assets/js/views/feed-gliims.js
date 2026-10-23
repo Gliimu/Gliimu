@@ -553,7 +553,7 @@ const hubView = {
     if (opts.inline) {
       const mount = document.querySelector(opts.mountPoint || '#publish-mount');
       if (!mount) return;
-      mount.innerHTML = `<div class="modal-content gliim-builder">${composerInnerHtml}`;
+      mount.innerHTML = `<div id="create-modal" class="publish-composer">${composerInnerHtml}`;
       modal = mount;
     } else {
       modal = document.createElement('div');

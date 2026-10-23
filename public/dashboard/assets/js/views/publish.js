@@ -1,9 +1,9 @@
-import hubView from './feed-gliims.js?v=76';
+import hubView from './feed-gliims.js?v=78';
 
 export default {
   title: 'Publish',
   template: `
-    <div class="publish-page-wrapper" style="padding: 24px; max-width: 900px; margin: 0 auto;">
+    <div class="publish-page-wrapper">
       <div id="publish-mount"></div>
     </div>
   `,
