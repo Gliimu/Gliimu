@@ -110,22 +110,37 @@ export default {
     const postIds = [...new Set(rows.map(r => r.post_id))];
     const { data: posts } = await supabase
       .from('feed_gliims')
-      .select('id, user_id')
+      .select('id, user_id, cover_url')
       .in('id', postIds);
 
-    const postUserMap = {};
-    (posts || []).forEach(p => { postUserMap[p.id] = p.user_id; });
+    const postMap = {};
+    (posts || []).forEach(p => { postMap[p.id] = p; });
+
+    const userIds = [...new Set((posts || []).map(p => p.user_id).filter(Boolean))];
+    const { data: profiles } = userIds.length
+      ? await supabase.from('profiles').select('id, avatar_url').in('id', userIds)
+      : { data: [] };
+
+    const avatarMap = {};
+    (profiles || []).forEach(p => { avatarMap[p.id] = p.avatar_url; });
 
     const counts = {};
-    const participants = {};
+    const contributors = {};
+    const previews = {};
     rows.forEach(r => {
       const tag = (r.hashtag || '').toLowerCase();
       if (!tag) return;
       counts[tag] = (counts[tag] || 0) + 1;
-      const userId = postUserMap[r.post_id];
+      const post = postMap[r.post_id];
+      if (!post) return;
+      const userId = post.user_id;
       if (userId) {
-        if (!participants[tag]) participants[tag] = new Set();
-        participants[tag].add(userId);
+        if (!contributors[tag]) contributors[tag] = {};
+        contributors[tag][userId] = (contributors[tag][userId] || 0) + 1;
+      }
+      if (post.cover_url) {
+        if (!previews[tag]) previews[tag] = [];
+        if (previews[tag].length < 3) previews[tag].push(post.cover_url);
       }
     });
 
@@ -137,11 +152,29 @@ export default {
     }
 
     container.innerHTML = `<div class="collections-grid">${tags.map(t => {
-      const pCount = participants[t] ? participants[t].size : 0;
+      const contribMap = contributors[t] || {};
+      const topContribs = Object.entries(contribMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([uid]) => ({ user_id: uid, avatar_url: avatarMap[uid] }));
+      const pCount = Object.keys(contribMap).length;
+      const previewImgs = previews[t] || [];
+
+      const previewHtml = previewImgs.length
+        ? `<div class="collection-tag-previews">${previewImgs.map(url => `<img src="${url}" alt="" class="collection-tag-preview-img">`).join('')}</div>`
+        : `<div class="collection-tag-previews collection-tag-previews-empty"></div>`;
+
+      const avatarsHtml = topContribs.length
+        ? `<div class="collection-tag-avatars">${topContribs.map(c => c.avatar_url ? `<img src="${c.avatar_url}" alt="" class="collection-tag-avatar">` : `<div class="collection-tag-avatar collection-tag-avatar-fallback"></div>`).join('')}</div>`
+        : '';
+
       return `<div class="collection-tag-card" onclick="window.location.hash='#/collection?name=${encodeURIComponent(t)}'">
-        <span class="collection-tag-name">#${escapeHtml(t)}</span>
-        <span class="collection-tag-count">${counts[t]} ${counts[t] === 1 ? 'gliim' : 'gliims'}</span>
-        <span class="collection-tag-participants">${pCount} ${pCount === 1 ? 'participant' : 'participants'}</span>
+        ${previewHtml}
+        <div class="collection-tag-info">
+          <span class="collection-tag-name">#${escapeHtml(t)}</span>
+          <span class="collection-tag-count">${counts[t]} ${counts[t] === 1 ? 'gliim' : 'gliims'}</span>
+          ${avatarsHtml}
+        </div>
       </div>`;
     }).join('')}</div>`;
   },
