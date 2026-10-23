@@ -199,7 +199,7 @@ async function checkGpTiers() {
 }
 
 // ============================================
-// MOBILE SIDEBAR AUTO-CLOSE
+// SIDEBAR AUTO-CLOSE
 // ============================================
 function initSidebarAutoClose() {
   const sidebar = document.getElementById('sidebar');
@@ -207,17 +207,16 @@ function initSidebarAutoClose() {
 
   // Navigating from the sidebar (nav link or avatar) slides it away immediately
   sidebar.addEventListener('click', (e) => {
-    if (window.innerWidth > 768) return;
     if (e.target.closest('.nav-item') || e.target.closest('.user-card')) {
       document.body.classList.remove('sidebar-open');
     }
   });
 
-  // Tapping anywhere outside the drawer (and the hamburger) closes it
+  // Tapping anywhere outside the drawer (and toggle buttons) closes it
   document.addEventListener('click', (e) => {
-    if (window.innerWidth > 768) return;
     if (!document.body.classList.contains('sidebar-open')) return;
-    if (sidebar.contains(e.target) || e.target.closest('.sidebar-toggle-btn')) return;
+    if (sidebar.contains(e.target)) return;
+    if (e.target.closest('.sidebar-toggle-inline') || e.target.closest('.floating-menu-btn')) return;
     document.body.classList.remove('sidebar-open');
   });
 }
