@@ -54,6 +54,7 @@ body.sidebar-open .sidebar {
 .main-content {
   margin-left: 0;
   width: 100%;
+  flex: 1;
 }
 
 /* Backdrop for all screen sizes */
@@ -70,13 +71,6 @@ body.sidebar-open .sidebar {
 body.sidebar-open .sidebar-backdrop {
   opacity: 1;
   pointer-events: auto;
-}
-  position: fixed;
-  height: 100vh;
-  height: 100dvh;
-  z-index: 100;
-  overflow-x: hidden;
-  transition: transform var(--transition-base), width var(--transition-base);
 }
 
 .sidebar-header {
@@ -249,13 +243,12 @@ body.sidebar-open .sidebar-backdrop {
 /* Main Content */
 .main-content {
   flex: 1;
-  margin-left: 170px;
+  margin-left: 0;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   min-width: 0;
   overflow-x: hidden;
-  transition: margin-left var(--transition-base);
 }
 
 /* Topbar / Bottom Bar */
