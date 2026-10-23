@@ -466,10 +466,14 @@ body.sidebar-open .sidebar-backdrop {
   /* Hide floating button on desktop */
   .floating-menu-btn { display: none !important; }
 
-  /* Default state: icon rail (narrow sidebar visible) */
+  /* Default state: icon rail (narrow sidebar visible, content starts after it) */
   .sidebar {
     transform: translateX(0);
     width: 64px;
+  }
+
+  .main-content {
+    margin-left: 64px;
   }
 
   .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
@@ -527,9 +531,10 @@ body.sidebar-open .sidebar-backdrop {
   /* Round floating menu toggle button */
   .floating-menu-btn {
     position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 35%;
+    right: 24px;
+    left: auto;
+    transform: none;
     z-index: 1100;
     width: 56px;
     height: 56px;
@@ -551,7 +556,7 @@ body.sidebar-open .sidebar-backdrop {
 
   .floating-menu-btn:hover {
     background: rgba(0, 0, 0, 0.8);
-    transform: translateX(-50%) scale(1.05);
+    transform: scale(1.05);
   }
 
   [data-theme="dark"] .floating-menu-btn:hover {
