@@ -9,7 +9,7 @@ const routes = {
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=2').then(m => m.default),
   '/publish': () => import('./views/publish.js').then(m => m.default),
-  '/support': () => import('./views/support-page.js?v=2').then(m => m.default),
+  '/support': () => import('./views/support-page.js?v=3').then(m => m.default),
   '/profile': () => import('./views/profile.js?v=44').then(m => m.default),
   '/post': () => import('./views/post-read.js?v=9').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=7').then(m => m.default),

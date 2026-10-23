@@ -6,7 +6,7 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { kbAnswer } from '../gliim-pa-kb.js?v=29';
-import { toggleAudio, attachmentHtml, uploadAttachment } from '../media.js';
+import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.
@@ -138,24 +138,29 @@ const supportView = {
         <div class="ping-messages" id="sup-messages">
           <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Loading your conversation...</p>
         </div>
+      </div>
 
-        <div class="sup-modes">
-          <button class="sup-mode" id="sup-mode-pa" type="button" onclick="supInstance.setMode('pa')">Gliim P.A.</button>
-          <button class="sup-mode" id="sup-mode-team" type="button" onclick="supInstance.setMode('team')">Gliimu team</button>
-          <span class="sup-hold" id="sup-hold" hidden>An admin is with you</span>
-        </div>
+      <div class="sup-modes">
+        <button class="sup-mode" id="sup-mode-pa" type="button" onclick="supInstance.setMode('pa')">Gliim P.A.</button>
+        <button class="sup-mode" id="sup-mode-team" type="button" onclick="supInstance.setMode('team')">Gliimu team</button>
+        <span class="sup-hold" id="sup-hold" hidden>An admin is with you</span>
+      </div>
 
-        <div class="ping-input-area" id="sup-input-area">
-          <button class="ping-input-icon" id="sup-clip-btn" type="button" title="Attach a file" onclick="supInstance.pickFile()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-          </button>
-          <input type="file" id="sup-file-input" style="display:none" onchange="supInstance.handleFile(event)">
-          <input type="text" id="sup-input" class="input" placeholder="Ask Gliim P.A. anything..."
-            onkeypress="if(event.key==='Enter') supInstance.send()">
-          <button class="btn-primary" type="button" onclick="supInstance.send()" title="Send">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-          </button>
-        </div>
+      <div class="ping-input-area" id="sup-input-area">
+        <button class="ping-input-icon" id="sup-clip-btn" type="button" title="Attach a file" onclick="supInstance.pickFile()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+        </button>
+        <input type="file" id="sup-file-input" style="display:none" onchange="supInstance.handleFile(event)">
+
+        <button class="ping-input-icon ping-mic-btn" id="sup-mic-btn" type="button" onclick="supInstance.startRecording()" title="Record Voice Note">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+        </button>
+
+        <input type="text" id="sup-input" class="input" placeholder="Ask Gliim P.A. anything..."
+          onkeypress="if(event.key==='Enter') supInstance.send()">
+        <button class="btn-primary" type="button" onclick="supInstance.send()" title="Send">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
       </div>
     </div>
   `,
@@ -168,6 +173,19 @@ const supportView = {
     this.paused = false;
     this.forced = false;
     this.busy = false;
+    this.sendingAudio = false;
+
+    this.recorder = createRecorder({
+      instanceName: 'supInstance',
+      inputAreaId: 'sup-input-area',
+      restore: () => this.renderInputArea(),
+      send: async (url) => {
+        this.sendingAudio = true;
+        if (this.channel() !== 'team') { this.setMode('team'); }
+        try { await this.postSupport({ content: '', attachment_url: url, attachment_type: 'audio_note' }); }
+        finally { this.sendingAudio = false; }
+      }
+    });
 
     window.supInstance = {
       send: () => this.send(),
@@ -178,7 +196,19 @@ const supportView = {
       pickFile: () => document.getElementById('sup-file-input')?.click(),
       handleFile: (event) => this.handleFile(event),
       toggleAudio: (id, url) => toggleAudio(id, url),
-      dismissTermsBanner: () => this.dismissTermsBanner()
+      dismissTermsBanner: () => this.dismissTermsBanner(),
+      startRecording: () => {
+        if (this.sendingAudio) return;
+        return this.recorder.start();
+      },
+      stopRecording: () => this.recorder.stop(),
+      cancelRecording: () => this.recorder.cancel(),
+      sendAudioNote: async () => {
+        if (this.sendingAudio) return;
+        try { await this.recorder.sendNote(); }
+        finally { this.sendingAudio = false; }
+      },
+      togglePreviewAudio: () => this.recorder.togglePreview()
     };
 
     this.load();
@@ -189,6 +219,7 @@ const supportView = {
   destroy() {
     this.disposed = true;
     this.request++;
+    this.recorder?.cancel();
     if (this.realtime) supabase.removeChannel(this.realtime);
     this.realtime = null;
   },
@@ -330,7 +361,8 @@ const supportView = {
     box.innerHTML = `${this.items.map(item => this.renderItem(item)).join('')}${
       this.note ? `<p class="sup-note">${escapeHtml(this.note)}</p>` : ''}`;
     this.syncChrome();
-    box.scrollTop = box.scrollHeight;
+    const scroll = document.getElementById('sup-scroll-area');
+    if (scroll) scroll.scrollTop = scroll.scrollHeight;
   },
 
   renderItem(item) {
@@ -405,6 +437,7 @@ const supportView = {
     const hold = document.getElementById('sup-hold');
     const input = document.getElementById('sup-input');
     const clip = document.getElementById('sup-clip-btn');
+    const mic = document.getElementById('sup-mic-btn');
     const status = document.getElementById('sup-status');
 
     if (pa) {
@@ -416,6 +449,7 @@ const supportView = {
     if (hold) hold.hidden = !this.paused;
     if (input) input.placeholder = team ? 'Message the Gliimu team...' : 'Ask Gliim P.A. anything...';
     if (clip) clip.style.display = team ? '' : 'none';
+    if (mic) mic.style.display = team ? '' : 'none';
     if (status) status.textContent = this.paused
       ? 'An admin is handling this. Gliim P.A. resumes after 5 quiet minutes.'
       : 'Gliim P.A. answers instantly. A human can step in at any time.';
@@ -431,6 +465,26 @@ const supportView = {
   wireInput() {
     const input = document.getElementById('sup-input');
     if (input && !this.busy) input.focus();
+  },
+
+  renderInputArea() {
+    const el = document.getElementById('sup-input-area');
+    if (!el) return;
+    el.innerHTML = `
+      <button class="ping-input-icon" id="sup-clip-btn" type="button" title="Attach a file" onclick="supInstance.pickFile()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+      </button>
+      <input type="file" id="sup-file-input" style="display:none" onchange="supInstance.handleFile(event)">
+      <button class="ping-input-icon ping-mic-btn" id="sup-mic-btn" type="button" onclick="supInstance.startRecording()" title="Record Voice Note">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+      </button>
+      <input type="text" id="sup-input" class="input" placeholder="${this.channel() === 'team' ? 'Message the Gliimu team...' : 'Ask Gliim P.A. anything...'}"
+        onkeypress="if(event.key==='Enter') supInstance.send()">
+      <button class="btn-primary" type="button" onclick="supInstance.send()" title="Send">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
+    `;
+    this.syncChrome();
   },
 
   useStarter(text) {
