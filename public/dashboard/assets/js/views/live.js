@@ -91,7 +91,7 @@ const liveView = {
   lastMediaError: null,
 
   template: `
-    <div class="view-container live-layout" id="live-container">
+    <div class="live-layout" id="live-container">
       <div id="live-board-content"></div>
     </div>
     <div class="modal-overlay" id="live-request-modal" style="display: none;">
@@ -203,6 +203,7 @@ const liveView = {
         return;
       }
       console.error('Failed to load live requests', error);
+      this.renderBoard();
       return;
     }
 
@@ -256,6 +257,15 @@ const liveView = {
 
     if (!html && q) {
       html = `<p class="live-board-empty">No requests match "${esc(this.searchQuery.trim())}".</p>`;
+    }
+
+    if (!html && !q) {
+      html = `
+        <div class="live-board-empty-state">
+          <p class="live-board-empty">No live sessions right now.</p>
+          <button class="btn-primary" onclick="liveInstance.openRequestModal()">Start a Live Session</button>
+        </div>
+      `;
     }
 
     boardEl.innerHTML = html;

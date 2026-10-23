@@ -124,17 +124,17 @@ const supportView = {
   realtime: null,
 
   template: `
-    <div class="ping-layout chat-open">
-      <div class="ping-main">
-        <div id="sup-terms-banner" style="display:none;"></div>
-        <div class="ping-chat-header">
-          <img src="/icons/gliimpa.png" alt="" class="ping-avatar">
-          <div>
-            <h3>Support</h3>
-            <span id="sup-status">Gliim P.A. answers instantly. A human can step in at any time.</span>
-          </div>
+    <div class="support-page-layout">
+      <div id="sup-terms-banner" style="display:none;"></div>
+      <div class="ping-chat-header">
+        <img src="/icons/gliimpa.png" alt="" class="ping-avatar">
+        <div>
+          <h3>Support</h3>
+          <span id="sup-status">Gliim P.A. answers instantly. A human can step in at any time.</span>
         </div>
+      </div>
 
+      <div class="support-scroll-area" id="sup-scroll-area">
         <div class="ping-messages" id="sup-messages">
           <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Loading your conversation...</p>
         </div>

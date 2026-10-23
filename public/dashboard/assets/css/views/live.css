@@ -77,6 +77,13 @@
   padding: 32px 0;
   font-size: 14px;
 }
+.live-board-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 0;
+}
 
 .live-request-card {
   display: flex;
