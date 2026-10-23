@@ -490,8 +490,8 @@
   .floating-menu-btn {
     position: fixed;
     bottom: 24px;
-    left: calc(50% - 64px);
-    transform: none;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 1100;
     width: 48px;
     height: 48px;

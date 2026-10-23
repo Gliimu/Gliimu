@@ -7,6 +7,13 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   padding: 32px;
+  display: flex;
+  flex-direction: column;
+}
+#live-board-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .live-page-header h2 { font-size: 22px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
@@ -83,6 +90,7 @@
   align-items: center;
   gap: 16px;
   padding: 48px 0;
+  margin-top: auto;
 }
 
 .live-request-card {
