@@ -787,25 +787,28 @@ export default {
   // REFERRAL
   // ============================================
   async openReferralModal() {
-    const { data: summary } = await supabase.rpc('referral_summary', {})
-      .then((r) => (r.error ? null : r.data), () => null);
+    const [{ data: summary }, { data: listData }] = await Promise.all([
+      supabase.rpc('referral_summary', {}).then(r => r.error ? { data: null } : r),
+      supabase.rpc('referral_list', {}).then(r => r.error ? { data: null } : r)
+    ]);
 
     const code = summary?.code || '';
     const fullLink = code ? `https://gliimu.com/?ref=${code}` : '';
     const pending = summary?.pending || 0;
     const vested = summary?.vested || 0;
     const gpEarned = Number(summary?.gp_earned || 0).toLocaleString();
+    const referrals = (listData?.ok && Array.isArray(listData.rows)) ? listData.rows : [];
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'referral-modal';
     modal.innerHTML = `
-      <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-content" style="max-width: 500px;">
         <button class="modal-close" id="close-referral-modal">&times;</button>
         <h2 style="margin-bottom: 8px;">Refer & earn</h2>
         <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">Invite friends to Gliimu and earn GP when they sign up.</p>
         ${!code ? '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Sign in to get your referral code.</p>' : `
-          <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Your code</div>
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="flex: 1; font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 1px;">${escapeHtml(code)}</div>
@@ -819,7 +822,7 @@ export default {
               <button class="btn-secondary" style="padding: 8px 12px; font-size: 13px;" onclick="walletInstance.copyReferralLink('${escapeHtml(fullLink)}')">Copy</button>
             </div>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; margin-bottom: 20px;">
             <div>
               <div style="font-size: 20px; font-weight: 800; color: var(--text-primary);">${pending}</div>
               <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Pending</div>
@@ -832,6 +835,42 @@ export default {
               <div style="font-size: 20px; font-weight: 800; color: var(--brand-primary);">${gpEarned}</div>
               <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">GP earned</div>
             </div>
+          </div>
+          <div style="border-top: 1px solid var(--border); padding-top: 16px;">
+            <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 12px;">Your referrals (${referrals.length})</h3>
+            ${referrals.length === 0 ? '<p style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No referrals yet. Share your link to get started.</p>' : `
+              <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px;">
+                <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                  <thead style="position: sticky; top: 0; background: var(--surface);">
+                    <tr style="border-bottom: 1px solid var(--border);">
+                      <th style="text-align: left; padding: 10px; font-weight: 600; color: var(--text-secondary);">Member</th>
+                      <th style="text-align: center; padding: 10px; font-weight: 600; color: var(--text-secondary);">Status</th>
+                      <th style="text-align: right; padding: 10px; font-weight: 600; color: var(--text-secondary);">GP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${referrals.map(r => {
+                      const name = r.referee_name || 'Member';
+                      const status = r.status === 'vested' ? 'Vested' : 'Pending';
+                      const statusColor = r.status === 'vested' ? '#10b981' : '#f59e0b';
+                      const gp = Number(r.signup_reward_gp || 0) + Number(r.purchase_bonus_gp || 0);
+                      const date = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      return `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                          <td style="padding: 10px;">
+                            <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(name)}</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">${date}</div>
+                          </td>
+                          <td style="text-align: center; padding: 10px;">
+                            <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; background: ${statusColor}20; color: ${statusColor};">${status}</span>
+                          </td>
+                          <td style="text-align: right; padding: 10px; font-weight: 600; color: var(--brand-primary);">+${gp}</td>
+                        </tr>`;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `}
           </div>
         `}
       </div>

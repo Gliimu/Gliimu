@@ -2444,6 +2444,42 @@ begin
 end;
 $$;
 
+-- 22f. referral_list() — per-referral rows for the Refer & Earn modal
+drop function if exists public.referral_list() cascade;
+create or replace function public.referral_list()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  v_rows jsonb;
+begin
+  if uid is null then
+    return jsonb_build_object('ok', false, 'detail', 'Not authenticated.');
+  end if;
+
+  select coalesce(jsonb_agg(row_to_json(t)::jsonb order by t.created_at desc), '[]'::jsonb)
+    into v_rows
+    from (
+      select r.id,
+             p.full_name  as referee_name,
+             r.status,
+             r.signup_reward_gp,
+             r.purchase_bonus_gp,
+             r.created_at,
+             r.vested_at
+        from public.referrals r
+        join public.profiles  p on p.id = r.referee_id
+       where r.referrer_id = uid
+    ) t;
+
+  return jsonb_build_object('ok', true, 'rows', v_rows);
+end $$;
+revoke execute on function public.referral_list() from public, anon;
+grant execute on function public.referral_list() to authenticated, service_role;
+
 -- ============================================================
 -- 23. FUNCTIONS — READING
 -- ============================================================
@@ -3424,6 +3460,7 @@ declare
     'increment_wallet(uuid,integer)','add_gp(uuid,integer)',
     'make_referral_code()','profiles_assign_referral_code()',
     'apply_referral(text)','referral_vest_due()','referral_summary()',
+    'referral_list()',
     'complete_reading(uuid)','related_publications(uuid,integer)',
     'gliim_kind(jsonb)',
     'admin_delete_feed_item(uuid)',

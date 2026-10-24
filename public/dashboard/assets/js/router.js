@@ -4,7 +4,7 @@ const routes = {
   '/xplore': () => import('./views/feed.js?v=75').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=75').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=46').then(m => m.default),
-  '/wallet': () => import('./views/wallet.js?v=36').then(m => m.default),
+  '/wallet': () => import('./views/wallet.js?v=37').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=3').then(m => m.default),
