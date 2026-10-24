@@ -251,7 +251,7 @@ export default {
     try {
       const imageUrl = await uploadFile(this._featureImageFile, 'media');
 
-      const balance = store.user?.wallet_balance || 0;
+      const balance = store.profile?.wallet_balance || 0;
       if (balance < price) {
         appAlert(`Insufficient balance. You need ₦${price.toLocaleString()} but have ₦${balance.toLocaleString()}. Please top up your wallet.`);
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = `Pay ₦${price.toLocaleString()} to submit for review`; }
@@ -279,7 +279,7 @@ export default {
       });
       if (insertErr) throw new Error('Submission failed: ' + insertErr.message);
 
-      store.user.wallet_balance = balance - price;
+      store.profile.wallet_balance = balance - price;
       this.closeFeatureModal();
       appAlert('Your featured content has been submitted for review. You will be notified once it is approved.');
     } catch (err) {
