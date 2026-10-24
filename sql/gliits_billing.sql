@@ -55,13 +55,11 @@ create policy "gliits_config_select_all"
 create policy "gliits_config_update_registrar"
   on public.gliits_config for update
   to authenticated
-  using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'registrar')
-    )
-  );
+  using (public.admin_has_role(auth.uid(), 'registrar'))
+  with check (public.admin_has_role(auth.uid(), 'registrar'));
+
+grant select on public.gliits_config to authenticated;
+grant select on public.gliits_config to anon;
 
 -- ============================================================
 -- 3. CREATE GLIITS PLANS TABLE
@@ -103,12 +101,12 @@ create policy "gliits_plans_select_admin"
   on public.gliits_plans for select
   to authenticated
   using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'registrar', 'ops')
-    )
+    public.admin_has_role(auth.uid(), 'registrar')
+    or public.admin_has_role(auth.uid(), 'ops')
   );
+
+grant select on public.gliits_plans to authenticated;
+grant select on public.gliits_plans to anon;
 
 -- ============================================================
 -- 4. CREATE GLIITS USAGE TABLE
@@ -144,14 +142,12 @@ create policy "gliits_usage_select_admin"
   on public.gliits_usage for select
   to authenticated
   using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'registrar', 'ops')
-    )
+    public.admin_has_role(auth.uid(), 'registrar')
+    or public.admin_has_role(auth.uid(), 'ops')
   );
 
 grant select on public.gliits_usage to authenticated;
+grant select on public.gliits_usage to anon;
 
 -- ============================================================
 -- 5. CREATE GLIITS TOPUPS TABLE
@@ -192,14 +188,12 @@ create policy "gliits_topups_select_admin"
   on public.gliits_topups for select
   to authenticated
   using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'registrar', 'ops')
-    )
+    public.admin_has_role(auth.uid(), 'registrar')
+    or public.admin_has_role(auth.uid(), 'ops')
   );
 
 grant select on public.gliits_topups to authenticated;
+grant select on public.gliits_topups to anon;
 
 -- ============================================================
 -- 6. RESET ALL USER BALANCES TO G100
