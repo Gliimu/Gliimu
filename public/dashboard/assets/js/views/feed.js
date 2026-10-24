@@ -1,6 +1,7 @@
 import hubView from './feed-gliims.js?v=78';
 import { supabase } from '/shared/js/config.js';
 import { uploadFile } from '../upload.js';
+import { store } from '../store.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

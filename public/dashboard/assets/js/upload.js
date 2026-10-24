@@ -1,25 +1,14 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
-import { store } from './store.js';
 
 // One upload path for every file the dashboard sends. The server signs a
 // Cloudflare R2 PUT URL and the browser pushes the bytes straight to R2, so
-// media never transits Express. While R2 is unconfigured the server answers
-// R2_NOT_CONFIGURED and we fall back to Supabase Storage, which keeps uploads
-// working through the migration.
-
-const FALLBACK_BUCKET = {
-  avatar: 'avatars',
-  media: 'media',
-  library: 'media',
-  chat: 'chat_attachments',
-  site: 'site_assets'
-};
+// media never transits Express.
 
 // Sticky for the session: once the server says R2 is missing, don't ask again
 // on every upload.
 let r2Unavailable = false;
 
-// Returns the signed PUT, or null when the server has no R2 configured.
+// Returns the signed PUT.
 // Throws only on a real rejection (bad type, oversize, signed out) so the
 // caller can show the message.
 async function presign(kind, file) {
@@ -42,7 +31,7 @@ async function presign(kind, file) {
       })
     });
   } catch (e) {
-    return null; // API unreachable — Supabase Storage still is
+    throw new Error('Upload service is unreachable. Please try again.');
   }
 
   const data = await res.json().catch(() => ({}));
@@ -50,28 +39,9 @@ async function presign(kind, file) {
   if (res.status >= 400 && res.status < 500) {
     throw new Error(data.error || 'That upload was rejected.');
   }
-  if (!res.ok) return null;
-  if (data.ok === false || !data.url) return null;
+  if (!res.ok) throw new Error('Upload failed. Please try again.');
+  if (data.ok === false || !data.url) throw new Error('Upload service is not configured.');
   return data;
-}
-
-async function supabaseFallback(kind, file, onProgress = null) {
-  const bucket = FALLBACK_BUCKET[kind] || 'media';
-  const who = (store.user && store.user.id) || 'anon';
-  const path = `${who}/${Date.now()}_${file.name}`;
-  
-  // Supabase storage doesn't provide progress events, so we simulate
-  if (onProgress) {
-    onProgress(0);
-    setTimeout(() => onProgress(50), 100);
-  }
-  
-  const { error } = await supabase.storage.from(bucket)
-    .upload(path, file, { cacheControl: '3600', upsert: true });
-  if (error) throw new Error(error.message);
-  
-  if (onProgress) onProgress(100);
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
 // Uploads a file and resolves with its public URL.
@@ -80,39 +50,33 @@ async function supabaseFallback(kind, file, onProgress = null) {
 export async function uploadFile(file, kind = 'media', onProgress = null) {
   if (!file) throw new Error('No file selected.');
 
-  if (!r2Unavailable) {
-    const signed = await presign(kind, file);
-    if (signed) {
-      // Use XMLHttpRequest for progress tracking
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', signed.url);
-        xhr.setRequestHeader('Content-Type', signed.contentType || file.type || 'application/octet-stream');
-        
-        if (onProgress) {
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const percent = Math.round((e.loaded / e.total) * 100);
-              onProgress(percent);
-            }
-          };
+  const signed = await presign(kind, file);
+  
+  // Use XMLHttpRequest for progress tracking
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', signed.url);
+    xhr.setRequestHeader('Content-Type', signed.contentType || file.type || 'application/octet-stream');
+    
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          onProgress(percent);
         }
-        
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            if (onProgress) onProgress(100);
-            resolve(signed.publicUrl);
-          } else {
-            reject(new Error('The upload did not complete. Please try again.'));
-          }
-        };
-        
-        xhr.onerror = () => reject(new Error('The upload failed. Please try again.'));
-        xhr.send(file);
-      });
+      };
     }
-    r2Unavailable = true;
-  }
-
-  return supabaseFallback(kind, file, onProgress);
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (onProgress) onProgress(100);
+        resolve(signed.publicUrl);
+      } else {
+        reject(new Error('The upload did not complete. Please try again.'));
+      }
+    };
+    
+    xhr.onerror = () => reject(new Error('The upload failed. Please try again.'));
+    xhr.send(file);
+  });
 }
