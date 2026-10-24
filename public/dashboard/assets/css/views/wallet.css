@@ -72,24 +72,6 @@
   position: relative;
 }
 
-.wallet-filter-wrap .billing-filter-menu {
-  display: none;
-  position: absolute;
-  top: 115%;
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
-  min-width: 140px;
-  overflow: hidden;
-}
-
-.wallet-filter-wrap .billing-filter-menu.active {
-  display: block;
-}
-
 .wallet-transfer-menu {
   display: none;
   position: absolute;

@@ -137,15 +137,18 @@ export default {
           <button class="icon-btn-light" title="Refer & Earn" onclick="walletInstance.openReferralModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
           </button>
-          <div class="wallet-filter-wrap" onclick="event.stopPropagation();">
-            <button class="icon-btn-light" title="Filter" onclick="walletInstance.toggleFilterMenu()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-            </button>
-            <div class="billing-filter-menu" id="billing-filter-menu">
-              <div class="billing-filter-item ${this.currentTab === 'summary' ? 'active' : ''}" data-tab="summary" onclick="walletInstance.switchTab('summary')">Summary</div>
-              <div class="billing-filter-item ${this.currentTab === 'trxn' ? 'active' : ''}" data-tab="trxn" onclick="walletInstance.switchTab('trxn')">Trxn</div>
-              <div class="billing-filter-item ${this.currentTab === 'subscription' ? 'active' : ''}" data-tab="subscription" onclick="walletInstance.switchTab('subscription')">Subscription</div>
-            </div>
+        </div>
+      </div>
+
+      <div class="billing-toolbar">
+        <div class="wallet-filter-wrap" onclick="event.stopPropagation();">
+          <button class="billing-filter-btn" title="Filter" onclick="walletInstance.toggleFilterMenu()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+          </button>
+          <div class="billing-filter-menu" id="billing-filter-menu">
+            <div class="billing-filter-item ${this.currentTab === 'summary' ? 'active' : ''}" data-tab="summary" onclick="walletInstance.switchTab('summary')">Summary</div>
+            <div class="billing-filter-item ${this.currentTab === 'trxn' ? 'active' : ''}" data-tab="trxn" onclick="walletInstance.switchTab('trxn')">Trxn</div>
+            <div class="billing-filter-item ${this.currentTab === 'subscription' ? 'active' : ''}" data-tab="subscription" onclick="walletInstance.switchTab('subscription')">Subscription</div>
           </div>
         </div>
       </div>
