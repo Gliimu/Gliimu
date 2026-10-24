@@ -456,15 +456,24 @@ create index if not exists idx_reading_progress_user on public.reading_progress(
 -- ============================================================
 
 create table if not exists public.referrals (
-  id bigserial primary key,
-  referrer_id uuid not null references auth.users(id) on delete cascade,
-  referred_id uuid not null references auth.users(id) on delete cascade,
-  code text not null,
-  vested_at timestamptz,
-  created_at timestamptz not null default now(),
-  unique(referred_id)
+  id               uuid primary key default gen_random_uuid(),
+  referrer_id      uuid not null references public.profiles(id) on delete cascade,
+  referee_id       uuid not null references public.profiles(id) on delete cascade,
+  code             text not null,
+  status           text not null default 'pending'
+                   check (status in ('pending', 'vested', 'invalid')),
+  signup_reward_gp integer not null default 100,
+  created_at       timestamptz not null default now(),
+  vested_at        timestamptz,
+  purchase_bonus_gp integer,
+  purchase_bonus_at timestamptz
 );
-create index if not exists idx_referrals_referrer on public.referrals(referrer_id);
+create unique index if not exists referrals_referee_once
+  on public.referrals (referee_id);
+create index if not exists referrals_referrer_idx
+  on public.referrals (referrer_id, status);
+alter table public.referrals enable row level security;
+revoke all on public.referrals from anon, authenticated;
 
 
 -- ============================================================
@@ -2379,49 +2388,81 @@ security definer
 set search_path = public
 as $$
 declare
-  v_user uuid := auth.uid();
-  v_referrer uuid;
+  uid uuid := auth.uid();
+  v_norm text;
+  v_ref uuid;
 begin
-  select id into v_referrer from public.profiles where referral_code = p_code;
-  if v_referrer is null then
-    return jsonb_build_object('ok', false, 'error', 'INVALID_CODE');
-  end if;
-  if v_referrer = v_user then
-    return jsonb_build_object('ok', false, 'error', 'SELF_REFERRAL');
+  if uid is null then
+    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
   end if;
 
-  insert into public.referrals (referrer_id, referred_id, code)
-  values (v_referrer, v_user, p_code)
-  on conflict (referred_id) do nothing;
+  v_norm := upper(btrim(coalesce(p_code, '')));
+  if v_norm = '' then
+    return jsonb_build_object('ok', false, 'code', 'NO_CODE');
+  end if;
 
-  return jsonb_build_object('ok', true, 'referrer_id', v_referrer);
+  perform pg_advisory_xact_lock(hashtext('referral:' || uid::text));
+
+  if exists (select 1 from public.referrals where referee_id = uid) then
+    return jsonb_build_object('ok', true, 'already', true);
+  end if;
+
+  select p.id into v_ref from public.profiles p where p.referral_code = v_norm;
+  if v_ref is null then
+    return jsonb_build_object('ok', false, 'code', 'INVALID_CODE');
+  end if;
+  if v_ref = uid then
+    return jsonb_build_object('ok', false, 'code', 'SELF_REFERRAL');
+  end if;
+
+  insert into public.referrals (referrer_id, referee_id, code)
+  values (v_ref, uid, v_norm);
+
+  return jsonb_build_object('ok', true, 'attached', true);
 end;
 $$;
+revoke execute on function public.apply_referral(text) from public, anon;
+grant execute on function public.apply_referral(text) to authenticated, service_role;
 
--- 22d. referral_vest_due()
-drop function if exists public.referral_vest_due() cascade;
-create or replace function public.referral_vest_due()
+-- 22d. referral_vest_due(p_referrer) — award signup reward when vested
+drop function if exists public.referral_vest_due(uuid) cascade;
+create or replace function public.referral_vest_due(p_referrer uuid default null)
 returns integer
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_count integer;
+  r record;
+  v_count integer := 0;
 begin
-  with vested as (
+  for r in
+    select rf.id, rf.referrer_id, rf.signup_reward_gp
+      from public.referrals rf
+     where rf.status = 'pending'
+       and rf.created_at <= now() - interval '1 day'
+       and (p_referrer is null or rf.referrer_id = p_referrer)
+       and exists (select 1 from public.billing_events e
+                    where e.user_id = rf.referee_id and e.amount > 0)
+  loop
     update public.referrals
-       set vested_at = now()
-     where vested_at is null
-       and created_at < now() - interval '30 days'
-    returning id
-  )
-  select count(*) into v_count from vested;
+       set status = 'vested', vested_at = now()
+     where id = r.id and status = 'pending';
+    if found then
+      update public.profiles
+         set total_gp = coalesce(total_gp, 0) + r.signup_reward_gp
+       where id = r.referrer_id;
+      insert into public.transactions (user_id, amount, type, status, points, description)
+      values (r.referrer_id, 0, 'reward', 'success', r.signup_reward_gp, 'Referral reward');
+      v_count := v_count + 1;
+    end if;
+  end loop;
   return v_count;
-end;
-$$;
+end $$;
+revoke execute on function public.referral_vest_due(uuid) from public, anon, authenticated;
+grant execute on function public.referral_vest_due(uuid) to service_role;
 
--- 22e. referral_summary()
+-- 22e. referral_summary() — the Refer & earn card, one call
 drop function if exists public.referral_summary() cascade;
 create or replace function public.referral_summary()
 returns jsonb
@@ -2430,21 +2471,85 @@ security definer
 set search_path = public
 as $$
 declare
-  v_user uuid := auth.uid();
+  v_uid uuid := auth.uid();
+  v_code text;
 begin
+  if v_uid is null then
+    return jsonb_build_object('code', 'NOT_AUTHENTICATED');
+  end if;
+
+  perform public.referral_vest_due(v_uid);
+  perform public.referral_purchase_bonus_due(v_uid);
+
+  select p.referral_code into v_code
+  from public.profiles p where p.id = v_uid;
+
   return (
     select jsonb_build_object(
-      'code', p.referral_code,
-      'total_referred', (select count(*) from public.referrals where referrer_id = v_user),
-      'vested', (select count(*) from public.referrals where referrer_id = v_user and vested_at is not null),
-      'pending', (select count(*) from public.referrals where referrer_id = v_user and vested_at is null)
+      'code', v_code,
+      'link', '/?ref=' || coalesce(v_code, ''),
+      'pending', count(*) filter (where rf.status = 'pending'),
+      'vested', count(*) filter (where rf.status = 'vested'),
+      'gp_earned', coalesce(sum(rf.signup_reward_gp) filter (where rf.status = 'vested'), 0)
+        + coalesce(sum(rf.purchase_bonus_gp) filter (where rf.purchase_bonus_at is not null), 0),
+      'purchase_count', count(*) filter (where rf.purchase_bonus_at is not null),
+      'purchase_gp', coalesce(sum(rf.purchase_bonus_gp) filter (where rf.purchase_bonus_at is not null), 0)
     )
-    from public.profiles p where p.id = v_user
+    from public.referrals rf
+   where rf.referrer_id = v_uid
   );
 end;
 $$;
+revoke execute on function public.referral_summary() from public, anon;
+grant execute on function public.referral_summary() to authenticated, service_role;
 
--- 22f. referral_list() — per-referral rows for the Refer & Earn modal
+-- 22f. referral_purchase_bonus_due(p_referrer) — 20 GP bonus when referee makes first purchase
+drop function if exists public.referral_purchase_bonus_due(uuid) cascade;
+create or replace function public.referral_purchase_bonus_due(p_referrer uuid default null)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  v_bonus constant integer := 20;
+  v_count integer := 0;
+begin
+  for r in
+    select rf.id, rf.referrer_id
+      from public.referrals rf
+     where rf.purchase_bonus_at is null
+       and rf.status in ('pending', 'vested')
+       and (p_referrer is null or rf.referrer_id = p_referrer)
+       and exists (
+         select 1 from public.billing_events e
+          where e.user_id = rf.referee_id
+            and e.amount > 0
+            and e.created_at >= rf.created_at
+       )
+     order by rf.referrer_id, rf.id
+  loop
+    update public.referrals
+       set purchase_bonus_gp = v_bonus, purchase_bonus_at = now()
+     where id = r.id
+       and purchase_bonus_at is null
+       and status in ('pending', 'vested');
+    if found then
+      update public.profiles
+         set total_gp = coalesce(total_gp, 0) + v_bonus
+       where id = r.referrer_id;
+      insert into public.transactions (user_id, amount, type, status, points, description)
+      values (r.referrer_id, 0, 'reward', 'success', v_bonus, 'Referral purchase bonus');
+      v_count := v_count + 1;
+    end if;
+  end loop;
+  return v_count;
+end $$;
+revoke execute on function public.referral_purchase_bonus_due(uuid) from public, anon, authenticated;
+grant execute on function public.referral_purchase_bonus_due(uuid) to service_role;
+
+-- 22g. referral_list() — per-referral rows for the Refer & Earn modal
 drop function if exists public.referral_list() cascade;
 create or replace function public.referral_list()
 returns jsonb
@@ -3265,20 +3370,14 @@ create policy reading_progress_own on public.reading_progress for all to authent
   using (user_id = auth.uid());
 
 -- ============================================================
--- 53. RLS POLICIES — REFERRALS
+-- 53. RLS — REFERRALS
 -- ============================================================
 
+-- No policies on purpose: members never read this table directly.
+-- All reads go through SECURITY DEFINER RPCs (referral_summary, referral_list).
 drop policy if exists referrals_read on public.referrals;
-create policy referrals_read on public.referrals for select to authenticated
-  using (referrer_id = auth.uid() or referred_id = auth.uid());
-
 drop policy if exists referrals_insert on public.referrals;
-create policy referrals_insert on public.referrals for insert to authenticated
-  with check (referred_id = auth.uid());
-
 drop policy if exists referrals_admin on public.referrals;
-create policy referrals_admin on public.referrals for all to authenticated
-  using (public.is_admin());
 
 -- ============================================================
 -- 54. SEED DATA — FAQS
@@ -3459,8 +3558,8 @@ declare
     'operations_faq_delete(bigint)',
     'increment_wallet(uuid,integer)','add_gp(uuid,integer)',
     'make_referral_code()','profiles_assign_referral_code()',
-    'apply_referral(text)','referral_vest_due()','referral_summary()',
-    'referral_list()',
+    'apply_referral(text)','referral_vest_due(uuid)','referral_summary()',
+    'referral_purchase_bonus_due(uuid)','referral_list()',
     'complete_reading(uuid)','related_publications(uuid,integer)',
     'gliim_kind(jsonb)',
     'admin_delete_feed_item(uuid)',
