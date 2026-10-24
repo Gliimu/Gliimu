@@ -44,7 +44,8 @@ export default {
       refreshProjects: () => { if (document.getElementById('profile-container')) this.renderProfile(this.targetUserId); },
       openQr: () => this.openQrModal(),
       closeQr: (e, el) => { if (e.target === el) el.remove(); },
-      copyName: () => this.copyName()
+      copyName: () => this.copyName(),
+      goFeature: () => this.goFeature()
     };
 
     await this.fetchAllUsers();
@@ -109,6 +110,19 @@ export default {
       btn.classList.add('copied');
       setTimeout(() => btn.classList.remove('copied'), 1500);
     }
+  },
+
+  async goFeature() {
+    const { data, error } = await supabase.rpc('featured_slot_check');
+    if (error || !data) {
+      appAlert('Could not check availability. Please try again.');
+      return;
+    }
+    if (!data.available) {
+      appAlert('Feature is currently unavailable. Slots are filled out. Contact support in Ping.');
+      return;
+    }
+    window.location.hash = '#/feature';
   },
 
   async renderProfile(userId) {
@@ -224,9 +238,15 @@ export default {
         <div class="profile-projects-header">
           <h2>Projects</h2>
           ${isMe ? `
-            <button class="profile-print-btn" onclick="profileInstance.printProfile()" title="Print / Save as PDF">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            </button>
+            <div class="profile-projects-actions">
+              <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <span>Feature your content</span>
+              </button>
+              <button class="profile-print-btn" onclick="profileInstance.printProfile()" title="Print / Save as PDF">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              </button>
+            </div>
           ` : ''}
         </div>
         <div class="profile-projects-grid">

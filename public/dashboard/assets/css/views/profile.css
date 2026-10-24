@@ -383,6 +383,36 @@
   border-color: var(--brand-primary);
 }
 
+.profile-projects-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-feature-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.profile-feature-btn:hover {
+  background: var(--brand-primary-hover);
+  transform: translateY(-1px);
+}
+.profile-feature-btn svg {
+  flex-shrink: 0;
+}
+
 .profile-projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -567,5 +597,12 @@
 
   .profile-projects-header {
     padding: 16px;
+  }
+
+  .profile-feature-btn span {
+    display: none;
+  }
+  .profile-feature-btn {
+    padding: 8px 10px;
   }
 }

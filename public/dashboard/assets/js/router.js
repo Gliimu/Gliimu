@@ -1,8 +1,8 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=6').then(m => m.default),
   '/search': () => import('./views/search.js?v=7').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=70').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=70').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=72').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=72').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=46').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=32').then(m => m.default),
   '/settings': () => import('./views/settings.js').then(m => m.default),
@@ -10,13 +10,14 @@ const routes = {
   '/live': () => import('./views/live-page.js?v=2').then(m => m.default),
   '/publish': () => import('./views/publish.js').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=44').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=45').then(m => m.default),
+  '/feature': () => import('./views/feature.js?v=1').then(m => m.default),
   '/post': () => import('./views/post-read.js?v=9').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=9').then(m => m.default),
 };
 
 // Routes with no sidebar entry borrow another tab's highlight
-const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore' };
+const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore', '/feature': '/profile' };
 
 let previousHash = window.location.hash;
 let currentView = null;

@@ -53,6 +53,14 @@ create policy "Anyone can read approved featured_posts"
     and ends_at >= now()
   );
 
+-- Admins can read all featured posts (for moderation)
+drop policy if exists "Admins can read all featured_posts" on public.featured_posts;
+create policy "Admins can read all featured_posts"
+  on public.featured_posts
+  for select
+  to authenticated
+  using (public.is_admin());
+
 -- Users can insert their own featured posts
 drop policy if exists "Users can insert own featured_posts" on public.featured_posts;
 create policy "Users can insert own featured_posts"
@@ -75,13 +83,7 @@ create policy "Admins can update featured_posts"
   on public.featured_posts
   for update
   to authenticated
-  using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'ops')
-    )
-  );
+  using (public.is_admin());
 
 -- Admins can delete featured posts
 drop policy if exists "Admins can delete featured_posts" on public.featured_posts;
@@ -89,19 +91,103 @@ create policy "Admins can delete featured_posts"
   on public.featured_posts
   for delete
   to authenticated
-  using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'ops')
-    )
-  );
+  using (public.is_admin());
 
 
 -- ------------------------------------------------------------
 -- 3. Grants
 -- ------------------------------------------------------------
 grant select, insert, update, delete on public.featured_posts to authenticated;
+
+
+-- ------------------------------------------------------------
+-- 4. deduct_wallet RPC — debit the caller's wallet + log it
+-- ------------------------------------------------------------
+create or replace function public.deduct_wallet(
+  p_amount integer,
+  p_description text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_id uuid;
+  current_balance integer;
+begin
+  caller_id := auth.uid();
+  if caller_id is null then
+    raise exception 'NOT_AUTHENTICATED';
+  end if;
+
+  select wallet_balance into current_balance
+    from public.profiles
+   where id = caller_id
+     for update;
+
+  if current_balance is null or current_balance < p_amount then
+    raise exception 'INSUFFICIENT_FUNDS';
+  end if;
+
+  update public.profiles
+     set wallet_balance = wallet_balance - p_amount
+   where id = caller_id;
+
+  insert into public.transactions (user_id, amount, type, reference, points)
+  values (caller_id, -p_amount, 'purchase', coalesce(p_description, 'Featured content'), 0);
+end $$;
+
+grant execute on function public.deduct_wallet(integer, text) to authenticated;
+
+
+-- ------------------------------------------------------------
+-- 5. Feature pricing — seeded in billing_prices so the
+--    registrar can change them from the Price List admin page.
+-- ------------------------------------------------------------
+insert into public.billing_prices (event_type, amount) values
+  ('feature_1day',   5000),
+  ('feature_1week', 30000),
+  ('feature_1month',110000)
+on conflict (event_type) do nothing;
+
+
+-- ------------------------------------------------------------
+-- 6. featured_slot_check — returns how many active approved
+--    featured posts are running right now, and whether a slot
+--    is available (max 3 concurrent).
+-- ------------------------------------------------------------
+create or replace function public.featured_slot_check()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_active integer;
+  v_max integer := 3;
+  v_prices jsonb;
+begin
+  select count(*) into v_active
+    from public.featured_posts
+   where status = 'approved'
+     and starts_at <= now()
+     and ends_at >= now();
+
+  select jsonb_object_agg(event_type, amount) into v_prices
+    from public.billing_prices
+   where event_type in ('feature_1day', 'feature_1week', 'feature_1month');
+
+  return jsonb_build_object(
+    'active', v_active,
+    'max_slots', v_max,
+    'available', v_active < v_max,
+    'prices', coalesce(v_prices, '{}'::jsonb)
+  );
+end;
+$$;
+
+grant execute on function public.featured_slot_check() to authenticated;
 
 
 -- ============================================================
@@ -173,3 +259,20 @@ where schemaname = 'public'
 select 'featured_posts count' as check_name,
   count(*)::text as total_featured
 from public.featured_posts;
+
+select 'deduct_wallet function' as check_name,
+  case when count(*) = 1 then 'OK' else 'MISSING' end as status
+from pg_proc
+where proname = 'deduct_wallet'
+  and pronamespace = (select oid from pg_namespace where nspname = 'public');
+
+select 'featured_slot_check function' as check_name,
+  case when count(*) = 1 then 'OK' else 'MISSING' end as status
+from pg_proc
+where proname = 'featured_slot_check'
+  and pronamespace = (select oid from pg_namespace where nspname = 'public');
+
+select 'feature pricing rows' as check_name,
+  count(*)::text as price_count
+from public.billing_prices
+where event_type in ('feature_1day', 'feature_1week', 'feature_1month');
