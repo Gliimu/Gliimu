@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, naira, gliits, gp, empty, timeAgo, rpcError, TIER_LABEL, TXN_LABEL } from '../ui.js';
+import { escapeHtml, naira, gliits, gp, empty, timeAgo, rpcError, TIER_LABEL, TXN_LABEL } from '../ui.js?v=1';
 
 function stat(label, value, note) {
   return `

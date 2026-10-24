@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, gliits, gp, badge, empty, timeAgo, rpcError, openDrawer, TIER_LABEL } from '../ui.js';
+import { escapeHtml, gliits, gp, badge, empty, timeAgo, rpcError, openDrawer, TIER_LABEL } from '../ui.js?v=1';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const TOPUP_TONE = { pending: 'warning', success: 'success', failed: 'error' };
