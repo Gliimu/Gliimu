@@ -2,6 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { uploadFile } from '../upload.js';
 import hubView from './feed-gliims.js?v=79';
+import { notify } from '../notify.js?v=33';
 
 export default {
   title: 'Profile',
@@ -14,6 +15,7 @@ export default {
   async init() {
     this.allUsers = [];
     this._projectFilter = 'all';
+    this._isFollowing = false;
 
     // Deep links: sessionStorage (hub/library) or ?u=<id> in the hash (QR scans)
     let targetId = sessionStorage.getItem('view_profile_id');
@@ -41,7 +43,8 @@ export default {
       copyName: () => this.copyName(),
       goFeature: () => this.goFeature(),
       toggleFilterMenu: (e) => this.toggleFilterMenu(e),
-      applyFilter: (filter) => this.applyFilter(filter)
+      applyFilter: (filter) => this.applyFilter(filter),
+      toggleFollow: () => this.toggleFollow()
     };
 
     await this.fetchAllUsers();
@@ -147,6 +150,51 @@ export default {
     this.renderProfile(this.targetUserId);
   },
 
+  async toggleFollow() {
+    const btn = document.getElementById('follow-btn');
+    if (!btn) return;
+
+    const targetId = this.targetUserId;
+    const wasFollowing = this._isFollowing;
+
+    btn.disabled = true;
+
+    try {
+      if (wasFollowing) {
+        const { error } = await supabase.rpc('unfollow_user', { p_target_id: targetId });
+        if (error) throw error;
+        this._isFollowing = false;
+        notify.toast('You have unfollowed this user');
+      } else {
+        const { error } = await supabase.rpc('follow_user', { p_target_id: targetId });
+        if (error) throw error;
+        this._isFollowing = true;
+        notify.toast('You are now following this user. Their gliims will appear in your XpLoRe feed.');
+      }
+
+      // Update button state
+      btn.classList.toggle('following', this._isFollowing);
+      btn.innerHTML = this._isFollowing ? `
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Following</span>
+      ` : `
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Follow</span>
+      `;
+
+      // Refresh follower count
+      const { data: newCount } = await supabase.rpc('get_follower_count', { p_user_id: targetId });
+      const followerStat = document.querySelector('.profile-stat:nth-child(3) .stat-value');
+      if (followerStat && newCount !== null) followerStat.textContent = newCount;
+
+    } catch (err) {
+      notify.toast('Could not update follow status. Please try again.');
+      console.error('Follow/unfollow error:', err);
+    } finally {
+      btn.disabled = false;
+    }
+  },
+
   async renderProfile(userId) {
     const container = document.getElementById('profile-container');
     const isMe = userId === store.user.id;
@@ -155,13 +203,22 @@ export default {
     // Find user in our cached list first for instant load
     let user = this.allUsers.find(u => u.id === userId);
 
-    // Fetch full details + posts. Explicit columns (never select('*')) because
+    // Fetch full details + posts + follow status. Explicit columns (never select('*')) because
     // the profiles.username column is revoked from authenticated, and this
     // usually renders ANOTHER member's portfolio — username must never load.
-    const [{ data: freshUser }, { data: posts }] = await Promise.all([
+    const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio').eq('id', userId).single(),
-      supabase.from('feed_gliims').select('id, title, category, created_at').eq('user_id', userId).order('created_at', { ascending: false })
+      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, blocks, user_id').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.rpc('get_follower_count', { p_user_id: userId }),
+      supabase.rpc('get_following_count', { p_user_id: userId }),
+      isMe ? Promise.resolve({ data: false }) : supabase.rpc('is_following', { p_target_id: userId })
     ]);
+
+    const freshUser = profileResult.data;
+    const posts = postsResult.data;
+    const followerCount = followerResult.data || 0;
+    const followingCount = followingResult.data || 0;
+    this._isFollowing = followCheckResult.data || false;
 
     if (freshUser) user = freshUser;
     if (!user) return;
@@ -172,10 +229,6 @@ export default {
     const gp = p.total_gp || 0;
     const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
 
-    // Portfolio-only image: falls back to the app avatar
-    const portfolioImg = p.portfolio_image_url || p.avatar_url;
-    const tierClass = gp >= 5000 ? 'tier-5000' : '';
-
     const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
     const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
 
@@ -183,139 +236,186 @@ export default {
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
 
     container.innerHTML = `
-      <div class="portfolio-a4 card printable-area" id="portfolio-a4">
-        <div class="portfolio-left ${tierClass}">
-          ${portfolioImg
-            ? `<img src="${portfolioImg}" alt="${p.full_name || 'Gliimait'}" style="object-fit:cover;">`
-            : `<div class="portfolio-img-fallback"></div>`}
-          ${isMe ? `
-            ${p.portfolio_image_url ? `
-              <button class="portfolio-img-reset" title="Use your profile picture instead" onclick="profileInstance.resetPortfolioImage()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-              </button>
-            ` : ''}
-            <button class="portfolio-img-edit" title="Change portfolio image" onclick="profileInstance.changePortfolioImage()">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            </button>
-            <input type="file" id="portfolio-image-input" accept="image/*" style="display:none" onchange="profileInstance.handlePortfolioImage(this)">
-          ` : ''}
-        </div>
-
-        <div class="portfolio-right">
-          <div class="portfolio-identity">
-            <div class="portfolio-name-row">
-              <h1>${p.full_name || 'Gliimait'}</h1>
-              <button class="copy-name-btn" title="Copy name — paste it in Ping to start a chat" onclick="profileInstance.copyName()">
-                <svg class="ic-copy" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                <svg class="ic-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              </button>
-            </div>
-            ${p.bio ? `<p class="portfolio-bio">${p.bio}</p>` : ''}
-          </div>
-
-          <div class="portfolio-stats">
-            <div class="portfolio-stat">
-              <span class="stat-value">${gpDisplay}</span>
-              <span class="stat-label">${gp >= 10000 ? 'Growth Points' : 'GP Points'}</span>
-            </div>
-            <div class="portfolio-stat">
-              <span class="stat-value">${posts?.length || 0}</span>
-              <span class="stat-label">Projects</span>
-            </div>
+      <!-- Profile Header -->
+      <div class="profile-header card">
+        <div class="profile-header-top">
+          <div class="profile-avatar-wrap">
+            ${p.avatar_url
+              ? `<img src="${p.avatar_url}" alt="${p.full_name || 'Gliimait'}" class="profile-avatar-large">`
+              : `<div class="profile-avatar-fallback">${(p.full_name || 'G').charAt(0).toUpperCase()}</div>`}
             ${isMe ? `
-              <div class="profile-filter-wrap">
-                <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter projects">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-                </button>
-                <div class="profile-filter-dropdown" id="profile-filter-dropdown">
-                  <div class="profile-filter-item active" data-filter="all" onclick="profileInstance.applyFilter('all')">All Projects</div>
-                  <div class="profile-filter-item" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
-                  <div class="profile-filter-item" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
-                </div>
-              </div>
+              <button class="profile-avatar-edit" title="Change profile picture" onclick="window.location.hash='#/settings'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              </button>
             ` : ''}
           </div>
+          <div class="profile-action-btn">
+            ${isMe ? `
+              <button class="btn-secondary" onclick="window.location.hash='#/settings'">Edit Profile</button>
+            ` : `
+              <button class="follow-btn ${this._isFollowing ? 'following' : ''}" onclick="profileInstance.toggleFollow()" id="follow-btn">
+                ${this._isFollowing ? `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Following</span>
+                ` : `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Follow</span>
+                `}
+              </button>
+            `}
+          </div>
+        </div>
+        <div class="profile-header-info">
+          <div class="profile-name-row">
+            <h1>${p.full_name || 'Gliimait'}</h1>
+            <button class="copy-name-btn" title="Copy name — paste it in Ping to start a chat" onclick="profileInstance.copyName()">
+              <svg class="ic-copy" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <svg class="ic-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </button>
+          </div>
+          ${p.bio ? `<p class="profile-bio">${p.bio}</p>` : ''}
+        </div>
+        <div class="profile-stats-row">
+          <div class="profile-stat">
+            <span class="stat-value">${gpDisplay}</span>
+            <span class="stat-label">${gp >= 10000 ? 'Growth Points' : 'GP Points'}</span>
+          </div>
+          <div class="profile-stat">
+            <span class="stat-value">${posts?.length || 0}</span>
+            <span class="stat-label">Gliims</span>
+          </div>
+          <div class="profile-stat">
+            <span class="stat-value">${followerCount}</span>
+            <span class="stat-label">Followers</span>
+          </div>
+          <div class="profile-stat">
+            <span class="stat-value">${followingCount}</span>
+            <span class="stat-label">Following</span>
+          </div>
+        </div>
+      </div>
 
+      ${skills.length > 0 || interests.length > 0 ? `
+        <div class="profile-tags-section card">
           ${skills.length > 0 ? `
-            <div class="portfolio-section">
-              <h3>Skills & Proficiency</h3>
+            <div class="profile-tag-group">
+              <h3>Skills</h3>
               <div class="tag-group">
                 ${skills.map(s => `<span class="tag tag-primary">${s}</span>`).join('')}
               </div>
             </div>
           ` : ''}
-
           ${interests.length > 0 ? `
-            <div class="portfolio-section">
+            <div class="profile-tag-group">
               <h3>Interests</h3>
               <div class="tag-group">
                 ${interests.map(i => `<span class="tag tag-secondary">${i}</span>`).join('')}
               </div>
             </div>
           ` : ''}
-
-          <div class="portfolio-verify" onclick="profileInstance.openQr()" title="View verification code">
-            <div class="portfolio-qr-img">
-              <img class="qr" src="${qrSrc}" alt="Profile verification QR code">
-              <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
-            </div>
-            <div class="portfolio-verify-info">
-              <span class="verify-title">Verified Profile</span>
-              <span class="verify-hint">Scan or tap to view this profile</span>
-            </div>
-          </div>
         </div>
-      </div>
+      ` : ''}
 
-      <!-- Works Published -->
+      <!-- Gliims Section -->
       <div class="profile-projects-section">
         <div class="profile-projects-header">
-          <h2>Projects</h2>
+          <h2>Gliims</h2>
           ${isMe ? `
             <div class="profile-projects-actions">
               <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 <span>Feature your content</span>
               </button>
+              <div class="profile-filter-wrap">
+                <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                </button>
+                <div class="profile-filter-dropdown" id="profile-filter-dropdown">
+                  <div class="profile-filter-item active" data-filter="all" onclick="profileInstance.applyFilter('all')">All Gliims</div>
+                  <div class="profile-filter-item" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
+                  <div class="profile-filter-item" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
+                </div>
+              </div>
               <button class="profile-print-btn" onclick="profileInstance.printProfile()" title="Print / Save as PDF">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
               </button>
             </div>
           ` : ''}
         </div>
-        <div class="profile-projects-grid">
+        <div class="profile-gliims-grid blog-feed">
           ${(() => {
             let filteredPosts = posts || [];
             if (this._projectFilter === 'saved' && hubView.savedPosts) {
-              filteredPosts = filteredPosts.filter(p => hubView.savedPosts.has(p.id));
+              filteredPosts = filteredPosts.filter(item => hubView.savedPosts.has(item.id));
             } else if (this._projectFilter === 'tagged') {
               const myName = store.profile?.full_name || '';
               const tag = `@${myName}`;
-              filteredPosts = filteredPosts.filter(p => {
-                const inDesc = p.description && p.description.includes(tag);
-                const inBlocks = p.blocks && p.blocks.some(b => b.type === 'text' && b.content && b.content.includes(tag));
+              filteredPosts = filteredPosts.filter(item => {
+                const inDesc = item.description && item.description.includes(tag);
+                const inBlocks = item.blocks && item.blocks.some(b => b.type === 'text' && b.content && b.content.includes(tag));
                 return inDesc || inBlocks;
               });
             }
             if (!filteredPosts.length) {
-              return '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No projects found.</p>';
+              return '<p style="color: var(--text-muted); text-align: center; padding: 40px; grid-column: 1/-1;">No gliims found.</p>';
             }
-            return filteredPosts.map(item => `
-            <div class="profile-project-card" onclick="profileInstance.openProject('${item.id}')">
-              <div class="profile-project-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-              </div>
-              <div class="profile-project-info">
-                <h4>${item.title}</h4>
-                <span>${item.category || 'General'} · ${new Date(item.created_at).toLocaleDateString()}</span>
-              </div>
-            </div>
-          `).join('');
+            return filteredPosts.map(item => this.renderGliimCard(item, p)).join('');
           })()}
         </div>
       </div>
 
+      ${isMe ? `
+        <div class="profile-verify card" onclick="profileInstance.openQr()" title="View verification code">
+          <div class="portfolio-qr-img">
+            <img class="qr" src="${qrSrc}" alt="Profile verification QR code">
+            <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
+          </div>
+          <div class="portfolio-verify-info">
+            <span class="verify-title">Verified Profile</span>
+            <span class="verify-hint">Scan or tap to view this profile</span>
+          </div>
+        </div>
+      ` : ''}
     `;
+  },
+
+  renderGliimCard(post, profile) {
+    const isAmbassador = (profile.total_gp || 0) >= 5000;
+    const avatar = profile.avatar_url
+      ? `<img src="${profile.avatar_url}" alt="${profile.full_name || 'Gliimait'}">`
+      : `<div style="width:28px; height:28px; border-radius:50%; background:var(--gradient-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">${(profile.full_name || 'G').charAt(0).toUpperCase()}</div>`;
+
+    const comments = post.comments_count || 0;
+    const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+    const commentSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+
+    const coverHtml = post.cover_url
+      ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>`
+      : post.cover_color
+        ? `<div class="blog-cover" style="background: ${post.cover_color};"></div>`
+        : '';
+
+    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="profileInstance.openProject('${post.id}')">
+      ${coverHtml}
+      <div class="blog-content">
+        <div class="blog-meta">
+          <span class="blog-category">${post.category || 'General'}</span>
+          <span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
+        </div>
+        <h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2>
+        <p class="blog-desc">${post.description ? post.description.substring(0, 120) + (post.description.length > 120 ? '...' : '') : ''}</p>
+        <div class="blog-footer">
+          <div class="blog-author">
+            <div style="position:relative;">${avatar}</div>
+            <span>${profile.full_name || 'Gliimait'}</span>
+          </div>
+          <div class="blog-stats">
+            <span class="blog-stat">${eyeSvg}${post.views || 0}</span>
+            <span class="blog-stat">${commentSvg}${comments}</span>
+          </div>
+        </div>
+      </div>
+    </article>`;
   },
 
   openQrModal() {

@@ -8,185 +8,187 @@
 }
 
 /* ============================================
-   A4 PORTFOLIO CARD — image left, stats right
+   PROFILE HEADER — avatar, info, stats
    ============================================ */
-.portfolio-a4 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  aspect-ratio: 210 / 297;
-  width: 100%;
-  padding: 0;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.portfolio-left {
-  position: relative;
-  background: var(--bg-tertiary);
-  min-height: 0;
-}
-
-.portfolio-left img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.portfolio-img-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 120px;
-  font-weight: 800;
-  color: white;
-  background: var(--gradient-primary);
-}
-
-/* Ambassador tier keeps its border; lower tiers stay clean */
-.portfolio-left.tier-5000 {
-  box-shadow: inset 0 0 0 4px var(--text-primary);
-}
-
-.portfolio-img-edit {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.portfolio-img-edit:hover {
-  background: var(--brand-primary);
-  transform: scale(1.06);
-}
-
-.portfolio-img-reset {
-  position: absolute;
-  right: 60px;
-  bottom: 14px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.portfolio-img-reset:hover {
-  background: var(--brand-primary);
-  transform: scale(1.06);
-}
-
-.portfolio-right {
+.profile-header {
   padding: 32px;
+}
+
+.profile-header-top {
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-  overflow: hidden;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
 }
 
-.portfolio-identity h1 {
-  font-size: 30px;
+.profile-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.profile-avatar-large {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--border);
+}
+
+.profile-avatar-fallback {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
   font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
-  line-height: 1.15;
-  border-radius: 10px;
+  border: 3px solid var(--border);
 }
 
-.portfolio-name-row {
+.profile-avatar-edit {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--brand-primary);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-avatar-edit:hover {
+  background: var(--brand-primary-hover);
+  transform: scale(1.06);
+}
+
+.profile-action-btn {
+  flex-shrink: 0;
+}
+
+.follow-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: var(--brand-primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+}
+
+.follow-btn:hover {
+  background: var(--brand-primary-hover);
+  transform: translateY(-1px);
+}
+
+.follow-btn.following {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.follow-btn.following:hover {
+  background: var(--surface-hover);
+  border-color: var(--text-muted);
+}
+
+.follow-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.profile-header-info {
+  margin-bottom: 24px;
+}
+
+.profile-name-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
+  margin-bottom: 8px;
 }
 
-.copy-name-btn {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: none;
-  border-radius: 50%;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.copy-name-btn:hover {
-  background: var(--surface-hover);
+.profile-name-row h1 {
+  font-size: 28px;
+  font-weight: 800;
   color: var(--text-primary);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin: 0;
 }
 
-.copy-name-btn .ic-check { display: none; }
-.copy-name-btn.copied .ic-copy { display: none; }
-.copy-name-btn.copied .ic-check { display: block; color: var(--success, #22c55e); }
-
-.portfolio-bio {
-  margin-top: 8px;
-  font-size: 14px;
+.profile-bio {
+  font-size: 15px;
   color: var(--text-secondary);
   line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin: 0;
 }
 
-/* Stats */
-.portfolio-stats {
+.profile-stats-row {
   display: flex;
   gap: 32px;
-  padding: 16px 20px;
+  padding: 20px 24px;
   background: var(--bg-tertiary);
   border-radius: 14px;
 }
 
-.portfolio-stat {
+.profile-stat {
   display: flex;
   flex-direction: column;
 }
 
-.stat-value {
-  font-size: 26px;
+.profile-stat .stat-value {
+  font-size: 24px;
   font-weight: 800;
   color: var(--text-primary);
 }
 
-.stat-label {
-  font-size: 11px;
+.profile-stat .stat-label {
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   margin-top: 2px;
 }
 
-/* Sections */
-.portfolio-section h3 {
+/* ============================================
+   TAGS SECTION — skills & interests
+   ============================================ */
+.profile-tags-section {
+  padding: 24px;
+}
+
+.profile-tag-group {
+  margin-bottom: 20px;
+}
+
+.profile-tag-group:last-child {
+  margin-bottom: 0;
+}
+
+.profile-tag-group h3 {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-weight: 700;
 }
 
@@ -213,20 +215,26 @@
   color: var(--text-secondary);
 }
 
-/* Verification QR */
-.portfolio-verify {
-  margin-top: auto;
+/* ============================================
+   VERIFICATION QR — compact card at bottom
+   ============================================ */
+.profile-verify {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
+  padding: 20px;
   cursor: pointer;
-  border-radius: 14px;
+  transition: background 0.2s ease;
+}
+
+.profile-verify:hover {
+  background: var(--bg-tertiary);
 }
 
 .portfolio-qr-img {
   position: relative;
-  width: 92px;
-  height: 92px;
+  width: 80px;
+  height: 80px;
   flex-shrink: 0;
 }
 
@@ -243,8 +251,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   background: white;
   border-radius: 50%;
   padding: 3px;
@@ -254,20 +262,19 @@
 .portfolio-verify-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .portfolio-verify .verify-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .portfolio-verify .verify-hint {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
 }
-
 
 /* QR large view */
 #qr-large-overlay {
@@ -340,7 +347,9 @@
   justify-content: center;
 }
 
-/* Projects Section */
+/* ============================================
+   GLIIMS SECTION — Xplore-style cards
+   ============================================ */
 .profile-projects-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -355,6 +364,7 @@
   justify-content: space-between;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
+  gap: 12px;
 }
 
 .profile-projects-header h2 {
@@ -362,25 +372,6 @@
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-}
-
-.profile-print-btn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.profile-print-btn:hover {
-  background: var(--bg-tertiary);
-  color: var(--brand-primary);
-  border-color: var(--brand-primary);
 }
 
 .profile-projects-actions {
@@ -405,18 +396,20 @@
   font-family: var(--font-sans);
   white-space: nowrap;
 }
+
 .profile-feature-btn:hover {
   background: var(--brand-primary-hover);
   transform: translateY(-1px);
 }
+
 .profile-feature-btn svg {
   flex-shrink: 0;
 }
 
 .profile-filter-wrap {
   position: relative;
-  margin-left: auto;
 }
+
 .profile-filter-btn {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
@@ -430,10 +423,12 @@
   justify-content: center;
   transition: all 0.2s;
 }
+
 .profile-filter-btn:hover {
   border-color: var(--brand-primary);
   color: var(--brand-primary);
 }
+
 .profile-filter-dropdown {
   display: none;
   position: absolute;
@@ -447,9 +442,11 @@
   z-index: 100;
   overflow: hidden;
 }
+
 .profile-filter-dropdown.active {
   display: block;
 }
+
 .profile-filter-item {
   padding: 10px 14px;
   font-size: 13px;
@@ -459,148 +456,121 @@
   border-bottom: 1px solid var(--border);
   transition: background 0.15s;
 }
+
 .profile-filter-item:last-child {
   border-bottom: none;
 }
+
 .profile-filter-item:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
+
 .profile-filter-item.active {
   color: var(--brand-primary);
   background: var(--brand-primary-light);
   font-weight: 600;
 }
 
-.profile-projects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
-  padding: 20px 24px;
-}
-
-.profile-project-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 12px;
+.profile-print-btn {
+  background: none;
   border: 1px solid var(--border);
-  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.profile-project-card:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--brand-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.profile-project-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--brand-primary-light);
-  color: var(--brand-primary);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
 }
 
-.profile-project-info {
-  flex: 1;
-  min-width: 0;
+.profile-print-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
 }
 
-.profile-project-info h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.profile-project-info span {
-  font-size: 12px;
-  color: var(--text-muted);
+/* Gliims grid uses blog-feed from feed.css */
+.profile-gliims-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 24px;
 }
 
 /* ============================================
-   PRINT / SAVE AS PDF — the A4 card only
-   Always the desktop layout: picture covers the
-   left half of the A4 sheet, stats on the right.
+   COPY NAME BUTTON
+   ============================================ */
+.copy-name-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.copy-name-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.copy-name-btn .ic-check { display: none; }
+.copy-name-btn.copied .ic-copy { display: none; }
+.copy-name-btn.copied .ic-check { display: block; color: var(--success, #22c55e); }
+
+/* ============================================
+   PRINT STYLES
    ============================================ */
 @media print {
   @page {
     size: A4;
-    margin: 0;
+    margin: 15mm;
   }
 
   body * {
     visibility: hidden;
   }
 
-  .printable-area, .printable-area * {
+  .profile-layout, .profile-layout * {
     visibility: visible;
   }
 
-  /* The copy-name helper is screen-only */
-  .copy-name-btn {
-    display: none !important;
-  }
-
-  .printable-area {
+  .profile-layout {
     position: absolute;
     left: 0;
     top: 0;
-    width: 210mm;
-    height: 297mm;
-    box-shadow: none;
-    border: none;
-    border-radius: 0;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  /* Force the two-column cover even when printing from a narrow window */
-  .printable-area.portfolio-a4 {
-    grid-template-columns: 1fr 1fr !important;
-    aspect-ratio: auto !important;
-  }
-
-  .printable-area .portfolio-left {
-    height: auto !important;
-    min-height: 0 !important;
-  }
-
-  .printable-area .portfolio-left img,
-  .printable-area .portfolio-img-fallback {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
   }
 
-  .printable-area .portfolio-right { padding: 32px !important; }
-  .printable-area .portfolio-identity h1 { font-size: 30px !important; }
-  .printable-area .portfolio-verify { margin-top: auto !important; }
-
-  .portfolio-img-edit,
-  .portfolio-img-reset {
+  .copy-name-btn,
+  .profile-avatar-edit,
+  .profile-action-btn,
+  .profile-projects-actions,
+  .profile-verify {
     display: none !important;
   }
 
-  .profile-projects-section,
-  .portfolio-other-actions {
-    display: none !important;
+  .profile-header {
+    break-inside: avoid;
+  }
+
+  .profile-gliims-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 }
 
-/* Search Dropdown Fix */
+/* ============================================
+   SEARCH DROPDOWN
+   ============================================ */
 #profile-search-dropdown {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -611,32 +581,86 @@
   overflow: hidden;
 }
 
-/* Topbar is the bottom bar on mobile: search results drop up */
+/* ============================================
+   MOBILE RESPONSIVE
+   ============================================ */
 @media (max-width: 768px) {
   #profile-search-dropdown {
-    top: auto !important; /* overrides the inline top: 110% */
+    top: auto !important;
     bottom: 110%;
   }
 
-  .portfolio-a4 {
-    grid-template-columns: 1fr;
-    aspect-ratio: auto;
+  .profile-header {
+    padding: 24px 20px;
   }
 
-  .portfolio-left {
-    height: 340px;
+  .profile-header-top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 
-  .portfolio-right {
-    padding: 24px;
+  .profile-avatar-large,
+  .profile-avatar-fallback {
+    width: 100px;
+    height: 100px;
+    font-size: 40px;
   }
 
-  .portfolio-identity h1 {
+  .profile-action-btn {
+    width: 100%;
+  }
+
+  .follow-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .profile-name-row {
+    justify-content: center;
+  }
+
+  .profile-name-row h1 {
     font-size: 24px;
   }
 
-  .portfolio-verify {
-    margin-top: 8px;
+  .profile-stats-row {
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 16px;
+  }
+
+  .profile-stat {
+    flex: 1;
+    min-width: calc(50% - 10px);
+  }
+
+  .profile-tags-section {
+    padding: 20px;
+  }
+
+  .profile-projects-header {
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+
+  .profile-projects-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .profile-feature-btn span {
+    display: none;
+  }
+
+  .profile-feature-btn {
+    padding: 8px 10px;
+  }
+
+  .profile-gliims-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 16px;
   }
 
   .qr-large-actions {
@@ -646,22 +670,5 @@
   .qr-large-actions .btn-secondary,
   .qr-large-actions .btn-primary {
     width: 100%;
-  }
-
-  .profile-projects-grid {
-    grid-template-columns: 1fr;
-    padding: 16px;
-    gap: 12px;
-  }
-
-  .profile-projects-header {
-    padding: 16px;
-  }
-
-  .profile-feature-btn span {
-    display: none;
-  }
-  .profile-feature-btn {
-    padding: 8px 10px;
   }
 }

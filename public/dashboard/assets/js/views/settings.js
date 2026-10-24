@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { uploadFile } from '../upload.js';
-import { notify } from '../notify.js?v=32';
+import { notify } from '../notify.js?v=33';
 
 const APP_VERSION_KEY = 'gliimu_app_version';
 const SOUND_KEY = 'gliimu_notification_sound';

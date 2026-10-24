@@ -173,6 +173,31 @@ export const notify = {
   message({ title, body, tag, sound = true, desktop = true }) {
     if (sound) this.sound();
     if (desktop) this.desktop(title, body || 'New message', tag);
+  },
+
+  // Toast notification: a brief, non-intrusive message at the bottom of the screen.
+  // Automatically dismisses after the specified duration (default 3 seconds).
+  toast(message, duration = 3000) {
+    const existing = document.getElementById('toast-notification');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'toast-notification';
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Trigger animation
+    requestAnimationFrame(() => {
+      toast.classList.add('toast-show');
+    });
+
+    // Auto-dismiss
+    setTimeout(() => {
+      toast.classList.remove('toast-show');
+      toast.classList.add('toast-hide');
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
   }
 };
 
