@@ -8,8 +8,8 @@ begin
   if to_regclass('public.profiles') is null or to_regclass('public.transactions') is null then
     raise exception 'Missing core profiles or transactions table. Run this in the existing Gliimu project.';
   end if;
-  if to_regclass('public.billing_events') is null then
-    raise exception 'Missing billing setup. Run sql/billing.sql first.';
+  if to_regclass('public.gliits_topups') is null then
+    raise exception 'Missing Gliits billing setup. Run sql/gliits_billing.sql first.';
   end if;
 end;
 $$;
@@ -20,7 +20,7 @@ create or replace function public.make_referral_code()
 returns text
 language plpgsql
 volatile
-set search_path = ''
+set search_path = public
 as $$
 declare
   v_alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -47,7 +47,7 @@ create or replace function public.profiles_assign_referral_code()
 returns trigger
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public
 as $$
 begin
   loop
@@ -88,7 +88,7 @@ create or replace function public.apply_referral(p_code text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -132,7 +132,7 @@ create or replace function public.referral_vest_due(p_referrer uuid default null
 returns integer
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public
 as $$
 declare
   r record;
@@ -145,8 +145,9 @@ begin
       and rf.created_at <= now() - interval '1 day'
       and (p_referrer is null or rf.referrer_id = p_referrer)
       and exists (
-        select 1 from public.billing_events as e
-        where e.user_id = rf.referee_id and e.amount > 0
+        select 1 from public.gliits_topups as t
+        where t.user_id = rf.referee_id
+          and t.payment_status = 'success'
       )
     order by rf.referrer_id, rf.id
   loop
@@ -179,7 +180,7 @@ create or replace function public.referral_purchase_bonus_due(p_referrer uuid de
 returns integer
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public
 as $$
 declare
   r record;
@@ -194,10 +195,10 @@ begin
       and (p_referrer is null or rf.referrer_id = p_referrer)
       and exists (
         select 1
-        from public.billing_events as e
-        where e.user_id = rf.referee_id
-          and e.amount > 0
-          and e.created_at >= rf.created_at
+        from public.gliits_topups as t
+        where t.user_id = rf.referee_id
+          and t.payment_status = 'success'
+          and t.created_at >= rf.created_at
       )
     order by rf.referrer_id, rf.id
   loop
@@ -231,7 +232,7 @@ create or replace function public.referral_summary()
 returns jsonb
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
@@ -355,10 +356,10 @@ select 16, 'eligible unpaid purchase bonuses (count)',
    where rf.purchase_bonus_at is null
      and rf.status in ('pending', 'vested')
      and exists (
-       select 1 from public.billing_events as e
-       where e.user_id = rf.referee_id
-         and e.amount > 0
-         and e.created_at >= rf.created_at
+       select 1 from public.gliits_topups as t
+       where t.user_id = rf.referee_id
+         and t.payment_status = 'success'
+         and t.created_at >= rf.created_at
      ))
 order by "#";
 -- END OF REFERRAL PURCHASE BONUS SCRIPT

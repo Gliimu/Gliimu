@@ -2442,8 +2442,8 @@ begin
      where rf.status = 'pending'
        and rf.created_at <= now() - interval '1 day'
        and (p_referrer is null or rf.referrer_id = p_referrer)
-       and exists (select 1 from public.billing_events e
-                    where e.user_id = rf.referee_id and e.amount > 0)
+       and exists (select 1 from public.gliits_topups t
+                    where t.user_id = rf.referee_id and t.payment_status = 'success')
   loop
     update public.referrals
        set status = 'vested', vested_at = now()
@@ -2523,10 +2523,10 @@ begin
        and rf.status in ('pending', 'vested')
        and (p_referrer is null or rf.referrer_id = p_referrer)
        and exists (
-         select 1 from public.billing_events e
-          where e.user_id = rf.referee_id
-            and e.amount > 0
-            and e.created_at >= rf.created_at
+         select 1 from public.gliits_topups t
+          where t.user_id = rf.referee_id
+            and t.payment_status = 'success'
+            and t.created_at >= rf.created_at
        )
      order by rf.referrer_id, rf.id
   loop

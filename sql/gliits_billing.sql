@@ -461,9 +461,7 @@ security definer
 set search_path = public
 as $$
 begin
-  return to_jsonb(public.gliits_config)
-  from public.gliits_config
-  where id = 1;
+  return (select to_jsonb(gc) from public.gliits_config gc where gc.id = 1);
 end;
 $$;
 

@@ -65,8 +65,15 @@ export default {
   title: 'Alerts',
   template: `
     <div class="alerts-layout">
-      <div class="alerts-filters" id="alerts-filters">
-        ${FILTERS.map((f, i) => `<button class="alerts-filter-btn${i === 0 ? ' active' : ''}" data-filter="${f.id}">${escapeHtml(f.label)}</button>`).join('')}
+      <div class="alerts-toolbar">
+        <div class="alerts-filter-wrap" onclick="event.stopPropagation();">
+          <button class="alerts-filter-btn" title="Filter" id="alerts-filter-toggle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+          </button>
+          <div class="alerts-filter-menu" id="alerts-filter-menu">
+            ${FILTERS.map(f => `<div class="alerts-filter-item" data-filter="${f.id}">${escapeHtml(f.label)}</div>`).join('')}
+          </div>
+        </div>
       </div>
       <div class="alerts-scroll" id="alerts-scroll">
         <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading...</p>
@@ -79,13 +86,23 @@ export default {
     this.allAlerts = [];
     this.balance = null;
 
-    document.querySelectorAll('.alerts-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.alerts-filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.filter = btn.dataset.filter;
+    document.getElementById('alerts-filter-toggle')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('alerts-filter-menu')?.classList.toggle('active');
+    });
+
+    document.querySelectorAll('.alerts-filter-item').forEach(item => {
+      item.addEventListener('click', () => {
+        this.filter = item.dataset.filter;
+        document.querySelectorAll('.alerts-filter-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        document.getElementById('alerts-filter-menu')?.classList.remove('active');
         this.render();
       });
+    });
+
+    document.addEventListener('click', () => {
+      document.getElementById('alerts-filter-menu')?.classList.remove('active');
     });
 
     this.load();
