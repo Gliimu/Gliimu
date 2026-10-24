@@ -6,6 +6,7 @@ import { uploadFile } from '../upload.js';
 const TABS = [
   { id: 'landing', label: 'Landing page' },
   { id: 'partners', label: 'Partners' },
+  { id: 'featured', label: 'Featured' },
   { id: 'release', label: 'App release' }
 ];
 
@@ -81,6 +82,7 @@ export default {
     this.tab = 'landing';
     this.settings = null;
     this.partners = null;
+    this.featured = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -105,12 +107,13 @@ export default {
     }
 
     pane.innerHTML = this.tab === 'partners' ? this.partnersHtml()
+      : this.tab === 'featured' ? this.featuredHtml()
       : this.tab === 'release' ? this.releaseHtml()
       : this.landingHtml();
     this.wire(pane);
   },
 
-  // The two tabs read different tables, so a failure on one side still lets
+  // The tabs read different tables, so a failure on one side still lets
   // the other render instead of blanking the whole screen.
   async fetch() {
     if (this.tab === 'partners') {
@@ -119,6 +122,17 @@ export default {
       if (error) return error.message;
       if (!data || data.ok === false) return rpcError(data);
       this.partners = data.partners || [];
+      return null;
+    }
+
+    if (this.tab === 'featured') {
+      if (this.featured) return null;
+      const { data, error } = await supabase
+        .from('featured_posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) return error.message;
+      this.featured = data || [];
       return null;
     }
 
@@ -133,6 +147,7 @@ export default {
   invalidate() {
     this.settings = null;
     this.partners = null;
+    this.featured = null;
   },
 
   value(key) {
@@ -267,7 +282,67 @@ export default {
   },
 
   // ============================================
-  // TAB 3 — the app release
+  // TAB 3 — featured posts carousel
+  // ============================================
+  featuredHtml() {
+    const rows = this.featured || [];
+    const pending = rows.filter(r => r.status === 'pending');
+    const approved = rows.filter(r => r.status === 'approved');
+    const rejected = rows.filter(r => r.status === 'rejected');
+
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Featured posts</div>
+            <div class="card-sub">User-submitted carousel ads. Approve to show on XpLoRe, reject to decline.</div>
+          </div>
+        </div>
+        ${rows.length ? `
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th style="width:80px;">Image</th><th>Title</th><th>Author</th><th>Duration</th><th>Status</th><th class="num" style="width:200px;"></th></tr></thead>
+            <tbody>
+              ${pending.map(r => this.featuredRow(r, 'pending')).join('')}
+              ${approved.map(r => this.featuredRow(r, 'approved')).join('')}
+              ${rejected.map(r => this.featuredRow(r, 'rejected')).join('')}
+            </tbody>
+          </table></div>` : empty('No featured posts yet.')}
+      </div>`;
+  },
+
+  featuredRow(r, status) {
+    const days = r.duration_days || 0;
+    const period = days === 1 ? '1 day' : days === 7 ? '1 week' : days === 30 ? '1 month' : `${days} days`;
+    const statusBadge = status === 'approved' ? '<span class="badge badge-green">Approved</span>'
+      : status === 'rejected' ? '<span class="badge badge-red">Rejected</span>'
+      : '<span class="badge badge-yellow">Pending</span>';
+    const actions = status === 'pending'
+      ? `<button class="btn-primary btn-small" data-approve="${r.id}">Approve</button>
+         <button class="btn-danger btn-small" data-reject="${r.id}">Reject</button>`
+      : status === 'approved'
+      ? `<button class="btn-danger btn-small" data-reject="${r.id}">Reject</button>`
+      : `<button class="btn-primary btn-small" data-approve="${r.id}">Approve</button>`;
+
+    return `
+      <tr data-featured="${r.id}">
+        <td>${r.image_url ? `<img src="${escapeHtml(r.image_url)}" alt="" style="width:60px;height:40px;object-fit:cover;border-radius:6px;">` : '<span class="muted small">none</span>'}</td>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(r.title || 'Untitled')}</div>
+          <div class="muted small" style="margin-top:2px;">${escapeHtml((r.description || '').slice(0, 80))}${(r.description || '').length > 80 ? '...' : ''}</div>
+          ${r.link_url ? `<div class="muted small" style="margin-top:2px;"><a href="${escapeHtml(r.link_url)}" target="_blank" style="color:var(--brand-primary);">${escapeHtml(r.link_label || 'Link')}</a></div>` : ''}
+        </td>
+        <td><span class="muted small">${r.user_id ? escapeHtml(r.user_id.slice(0, 8)) + '...' : 'Unknown'}</span></td>
+        <td><span class="muted small">${period}</span></td>
+        <td>${statusBadge}</td>
+        <td class="num" style="white-space:nowrap;">
+          ${actions}
+          <button class="btn-danger btn-small" data-delete="${r.id}" data-title="${escapeHtml(r.title || 'this post')}">Delete</button>
+        </td>
+      </tr>`;
+  },
+
+  // ============================================
+  // TAB 4 — the app release
   // ============================================
   releaseHtml() {
     return `
@@ -462,6 +537,58 @@ export default {
   },
 
   // ============================================
+  // Featured posts actions
+  // ============================================
+  async approveFeatured(id) {
+    const { error } = await supabase
+      .from('featured_posts')
+      .update({ status: 'approved' })
+      .eq('id', id);
+    if (error) {
+      await appAlert(`Could not approve: ${error.message}`);
+      return;
+    }
+    this.featured = null;
+    await this.render();
+  },
+
+  async rejectFeatured(id) {
+    const ok = await appConfirm(
+      'Reject this featured? The user will not be refunded.',
+      { title: 'Reject featured', okText: 'Reject', danger: true });
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from('featured_posts')
+      .update({ status: 'rejected' })
+      .eq('id', id);
+    if (error) {
+      await appAlert(`Could not reject: ${error.message}`);
+      return;
+    }
+    this.featured = null;
+    await this.render();
+  },
+
+  async deleteFeatured(id, title) {
+    const ok = await appConfirm(
+      `Delete "${title}" permanently? This cannot be undone.`,
+      { title: 'Delete featured', okText: 'Delete', danger: true });
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from('featured_posts')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      await appAlert(`Could not delete: ${error.message}`);
+      return;
+    }
+    this.featured = null;
+    await this.render();
+  },
+
+  // ============================================
   // Wiring
   // ============================================
   wire(pane) {
@@ -507,6 +634,18 @@ export default {
         const row = input.closest('[data-partner]');
         if (row) this.setOrder(row.dataset.partner, input.value);
       });
+    });
+
+    pane.querySelectorAll('[data-approve]').forEach((btn) => {
+      btn.addEventListener('click', () => this.approveFeatured(btn.dataset.approve));
+    });
+
+    pane.querySelectorAll('[data-reject]').forEach((btn) => {
+      btn.addEventListener('click', () => this.rejectFeatured(btn.dataset.reject));
+    });
+
+    pane.querySelectorAll('[data-delete]').forEach((btn) => {
+      btn.addEventListener('click', () => this.deleteFeatured(btn.dataset.delete, btn.dataset.title));
     });
   }
 };
