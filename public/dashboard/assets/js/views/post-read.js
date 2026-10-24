@@ -1,8 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
-import { ensureAccess, showBillingDenied } from '../billing.js';
 import { renderFileInto } from '../reader.js?v=31';
-import hubView from './feed-gliims.js?v=78';
+import hubView from './feed-gliims.js?v=79';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -55,13 +54,6 @@ export default {
 
     if (post.status === 'draft' && post.user_id === store.user.id) {
       hubView.openDraftComposer(post);
-      window.location.hash = '#/xplore';
-      return;
-    }
-
-    const access = await ensureAccess('gliim', { itemId: postId });
-    if (!access.allowed) {
-      await showBillingDenied(access);
       window.location.hash = '#/xplore';
       return;
     }

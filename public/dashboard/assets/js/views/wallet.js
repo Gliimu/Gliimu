@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
-import { fetchBillingSummary } from '../billing.js';
+import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -10,18 +10,6 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-
-// Labels for the server-recorded usage events in the running cycle.
-// The amounts themselves always come from billing_summary().prices.
-const USAGE_LABELS = {
-  publication: 'Book unlock',
-  audiolite: 'Audiolite unlock',
-  gliim_av: 'Gliim · video/audio',
-  gliim_image: 'Gliim · text/image',
-  live: 'Live session',
-  profile_print: 'Profile print',
-  premium_unlock: 'Premium Gliim unlock'
-};
 
 const TX_TYPE_LABELS = {
   purchase: 'Purchase',
@@ -37,6 +25,12 @@ const TX_TYPE_LABELS = {
   bill_payment: 'Bill payment',
   refund: 'Refund',
   adjustment: 'Adjustment'
+};
+
+const PLAN_LABELS = {
+  payngo: "Pay n' Go",
+  monthly: 'Monthly',
+  yearly: 'Yearly'
 };
 
 export default {
@@ -57,20 +51,21 @@ export default {
       toggleFilterMenu: () => this.toggleFilterMenu(),
       selectTransferUser: (id) => this.selectTransferUser(id),
       clearTransferUser: () => this.clearTransferUser(),
-      activatePlan: (id) => this.activatePlan(id),
-      payBill: (id) => this.payBill(id),
+      activatePlan: (type) => this.activatePlan(type),
       openReferralModal: () => this.openReferralModal(),
       copyReferralCode: (code) => this.copyReferralCode(code),
       copyReferralLink: (link) => this.copyReferralLink(link)
     };
 
-    this.currentTab = 'summary'; // Default view
-    this.summary = null;
+    this.currentTab = 'summary';
+    this.balance = 0;
+    this.plan = null;
+    this.config = null;
+    this.allTransactions = [];
     this.transferTarget = null;
     this.transferSearchList = [];
     this.transferSearchTimer = null;
 
-    // Menus close when tapping anywhere else in the app
     document.addEventListener('click', () => {
       document.getElementById('wallet-transfer-menu')?.classList.remove('active');
       document.getElementById('billing-filter-menu')?.classList.remove('active');
@@ -85,39 +80,25 @@ export default {
   setupTopbar() {
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
     if (topbarDynamic) {
-      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">Fund your wallet to make purchases</span>`;
+      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">G${Number(this.balance || 0).toLocaleString()} balance</span>`;
     }
   },
 
   async fetchData() {
     if (!store.user || !store.user.id) return;
 
-    // Tier, trial window, running cycle usage and due bills come from the
-    // server-side billing gate (sql/billing.sql).
-    const summary = await fetchBillingSummary();
-    const hasSummary = !!(summary && !summary.code);
-    this.summary = hasSummary ? summary : null;
+    const balanceData = await getBalance();
+    this.balance = Number(balanceData?.balance || 0);
+    this.plan = balanceData?.plan || null;
 
-    let profile = null;
-    if (!hasSummary) {
-      // Pre-migration fallback until billing_summary() exists.
-      ({ data: profile } = await supabase
-        .from('profiles')
-        .select('wallet_balance, subscription_expires_at')
-        .eq('id', store.user.id)
-        .single());
-    }
+    this.config = await getConfig();
 
-    const { data: transactions, error: txError } = await supabase
+    const { data: transactions } = await supabase
       .from('transactions')
       .select('id, user_id, amount, points, type, status, reference, description, created_at')
       .eq('user_id', store.user.id)
       .order('created_at', { ascending: false });
 
-    if (txError) console.error("Transactions fetch error:", txError);
-
-    this.balance = Number((hasSummary ? summary.wallet_balance : profile?.wallet_balance) || 0);
-    this.subscriptionExpiresAt = (hasSummary ? summary.subscription_expires_at : profile?.subscription_expires_at) || null;
     this.allTransactions = transactions || [];
 
     if (store.profile) store.profile.wallet_balance = this.balance;
@@ -127,10 +108,13 @@ export default {
     const container = document.getElementById('wallet-container');
     if (!container) return;
 
+    const planLabel = this.plan?.plan_type ? (PLAN_LABELS[this.plan.plan_type] || this.plan.plan_type) : "Pay n' Go";
+
     container.innerHTML = `
       <div class="wallet-header-card">
         <span class="balance-label">Wallet Balance</span>
-        <h1 class="balance-amount">₦${this.balance.toLocaleString()}</h1>
+        <h1 class="balance-amount">G${this.balance.toLocaleString()}</h1>
+        <div style="font-size: 13px; opacity: 0.85; margin-bottom: 16px;">Plan: ${escapeHtml(planLabel)}</div>
         <div class="wallet-actions">
           <button class="icon-btn-light" title="Add Funds" onclick="walletInstance.openTopUpModal()">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -164,7 +148,7 @@ export default {
           <div class="billing-filter-menu" id="billing-filter-menu">
             <div class="billing-filter-item ${this.currentTab === 'summary' ? 'active' : ''}" data-tab="summary" onclick="walletInstance.switchTab('summary')">Summary</div>
             <div class="billing-filter-item ${this.currentTab === 'trxn' ? 'active' : ''}" data-tab="trxn" onclick="walletInstance.switchTab('trxn')">Trxn</div>
-            <div class="billing-filter-item ${this.currentTab === 'subscription' ? 'active' : ''}" data-tab="subscription" onclick="walletInstance.switchTab('subscription')">Subscription</div>
+            <div class="billing-filter-item ${this.currentTab === 'plans' ? 'active' : ''}" data-tab="plans" onclick="walletInstance.switchTab('plans')">Plans</div>
           </div>
         </div>
       </div>
@@ -176,224 +160,138 @@ export default {
   },
 
   renderTabContent() {
-    if (this.currentTab === 'summary') {
-      const unlocks = this.allTransactions.filter(t => t.type === 'purchase').length;
-      const supports = this.allTransactions.filter(t => t.type === 'support' || t.type === 'live_support').length;
-      const liveEntries = this.allTransactions.filter(t => t.type === 'live_entry' || t.type === 'live_session').length;
-
-      return `
-        <div class="card stat-card">
-          <div class="stat-row">
-            <div class="stat-icon-wrap bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>
-            <div class="stat-info">
-              <span class="stat-value">${unlocks}</span>
-              <span class="stat-label">Library Unlocks</span>
-            </div>
-          </div>
-        </div>
-        <div class="card stat-card" style="margin-top: 16px;">
-          <div class="stat-row">
-            <div class="stat-icon-wrap bg-gold"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>
-            <div class="stat-info">
-              <span class="stat-value">${supports}</span>
-              <span class="stat-label">Creator Supports</span>
-            </div>
-          </div>
-        </div>
-        <div class="card stat-card" style="margin-top: 16px;">
-          <div class="stat-row">
-            <div class="stat-icon-wrap bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>
-            <div class="stat-info">
-              <span class="stat-value">${liveEntries}</span>
-              <span class="stat-label">Live Sessions</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    if (this.currentTab === 'trxn') {
-      if (this.allTransactions.length === 0) {
-        return '<div class="card"><p style="color: var(--text-muted); text-align: center; padding: 40px;">No transactions yet.</p></div>';
-      }
-
-      return `
-        <div class="card">
-          <div class="txn-list">
-            ${this.allTransactions.map(tx => this.renderTxItem(tx)).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    if (this.currentTab === 'subscription') {
-      return this.renderSubscription();
-    }
+    if (this.currentTab === 'summary') return this.renderSummary();
+    if (this.currentTab === 'trxn') return this.renderTransactions();
+    if (this.currentTab === 'plans') return this.renderPlans();
+    return '';
   },
 
-  // ============================================
-  // SUBSCRIPTION — tier dashboard (trial / wallet / payngo / pro)
-  // ============================================
-  renderSubscription() {
-    const s = this.summary;
-    const expiresAt = s ? s.subscription_expires_at : this.subscriptionExpiresAt;
-    const tier = s
-      ? s.tier
-      : (expiresAt && new Date(expiresAt) > new Date() ? 'payngo' : 'wallet');
-    const prices = (s && s.prices) || {};
-    const due = (s && s.due_cycles) || [];
-    const dueTotal = due.reduce((n, c) => n + (Number(c.total) || 0), 0);
-    const openCycle = s && s.open_cycle;
-    const proPrice = Number(prices.plan_pro || 99900);
-    const payngoFirst = Number(prices.plan_payngo_first || 10000);
-
-    const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+  renderSummary() {
+    const planType = this.plan?.plan_type || 'payngo';
+    const planLabel = PLAN_LABELS[planType] || planType;
+    const expiresAt = this.plan?.expires_at;
+    const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
     const daysLeft = (d) => d ? Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) : 0;
+
+    const perMin = Number(this.config?.per_minute_rate_gliits || 3);
+
+    let planDetail = '';
+    if (planType === 'payngo') {
+      planDetail = `
+        <div class="sub-row"><span>Rate</span><strong>G${perMin}/minute</strong></div>
+        <div class="sub-row"><span>Billing</span><strong>Deducted from wallet</strong></div>
+      `;
+    } else if (expiresAt) {
+      planDetail = `
+        <div class="sub-row"><span>Active until</span><strong>${fmt(expiresAt)} (${daysLeft(expiresAt)} days)</strong></div>
+        <div class="sub-row"><span>Billing</span><strong>Unlimited usage</strong></div>
+      `;
+    }
+
+    return `
+      <div class="card sub-card">
+        <div class="sub-header">
+          <h3>${escapeHtml(planLabel)} Plan</h3>
+          <span class="sub-badge active">Active</span>
+        </div>
+        <div class="sub-details">
+          ${planDetail}
+        </div>
+      </div>
+      <div class="card stat-card" style="margin-top: 16px;">
+        <div class="stat-row">
+          <div class="stat-icon-wrap bg-brand">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">G${this.balance.toLocaleString()}</span>
+            <span class="stat-label">Available Balance</span>
+          </div>
+        </div>
+      </div>
+      <div class="card stat-card" style="margin-top: 16px;">
+        <div class="stat-row">
+          <div class="stat-icon-wrap bg-success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">${this.allTransactions.filter(t => t.type === 'topup' || (t.amount && t.amount > 0)).length}</span>
+            <span class="stat-label">Top-ups</span>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  renderTransactions() {
+    if (this.allTransactions.length === 0) {
+      return '<div class="card"><p style="color: var(--text-muted); text-align: center; padding: 40px;">No transactions yet.</p></div>';
+    }
+    return `
+      <div class="card">
+        <div class="txn-list">
+          ${this.allTransactions.map(tx => this.renderTxItem(tx)).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  renderPlans() {
+    const currentPlan = this.plan?.plan_type || 'payngo';
+    const monthlyPrice = Number(this.config?.plan_monthly_price_gliits || 3600);
+    const yearlyPrice = Number(this.config?.plan_yearly_price_gliits || 32400);
+    const perMin = Number(this.config?.per_minute_rate_gliits || 3);
+
     const check = (text) => `
       <li class="plan-feature">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         <span>${text}</span>
       </li>`;
 
-    const tierName = { trial: 'Free Trial', wallet: 'Wallet', payngo: "Use n' Pay", pro: 'Xtra' }[tier] || 'Wallet';
-
-    const statusRows = [];
-    if (tier === 'trial') {
-      statusRows.push(`<div class="sub-row"><span>Trial ends</span><strong>${fmt(s?.trial_ends_at)} · ${daysLeft(s?.trial_ends_at)} days left</strong></div>`);
-      statusRows.push(`<div class="sub-row"><span>Bill preview</span><strong>≈ ₦${Number(s?.trial_preview || 0).toLocaleString()} / month</strong></div>`);
-    } else if (tier === 'payngo') {
-      statusRows.push(`<div class="sub-row"><span>Renews on</span><strong>${fmt(expiresAt)} · ${daysLeft(expiresAt)} days left</strong></div>`);
-      statusRows.push(`<div class="sub-row"><span>Renewal perk</span><strong>+3 free days</strong></div>`);
-      statusRows.push(`<div class="sub-row"><span>Billing style</span><strong>Charged at month's end</strong></div>`);
-    } else if (tier === 'pro') {
-      statusRows.push(`<div class="sub-row"><span>Active until</span><strong>${fmt(expiresAt)} · ${daysLeft(expiresAt)} days left</strong></div>`);
-      statusRows.push(`<div class="sub-row"><span>Year-end perk</span><strong>+30 free days</strong></div>`);
-    } else {
-      statusRows.push(`<div class="sub-row"><span>Billing style</span><strong>Pay per open · from wallet</strong></div>`);
-      statusRows.push(`<div class="sub-row"><span>Live sessions</span><strong>Subscription only</strong></div>`);
-    }
-
-    const dueCard = due.length ? `
-      <div class="card sub-card" style="margin-top: 16px;">
-        <div class="sub-header">
-          <h3>Bill Due</h3>
-          <span class="sub-badge inactive">Payment needed</span>
-        </div>
-        <div class="sub-details">
-          <div class="sub-row"><span>Amount</span><strong>₦${dueTotal.toLocaleString()}</strong></div>
-          ${due[0].due_at ? `<div class="sub-row"><span>Grace window ends</span><strong>${fmt(due[0].due_at)}</strong></div>` : ''}
-        </div>
-        <button class="plan-buy btn-primary" style="width: 100%; margin-top: 14px;" onclick="walletInstance.payBill(${Number(due[0].id)})">Pay Bill</button>
-      </div>
-    ` : '';
-
-    const breakdown = (openCycle && openCycle.breakdown) || [];
-    const cycleCard = (tier === 'payngo' && openCycle) ? `
-      <div class="card sub-card" style="margin-top: 16px;">
-        <div class="sub-header">
-          <h3>This Month's Usage</h3>
-          <span class="sub-badge active">Running</span>
-        </div>
-        <div class="sub-details">
-          ${breakdown.length
-            ? breakdown.map(b => `<div class="sub-row"><span>${USAGE_LABELS[b.event] || b.event} × ${b.count}</span><strong>₦${Number(b.total).toLocaleString()}</strong></div>`).join('')
-            : '<div class="sub-row"><span>Nothing yet this cycle</span><strong>₦0</strong></div>'}
-          <div class="sub-row"><span>Due at month's end</span><strong>₦${Number(openCycle.total || 0).toLocaleString()}</strong></div>
-        </div>
-      </div>
-    ` : '';
-
-    const priceRows = [
-      ['publication', 'Book'], ['audiolite', 'Audiolite'],
-      ['gliim_av', 'Gliim · video/audio'], ['gliim_image', 'Gliim · text/image'],
-      ['live', 'Live session'], ['premium_unlock', 'Premium Gliim'], ['profile_print', 'Profile print']
-    ].map(([key, label]) => {
-      const v = prices[key];
-      if (v == null) return '';
-      const value = tier === 'pro' ? 'Included' : `₦${Number(v).toLocaleString()}`;
-      return `<div class="sub-row"><span>${label}</span><strong>${value}</strong></div>`;
-    }).join('');
-
-    const pricesNote = {
-      trial: 'Preview only — nothing is charged during the trial.',
-      wallet: 'Charged from your wallet when you open.',
-      payngo: 'Added to your monthly bill as you use.',
-      pro: 'Included with Xtra — no per-open charges.'
-    }[tier] || '';
-
-    // Xtra users see no downgrade buttons — switching would forfeit a paid year.
-    const walletBtn = tier === 'wallet'
-      ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
-        : tier === 'pro'
-          ? ''
-          : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('wallet')">${tier === 'trial' ? 'Start with Wallet' : 'Switch to Wallet'}</button>`;
-
-    const payngoBtn = tier === 'payngo'
-      ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
-      : tier === 'pro'
-        ? ''
-        : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('payngo')">${tier === 'trial' ? "Start Use n' Pay" : "Switch to Use n' Pay"}</button>`;
-
-    const proBtn = tier === 'pro'
-      ? `<button class="plan-buy active-plan" disabled>Current Plan</button>`
-      : `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('pro')">Go Xtra</button>`;
+    const btn = (planType, label) => {
+      if (currentPlan === planType) {
+        return `<button class="plan-buy active-plan" disabled>Current Plan</button>`;
+      }
+      return `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('${planType}')">${label}</button>`;
+    };
 
     return `
-      <div class="card sub-card">
-        <div class="sub-header">
-          <h3>${tierName}</h3>
-          <span class="sub-badge ${tier === 'wallet' || tier === 'trial' ? 'inactive' : 'active'}">${tier === 'trial' ? 'Trial' : tier === 'wallet' ? 'Pay as you go' : 'Active'}</span>
-        </div>
-        <div class="sub-details">${statusRows.join('')}</div>
-      </div>
-
-      ${dueCard}
-      ${cycleCard}
-
       <div class="plan-list">
         <div class="plan-card">
-          <span class="plan-name">Wallet</span>
-          <div class="plan-price">No subscription</div>
-          <span class="plan-price-note">charged from your wallet as you use</span>
+          <span class="plan-name">Pay n' Go</span>
+          <div class="plan-price">G${perMin}/min</div>
+          <span class="plan-price-note">deducted from wallet</span>
           <ul class="plan-features">
             ${check('Full platform access')}
-            ${check('Pay per open, straight from wallet')}
-            ${check('Buy library items one at a time')}
-            ${check('No monthly bill')}
+            ${check('Pay only for what you use')}
+            ${check('No commitment')}
+            ${check('Top up anytime')}
           </ul>
-          ${walletBtn}
+          ${btn('payngo', 'Switch to Pay n\' Go')}
         </div>
         <div class="plan-card">
-          <span class="plan-name">Use n' Pay</span>
-          <div class="plan-price">₦${payngoFirst.toLocaleString()}</div>
-          <span class="plan-price-note">first month · then billed by usage</span>
+          <span class="plan-name">Monthly</span>
+          <div class="plan-price">G${monthlyPrice.toLocaleString()}</div>
+          <span class="plan-price-note">per month · unlimited</span>
           <ul class="plan-features">
-            ${check('Full platform access')}
-            ${check('Live sessions')}
-            ${check('Billed monthly after use')}
+            ${check('Unlimited usage')}
+            ${check('No per-minute charges')}
+            ${check('All content accessible')}
+            ${check('Cancel anytime')}
           </ul>
-          ${payngoBtn}
+          ${btn('monthly', 'Go Monthly')}
         </div>
         <div class="plan-card">
-          <span class="plan-name">Xtra</span>
-          <div class="plan-price">₦${proPrice.toLocaleString()}</div>
-          <span class="plan-price-note">per year · paid from wallet</span>
+          <span class="plan-name">Yearly</span>
+          <div class="plan-price">G${yearlyPrice.toLocaleString()}</div>
+          <span class="plan-price-note">per year · unlimited</span>
           <ul class="plan-features">
-            ${check('Unlimited everything')}
-            ${check('No per-open charges')}
-            ${check('365 days + 30 free days')}
+            ${check('Unlimited usage')}
+            ${check('Best value')}
+            ${check('All content accessible')}
+            ${check('12 months covered')}
           </ul>
-          ${proBtn}
-        </div>
-      </div>
-
-      <div class="card sub-card" style="margin-top: 16px;">
-        <div class="sub-header">
-          <h3>Usage Prices</h3>
-        </div>
-        <div class="sub-details">
-          ${priceRows}
-          <div class="sub-row"><span style="color: var(--text-muted); font-size: 13px;">${pricesNote}</span></div>
+          ${btn('yearly', 'Go Yearly')}
         </div>
       </div>
     `;
@@ -405,13 +303,11 @@ export default {
     let amountClass = 'amount-negative';
     let amountPrefix = '-';
 
-    // FIX: If amount > 0, it's income (green). If negative, it's an expense (red).
     if (tx.amount > 0) {
       amountClass = 'amount-positive';
       amountPrefix = '+';
     }
 
-    // FIX: GP Rewards should always be green
     if (tx.type === 'reward' && tx.points > 0) {
       amountClass = 'amount-positive';
       amountPrefix = '+';
@@ -438,7 +334,6 @@ export default {
     const date = new Date(tx.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const statusBadge = tx.status === 'pending' ? '<span class="txn-status pending">Pending</span>' : '';
 
-    // Pure GP rewards (no cash movement) show the GP value as the primary amount
     const isPurePoints = (!tx.amount || tx.amount === 0) && tx.points > 0;
 
     if (isPurePoints) {
@@ -448,7 +343,7 @@ export default {
     const pointsHtml = !isPurePoints && tx.points && tx.points > 0 ? `<span class="txn-points">+${tx.points} GP</span>` : '';
     const amountHtml = isPurePoints
       ? `<span class="txn-amount amount-positive">+${tx.points} GP</span>`
-      : `<span class="txn-amount ${amountClass}">${amountPrefix}₦${Math.abs(tx.amount).toLocaleString()}</span>`;
+      : `<span class="txn-amount ${amountClass}">${amountPrefix}G${Math.abs(tx.amount).toLocaleString()}</span>`;
 
     return `
       <div class="txn-item">
@@ -489,6 +384,43 @@ export default {
   },
 
   // ============================================
+  // PLANS
+  // ============================================
+  async activatePlan(planType) {
+    const labels = { payngo: "Pay n' Go", monthly: 'Monthly', yearly: 'Yearly' };
+    const prices = {
+      monthly: Number(this.config?.plan_monthly_price_gliits || 3600),
+      yearly: Number(this.config?.plan_yearly_price_gliits || 32400)
+    };
+
+    let confirmMsg = '';
+    if (planType === 'payngo') {
+      confirmMsg = "Switch to Pay n' Go?\n\nYou'll be charged G3 per minute of usage from your wallet balance. No subscription fee.";
+    } else {
+      confirmMsg = `Switch to ${labels[planType]} for G${prices[planType].toLocaleString()}?\n\nUnlimited usage for ${planType === 'monthly' ? '1 month' : '1 year'}. Paid from your wallet balance.`;
+    }
+
+    const ok = await appConfirm(confirmMsg, { okText: 'Switch' });
+    if (!ok) return;
+
+    const { data, error } = await setPlan(planType);
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('INSUFFICIENT_BALANCE')) {
+        const short = (prices[planType] || 0) - this.balance;
+        await appAlert(`You need G${short.toLocaleString()} more in your wallet. Top up and try again.`);
+        this.openTopUpModal();
+        return;
+      }
+      return appAlert('Could not switch plan: ' + msg);
+    }
+
+    await appAlert(`You're now on ${labels[planType]}!`);
+    await this.fetchData();
+    this.render();
+  },
+
+  // ============================================
   // TRANSFER TO ANOTHER USER
   // ============================================
   openTransferModal() {
@@ -513,8 +445,8 @@ export default {
         </div>
 
         <div class="form-group" style="margin-top: var(--space-4);">
-          <label>Amount (₦)</label>
-          <input type="number" id="transfer-amount" class="input" placeholder="e.g. 5000" min="1">
+          <label>Amount (G)</label>
+          <input type="number" id="transfer-amount" class="input" placeholder="e.g. 100" min="1">
         </div>
 
         <button class="btn-primary" id="transfer-send-btn" style="width: 100%; margin-top: var(--space-4);">Send</button>
@@ -591,7 +523,7 @@ export default {
     if (!amount || amount <= 0) return appAlert("Enter a valid amount.");
 
     const name = this.transferTarget.full_name || 'this user';
-    const password = await appPrompt(`To send ₦${amount.toLocaleString()} to ${name}, please enter your password:`, { inputType: 'password', okText: 'Send' });
+    const password = await appPrompt(`To send G${amount.toLocaleString()} to ${name}, please enter your password:`, { inputType: 'password', okText: 'Send' });
     if (password === null) return;
     if (!password) return appAlert('Please enter your password.');
 
@@ -620,131 +552,18 @@ export default {
     }
 
     modal.remove();
-    await appAlert(`₦${amount.toLocaleString()} sent to ${name}.`);
+    await appAlert(`G${amount.toLocaleString()} sent to ${name}.`);
     await this.fetchData();
     this.render();
   },
 
   // ============================================
-  // SUBSCRIPTION
-  // ============================================
-  async activatePlan(planId) {
-    if (planId === 'wallet') {
-      // Leaving Use n' Pay settles whatever this month accrued, right now.
-      const accrued = Number((this.summary && this.summary.open_cycle && this.summary.open_cycle.total) || 0);
-      const settleLine = accrued > 0
-        ? `\n\nYou've used ₦${accrued.toLocaleString()} this month — switching settles that from your wallet balance immediately.`
-        : '';
-      const ok = await appConfirm(`Switch to Wallet?\n\nNo subscription fee — every open is charged straight from your wallet balance. Live sessions and monthly billing need Use n' Pay or Xtra.` + settleLine, { okText: 'Switch' });
-      if (!ok) return;
-
-      const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'wallet' });
-      if (error) return appAlert("Could not switch plans: " + error.message);
-      if (data && data.ok === false) {
-        if (data.code === 'OUTSTANDING_BILL') {
-          await appAlert("You have an unpaid bill from your last Use n' Pay month. Settle it first — tap Pay Bill above.");
-          return;
-        }
-        if (data.code === 'INSUFFICIENT_FUNDS') {
-          // Leaving Use n' Pay settles this month's usage from the wallet first.
-          const owed = Number(data.price || 0);
-          const short = Math.max(0, owed - Number(data.balance || 0));
-          await appAlert(`You've used ₦${owed.toLocaleString()} this month on Use n' Pay — switching settles it from your wallet, and you need ₦${short.toLocaleString()} more. Top up, or stay on Use n' Pay until month's end.`);
-          this.openTopUpModal();
-          return;
-        }
-        if (data.code === 'PRO_ACTIVE') {
-          await appAlert("Xtra is still active. Switching now would waste the year you paid for.");
-          return;
-        }
-        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
-      }
-
-      const settled = Number(data && data.settled || 0);
-      await appAlert(settled > 0
-        ? `You're on Wallet. This month's ₦${settled.toLocaleString()} of Use n' Pay usage was settled from your wallet.`
-        : "You're on Wallet — usage is charged from your wallet as you go.");
-      await this.fetchData();
-      this.render();
-      return;
-    }
-
-    if (planId === 'payngo') {
-      const ok = await appConfirm("Switch to Use n' Pay?\n\nFull platform access from today. At the end of each month you're billed for what you actually used — and every renewal adds 3 free days.", { okText: 'Switch' });
-      if (!ok) return;
-
-      const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'payngo' });
-      if (error) return appAlert("Could not switch plans: " + error.message);
-      if (data && data.ok === false) {
-        if (data.code === 'OUTSTANDING_BILL') {
-          await appAlert("You have an unpaid bill from your last Use n' Pay month. Settle it first — tap Pay Bill above.");
-          return;
-        }
-        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not switch plans right now.");
-      }
-
-      await appAlert("You're on Use n' Pay — full access is live. Your usage shows up in this tab as you go.");
-      await this.fetchData();
-      this.render();
-      return;
-    }
-
-    if (planId === 'pro') {
-      const price = Number((this.summary && this.summary.prices && this.summary.prices.plan_pro) || 99900);
-      const ok = await appConfirm(`Go Xtra for ₦${price.toLocaleString()}?\n\nIt's paid from your wallet balance and covers a full year — 365 days plus 30 free days at the end.`, { okText: 'Go Xtra' });
-      if (!ok) return;
-
-      const { data, error } = await supabase.rpc('activate_plan', { p_plan: 'pro' });
-      if (error) return appAlert("Could not activate Xtra: " + error.message);
-      if (data && data.ok === false) {
-        if (data.code === 'INSUFFICIENT_FUNDS') {
-          const short = Math.max(0, price - Number(data.balance || 0));
-          await appAlert(`Your wallet needs ₦${short.toLocaleString()} more for Xtra. Top up, then come back.`);
-          this.openTopUpModal();
-          return;
-        }
-        return appAlert(data.code === 'NOT_AUTHENTICATED' ? 'Please sign in again.' : "Could not activate Xtra right now.");
-      }
-
-      await appAlert('Xtra is active — unlimited everything for a year. Enjoy!');
-      await this.fetchData();
-      this.render();
-    }
-  },
-
-  async payBill(cycleId) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return appAlert('Please sign in again.');
-
-      const res = await fetch(`${API_BASE_URL}/api/billing/pay-bill`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ cycleId })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not start the bill checkout.');
-      if (data.ok === false && data.code === 'NOTHING_DUE') {
-        await appAlert('Nothing is due right now.');
-        await this.fetchData();
-        this.render();
-        return;
-      }
-      if (!data.authorization_url) throw new Error('Paystack did not return a checkout link.');
-      window.location.href = data.authorization_url;
-    } catch (err) {
-      await appAlert('Bill payment failed: ' + err.message);
-    }
-  },
-
-  // ============================================
-  // FUND WALLET (bank transfer / Paystack / B*tr)
+  // FUND WALLET (top-up via Paystack / bank transfer)
   // ============================================
   openTopUpModal() {
     if (document.getElementById('wallet-fund-modal')) return;
+
+    const minTopup = Number(this.config?.min_topup_gliits || 100);
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -754,12 +573,12 @@ export default {
         <button class="modal-close" id="fund-close-btn">×</button>
 
         <div id="fund-picker-screen">
-          <h2 style="margin-bottom: 6px;">Fund Your Wallet</h2>
-          <p class="fund-subtitle">Choose how you want to add money to your balance.</p>
+          <h2 style="margin-bottom: 6px;">Top Up Wallet</h2>
+          <p class="fund-subtitle">Add Gliits (G) to your balance. Minimum G${minTopup}.</p>
 
           <div class="form-group" style="margin-top: var(--space-4);">
-            <label>Amount (₦)</label>
-            <input type="number" id="topup-amount" class="input" placeholder="e.g. 5000" min="100">
+            <label>Amount (G)</label>
+            <input type="number" id="topup-amount" class="input" placeholder="e.g. 500" min="${minTopup}">
           </div>
 
           <div class="pay-methods">
@@ -780,18 +599,7 @@ export default {
               </div>
               <div class="pay-method-info">
                 <span class="pay-method-name">Paystack</span>
-                <span class="pay-method-note">Card, bank or USSD · within 1 hour · gateway fee applies</span>
-              </div>
-              <span class="pay-method-chevron">›</span>
-            </div>
-
-            <div class="pay-method" onclick="walletInstance.choosePaymentMethod('btr')">
-              <div class="pay-method-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4z"></path></svg>
-              </div>
-              <div class="pay-method-info">
-                <span class="pay-method-name">B*tr Wallet</span>
-                <span class="pay-method-note">Instant verification</span>
+                <span class="pay-method-note">Card, bank or USSD · instant</span>
               </div>
               <span class="pay-method-chevron">›</span>
             </div>
@@ -803,7 +611,7 @@ export default {
           <h2 style="margin-bottom: var(--space-4);">Bank Transfer</h2>
 
           <div class="info-banner" style="margin-bottom: var(--space-4); padding: 16px; background: var(--brand-primary-light); border-radius: 8px;">
-            <p style="color: var(--text-secondary); font-size: 14px;">Transfer <strong id="bd-amount"></strong> exactly to the account below. Use the <strong>Reference Code</strong> as the narration. Your wallet will be funded after confirmation (usually within 24 hours).</p>
+            <p style="color: var(--text-secondary); font-size: 14px;">Transfer <strong id="bd-amount"></strong> exactly to the account below. Use the <strong>Reference Code</strong> as the narration. Your wallet will be credited after confirmation.</p>
           </div>
 
           <div class="bank-details-box">
@@ -831,15 +639,15 @@ export default {
   },
 
   readTopUpAmount() {
+    const minTopup = Number(this.config?.min_topup_gliits || 100);
     const amount = parseInt(document.getElementById('topup-amount').value, 10);
-    if (!amount || amount < 100) {
-      appAlert("Please enter a valid amount (min ₦100).");
+    if (!amount || amount < minTopup) {
+      appAlert(`Please enter a valid amount (min G${minTopup}).`);
       return null;
     }
     return amount;
   },
 
-  // Silent admin analytics — one row per funding attempt, never blocks the UI.
   logPaymentAttempt(method) {
     supabase.from('payment_attempts')
       .insert({ user_id: store.user.id, method })
@@ -862,7 +670,7 @@ export default {
 
       this.pendingTopUp = { amount, bank: selectedBank, ref };
 
-      document.getElementById('bd-amount').innerText = `₦${amount.toLocaleString()}`;
+      document.getElementById('bd-amount').innerText = `G${amount.toLocaleString()}`;
       document.getElementById('bd-bank').innerText = selectedBank.name;
       document.getElementById('bd-acct').innerText = selectedBank.acct;
       document.getElementById('bd-ref').innerText = ref;
@@ -877,30 +685,15 @@ export default {
       this.startPaystack(amount);
       return;
     }
-
-    if (method === 'btr') {
-      this.logPaymentAttempt('btr');
-      document.getElementById('wallet-fund-modal')?.remove();
-      appAlert("B*tr Wallet is coming soon. We'll enable instant funding as soon as it goes live.");
-    }
   },
 
-  async startPaystack(amount) {
+  async startPaystack(gliitsAmount) {
     document.getElementById('wallet-fund-modal')?.remove();
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/paystack/init`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: store.user.id,
-          amount,
-          callbackUrl: `${location.origin}/dashboard/#/wallet`
-        })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.authorization_url) {
-        throw new Error(data.error || 'Could not start Paystack checkout.');
+      const data = await initTopup(gliitsAmount);
+      if (!data.authorization_url) {
+        throw new Error('Could not start Paystack checkout.');
       }
       window.location.href = data.authorization_url;
     } catch (err) {
@@ -908,7 +701,6 @@ export default {
     }
   },
 
-  // Paystack redirects back to #/wallet?reference=… — verify once, then clean the URL.
   async checkPaystackReturn() {
     const hash = window.location.hash || '';
     const source = hash + '&' + (window.location.search || '');
@@ -927,15 +719,9 @@ export default {
       const data = await res.json();
 
       if (data.credited) {
-        await appAlert(`Wallet funded! ₦${Number(data.amount || 0).toLocaleString()} has been added to your balance.`);
-        await this.fetchData();
-        this.render();
-        return;
-      }
-      if (data.settled) {
-        if (!data.dedupe) {
-          await appAlert(`Bill paid! ₦${Number(data.total || 0).toLocaleString()} settled and your month is renewed with 3 free days.`);
-        }
+        const unit = data.gliits ? 'G' : 'G';
+        const amt = data.gliits || data.amount || 0;
+        await appAlert(`Wallet funded! ${unit}${Number(amt).toLocaleString()} has been added to your balance.`);
         await this.fetchData();
         this.render();
         return;
@@ -945,7 +731,7 @@ export default {
         this.render();
         return;
       }
-      await appAlert("We couldn't confirm this Paystack payment yet. If you were debited, your wallet will be credited automatically.");
+      await appAlert("We couldn't confirm this payment yet. If you were debited, your wallet will be credited automatically.");
     } catch (err) {
       await appAlert("Payment confirmation is taking longer than usual. If you were debited, your wallet will be credited automatically.");
     }
@@ -980,7 +766,7 @@ export default {
   },
 
   // ============================================
-  // REFERRAL — simple modal with code and link
+  // REFERRAL
   // ============================================
   async openReferralModal() {
     const { data: summary } = await supabase.rpc('referral_summary', {})

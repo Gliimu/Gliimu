@@ -1,6 +1,5 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
-import { ensureAccess, showBillingDenied, fetchBillingSummary } from '../billing.js';
 import { uploadFile } from '../upload.js';
 import { renderFileInto } from '../reader.js?v=31';
 
@@ -56,13 +55,8 @@ const hubView = {
     this.currentFilter = 'all';
     this.isModalOpen = false;
     this.feedLoaded = false;
-    this.billingSummary = null;
     this.draggedBlock = null;
     this.editingDraftId = null;
-
-    // Cached for the premium badge and the composer lock toggle; refreshed
-    // when the composer opens. Fails silently pre-migration.
-    fetchBillingSummary().then(s => { if (s && !s.code) this.billingSummary = s; });
 
     this.setupRealtime();
 
@@ -472,11 +466,8 @@ const hubView = {
       return alert(`You need at least 50 GP to post in the Feed. You have ${userGP.toLocaleString()} GP.`);
     }
 
-    this.billingSummary = (await fetchBillingSummary()) || this.billingSummary;
-    const summary = this.billingSummary;
     // 1000 GP to premium-lock a bundle.
     const canLock = userGP >= 1000;
-    const premiumPrice = Number((summary && summary.prices && summary.prices.premium_unlock) || 0);
 
     const composerInnerHtml = `
         ${opts.inline ? '' : '<button class="modal-close" onclick="hubInstance.closeModal()">×</button>'}
@@ -505,9 +496,9 @@ const hubView = {
         <div class="form-group">
           <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
             <input type="checkbox" id="post-premium-toggle" style="width: 18px; height: 18px; accent-color: var(--brand-primary); flex-shrink: 0;">
-            <span><strong>Premium lock</strong>${premiumPrice ? ` — viewers pay ₦${premiumPrice.toLocaleString()} per open` : ' — viewers pay per open'}</span>
+            <span><strong>Premium lock</strong> — viewers pay per minute while reading</span>
           </label>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn 70% of every unlock. Leave it unchecked and the gliim stays free to open.</p>
+          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn from every minute readers spend on your content. Leave it unchecked and the gliim stays free to open.</p>
         </div>
         ` : `
         <div class="form-group">
@@ -1648,13 +1639,11 @@ const hubView = {
     } catch { /* ignore */ }
   },
 
-  // A PDF tile click: owners and free files download directly; everyone else
-  // pays the creator-set price via billing_access (deduped server-side, so
-  // re-clicking a bought PDF never charges again) then downloads.
+  // A PDF tile click: owners and free files download directly; priced files
+  // are included in the per-minute heartbeat billing — no separate unlock.
   async openPdfTile(el) {
     const url = el.dataset.pdf;
     if (!url) return;
-    const price = Number(el.dataset.price || 0);
     const isOwner = el.dataset.creator && el.dataset.creator === store.user.id;
     const download = () => {
       const a = document.createElement('a');
@@ -1665,20 +1654,8 @@ const hubView = {
       a.click();
       a.remove();
     };
-    if (isOwner || price <= 0) return download();
-
-    const { data, error } = await supabase.rpc('billing_access', {
-      p_event_type: 'premium_unlock',
-      p_item_id: `${el.dataset.post}::pdf::${el.dataset.idx}`,
-      p_request_id: crypto.randomUUID(),
-      p_creator: el.dataset.creator || null,
-      p_price_override: price
-    });
-    if (error) return alert('Purchase failed: ' + error.message);
-    if (data && data.allowed) return download();
-    alert(data && data.code === 'INSUFFICIENT_FUNDS'
-      ? 'Not enough wallet balance. Top up your wallet and try again.'
-      : 'This file could not be unlocked. Please try again.');
+    if (isOwner) return download();
+    download();
   },
 
   async fetchPosts() {
@@ -1969,18 +1946,8 @@ const hubView = {
 
     const isOwner = post.user_id === store.user.id;
 
-    // Billing gate: premium unlocks are persistent — the server charges the
-    // first open only and short-circuits every re-open (unlock once, read
-    // forever). Free gliims record the per-open mini-price, deduped per cycle.
-    const access = await ensureAccess('gliim', { itemId: postId });
-    if (!access.allowed) {
-      this.isModalOpen = false;
-      await showBillingDenied(access);
-      return;
-    }
-
     // Server-side content lock: the body lives in feed_gliim_contents, and RLS
-    // only returns a premium body once billing_access() recorded the unlock.
+    // only returns a premium body once the heartbeat has recorded the unlock.
     // A client that skips the gate above simply gets no rows here.
     const { data: contentRow } = await supabase
       .from('feed_gliim_contents').select('blocks')
@@ -2381,10 +2348,8 @@ const hubView = {
   },
 
   // Shown when RLS withheld a premium body (gate skipped or unlock stale).
-  // Records the unlock server-side, then reopens the reader.
+  // Reopens the reader to retry the content fetch.
   async unlockPremiumPost(postId) {
-    const gate = await ensureAccess('gliim', { itemId: postId });
-    if (!gate.allowed) { await showBillingDenied(gate); return; }
     this.closeModal();
     this.openReadView(postId);
   },
@@ -2475,9 +2440,6 @@ const hubView = {
     const input = document.getElementById(`comment-text-${postId}`);
     const text = input.value.trim();
     if (!text) return;
-
-    const gate = await ensureAccess('comment', { itemId: postId });
-    if (!gate.allowed) { await showBillingDenied(gate); return; }
 
     const post = this.currentPosts.find(p => p.id === postId);
     const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();

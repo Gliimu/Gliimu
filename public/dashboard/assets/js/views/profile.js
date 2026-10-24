@@ -1,8 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
-import { ensureAccess, showBillingDenied } from '../billing.js';
 import { uploadFile } from '../upload.js';
-import hubView from './feed-gliims.js?v=78';
+import hubView from './feed-gliims.js?v=79';
 
 export default {
   title: 'Profile',
@@ -28,12 +27,6 @@ export default {
 
     window.profileInstance = {
       printProfile: async () => {
-        // Printing another Gliimait's portfolio is a billable profile_print;
-        // your own profile prints free.
-        if (this.targetUserId && this.targetUserId !== store.user.id) {
-          const gate = await ensureAccess('profile_print', { itemId: this.targetUserId, creatorId: this.targetUserId });
-          if (!gate.allowed) { await showBillingDenied(gate); return; }
-        }
         window.print();
       },
       viewUser: (userId) => this.viewUser(userId),

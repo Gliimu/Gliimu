@@ -23,18 +23,9 @@ export const store = {
       const baseCols = 'full_name, avatar_url, total_gp, wallet_balance, is_admin';
       let { data: profile } = await supabase
         .from('profiles')
-        .select(`${baseCols}, tier, trial_ends_at, subscription_expires_at`)
+        .select(baseCols)
         .eq('id', user.id)
         .single();
-
-      if (!profile) {
-        // Pre-migration fallback: billing columns may not exist yet.
-        ({ data: profile } = await supabase
-          .from('profiles')
-          .select(baseCols)
-          .eq('id', user.id)
-          .single());
-      }
 
       if (profile) {
         profile.username = user.user_metadata?.username || 'Gliimait';
@@ -47,10 +38,7 @@ export const store = {
           total_gp: 0,
           avatar_url: null,
           wallet_balance: 0,
-          is_admin: false,
-          tier: 'trial',
-          trial_ends_at: null,
-          subscription_expires_at: null
+          is_admin: false
         };
       }
     }

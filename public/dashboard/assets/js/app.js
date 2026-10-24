@@ -4,6 +4,7 @@ import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=31';
 import { previewText } from './media.js';
+import * as heartbeat from './heartbeat.js?v=1';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -368,6 +369,8 @@ async function initApp() {
   window.GliimuPresence = Presence;
   initSidebarAutoClose();
   initFloatingButton();
+
+  heartbeat.start();
 
   setInterval(checkGpTiers, 45000);
 
