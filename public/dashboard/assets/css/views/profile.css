@@ -383,12 +383,6 @@
   border-color: var(--brand-primary);
 }
 
-.profile-projects-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .profile-feature-btn {
   display: flex;
   align-items: center;
@@ -404,6 +398,7 @@
   transition: background 0.2s, transform 0.15s;
   font-family: var(--font-sans);
   white-space: nowrap;
+  margin-left: auto;
 }
 .profile-feature-btn:hover {
   background: var(--brand-primary-hover);

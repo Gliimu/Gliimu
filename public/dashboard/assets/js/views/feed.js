@@ -18,6 +18,8 @@ export default {
   title: 'XpLoRe',
   template: `
     <div class="libmerge hub-layout" id="library-container">
+      <div class="featured-carousel" id="featured-carousel" style="display:none;"></div>
+
       <div class="hub-category-tabs" id="hub-category-tabs">
         <button class="hub-category-tab active" data-category="all">For You</button>
         <button class="hub-category-tab" data-category="xploring">Xploring</button>
@@ -28,8 +30,6 @@ export default {
         <button class="hub-category-tab" data-category="Personal">Personal</button>
         <button class="hub-category-tab" data-category="Education">Education</button>
       </div>
-
-      <div class="featured-carousel" id="featured-carousel" style="display:none;"></div>
 
       <div class="libmerge-feed" id="library-feed">
         <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
