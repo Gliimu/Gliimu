@@ -5,12 +5,10 @@
   padding: var(--space-4) var(--space-6);
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--space-8) - var(--space-8));
 }
 
 @media (max-width: 768px) {
   .alerts-layout {
-    height: calc(100vh - 64px - var(--space-4) - var(--space-4));
     padding: var(--space-3);
   }
 }
@@ -82,14 +80,6 @@
 .alerts-filter-item.active {
   background: var(--brand-primary);
   color: white;
-}
-
-/* Alerts Scroll Area */
-.alerts-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Notice List */

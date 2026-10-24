@@ -47,11 +47,13 @@ on conflict (id) do nothing;
 -- RLS: everyone can read, only registrar can update
 alter table public.gliits_config enable row level security;
 
+drop policy if exists "gliits_config_select_all" on public.gliits_config;
 create policy "gliits_config_select_all"
   on public.gliits_config for select
   to authenticated
   using (true);
 
+drop policy if exists "gliits_config_update_registrar" on public.gliits_config;
 create policy "gliits_config_update_registrar"
   on public.gliits_config for update
   to authenticated
@@ -81,22 +83,26 @@ create index if not exists idx_gliits_plans_expires_at on public.gliits_plans(ex
 
 alter table public.gliits_plans enable row level security;
 
+drop policy if exists "gliits_plans_select_own" on public.gliits_plans;
 create policy "gliits_plans_select_own"
   on public.gliits_plans for select
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "gliits_plans_insert_own" on public.gliits_plans;
 create policy "gliits_plans_insert_own"
   on public.gliits_plans for insert
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "gliits_plans_update_own" on public.gliits_plans;
 create policy "gliits_plans_update_own"
   on public.gliits_plans for update
   to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+drop policy if exists "gliits_plans_select_admin" on public.gliits_plans;
 create policy "gliits_plans_select_admin"
   on public.gliits_plans for select
   to authenticated
@@ -128,16 +134,19 @@ create index if not exists idx_gliits_usage_minute_at on public.gliits_usage(min
 
 alter table public.gliits_usage enable row level security;
 
+drop policy if exists "gliits_usage_select_own" on public.gliits_usage;
 create policy "gliits_usage_select_own"
   on public.gliits_usage for select
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "gliits_usage_insert_system" on public.gliits_usage;
 create policy "gliits_usage_insert_system"
   on public.gliits_usage for insert
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "gliits_usage_select_admin" on public.gliits_usage;
 create policy "gliits_usage_select_admin"
   on public.gliits_usage for select
   to authenticated
@@ -168,22 +177,26 @@ create index if not exists idx_gliits_topups_reference on public.gliits_topups(p
 
 alter table public.gliits_topups enable row level security;
 
+drop policy if exists "gliits_topups_select_own" on public.gliits_topups;
 create policy "gliits_topups_select_own"
   on public.gliits_topups for select
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "gliits_topups_insert_own" on public.gliits_topups;
 create policy "gliits_topups_insert_own"
   on public.gliits_topups for insert
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "gliits_topups_update_own" on public.gliits_topups;
 create policy "gliits_topups_update_own"
   on public.gliits_topups for update
   to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+drop policy if exists "gliits_topups_select_admin" on public.gliits_topups;
 create policy "gliits_topups_select_admin"
   on public.gliits_topups for select
   to authenticated
@@ -196,11 +209,13 @@ grant select on public.gliits_topups to authenticated;
 grant select on public.gliits_topups to anon;
 
 -- ============================================================
--- 6. RESET ALL USER BALANCES TO G100
+-- 6. ONE-TIME MIGRATION (ALREADY RAN LIVE — DO NOT RE-RUN)
+--    Resetting wallet_balance here would wipe every member's
+--    balance each time this script is re-run. Kept for history only.
 -- ============================================================
 
-update public.profiles
-set wallet_balance = 100;
+-- update public.profiles
+-- set wallet_balance = 100;
 
 -- Also create payngo plans for users who don't have one
 insert into public.gliits_plans (user_id, plan_type, started_at)

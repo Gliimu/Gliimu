@@ -647,3 +647,17 @@ select.input { cursor: pointer; }
   color: white;
   border-color: var(--brand-primary);
 }
+
+/* ============================================
+   SLIM BRAND SCROLLBARS
+   ============================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand-primary) transparent;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--brand-primary); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand-primary-hover); }
+::-webkit-scrollbar-corner { background: transparent; }

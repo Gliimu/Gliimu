@@ -462,7 +462,7 @@ async function loadFaqs() {
     { q: 'How do I earn GP?', a: 'Post content, get referrals, complete reading, and participate in contests to earn GP.' },
     { q: 'How do payments work?', a: 'We accept bank transfers and Paystack. Wallet top-ups are instant.' },
     { q: 'Can I publish my own content?', a: 'Yes. Use the upload button on the Hub page to submit a Book, Audiolite, or Bundle for review.' },
-    { q: 'How do referrals work?', a: 'Share your referral code from the Updates page. When your friend signs up and makes a purchase, you earn GP.' },
+    { q: 'How do referrals work?', a: 'Share your referral link from the Billing page. When your friend signs up and makes a purchase, you earn GP.' },
     { q: 'Is there a mobile app?', a: 'Yes. Check the download section for Android, iOS, Windows, macOS, and Linux.' },
     { q: 'How do I contact support?', a: 'Use the Support tab in your dashboard or email support@gliimu.com.' }
   ];

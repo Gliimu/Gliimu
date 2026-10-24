@@ -53,7 +53,6 @@ export default {
       clearTransferUser: () => this.clearTransferUser(),
       activatePlan: (type) => this.activatePlan(type),
       openReferralModal: () => this.openReferralModal(),
-      copyReferralCode: (code) => this.copyReferralCode(code),
       copyReferralLink: (link) => this.copyReferralLink(link)
     };
 
@@ -827,14 +826,7 @@ export default {
         <button class="modal-close" id="close-referral-modal">&times;</button>
         <h2 style="margin-bottom: 8px;">Refer & earn</h2>
         <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">Invite friends to Gliimu and earn GP when they sign up.</p>
-        ${!code ? '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Sign in to get your referral code.</p>' : `
-          <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Your code</div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="flex: 1; font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 1px;">${escapeHtml(code)}</div>
-              <button class="btn-secondary" style="padding: 8px 12px; font-size: 13px;" onclick="walletInstance.copyReferralCode('${escapeHtml(code)}')">Copy</button>
-            </div>
-          </div>
+        ${!code ? '<p style="color: var(--text-muted); text-align: center; padding: 20px;">Sign in to get your referral link.</p>' : `
           <div style="background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">Your link</div>
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -899,13 +891,6 @@ export default {
 
     document.getElementById('close-referral-modal').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-  },
-
-  async copyReferralCode(code) {
-    try {
-      await navigator.clipboard.writeText(code);
-      await appAlert('Referral code copied.');
-    } catch { await appAlert('Could not copy to clipboard.'); }
   },
 
   async copyReferralLink(link) {
