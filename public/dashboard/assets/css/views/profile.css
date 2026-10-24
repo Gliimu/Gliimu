@@ -383,6 +383,12 @@
   border-color: var(--brand-primary);
 }
 
+.profile-projects-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .profile-feature-btn {
   display: flex;
   align-items: center;
@@ -398,7 +404,6 @@
   transition: background 0.2s, transform 0.15s;
   font-family: var(--font-sans);
   white-space: nowrap;
-  margin-left: auto;
 }
 .profile-feature-btn:hover {
   background: var(--brand-primary-hover);
@@ -406,6 +411,65 @@
 }
 .profile-feature-btn svg {
   flex-shrink: 0;
+}
+
+.profile-filter-wrap {
+  position: relative;
+  margin-left: auto;
+}
+.profile-filter-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.profile-filter-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+.profile-filter-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 160px;
+  z-index: 100;
+  overflow: hidden;
+}
+.profile-filter-dropdown.active {
+  display: block;
+}
+.profile-filter-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.profile-filter-item:last-child {
+  border-bottom: none;
+}
+.profile-filter-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.profile-filter-item.active {
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  font-weight: 600;
 }
 
 .profile-projects-grid {

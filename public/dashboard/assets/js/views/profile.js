@@ -14,6 +14,7 @@ export default {
 
   async init() {
     this.allUsers = [];
+    this._projectFilter = 'all';
 
     // Deep links: sessionStorage (hub/library) or ?u=<id> in the hash (QR scans)
     let targetId = sessionStorage.getItem('view_profile_id');
@@ -45,7 +46,9 @@ export default {
       openQr: () => this.openQrModal(),
       closeQr: (e, el) => { if (e.target === el) el.remove(); },
       copyName: () => this.copyName(),
-      goFeature: () => this.goFeature()
+      goFeature: () => this.goFeature(),
+      toggleFilterMenu: (e) => this.toggleFilterMenu(e),
+      applyFilter: (filter) => this.applyFilter(filter)
     };
 
     await this.fetchAllUsers();
@@ -125,6 +128,32 @@ export default {
     window.location.hash = '#/feature';
   },
 
+  toggleFilterMenu(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('profile-filter-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('active');
+    if (dd.classList.contains('active')) {
+      const close = (ev) => {
+        if (!dd.contains(ev.target)) {
+          dd.classList.remove('active');
+          document.removeEventListener('click', close);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', close), 0);
+    }
+  },
+
+  applyFilter(filter) {
+    this._projectFilter = filter;
+    document.querySelectorAll('.profile-filter-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.filter === filter);
+    });
+    const dd = document.getElementById('profile-filter-dropdown');
+    if (dd) dd.classList.remove('active');
+    this.renderProfile(this.targetUserId);
+  },
+
   async renderProfile(userId) {
     const container = document.getElementById('profile-container');
     const isMe = userId === store.user.id;
@@ -201,10 +230,16 @@ export default {
               <span class="stat-label">Projects</span>
             </div>
             ${isMe ? `
-              <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                <span>Feature your content</span>
-              </button>
+              <div class="profile-filter-wrap">
+                <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter projects">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                </button>
+                <div class="profile-filter-dropdown" id="profile-filter-dropdown">
+                  <div class="profile-filter-item active" data-filter="all" onclick="profileInstance.applyFilter('all')">All Projects</div>
+                  <div class="profile-filter-item" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
+                  <div class="profile-filter-item" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
+                </div>
+              </div>
             ` : ''}
           </div>
 
@@ -244,13 +279,35 @@ export default {
         <div class="profile-projects-header">
           <h2>Projects</h2>
           ${isMe ? `
-            <button class="profile-print-btn" onclick="profileInstance.printProfile()" title="Print / Save as PDF">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            </button>
+            <div class="profile-projects-actions">
+              <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <span>Feature your content</span>
+              </button>
+              <button class="profile-print-btn" onclick="profileInstance.printProfile()" title="Print / Save as PDF">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+              </button>
+            </div>
           ` : ''}
         </div>
         <div class="profile-projects-grid">
-          ${(posts && posts.length > 0) ? posts.map(item => `
+          ${(() => {
+            let filteredPosts = posts || [];
+            if (this._projectFilter === 'saved' && hubView.savedPosts) {
+              filteredPosts = filteredPosts.filter(p => hubView.savedPosts.has(p.id));
+            } else if (this._projectFilter === 'tagged') {
+              const myName = store.profile?.full_name || '';
+              const tag = `@${myName}`;
+              filteredPosts = filteredPosts.filter(p => {
+                const inDesc = p.description && p.description.includes(tag);
+                const inBlocks = p.blocks && p.blocks.some(b => b.type === 'text' && b.content && b.content.includes(tag));
+                return inDesc || inBlocks;
+              });
+            }
+            if (!filteredPosts.length) {
+              return '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No projects found.</p>';
+            }
+            return filteredPosts.map(item => `
             <div class="profile-project-card" onclick="profileInstance.openProject('${item.id}')">
               <div class="profile-project-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
@@ -260,7 +317,8 @@ export default {
                 <span>${item.category || 'General'} · ${new Date(item.created_at).toLocaleDateString()}</span>
               </div>
             </div>
-          `).join('') : '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No projects yet.</p>'}
+          `).join('');
+          })()}
         </div>
       </div>
 

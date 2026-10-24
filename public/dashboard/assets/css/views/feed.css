@@ -634,6 +634,9 @@
   color: white;
 }
 .featured-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
   display: inline-block;
   background: var(--brand-primary);
   color: white;
@@ -641,9 +644,9 @@
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 12px;
-  margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  z-index: 2;
 }
 .featured-slide-title {
   font-size: 22px;
