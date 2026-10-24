@@ -1,8 +1,16 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { uploadFile } from '../upload.js';
+import { notify } from '../notify.js?v=32';
 
 const APP_VERSION_KEY = 'gliimu_app_version';
+const SOUND_KEY = 'gliimu_notification_sound';
+const SOUND_PREFS = ['off', 'default', 'crunch'];
+
+function soundPref() {
+  const saved = localStorage.getItem(SOUND_KEY);
+  return SOUND_PREFS.includes(saved) ? saved : 'default';
+}
 
 function parseVersion(v) {
   return String(v || '0').split('.').map(n => parseInt(n, 10) || 0);
@@ -34,6 +42,22 @@ export default {
             <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
             <svg id="moon-icon" style="display:none;" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
           </button>
+        </div>
+      </div>
+
+      <!-- Notification Sound -->
+      <div class="card settings-card">
+        <h2>Notification Sound</h2>
+        <div class="setting-row sound-row">
+          <div>
+            <span class="setting-title">Alert sound</span>
+            <span class="setting-desc">Choose what plays when a new message arrives.</span>
+          </div>
+          <div class="sound-options" id="sound-options">
+            <button type="button" class="sound-opt" data-sound="off">Off</button>
+            <button type="button" class="sound-opt" data-sound="default">Default</button>
+            <button type="button" class="sound-opt" data-sound="crunch">Crunch</button>
+          </div>
         </div>
       </div>
 
@@ -114,6 +138,36 @@ export default {
         <button type="button" id="logout-btn" class="btn-secondary">Log Out</button>
       </div>
 
+      <!-- Danger Zone -->
+      <div class="card settings-card danger-zone">
+        <h2>Danger Zone</h2>
+        <div id="danger-normal">
+          <p class="danger-text">Deleting your account removes your profile, posts, messages and wallet. You have a 3-day grace period — sign back in before it ends to recover your account. After that, the deletion is permanent and cannot be undone.</p>
+          <button type="button" class="btn-danger" id="delete-account-btn">Delete Account</button>
+        </div>
+        <div id="danger-scheduled" style="display:none;">
+          <p class="danger-text">Your account is scheduled for deletion on <strong id="deletion-date"></strong>. Sign back in any time before then and your account will be recovered automatically.</p>
+          <button type="button" class="btn-secondary" id="cancel-deletion-btn">Cancel Deletion Request</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Delete account confirmation -->
+    <div class="modal-overlay" id="delete-modal" style="display:none;">
+      <div class="modal-content danger-modal">
+        <h3 class="danger-title">ARE YOU SURE YOU WANT TO DELETE YOUR ACCOUNT?</h3>
+        <p class="danger-text">This action can't be undone. Your account will be scheduled for deletion and permanently erased in 3 days unless you sign back in to recover it.</p>
+        <div class="form-group">
+          <label>Recovery Passphrase or Password</label>
+          <input type="text" id="delete-passphrase" class="input" placeholder="Enter your recovery passphrase or account password" autocomplete="off">
+        </div>
+        <p class="danger-error" id="delete-error" style="display:none;"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="delete-cancel-btn">Cancel</button>
+          <button type="button" class="btn-danger" id="delete-confirm-btn">Delete</button>
+        </div>
+      </div>
     </div>
   `,
   async init() {
@@ -215,6 +269,118 @@ export default {
 
     // Handle Logout
     document.getElementById('logout-btn').addEventListener('click', () => store.signOut());
+
+    // Notification Sound preference. Saved to both localStorage (instant,
+    // read by notify.js on every ping) and user_metadata (syncs the choice
+    // across devices on next login).
+    this.renderSoundOptions();
+    document.getElementById('sound-options').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.sound-opt');
+      if (!btn) return;
+      const pref = btn.dataset.sound;
+      if (!SOUND_PREFS.includes(pref)) return;
+      localStorage.setItem(SOUND_KEY, pref);
+      this.renderSoundOptions();
+      notify.sound();
+      const { error } = await supabase.auth.updateUser({ data: { notification_sound: pref } });
+      if (error) alert('Could not save your sound preference.');
+    });
+
+    // Danger Zone
+    this.loadDeletionState();
+
+    document.getElementById('delete-account-btn').addEventListener('click', () => {
+      document.getElementById('delete-passphrase').value = '';
+      const errEl = document.getElementById('delete-error');
+      errEl.style.display = 'none';
+      document.getElementById('delete-modal').style.display = 'flex';
+    });
+
+    document.getElementById('delete-cancel-btn').addEventListener('click', () => {
+      document.getElementById('delete-modal').style.display = 'none';
+    });
+
+    document.getElementById('delete-confirm-btn').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const errEl = document.getElementById('delete-error');
+      errEl.style.display = 'none';
+
+      const secret = document.getElementById('delete-passphrase').value.trim();
+      if (!secret) {
+        errEl.textContent = 'Enter your recovery passphrase or account password.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      try {
+        // Either credential unlocks the deletion: the recovery passphrase
+        // (compared locally) or the account password (verified with a real
+        // Supabase sign-in, which also refreshes the session in place).
+        // store.user.email is the synthetic "<username>@gliimu.app" address
+        // every member is signed up with (auth.js), so the password grant
+        // targets the right auth user.
+        let verified = false;
+        const { data: row } = await supabase.from('profiles')
+          .select('recovery_phrase').eq('id', store.user.id).maybeSingle();
+        if (row && row.recovery_phrase && row.recovery_phrase === secret) {
+          verified = true;
+        } else {
+          const { error: pwError } = await supabase.auth.signInWithPassword({ email: store.user.email, password: secret });
+          if (!pwError) verified = true;
+          else if (pwError.status !== 400) {
+            errEl.textContent = 'Verification failed. Please try again.';
+            errEl.style.display = 'block';
+            return;
+          }
+        }
+
+        if (!verified) {
+          errEl.textContent = 'Passphrase or password is incorrect.';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        const { data, error } = await supabase.rpc('request_account_deletion');
+        if (error || !data || data.ok !== true) {
+          errEl.textContent = 'Could not schedule the deletion. Please try again.';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        document.getElementById('delete-modal').style.display = 'none';
+        alert('Your account is scheduled for deletion. You have 3 days to sign back in and recover it. You will now be logged out.');
+        store.signOut();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById('cancel-deletion-btn').addEventListener('click', async () => {
+      await supabase.rpc('cancel_account_deletion');
+      this.loadDeletionState();
+    });
+  },
+
+  renderSoundOptions() {
+    const current = soundPref();
+    document.querySelectorAll('#sound-options .sound-opt').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sound === current);
+    });
+  },
+
+  async loadDeletionState() {
+    const { data: row } = await supabase.from('profiles')
+      .select('deletion_requested_at, deletion_scheduled_at')
+      .eq('id', store.user.id)
+      .maybeSingle();
+    const pending = !!(row && row.deletion_scheduled_at && new Date(row.deletion_scheduled_at) > new Date());
+    document.getElementById('danger-normal').style.display = pending ? 'none' : 'block';
+    document.getElementById('danger-scheduled').style.display = pending ? 'block' : 'none';
+    if (pending) {
+      document.getElementById('deletion-date').textContent =
+        new Date(row.deletion_scheduled_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    }
   },
 
   async checkForUpdates(manual) {

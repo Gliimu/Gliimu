@@ -1,8 +1,8 @@
 import { store } from './store.js';
-import { router } from './router.js?v=70';
+import { router } from './router.js?v=72';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
-import { notify } from './notify.js?v=31';
+import { notify } from './notify.js?v=32';
 import { previewText } from './media.js';
 import * as heartbeat from './heartbeat.js?v=1';
 
@@ -330,6 +330,22 @@ async function initApp() {
   if (!user) {
     window.location.href = '/auth.html';
     return;
+  }
+
+  // Signing back in inside the 3-day window cancels a pending account
+  // deletion. Safe to call on every login — it only clears a real request.
+  try {
+    const { data: recovery } = await supabase.rpc('cancel_account_deletion');
+    if (recovery && recovery.ok && recovery.recovered) {
+      alert('Welcome back! Your account was scheduled for deletion. The request has been cancelled and your account is safe.');
+    }
+  } catch (e) { /* the RPC may not exist until sql/account_lifecycle.sql runs */ }
+
+  // Sound preference set on another device: user_metadata is the
+  // cross-device source, localStorage is what notify.js reads each ping.
+  const savedSound = user.user_metadata?.notification_sound;
+  if (savedSound === 'off' || savedSound === 'default' || savedSound === 'crunch') {
+    localStorage.setItem('gliimu_notification_sound', savedSound);
   }
 
   // Referral attribution: if this browser arrived via someone's referral link,

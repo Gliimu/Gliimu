@@ -31,6 +31,38 @@ function tone(frequency, offset, duration) {
   oscillator.stop(start + duration + 0.02);
 }
 
+const SOUND_KEY = 'gliimu_notification_sound';
+
+function soundPref() {
+  const saved = localStorage.getItem(SOUND_KEY);
+  return saved === 'off' || saved === 'crunch' ? saved : 'default';
+}
+
+// Two filtered noise bursts — a bite-like crunch synthesised on the spot,
+// no audio file needed.
+function crunch() {
+  for (let i = 0; i < 2; i++) {
+    const duration = 0.07;
+    const buffer = audio.createBuffer(1, Math.ceil(audio.sampleRate * duration), audio.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let s = 0; s < samples.length; s++) {
+      samples[s] = (Math.random() * 2 - 1) * Math.pow(1 - s / samples.length, 2);
+    }
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    const filter = audio.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 2200 + i * 700;
+    filter.Q.value = 0.9;
+    const gain = audio.createGain();
+    gain.gain.value = 0.6;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(audio.destination);
+    source.start(audio.currentTime + i * 0.12);
+  }
+}
+
 function askDesktop() {
   if (desktopAsked || typeof Notification === 'undefined') return;
   desktopAsked = true;
@@ -103,11 +135,17 @@ export const notify = {
   },
 
   sound() {
+    const pref = soundPref();
+    if (pref === 'off') return;
     if (!audio || audio.state === 'closed') return;
     if (audio.state === 'suspended') audio.resume().catch(() => {});
     try {
-      tone(880, 0, 0.11);
-      tone(1174.66, 0.1, 0.16);
+      if (pref === 'crunch') {
+        crunch();
+      } else {
+        tone(880, 0, 0.11);
+        tone(1174.66, 0.1, 0.16);
+      }
     } catch { /* a blocked context is not worth a crash */ }
   },
 
