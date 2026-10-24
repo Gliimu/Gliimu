@@ -579,6 +579,7 @@ export default {
           <div class="form-group" style="margin-top: var(--space-4);">
             <label>Amount (G)</label>
             <input type="number" id="topup-amount" class="input" placeholder="e.g. 500" min="${minTopup}">
+            <div id="naira-equivalent" class="muted small" style="margin-top: 6px; font-size: 0.9em;"></div>
           </div>
 
           <div class="pay-methods">
@@ -631,6 +632,21 @@ export default {
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
     document.getElementById('fund-back-btn').addEventListener('click', () => this.backToMethods());
     document.getElementById('confirm-sent-btn').addEventListener('click', (e) => this.confirmBankSent(e.target));
+    
+    // Live Naira conversion
+    const amountInput = document.getElementById('topup-amount');
+    const nairaDisplay = document.getElementById('naira-equivalent');
+    const exchangeRate = Number(this.config?.exchange_rate_naira_to_gliits || 1.0);
+    
+    amountInput.addEventListener('input', () => {
+      const gliitsAmount = Number(amountInput.value);
+      if (gliitsAmount > 0) {
+        const nairaAmount = gliitsAmount / exchangeRate;
+        nairaDisplay.textContent = `= ₦${nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (at ₦${exchangeRate} = G1)`;
+      } else {
+        nairaDisplay.textContent = '';
+      }
+    });
   },
 
   backToMethods() {
@@ -670,7 +686,9 @@ export default {
 
       this.pendingTopUp = { amount, bank: selectedBank, ref };
 
-      document.getElementById('bd-amount').innerText = `G${amount.toLocaleString()}`;
+      const exchangeRate = Number(this.config?.exchange_rate_naira_to_gliits || 1.0);
+      const nairaAmount = amount / exchangeRate;
+      document.getElementById('bd-amount').innerHTML = `G${amount.toLocaleString()} <span style="color: var(--text-secondary); font-weight: normal;">(₦${nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })})</span>`;
       document.getElementById('bd-bank').innerText = selectedBank.name;
       document.getElementById('bd-acct').innerText = selectedBank.acct;
       document.getElementById('bd-ref').innerText = ref;

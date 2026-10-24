@@ -1,8 +1,8 @@
 import { supabase } from '../config.js';
 import { escapeHtml, naira, gp, empty, timeAgo, rpcError, TXN_LABEL } from '../ui.js';
 
-const TYPES = ['topup', 'purchase', 'support', 'subscription', 'transfer_in', 'transfer_out',
-  'adjustment', 'live_session', 'live_entry', 'live_support', 'reward'];
+const TYPES = ['topup', 'purchase', 'support', 'heartbeat', 'transfer_in', 'transfer_out',
+  'adjustment', 'reward', 'creator_credit'];
 
 const PAGE = 100;
 

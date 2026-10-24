@@ -17,18 +17,17 @@ const routes = {
   '/crm-members': { role: 'crm', title: 'Members', load: () => import('./views/crm.js?v=14').then(m => m.default) },
   '/support': { role: STAFF, title: 'Support Desk', load: () => import('./views/support.js?v=8').then(m => m.default) },
   '/admin-room': { role: STAFF, title: 'Admins Room', load: () => import('./views/admin-room.js?v=8').then(m => m.default) },
-  '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js').then(m => m.default) },
-  '/ledger': { role: 'registrar', title: 'Ledger', load: () => import('./views/ledger.js').then(m => m.default) },
-  '/bills': { role: 'registrar', title: 'Bills', load: () => import('./views/bills.js').then(m => m.default) },
-  '/revenue': { role: 'registrar', title: 'Revenue & Pricing', load: () => import('./views/revenue.js').then(m => m.default) },
+  '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js?v=1').then(m => m.default) },
+  '/ledger': { role: 'registrar', title: 'Ledger', load: () => import('./views/ledger.js?v=1').then(m => m.default) },
+  '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=1').then(m => m.default) },
   '/triads': { role: 'captain', title: 'Triads & Apprentices', load: () => import('./views/triads.js').then(m => m.default) },
   '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=11').then(m => m.default) },
   '/arena': { role: 'operations', title: 'XpLoRe', load: () => import('./views/updates.js?v=14').then(m => m.default) },
-  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=14').then(m => m.default) },
+  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=15').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/dashboard', '/submissions', '/reports', '/content', '/crm-members', '/support', '/admin-room', '/finance', '/ledger', '/bills', '/revenue', '/triads', '/operations', '/arena', '/members', '/admins'];
+const order = ['/dashboard', '/submissions', '/reports', '/content', '/crm-members', '/support', '/admin-room', '/finance', '/ledger', '/revenue', '/triads', '/operations', '/arena', '/members', '/admins'];
 
 export function firstRoute() {
   return order.find(path => {

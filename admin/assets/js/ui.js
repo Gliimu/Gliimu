@@ -11,15 +11,19 @@ export function escapeHtml(value) {
 
 export function money(value) {
   const n = Number(value || 0);
-  return n > 0 ? `₦${n.toLocaleString()}` : 'Free';
+  return n > 0 ? `G${n.toLocaleString()}` : 'Free';
 }
 
 // Ledger amounts are signed and zero is meaningful, so they get their own
-// formatter rather than money()'s "Free".
+// formatter rather than money()'s "Free". Amounts are in Gliits (G).
 export function naira(value) {
   const n = Number(value || 0);
-  return `${n < 0 ? '-' : ''}₦${Math.abs(n).toLocaleString()}`;
+  return `${n < 0 ? '-' : ''}G${Math.abs(n).toLocaleString()}`;
 }
+
+// Alias for clarity — naira() now formats Gliits, but some views prefer
+// to call it gliits() to make the unit obvious in the code.
+export const gliits = naira;
 
 export function gp(value) {
   return `${Number(value || 0).toLocaleString()} GP`;
@@ -85,20 +89,19 @@ export function openDrawer({ title, sub = '', body = '', foot = '' }) {
 }
 
 // Shared money/plan vocabulary, kept next to the SQL that writes it.
-export const TIER_LABEL = { trial: 'Trial', wallet: 'Wallet', payngo: "Use n' Pay", pro: 'Xtra' };
+// In the Gliits model, plans are payngo/monthly/yearly (not trial/wallet/pro).
+export const TIER_LABEL = { payngo: "Pay n' Go", monthly: 'Monthly', yearly: 'Yearly' };
 
 export const TXN_LABEL = {
   topup: 'Wallet top-up',
   purchase: 'Library unlock',
   support: 'Support a creator',
-  subscription: 'Subscription bill',
+  heartbeat: 'Usage charge',
   transfer_in: 'Transfer in',
   transfer_out: 'Transfer out',
   adjustment: 'Admin adjustment',
-  live_session: 'Live session',
-  live_entry: 'Live entry',
-  live_support: 'Live support',
-  reward: 'Reward'
+  reward: 'Reward',
+  creator_credit: 'Creator earnings'
 };
 
 // Turns an unknown RPC result into one readable line. Every admin RPC answers
@@ -157,7 +160,7 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
-  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts in the Supabase SQL Editor: sql/all.sql first, then billing.sql, admin.sql, registrar.sql, captain.sql, operations.sql and contact.sql.',
+  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts: sql/setup_all.sql first, then sql/gliits_billing.sql, then sql/registrar_gliits.sql.',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };
 

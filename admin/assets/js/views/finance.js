@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, naira, gp, empty, timeAgo, rpcError, TIER_LABEL, TXN_LABEL } from '../ui.js';
+import { escapeHtml, naira, gliits, gp, empty, timeAgo, rpcError, TIER_LABEL, TXN_LABEL } from '../ui.js';
 
 function stat(label, value, note) {
   return `
@@ -39,7 +39,7 @@ export default {
 
     if (error) {
       host.innerHTML = empty(error.code === '42883'
-        ? 'registrar_overview() is not installed yet. Run sql/registrar.sql.'
+        ? 'registrar_overview() is not installed yet. Run sql/registrar_gliits.sql.'
         : `Could not load finance: ${error.message}`);
       return;
     }
@@ -54,100 +54,106 @@ export default {
 
   render(d) {
     const m = d.members || {};
-    const c = d.cycles || {};
+    const plans = d.plans || {};
+    const usage = d.usage || {};
+    const topups = d.topups || {};
+    const cfg = d.config || {};
     const l30 = d.ledger_30_days || {};
-    const lib = d.library || {};
-    const payouts = d.creator_payouts || {};
     const attempts = d.payment_attempts || {};
 
     const toolbar = `
       <div class="filters">
-        <span class="muted small">Figures are live from the database.</span>
+        <span class="muted small">Figures are live from the database. All amounts in Gliits (G).</span>
         <button class="btn-quiet btn-small" id="refresh-btn" style="margin-left: auto;">Refresh</button>
       </div>`;
 
     const stats = `
       <div class="stat-grid">
-        ${stat('Wallet float', naira(m.wallet_total), `${Number(m.with_wallet || 0).toLocaleString()} funded wallets`)}
+        ${stat('Wallet float', gliits(m.wallet_total), `${Number(m.with_wallet || 0).toLocaleString()} funded wallets`)}
         ${stat('Members', Number(m.total || 0).toLocaleString(), `${gp(m.gp_total)} in circulation`)}
-        ${stat('Collected', naira(c.collected), `${Number(c.paid || 0).toLocaleString()} settled bills`)}
-        ${stat('Outstanding', naira(c.billed_value), `${Number(c.open || 0) + Number(c.processing || 0)} unpaid bills`)}
-        ${stat('Defaulted', naira(c.defaulted_value), `${Number(c.defaulted || 0).toLocaleString()} bills`)}
-        ${stat('Library sales', lib.sales == null ? '—' : naira(lib.total), lib.sales == null ? '' : `${Number(lib.sales).toLocaleString()} unlocks`)}
-        ${stat('Creator payouts', naira(payouts.total), `${Number(payouts.payouts || 0).toLocaleString()} shares`)}
-        ${stat('Ledger, 30 days', naira(Number(l30.credits || 0) - Number(l30.debits || 0)), `${Number(l30.count || 0).toLocaleString()} entries`)}
+        ${stat('Usage, all time', usage.total_minutes == null ? '—' : `${Number(usage.total_minutes).toLocaleString()} min`, usage.total_charged ? `${gliits(usage.total_charged)} charged` : '')}
+        ${stat('Usage, last 30 days', usage.last_30_minutes == null ? '—' : `${Number(usage.last_30_minutes).toLocaleString()} min`, usage.last_30_charged ? `${gliits(usage.last_30_charged)} charged` : '')}
+        ${stat('Creator payouts', usage.total_creator_credited == null ? '—' : gliits(usage.total_creator_credited), 'from heartbeat credits')}
+        ${stat('Topups', Number(topups.total || 0).toLocaleString(), `${gliits(topups.total_gliits || 0)} total, ${Number(topups.pending || 0)} pending`)}
+        ${stat('Ledger, 30 days', gliits(Number(l30.credits || 0) - Number(l30.debits || 0)), `${Number(l30.count || 0).toLocaleString()} entries`)}
       </div>`;
 
-    const attention = (d.attention || []).length ? `
-      <div class="card">
-        <div class="card-head">
-          <div><div class="card-title">Needs a decision</div>
-          <div class="card-sub">Bills past or near their due date. Open Bills to settle or void one.</div></div>
-          <div class="card-actions"><a class="btn-quiet btn-small" href="#/bills">Open bills</a></div>
-        </div>
-        <div class="table-wrap"><table class="table">
-          <thead><tr><th>Member</th><th>Status</th><th class="num">Amount</th><th>Due</th></tr></thead>
-          <tbody>${d.attention.map(a => `
-            <tr>
-              <td>${escapeHtml(a.name)}</td>
-              <td>${escapeHtml(a.status)}</td>
-              <td class="num">${naira(a.total)}</td>
-              <td>${a.due_at ? escapeHtml(timeAgo(a.due_at)) : '—'}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table></div>
-      </div>` : '';
-
-    const byType = (d.by_type || []).length ? `
-      <div class="card">
-        <div class="card-head">
-          <div><div class="card-title">Where the money moved</div>
-          <div class="card-sub">Every wallet ledger entry ever recorded, grouped by kind. Credits are positive, debits negative.</div></div>
-        </div>
-        ${barTable(d.by_type, [
-          { label: 'Kind', render: r => escapeHtml(TXN_LABEL[r.type] || r.type || '—') },
-          { label: 'Entries', num: true, render: r => Number(r.count || 0).toLocaleString() },
-          { label: 'Net', num: true, render: r => `<span class="${r.total >= 0 ? 'amount-pos' : 'amount-neg'}">${naira(r.total)}</span>` }
-        ])}
-      </div>` : '';
-
-    const tiers = Object.entries(d.tiers || {});
-    const tierTotal = Math.max(1, tiers.reduce((sum, [, n]) => sum + Number(n || 0), 0));
-    const planMix = tiers.length ? `
+    // Plan distribution
+    const planEntries = Object.entries(plans);
+    const planTotal = Math.max(1, planEntries.reduce((sum, [, n]) => sum + Number(n || 0), 0));
+    const planMix = planEntries.length ? `
       <div class="card">
         <div class="card-head">
           <div><div class="card-title">Plan mix</div>
-          <div class="card-sub">Stored tier on each profile.</div></div>
+          <div class="card-sub">Active plan on each member profile.</div></div>
         </div>
-        ${barTable(tiers.map(([tier, n]) => ({ tier, count: n, total: n / tierTotal * 100 })), [
-          { label: 'Plan', render: r => escapeHtml(TIER_LABEL[r.tier] || r.tier) },
+        ${barTable(planEntries.map(([plan, n]) => ({ plan, count: n, total: n / planTotal * 100 })), [
+          { label: 'Plan', render: r => escapeHtml(TIER_LABEL[r.plan] || r.plan) },
           { label: 'Members', num: true, render: r => Number(r.count || 0).toLocaleString() },
           { label: 'Share', num: true, render: r => `${Math.round(Number(r.total) || 0)}%` }
         ])}
       </div>` : '';
 
-    const billSummary = `
+    // Current config summary
+    const configCard = cfg.per_minute ? `
       <div class="card">
         <div class="card-head">
-          <div><div class="card-title">Use n' Pay bills</div>
-          <div class="card-sub">Monthly usage cycles. ${Number(c.due_soon || 0).toLocaleString()} due within three days.</div></div>
+          <div><div class="card-title">Current pricing</div>
+          <div class="card-sub">Live from gliits_config. Change these from the Revenue &amp; Pricing screen.</div></div>
         </div>
         <dl class="kv">
-          <dt>Open</dt><dd>${Number(c.open || 0).toLocaleString()}</dd>
-          <dt>Processing</dt><dd>${Number(c.processing || 0).toLocaleString()}</dd>
-          <dt>Paid</dt><dd>${Number(c.paid || 0).toLocaleString()}</dd>
-          <dt>Defaulted</dt><dd>${Number(c.defaulted || 0).toLocaleString()}</dd>
-          <dt>Funding intents</dt><dd>${attempts.total == null ? '—' : `${Number(attempts.total).toLocaleString()} total, ${Number(attempts.last_7_days || 0).toLocaleString()} in the last 7 days`}</dd>
+          <dt>Per-minute charge</dt><dd>${gliits(cfg.per_minute)}/min</dd>
+          <dt>Monthly plan</dt><dd>${gliits(cfg.plan_monthly)}/month</dd>
+          <dt>Yearly plan</dt><dd>${gliits(cfg.plan_yearly)}/year</dd>
+          <dt>Creator rate</dt><dd>${gliits(cfg.creator_rate)}/min (cap ${gliits(cfg.creator_cap)}/post/24h)</dd>
+          <dt>Signup credit</dt><dd>${gliits(cfg.signup_credit)}</dd>
+          <dt>Min topup</dt><dd>${gliits(cfg.min_topup)}</dd>
+          <dt>Exchange rate</dt><dd>1 Naira = ${cfg.exchange_rate} G</dd>
+          <dt>GP conversion</dt><dd>${cfg.gp_threshold} GP = ${gliits(cfg.gp_ratio)}</dd>
+          <dt>Idle timeout</dt><dd>${cfg.idle_timeout} min</dd>
+          ${cfg.updated_at ? `<dt>Last changed</dt><dd>${escapeHtml(timeAgo(cfg.updated_at))}</dd>` : ''}
         </dl>
+      </div>` : '';
+
+    // Topup summary
+    const topupCard = `
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">Topup summary</div>
+          <div class="card-sub">All Gliits topups processed through the platform.</div></div>
+        </div>
+        ${topups.detail ? `<p class="muted small">${escapeHtml(topups.detail)}</p>` : `
+        <dl class="kv">
+          <dt>Total topups</dt><dd>${Number(topups.total || 0).toLocaleString()}</dd>
+          <dt>Total Gliits credited</dt><dd>${gliits(topups.total_gliits || 0)}</dd>
+          <dt>Total Naira received</dt><dd>₦${Number(topups.total_naira || 0).toLocaleString()}</dd>
+          <dt>Pending verification</dt><dd>${Number(topups.pending || 0).toLocaleString()} (${gliits(topups.pending_gliits || 0)})</dd>
+          <dt>Successful</dt><dd>${Number(topups.success || 0).toLocaleString()}</dd>
+          <dt>Last 7 days</dt><dd>${Number(topups.last_7_days || 0).toLocaleString()}</dd>
+          <dt>Funding intents</dt><dd>${attempts.total == null ? '—' : `${Number(attempts.total).toLocaleString()} total, ${Number(attempts.last_7_days || 0).toLocaleString()} in the last 7 days`}</dd>
+        </dl>`}
       </div>`;
 
-    // A legacy table whose shape this build did not expect still leaves the
-    // rest of the page usable, so say so where the number should be.
-    const warnings = [lib, attempts]
+    // Transaction ledger breakdown
+    const byType = (d.by_type || []).length ? `
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">Where the money moved</div>
+          <div class="card-sub">Every manual transaction entry, grouped by kind. Credits are positive, debits negative.</div></div>
+        </div>
+        ${barTable(d.by_type, [
+          { label: 'Kind', render: r => escapeHtml(TXN_LABEL[r.type] || r.type || '—') },
+          { label: 'Entries', num: true, render: r => Number(r.count || 0).toLocaleString() },
+          { label: 'Net', num: true, render: r => `<span class="${r.total >= 0 ? 'amount-pos' : 'amount-neg'}">${gliits(r.total)}</span>` }
+        ])}
+      </div>` : '';
+
+    // Schema mismatch warnings
+    const warnings = [usage, topups, attempts]
       .filter(x => x && x.detail)
       .map(x => `<div class="card"><div class="card-body"><strong>Schema mismatch.</strong> ${escapeHtml(x.detail)}</div></div>`)
       .join('');
 
-    return toolbar + stats + warnings + attention + byType + planMix + billSummary;
+    return toolbar + stats + configCard + planMix + topupCard + byType + warnings;
   }
 };
