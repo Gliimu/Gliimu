@@ -1,5 +1,6 @@
 import hubView from './feed-gliims.js?v=78';
 import { supabase } from '/shared/js/config.js';
+import { uploadFile } from '../upload.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -247,13 +248,7 @@ export default {
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Processing...'; }
 
     try {
-      const ext = this._featureImageFile.name.split('.').pop().toLowerCase();
-      const filePath = `featured/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('media').upload(filePath, this._featureImageFile);
-      if (uploadErr) throw new Error('Image upload failed: ' + uploadErr.message);
-
-      const { data: urlData } = supabase.storage.from('media').getPublicUrl(filePath);
-      const imageUrl = urlData.publicUrl;
+      const imageUrl = await uploadFile(this._featureImageFile, 'media');
 
       const balance = store.user?.wallet_balance || 0;
       if (balance < price) {
