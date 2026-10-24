@@ -102,8 +102,8 @@ export default {
       <div class="featured-slide">
         ${post.image_url ? `<img src="${post.image_url}" alt="" class="featured-slide-img">` : '<div class="featured-slide-img featured-slide-img-empty"></div>'}
         <div class="featured-slide-overlay"></div>
+        <span class="featured-badge">Featured</span>
         <div class="featured-slide-content">
-          <span class="featured-badge">Featured</span>
           <h3 class="featured-slide-title">${escapeHtml(post.title)}</h3>
           <p class="featured-slide-desc">${escapeHtml(post.description || '')}</p>
           ${post.link_url ? `<a href="${post.link_url}" target="_blank" rel="noopener" class="featured-slide-link" onclick="event.stopPropagation()">${escapeHtml(post.link_label || 'Learn more')}</a>` : ''}
