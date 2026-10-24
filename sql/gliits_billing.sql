@@ -151,6 +151,8 @@ create policy "gliits_usage_select_admin"
     )
   );
 
+grant select on public.gliits_usage to authenticated;
+
 -- ============================================================
 -- 5. CREATE GLIITS TOPUPS TABLE
 -- ============================================================
@@ -196,6 +198,8 @@ create policy "gliits_topups_select_admin"
         and role in ('super', 'registrar', 'ops')
     )
   );
+
+grant select on public.gliits_topups to authenticated;
 
 -- ============================================================
 -- 6. RESET ALL USER BALANCES TO G100

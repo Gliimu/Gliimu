@@ -63,6 +63,7 @@ export default {
     this.config = null;
     this.allTransactions = [];
     this.referralCount = 0;
+    this.totalMinutes = 0;
     this.transferTarget = null;
     this.transferSearchList = [];
     this.transferSearchTimer = null;
@@ -74,6 +75,7 @@ export default {
 
     this.setupTopbar();
     await this.fetchData();
+    this.setupTopbar();
     this.render();
     await this.checkPaystackReturn();
   },
@@ -81,8 +83,16 @@ export default {
   setupTopbar() {
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
     if (topbarDynamic) {
-      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">G${Number(this.balance || 0).toLocaleString()} balance</span>`;
+      topbarDynamic.innerHTML = `<span class="mobile-bar-hint">${this.formatTime(this.totalMinutes)} read</span>`;
     }
+  },
+
+  formatTime(minutes) {
+    const m = Number(minutes || 0);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem ? `${h}h ${rem}m` : `${h}h`;
   },
 
   async fetchData() {
@@ -104,6 +114,12 @@ export default {
 
     const referralResult = await supabase.rpc('referral_summary', {});
     this.referralCount = Number(referralResult?.data?.pending || 0) + Number(referralResult?.data?.vested || 0);
+
+    const { count } = await supabase
+      .from('gliits_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', store.user.id);
+    this.totalMinutes = count || 0;
 
     if (store.profile) store.profile.wallet_balance = this.balance;
   },
@@ -205,11 +221,11 @@ export default {
       <div class="card stat-card" style="margin-top: 16px;">
         <div class="stat-row">
           <div class="stat-icon-wrap bg-brand">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           </div>
           <div class="stat-info">
-            <span class="stat-value">G${this.balance.toLocaleString()}</span>
-            <span class="stat-label">Available Balance</span>
+            <span class="stat-value">${this.formatTime(this.totalMinutes)}</span>
+            <span class="stat-label">Time Spent</span>
           </div>
         </div>
       </div>
