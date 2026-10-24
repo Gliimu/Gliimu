@@ -23,6 +23,22 @@ const USAGE_LABELS = {
   premium_unlock: 'Premium Gliim unlock'
 };
 
+const TX_TYPE_LABELS = {
+  purchase: 'Purchase',
+  support: 'Creator support',
+  live_support: 'Live support',
+  live_entry: 'Live session entry',
+  live_session: 'Live session',
+  subscription: 'Subscription',
+  transfer_out: 'Transfer out',
+  transfer_in: 'Transfer in',
+  topup: 'Wallet top-up',
+  reward: 'GP reward',
+  bill_payment: 'Bill payment',
+  refund: 'Refund',
+  adjustment: 'Adjustment'
+};
+
 export default {
   title: 'Billing',
   template: `
@@ -385,7 +401,7 @@ export default {
 
   renderTxItem(tx) {
     let icon = '';
-    let label = tx.description || 'Transaction';
+    let label = tx.description || TX_TYPE_LABELS[tx.type] || 'Transaction';
     let amountClass = 'amount-negative';
     let amountPrefix = '-';
 

@@ -134,8 +134,8 @@ begin
      set wallet_balance = wallet_balance - p_amount
    where id = caller_id;
 
-  insert into public.transactions (user_id, amount, type, reference, points)
-  values (caller_id, -p_amount, 'purchase', coalesce(p_description, 'Featured content'), 0);
+  insert into public.transactions (user_id, amount, type, reference, points, description)
+  values (caller_id, -p_amount, 'purchase', coalesce(p_description, 'Featured content'), 0, coalesce(p_description, 'Featured content'));
 end $$;
 
 grant execute on function public.deduct_wallet(integer, text) to authenticated;
