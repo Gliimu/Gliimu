@@ -102,8 +102,8 @@ export default {
 
     this.allTransactions = transactions || [];
 
-    const { data: referralSummary } = await supabase.rpc('referral_summary', {}).catch(() => ({ data: null }));
-    this.referralCount = Number(referralSummary?.pending || 0) + Number(referralSummary?.vested || 0);
+    const referralResult = await supabase.rpc('referral_summary', {});
+    this.referralCount = Number(referralResult?.data?.pending || 0) + Number(referralResult?.data?.vested || 0);
 
     if (store.profile) store.profile.wallet_balance = this.balance;
   },
