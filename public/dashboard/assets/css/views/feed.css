@@ -902,7 +902,7 @@
    ============================================ */
 .hub-category-tabs {
   position: sticky;
-  top: 64px;
+  top: 0;
   z-index: 150;
   background: var(--bg-tertiary);
   padding: 12px 0;
@@ -912,11 +912,5 @@
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-}
-
-@media (max-width: 768px) {
-  .hub-category-tabs {
-    top: 0;
-  }
 }
 
