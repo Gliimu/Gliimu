@@ -156,12 +156,12 @@ export default {
 
     try {
       if (wasFollowing) {
-        const { error } = await supabase.rpc('unfollow_user', { p_followed_id: targetId });
+        const { error } = await supabase.from('followed_users').delete().eq('follower_id', store.user.id).eq('followed_id', targetId);
         if (error) throw error;
         this._isFollowing = false;
         notify.toast('You have unfollowed this user');
       } else {
-        const { error } = await supabase.rpc('follow_user', { p_followed_id: targetId });
+        const { error } = await supabase.from('followed_users').insert({ follower_id: store.user.id, followed_id: targetId });
         if (error) throw error;
         this._isFollowing = true;
         notify.toast('You are now following this user. Their gliims will appear in your XpLoRe feed.');
@@ -178,7 +178,7 @@ export default {
       `;
 
       // Refresh follower count
-      const { data: newCount } = await supabase.rpc('get_follower_count', { p_user_id: targetId });
+      const { count: newCount } = await supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', targetId);
       const followerStat = document.querySelector('.profile-stat:nth-child(3) .stat-value');
       if (followerStat && newCount !== null) followerStat.textContent = newCount;
 
@@ -204,16 +204,16 @@ export default {
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio').eq('id', userId).single(),
       supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id').eq('user_id', userId).order('created_at', { ascending: false }),
-      supabase.rpc('get_follower_count', { p_user_id: userId }),
-      supabase.rpc('get_following_count', { p_user_id: userId }),
-      isMe ? Promise.resolve({ data: false }) : supabase.rpc('is_following', { p_followed_id: userId })
+      supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
+      supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      isMe ? Promise.resolve({ data: null }) : supabase.from('followed_users').select('*').eq('follower_id', store.user.id).eq('followed_id', userId).maybeSingle()
     ]);
 
     const freshUser = profileResult.data;
     const posts = postsResult.data;
-    const followerCount = followerResult.data || 0;
-    const followingCount = followingResult.data || 0;
-    this._isFollowing = followCheckResult.data || false;
+    const followerCount = followerResult.count || 0;
+    const followingCount = followingResult.count || 0;
+    this._isFollowing = isMe ? false : !!followCheckResult.data;
 
     if (freshUser) user = freshUser;
     if (!user) return;

@@ -10,7 +10,7 @@ const routes = {
   '/live': () => import('./views/live-page.js?v=3').then(m => m.default),
   '/publish': () => import('./views/publish.js').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=52').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=53').then(m => m.default),
   '/feature': () => import('./views/feature.js?v=1').then(m => m.default),
   '/post': () => import('./views/post-read.js?v=10').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=9').then(m => m.default),
