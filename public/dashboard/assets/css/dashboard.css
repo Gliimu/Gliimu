@@ -253,7 +253,9 @@ body.sidebar-open .sidebar-backdrop {
   flex-direction: column;
   min-height: 100vh;
   min-width: 0;
-  overflow-x: hidden;
+  /* clip (not hidden): hidden would create a scroll container and break
+     position: sticky for the topbar and in-page sticky elements */
+  overflow-x: clip;
 }
 
 /* Topbar / Bottom Bar */
