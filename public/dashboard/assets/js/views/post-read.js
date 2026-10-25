@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=2';
-import hubView from './feed-gliims.js?v=85';
+import hubView from './feed-gliims.js?v=86';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -30,6 +30,11 @@ export default {
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
     sessionStorage.removeItem('openReadViewId');
+    const modal = document.getElementById('comments-modal');
+    if (modal) {
+      modal.remove();
+    }
+    document.body.style.overflow = '';
   },
 
   async init() {
@@ -101,17 +106,60 @@ export default {
   },
 
   async fetchRelatedPosts(post) {
-    if (!post.user_id || !post.category) return [];
-    const { data } = await supabase
-      .from('feed_gliims')
-      .select(`id, title, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
-      .eq('user_id', post.user_id)
-      .eq('category', post.category)
+    const seen = new Set();
+    const result = [];
+
+    const addPosts = (posts) => {
+      for (const p of (posts || [])) {
+        if (!seen.has(p.id) && p.id !== post.id) {
+          seen.add(p.id);
+          result.push(p);
+        }
+      }
+    };
+
+    const fields = `id, title, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+
+    const [sameAuthor, sameCategory, interestResult] = await Promise.all([
+      supabase.from('feed_gliims').select(fields)
+        .eq('user_id', post.user_id)
+        .eq('status', 'approved')
+        .neq('id', post.id)
+        .order('created_at', { ascending: false }),
+      supabase.from('feed_gliims').select(fields)
+        .eq('category', post.category)
+        .eq('status', 'approved')
+        .neq('id', post.id)
+        .order('created_at', { ascending: false }),
+      this.fetchInterestPosts(post, fields)
+    ]);
+
+    addPosts(sameAuthor.data);
+    addPosts(sameCategory.data);
+    if (interestResult) addPosts(interestResult);
+
+    return result;
+  },
+
+  async fetchInterestPosts(post, fields) {
+    const interest = hubView.loadInterest ? hubView.loadInterest() : null;
+    if (!interest || !interest.terms || interest.terms.length === 0) return null;
+
+    const topCats = Object.entries(interest.cats || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([cat]) => cat);
+
+    if (topCats.length === 0) return null;
+
+    const { data } = await supabase.from('feed_gliims').select(fields)
+      .in('category', topCats)
       .eq('status', 'approved')
-      .neq('id', post.id);
-    if (!data || data.length === 0) return [];
-    const shuffled = data.sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, 3);
+      .neq('id', post.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    return data;
   },
 
   render(post, interactions, relatedPosts) {
@@ -146,7 +194,6 @@ export default {
     const blocksHtml = this.renderBlocks(post, isOwner);
 
     const backIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
-    const minimizeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
     const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
@@ -163,7 +210,6 @@ export default {
       <header class="post-read-header">
         <div class="post-read-header-title">${escapeHtml((post.title || 'Gliim').substring(0, 40))}</div>
         <div class="post-read-header-actions">
-          <button class="post-read-action-btn" onclick="hubInstance.minimizeReader('${post.id}')" title="Open in new tab">${minimizeIcon}</button>
           <div class="hub-menu-wrapper">
             <button class="post-read-action-btn" onclick="hubInstance.toggleReadMenu('${post.id}')" title="More options">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
@@ -195,25 +241,12 @@ export default {
 
           ${relatedPosts.length > 0 ? `
           <div class="related-posts-section">
-            <h3 class="related-posts-title">You may also like</h3>
-            <div class="related-posts-row">
-              ${relatedPosts.map(rp => `<div class="related-post-card-wrapper">${hubView.renderPostCard(rp)}</div>`).join('')}
+            <h3 class="related-posts-title">More inspiring contents</h3>
+            <div class="related-posts-list">
+              ${relatedPosts.map(rp => hubView.renderPostCard(rp)).join('')}
             </div>
           </div>
           ` : ''}
-
-          <div class="comment-section" id="comment-section-${post.id}">
-            <h3>Comments</h3>
-            <div class="comment-input-wrapper">
-              <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
-              <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-              </button>
-            </div>
-            <div class="comment-list" id="comment-list-${post.id}">
-              ${commentsHtml}
-            </div>
-          </div>
         </div>
       </main>
 
@@ -222,7 +255,7 @@ export default {
           <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
           <span>${likes}</span>
         </button>
-        <button class="action-btn" onclick="hubInstance.scrollToComments('${post.id}')">
+        <button class="action-btn" onclick="hubInstance.openCommentsModal('${post.id}')">
           <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
           <span>${comments}</span>
         </button>
@@ -245,6 +278,62 @@ export default {
       if (src) renderFileInto(src, el);
     });
     hubView.setupMentionPicker(post.id);
+
+    this.renderCommentsModal(post, commentsHtml);
+  },
+
+  renderCommentsModal(post, commentsHtml) {
+    let modal = document.getElementById('comments-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'comments-modal';
+      modal.className = 'comments-modal-overlay';
+      document.body.appendChild(modal);
+    }
+
+    const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+
+    modal.innerHTML = `
+      <div class="comments-modal-content" onclick="event.stopPropagation()">
+        <div class="comments-modal-header">
+          <h3>Comments</h3>
+          <button class="comments-modal-close" onclick="hubInstance.closeCommentsModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="comments-modal-body">
+          <div class="comment-input-wrapper">
+            <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
+            <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
+              ${commentSvg}
+            </button>
+          </div>
+          <div class="comment-list" id="comment-list-${post.id}">
+            ${commentsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    modal.onclick = () => hubInstance.closeCommentsModal();
+
+    hubView.setupMentionPicker(post.id);
+  },
+
+  openCommentsModal(postId) {
+    const modal = document.getElementById('comments-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  },
+
+  closeCommentsModal() {
+    const modal = document.getElementById('comments-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
   },
 
   renderBlocks(post, isOwner) {
@@ -349,11 +438,6 @@ export default {
         window.scrollTo(0, parseInt(savedScroll, 10));
       }, 100);
     }
-  },
-
-  minimizeReader(postId) {
-    const url = `${location.origin}/dashboard/#/post?id=${postId}`;
-    window.open(url, '_blank');
   },
 
   closeReader() {

@@ -1753,7 +1753,7 @@ const hubView = {
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
-    const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
+    const comments = (this.allInteractions || []).filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
     const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
     const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
     const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
@@ -1967,7 +1967,7 @@ const hubView = {
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
     const likes = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'like').length;
-    const comments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
+    const comments = (this.allInteractions || []).filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
     const shares = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'share').length;
     const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
@@ -2446,7 +2446,12 @@ const hubView = {
       const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')"></div>`;
       const parsedText = this.parseTags(text);
       const commentTime = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      list.innerHTML += `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
+      const newComment = `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
+      if (list.querySelector('p')) {
+        list.innerHTML = newComment;
+      } else {
+        list.innerHTML += newComment;
+      }
       input.value = "";
     }
     if (post && post.user_id !== store.user.id) {
@@ -2551,12 +2556,22 @@ window.hubInstance = {
   removeTag: (index) => hubView.removeTag(index),
   removeHashtag: (index) => hubView.removeHashtag(index),
   isModalOpen: () => hubView.isModalOpen,
-  minimizeReader: (id) => {
-    const url = `${location.origin}/dashboard/#/post?id=${id}`;
-    window.open(url, '_blank');
-  },
   closeReader: () => {
     history.back();
+  },
+  openCommentsModal: () => {
+    const modal = document.getElementById('comments-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  },
+  closeCommentsModal: () => {
+    const modal = document.getElementById('comments-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
   }
 };
 
