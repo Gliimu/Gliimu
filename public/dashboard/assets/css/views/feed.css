@@ -482,6 +482,9 @@
   align-items: center;
   overflow: hidden;
   padding: 0;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
 }
 .collection-tag-card:hover {
   border-color: var(--brand-primary);
@@ -492,16 +495,11 @@
   width: 120px;
   height: 120px;
   flex-shrink: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-.collection-tag-cover-empty {
-  background: var(--gradient-primary);
-  opacity: 0.3;
+  object-fit: cover;
 }
 .collection-tag-info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -510,8 +508,11 @@
 .collection-tag-name {
   font-size: 16px;
   font-weight: 700;
-  color: #4F46E5;
+  color: var(--brand-primary);
   line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .collection-tag-count {
   font-size: 12px;
@@ -559,8 +560,12 @@
     grid-template-columns: 1fr;
     gap: 12px;
   }
-  .collection-tag-card {
-    padding: 14px 16px;
+  .collection-tag-info {
+    padding: 12px;
+  }
+  .collection-tag-cover {
+    width: 100px;
+    height: 120px;
   }
   .collection-tag-name {
     font-size: 14px;

@@ -191,14 +191,29 @@
 .audiolite-title { font-size: 19px; font-weight: 800; line-height: 1.25; margin: 10px 0 14px; text-align: left; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .audiolite-card .blog-footer { border-top-color: rgba(127,127,127,.25); }
 
-/* Centered headset icon on audiolite cards */
-.audiolite-center-icon {
+.audiolite-card .audiolite-center-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  opacity: .7;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  z-index: 1;
 }
+.audiolite-center-icon svg { width: 28px; height: 28px; }
+.audiolite-center-icon + .audiolite-title {
+  margin: auto 0 0;
+  -webkit-line-clamp: 2;
+  color: inherit;
+}
+.audiolite-cover-card .audiolite-title { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
 
 /* Book and image-only cards: cover image fills the square, with a gradient
    scrim so the title stays readable on any photo. */
@@ -600,6 +615,13 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   .blog-author span {
     font-size: 12px;
   }
+}
+
+@media (max-width: 480px) {
+  .audiolite-card { padding: 12px; }
+  .audiolite-card .audiolite-center-icon { width: 40px; height: 40px; }
+  .audiolite-center-icon svg { width: 22px; height: 22px; }
+  .audiolite-center-icon + .audiolite-title { font-size: 13px; }
 }
 
 /* Comment Time Styling */

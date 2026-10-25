@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { uploadFile } from '../upload.js';
-import hubView from './feed-gliims.js?v=82';
+import hubView from './feed-gliims.js?v=84';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -39,7 +39,8 @@ export default {
       goFeature: () => this.goFeature(),
       toggleFilterMenu: (e) => this.toggleFilterMenu(e),
       applyFilter: (filter) => this.applyFilter(filter),
-      toggleFollow: () => this.toggleFollow()
+      toggleFollow: () => this.toggleFollow(),
+      messageUser: () => this.messageUser()
     };
 
     await this.fetchAllUsers();
@@ -93,6 +94,12 @@ export default {
     document.getElementById('profile-search-dropdown').style.display = 'none';
     document.getElementById('profile-search').value = '';
     this.renderProfile(userId);
+  },
+
+  messageUser() {
+    if (!this.targetUserId || this.targetUserId === store.user.id) return;
+    sessionStorage.setItem('ping_target_user', this.targetUserId);
+    window.location.hash = '#/ping';
   },
 
   copyName() {
@@ -257,13 +264,17 @@ export default {
                   <span>Follow</span>
                 `}
               </button>
+              <button type="button" class="btn-secondary profile-message-btn" onclick="profileInstance.messageUser()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <span>Message</span>
+              </button>
             `}
           </div>
         </div>
         <div class="profile-header-info">
           <div class="profile-name-row">
             <h1>${p.full_name || 'Gliimait'}</h1>
-            <button class="copy-name-btn" title="Copy name — paste it in Ping to start a chat" onclick="profileInstance.copyName()">
+            <button class="copy-name-btn" title="Copy name" onclick="profileInstance.copyName()">
               <svg class="ic-copy" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               <svg class="ic-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
             </button>

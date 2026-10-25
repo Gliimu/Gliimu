@@ -101,7 +101,7 @@ export default {
     this.setupTopbar();
     this.fetchUsers();
     this.setupRealtime();
-    this.fetchContacts().then(() => { if (!this.disposed) this.checkPendingPing(); });
+    this.fetchContacts();
     this.onVisibilityChange = () => {
       if (document.visibilityState === 'visible' && this.isChatVisible()) this.openChat('dm', this.activeChat.id);
     };
@@ -172,10 +172,14 @@ export default {
     await supabase.from('hidden_chats').delete().eq('user_id', store.user.id).eq('contact_id', userId);
     if (this.disposed) return;
 
-    document.getElementById('ping-search-dropdown').style.display = 'none';
-    document.getElementById('ping-search-dropdown').innerHTML = '';
+    const dropdown = document.getElementById('ping-search-dropdown');
+    if (dropdown) {
+      dropdown.style.display = 'none';
+      dropdown.innerHTML = '';
+    }
 
     await this.fetchContacts();
+    if (this.disposed) return;
 
     if (!this.contacts.find(c => c.id === userId)) {
       const { data: profile } = await supabase.from('profiles')
@@ -259,6 +263,7 @@ export default {
       if (input) input.placeholder = `Message ${this.activeChat.name || 'Gliimait'}...`;
     }
     this.renderChatList();
+    await this.checkPendingPing();
   },
 
   renderChatList() {
@@ -682,6 +687,6 @@ export default {
     sessionStorage.removeItem('ping_target_user');
     const exists = this.contacts.find(c => c.id === targetId);
     if (!exists) await this.addContact(targetId);
-    else this.openChat('dm', targetId);
+    else await this.openChat('dm', targetId);
   }
 };

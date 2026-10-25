@@ -73,6 +73,24 @@
 }
 
 .profile-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.profile-message-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.profile-message-btn svg {
   flex-shrink: 0;
 }
 
@@ -609,10 +627,12 @@
 
   .profile-action-btn {
     width: 100%;
+    justify-content: center;
   }
 
-  .follow-btn {
-    width: 100%;
+  .follow-btn,
+  .profile-message-btn {
+    flex: 1 1 140px;
     justify-content: center;
   }
 

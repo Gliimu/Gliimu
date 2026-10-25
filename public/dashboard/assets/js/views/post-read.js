@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=2';
-import hubView from './feed-gliims.js?v=82';
+import hubView from './feed-gliims.js?v=84';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
