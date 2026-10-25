@@ -202,7 +202,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 50%, transparent);
   color: #fff;
   box-shadow: var(--shadow-md);
   z-index: 1;
@@ -213,7 +213,8 @@
   -webkit-line-clamp: 2;
   color: inherit;
 }
-.audiolite-cover-card .audiolite-title { text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+[data-theme="light"] .audiolite-cover-card .audiolite-title { color: #000; text-shadow: 0 1px 4px rgba(255,255,255,.4); }
+[data-theme="dark"] .audiolite-cover-card .audiolite-title { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
 
 /* Book and image-only cards: cover image fills the square, with a gradient
    scrim so the title stays readable on any photo. */
