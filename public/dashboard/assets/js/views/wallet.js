@@ -61,6 +61,8 @@ export default {
     this.plan = null;
     this.config = null;
     this.allTransactions = [];
+    this.earnings = null;
+    this.referralSummary = null;
     this.referralCount = 0;
     this.totalMinutes = 0;
     this.transferTarget = null;
@@ -112,7 +114,11 @@ export default {
     this.allTransactions = transactions || [];
 
     const referralResult = await supabase.rpc('referral_summary', {});
+    this.referralSummary = referralResult?.data || null;
     this.referralCount = Number(referralResult?.data?.pending || 0) + Number(referralResult?.data?.vested || 0);
+
+    const earningsResult = await supabase.rpc('gliits_earnings');
+    this.earnings = earningsResult?.data || null;
 
     const { count } = await supabase
       .from('gliits_usage')
@@ -166,6 +172,7 @@ export default {
           </button>
           <div class="billing-filter-menu" id="billing-filter-menu">
             <div class="billing-filter-item ${this.currentTab === 'summary' ? 'active' : ''}" data-tab="summary" onclick="walletInstance.switchTab('summary')">Summary</div>
+            <div class="billing-filter-item ${this.currentTab === 'earnings' ? 'active' : ''}" data-tab="earnings" onclick="walletInstance.switchTab('earnings')">Earnings</div>
             <div class="billing-filter-item ${this.currentTab === 'trxn' ? 'active' : ''}" data-tab="trxn" onclick="walletInstance.switchTab('trxn')">Trxn</div>
             <div class="billing-filter-item ${this.currentTab === 'plans' ? 'active' : ''}" data-tab="plans" onclick="walletInstance.switchTab('plans')">Plans</div>
           </div>
@@ -180,6 +187,7 @@ export default {
 
   renderTabContent() {
     if (this.currentTab === 'summary') return this.renderSummary();
+    if (this.currentTab === 'earnings') return this.renderEarnings();
     if (this.currentTab === 'trxn') return this.renderTransactions();
     if (this.currentTab === 'plans') return this.renderPlans();
     return '';
@@ -192,15 +200,8 @@ export default {
     const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
     const daysLeft = (d) => d ? Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) : 0;
 
-    const perMin = Number(this.config?.per_minute_rate_gliits || 3);
-
     let planDetail = '';
-    if (planType === 'payngo') {
-      planDetail = `
-        <div class="sub-row"><span>Rate</span><strong>G${perMin}/minute</strong></div>
-        <div class="sub-row"><span>Billing</span><strong>Deducted from wallet</strong></div>
-      `;
-    } else if (expiresAt) {
+    if (planType !== 'payngo' && expiresAt) {
       planDetail = `
         <div class="sub-row"><span>Active until</span><strong>${fmt(expiresAt)} (${daysLeft(expiresAt)} days)</strong></div>
         <div class="sub-row"><span>Billing</span><strong>Unlimited usage</strong></div>
@@ -238,6 +239,71 @@ export default {
             <span class="stat-label">Referrals</span>
           </div>
         </div>
+      </div>
+    `;
+  },
+
+  renderEarnings() {
+    const e = this.earnings || {};
+    const totalG = Number(e.total_gliits || 0);
+    const minutes = Number(e.total_minutes || 0);
+    const last30 = Number(e.earned_30d || 0);
+    const gpEarned = Number(e.total_gp || 0);
+    const supportReceived = Number(e.support_received || 0);
+    const referralGp = Number(this.referralSummary?.gp_earned || 0);
+    const topPosts = Array.isArray(e.top_posts) ? e.top_posts : [];
+
+    const postsHtml = topPosts.length === 0
+      ? '<p style="color: var(--text-muted); text-align: center; padding: 24px 0;">No creator earnings yet.</p>'
+      : `<div class="txn-list">
+          ${topPosts.map(p => `
+            <div class="txn-item">
+              <div class="txn-icon bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>
+              <div class="txn-info">
+                <span class="txn-title">${escapeHtml(p.title)}</span>
+                <span class="txn-date">${Number(p.minutes || 0).toLocaleString()} min read</span>
+              </div>
+              <div class="txn-right">
+                <span class="txn-amount amount-positive">+G${Number(p.earned || 0).toLocaleString()}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
+
+    return `
+      <div class="card stat-card">
+        <div class="stat-row">
+          <div class="stat-icon-wrap bg-brand">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="m16.71 13.88.7.71-2.82 2.82"></path></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">G${totalG.toLocaleString()}</span>
+            <span class="stat-label">Creator earnings</span>
+          </div>
+        </div>
+      </div>
+      <div class="card stat-card" style="margin-top: 16px;">
+        <div class="stat-row">
+          <div class="stat-icon-wrap bg-success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">${minutes.toLocaleString()}</span>
+            <span class="stat-label">Minutes read on your content</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 16px;">
+        <div class="sub-details">
+          <div class="sub-row"><span>Last 30 days</span><strong>G${last30.toLocaleString()}</strong></div>
+          <div class="sub-row"><span>GP earned</span><strong>${gpEarned.toLocaleString()} GP</strong></div>
+          <div class="sub-row"><span>Creator support received</span><strong>G${supportReceived.toLocaleString()}</strong></div>
+          <div class="sub-row"><span>Referral GP earned</span><strong>${referralGp.toLocaleString()} GP</strong></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 16px;">
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Top earning posts</h3>
+        ${postsHtml}
       </div>
     `;
   },

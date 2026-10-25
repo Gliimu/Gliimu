@@ -248,7 +248,17 @@ app.post('/api/gliits/heartbeat', async (req, res) => {
     }
 
     const { postId } = req.body || {};
-    const { data, error } = await supabaseAdmin.rpc('gliits_heartbeat', {
+    // gliits_heartbeat reads auth.uid() internally, so it must be called with
+    // the user's JWT — the service-role client has no user context.
+    const userClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+      }
+    );
+    const { data, error } = await userClient.rpc('gliits_heartbeat', {
       p_post_id: postId || null
     });
     if (error) {

@@ -42,7 +42,7 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 10000;
   transform: translateX(-100%);
   transition: transform 0.3s ease;
 }
@@ -62,7 +62,7 @@ body.sidebar-open .sidebar {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 9998;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -454,7 +454,7 @@ body.sidebar-open .sidebar-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
+  z-index: 9998;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
