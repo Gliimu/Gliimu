@@ -34,19 +34,20 @@ const WALLET_TYPES = new Set(['topup', 'transfer_in', 'transfer_out', 'refund', 
 const GP_TYPES = new Set(['reward']);
 
 const TX_ICONS = {
-  topup: { color: '#10b981', path: 'M12 2v20M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H6' },
-  transfer_in: { color: '#10b981', path: 'M7 10l5 5 5-5M12 15V3' },
-  transfer_out: { color: '#ef4444', path: 'M7 14l5-5 5 5M12 9v12' },
-  refund: { color: '#f59e0b', path: 'M3 12a9 9 0 1 0 9-9M3 3v9h9' },
-  adjustment: { color: '#8b5cf6', path: 'M12 3v18M3 12h18' },
-  subscription: { color: '#6366f1', path: 'M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z' },
-  support: { color: '#ec4899', path: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
-  reward: { color: '#f59e0b', path: 'M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z' },
+  topup: { color: '#64748b', path: 'M12 2v20M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H6' },
+  transfer_in: { color: '#64748b', path: 'M7 10l5 5 5-5M12 15V3' },
+  transfer_out: { color: '#64748b', path: 'M7 14l5-5 5 5M12 9v12' },
+  refund: { color: '#64748b', path: 'M3 12a9 9 0 1 0 9-9M3 3v9h9' },
+  adjustment: { color: '#64748b', path: 'M12 3v18M3 12h18' },
+  subscription: { color: '#64748b', path: 'M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z' },
+  support: { color: '#64748b', path: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
+  reward: { color: '#64748b', path: 'M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 6.91-1.01z' },
   usage: { color: '#64748b', path: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
   low_balance: { color: '#ef4444', path: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01' },
-  content: { color: '#10b981', path: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
+  content: { color: '#64748b', path: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
   content_rejected: { color: '#ef4444', path: 'M18 6L6 18M6 6l12 12' },
-  support_msg: { color: '#6366f1', path: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' }
+  support_msg: { color: '#64748b', path: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' },
+  live_session: { color: '#64748b', path: 'M23 7l-7 5 7 5V7zM1 5h15v14H1z' }
 };
 
 const TX_LABELS = {
@@ -292,11 +293,11 @@ export default {
 
     let amountHtml = '';
     if (hasPoints) {
-      amountHtml = `<span class="notice-amount" style="color: #f59e0b;">+${a.points} GP</span>`;
+      amountHtml = `<span class="notice-amount" style="color: var(--text-muted);">+${a.points} GP</span>`;
     } else if (isPositive) {
-      amountHtml = `<span class="notice-amount" style="color: #10b981;">+${gliits(a.amount)}</span>`;
+      amountHtml = `<span class="notice-amount" style="color: var(--text-muted);">+${gliits(a.amount)}</span>`;
     } else if (isNegative) {
-      amountHtml = `<span class="notice-amount" style="color: var(--text-secondary);">${gliits(a.amount)}</span>`;
+      amountHtml = `<span class="notice-amount" style="color: var(--text-muted);">${gliits(a.amount)}</span>`;
     }
 
     let statusBadge = '';

@@ -309,6 +309,7 @@ async function loadHubHighlights() {
   }).join('');
 
   const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
+  const bookSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
 
   container.innerHTML = `
     <a class="xplore-card xplore-card-audio" href="#" data-xplore="audiolite" ${audio?.id ? `data-item-id="${audio.id}"` : ''}>
@@ -328,6 +329,9 @@ async function loadHubHighlights() {
         ${bookCover
           ? `<img src="${bookCover}" alt="">`
           : `<div class="xplore-card-cover-empty"></div>`}
+        <div class="xplore-center-icon">
+          ${bookSvg}
+        </div>
       </div>
       <h3>Publications</h3>
       <p>Stories, essays and books that stay with you</p>

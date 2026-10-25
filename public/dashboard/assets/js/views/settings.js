@@ -140,14 +140,19 @@ export default {
 
       <!-- Danger Zone -->
       <div class="card settings-card danger-zone">
-        <h2>Danger Zone</h2>
-        <div id="danger-normal">
-          <p class="danger-text">Deleting your account removes your profile, posts, messages and wallet. You have a 3-day grace period — sign back in before it ends to recover your account. After that, the deletion is permanent and cannot be undone.</p>
-          <button type="button" class="btn-danger" id="delete-account-btn">Delete Account</button>
+        <div class="danger-zone-header" id="danger-zone-toggle">
+          <h2>Danger Zone</h2>
+          <svg class="danger-zone-chevron" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </div>
-        <div id="danger-scheduled" style="display:none;">
-          <p class="danger-text">Your account is scheduled for deletion on <strong id="deletion-date"></strong>. Sign back in any time before then and your account will be recovered automatically.</p>
-          <button type="button" class="btn-secondary" id="cancel-deletion-btn">Cancel Deletion Request</button>
+        <div class="danger-zone-content" id="danger-zone-content" style="display: none;">
+          <div id="danger-normal">
+            <p class="danger-text">Deleting your account removes your profile, posts, messages and wallet. You have a 3-day grace period — sign back in before it ends to recover your account. After that, the deletion is permanent and cannot be undone.</p>
+            <button type="button" class="btn-danger" id="delete-account-btn">Delete Account</button>
+          </div>
+          <div id="danger-scheduled" style="display:none;">
+            <p class="danger-text">Your account is scheduled for deletion on <strong id="deletion-date"></strong>. Sign back in any time before then and your account will be recovered automatically.</p>
+            <button type="button" class="btn-secondary" id="cancel-deletion-btn">Cancel Deletion Request</button>
+          </div>
         </div>
       </div>
 
@@ -289,7 +294,19 @@ export default {
     // Danger Zone
     this.loadDeletionState();
 
-    document.getElementById('delete-account-btn').addEventListener('click', () => {
+    document.getElementById('danger-zone-toggle')?.addEventListener('click', () => {
+      const content = document.getElementById('danger-zone-content');
+      const chevron = document.querySelector('.danger-zone-chevron');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        chevron?.classList.add('open');
+      } else {
+        content.style.display = 'none';
+        chevron?.classList.remove('open');
+      }
+    });
+
+    document.getElementById('delete-account-btn')?.addEventListener('click', () => {
       document.getElementById('delete-passphrase').value = '';
       const errEl = document.getElementById('delete-error');
       errEl.style.display = 'none';

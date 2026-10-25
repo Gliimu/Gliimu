@@ -208,6 +208,15 @@ export default {
       `;
     }
 
+    let planMessage = '';
+    if (planType === 'payngo') {
+      planMessage = `<p class="plan-upgrade-hint">Get the best deal with <a href="#" onclick="window.walletInstance.switchTab('plans'); return false;">unlimited plans</a></p>`;
+    } else if (planType === 'monthly') {
+      planMessage = `<p class="plan-upgrade-hint">Annual plan helps you <a href="#" onclick="window.walletInstance.switchTab('plans'); return false;">SAVE MORE!!!</a></p>`;
+    } else if (planType === 'yearly') {
+      planMessage = `<p class="plan-upgrade-hint plan-upgrade-congrats">Congratulations, you have the best value</p>`;
+    }
+
     return `
       <div class="card sub-card">
         <div class="sub-header">
@@ -218,6 +227,7 @@ export default {
           ${planDetail}
         </div>
       </div>
+      ${planMessage}
       <div class="card stat-card" style="margin-top: 16px;">
         <div class="stat-row">
           <div class="stat-icon-wrap bg-brand">

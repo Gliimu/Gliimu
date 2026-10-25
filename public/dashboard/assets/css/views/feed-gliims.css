@@ -27,6 +27,7 @@
 .blog-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .blog-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
 .blog-author { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+[data-theme="light"] .blog-author { color: #000; }
 .blog-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gradient-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; object-fit: cover; }
 .blog-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
 
@@ -211,7 +212,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.15) 50%, rgba(0,0,0,.35) 100%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--brand-primary) 72%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 15%, transparent) 50%, color-mix(in srgb, var(--brand-primary) 35%, transparent) 100%);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -259,7 +260,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.15) 50%, rgba(0,0,0,.35) 100%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--brand-primary) 72%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 15%, transparent) 50%, color-mix(in srgb, var(--brand-primary) 35%, transparent) 100%);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -278,7 +279,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.15) 50%, rgba(0,0,0,.35) 100%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--brand-primary) 72%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 15%, transparent) 50%, color-mix(in srgb, var(--brand-primary) 35%, transparent) 100%);
   border-radius: inherit;
   pointer-events: none;
 }

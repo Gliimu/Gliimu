@@ -177,6 +177,37 @@
   border: 1px solid var(--error-light);
 }
 
+.danger-zone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  margin: -32px -32px 0 -32px;
+  padding: 32px;
+}
+
+.danger-zone-header h2 {
+  color: var(--error);
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.danger-zone-chevron {
+  color: var(--error);
+  transition: transform 0.2s ease;
+}
+
+.danger-zone-chevron.open {
+  transform: rotate(180deg);
+}
+
+.danger-zone-content {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--error-light);
+}
+
 .danger-zone h2 {
   color: var(--error);
   border-bottom-color: var(--error-light);
