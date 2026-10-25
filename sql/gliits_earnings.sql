@@ -109,10 +109,10 @@ join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'gliits_earnings';
 
 -- 2) Execute grants
---    expect: authenticated = EXECUTE (postgres rows for ownership are fine)
+--    expect: authenticated = EXECUTE (postgres row is the owner)
 select grantee, privilege_type
-from information_schema.role_function_grants
-where routine_schema = 'public' and routine_name = 'gliits_earnings'
+from information_schema.routine_privileges
+where specific_schema = 'public' and routine_name = 'gliits_earnings'
 order by grantee;
 
 -- 3) Creator earnings preview (0 rows while no usage minutes exist yet)
@@ -133,12 +133,12 @@ group by user_id
 order by support_received desc
 limit 5;
 
--- 5) Live call as a member — replace <PROFILES_ID> with any profiles.id
+-- 5) Live call as a member (picks the first profile automatically — nothing to edit)
 --    expect: one jsonb row (total_gliits, total_minutes, earned_30d, top_posts, total_gp, support_received)
 begin;
 set local role authenticated;
 select set_config('request.jwt.claims',
-  json_build_object('sub', '<PROFILES_ID>', 'role', 'authenticated')::text, true);
-select set_config('request.jwt.claim.sub', '<PROFILES_ID>', true);
+  json_build_object('sub', (select id::text from public.profiles order by created_at limit 1), 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claim.sub', (select id::text from public.profiles order by created_at limit 1), true);
 select public.gliits_earnings();
 rollback;

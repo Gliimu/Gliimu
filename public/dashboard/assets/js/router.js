@@ -7,12 +7,12 @@ const routes = {
   '/wallet': () => import('./views/wallet.js?v=43').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=2').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
-  '/live': () => import('./views/live-page.js?v=3').then(m => m.default),
+  '/live': () => import('./views/live-page.js?v=4').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=1').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=54').then(m => m.default),
   '/feature': () => import('./views/feature.js?v=1').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=11').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=12').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=10').then(m => m.default),
 };
 

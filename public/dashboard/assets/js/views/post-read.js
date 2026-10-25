@@ -1,6 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { renderFileInto } from '../reader.js?v=32';
+import * as heartbeat from '../heartbeat.js?v=2';
 import hubView from './feed-gliims.js?v=82';
 
 function escapeHtml(value) {
@@ -26,6 +27,8 @@ export default {
       window.removeEventListener('scroll', scrollHandler);
       scrollHandler = null;
     }
+    heartbeat.stop();
+    heartbeat.setCurrentPost(null);
     sessionStorage.removeItem('openReadViewId');
   },
 
@@ -74,6 +77,10 @@ export default {
     const interactions = await this.fetchInteractions(postId);
     this.render(post, interactions);
     this.setupScrollProgress();
+
+    // Billing only runs while a post is actually open in the reader.
+    heartbeat.setCurrentPost(postId);
+    heartbeat.start();
   },
 
   async fetchPost(postId) {

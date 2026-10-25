@@ -79,7 +79,8 @@ body.sidebar-open .sidebar-backdrop {
   bottom: 35%;
   right: 24px;
   left: auto;
-  z-index: 3000;
+  /* Above the sidebar (10000) so dragging it over the rail never buries it */
+  z-index: 10001;
   width: 56px;
   height: 56px;
   border-radius: 50%;

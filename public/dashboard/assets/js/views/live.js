@@ -1,5 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
+import * as heartbeat from '../heartbeat.js?v=2';
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -643,6 +644,10 @@ const liveView = {
     }
 
     this.setupRtcChannel(row);
+
+    // Billing only runs while the member is inside a live session.
+    heartbeat.setCurrentPost(null);
+    heartbeat.start();
   },
 
   async startMedia() {
@@ -1356,6 +1361,8 @@ const liveView = {
   },
 
   cleanupSession() {
+    heartbeat.stop();
+    heartbeat.setCurrentPost(null);
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
