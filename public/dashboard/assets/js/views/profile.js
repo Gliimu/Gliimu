@@ -161,12 +161,12 @@ export default {
 
     try {
       if (wasFollowing) {
-        const { error } = await supabase.rpc('unfollow_user', { p_target_id: targetId });
+        const { error } = await supabase.rpc('unfollow_user', { p_followed_id: targetId });
         if (error) throw error;
         this._isFollowing = false;
         notify.toast('You have unfollowed this user');
       } else {
-        const { error } = await supabase.rpc('follow_user', { p_target_id: targetId });
+        const { error } = await supabase.rpc('follow_user', { p_followed_id: targetId });
         if (error) throw error;
         this._isFollowing = true;
         notify.toast('You are now following this user. Their gliims will appear in your XpLoRe feed.');
@@ -208,10 +208,10 @@ export default {
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio').eq('id', userId).single(),
-      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, blocks, user_id').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.rpc('get_follower_count', { p_user_id: userId }),
       supabase.rpc('get_following_count', { p_user_id: userId }),
-      isMe ? Promise.resolve({ data: false }) : supabase.rpc('is_following', { p_target_id: userId })
+      isMe ? Promise.resolve({ data: false }) : supabase.rpc('is_following', { p_followed_id: userId })
     ]);
 
     const freshUser = profileResult.data;
@@ -351,9 +351,7 @@ export default {
               const myName = store.profile?.full_name || '';
               const tag = `@${myName}`;
               filteredPosts = filteredPosts.filter(item => {
-                const inDesc = item.description && item.description.includes(tag);
-                const inBlocks = item.blocks && item.blocks.some(b => b.type === 'text' && b.content && b.content.includes(tag));
-                return inDesc || inBlocks;
+                return item.description && item.description.includes(tag);
               });
             }
             if (!filteredPosts.length) {
