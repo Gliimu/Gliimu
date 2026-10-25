@@ -255,8 +255,10 @@ const liveView = {
     }
 
     if (!html && !q) {
+      const liveIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="live-empty-icon"><path d="M23 7l-7 5 7 5V7z"></path><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
       html = `
         <div class="live-board-empty-state">
+          ${liveIconSvg}
           <p class="live-board-empty">No live sessions right now.</p>
           <button class="btn-primary" onclick="liveInstance.openRequestModal()">Start a Live Session</button>
         </div>

@@ -279,7 +279,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, color-mix(in srgb, var(--brand-primary) 72%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 15%, transparent) 50%, color-mix(in srgb, var(--brand-primary) 35%, transparent) 100%);
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.1) 100%);
   border-radius: inherit;
   pointer-events: none;
 }

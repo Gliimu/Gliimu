@@ -316,10 +316,7 @@ async function loadHubHighlights() {
       <div class="xplore-card-cover">
         ${audioCover
           ? `<img src="${audioCover}" alt="">`
-          : `<div class="xplore-card-cover-empty"></div>`}
-        <div class="xplore-center-icon">
-          ${headsetSvg}
-        </div>
+          : `<div class="xplore-card-cover-empty"></div><div class="xplore-center-icon">${headsetSvg}</div>`}
       </div>
       <h3>Audiolites</h3>
       <p>Creating spark in minds through spoken words</p>
@@ -328,10 +325,7 @@ async function loadHubHighlights() {
       <div class="xplore-card-cover">
         ${bookCover
           ? `<img src="${bookCover}" alt="">`
-          : `<div class="xplore-card-cover-empty"></div>`}
-        <div class="xplore-center-icon">
-          ${bookSvg}
-        </div>
+          : `<div class="xplore-card-cover-empty"></div><div class="xplore-center-icon">${bookSvg}</div>`}
       </div>
       <h3>Publications</h3>
       <p>Stories, essays and books that stay with you</p>

@@ -24,9 +24,6 @@ export default {
         <div class="search-bar-wrap">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           <input type="text" id="global-search-input" class="search-hero-input" placeholder="Search gliims, collections, users..." autocomplete="off">
-          <button class="search-go-btn" id="search-go-btn" aria-label="Search">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          </button>
         </div>
       </div>
 
@@ -66,17 +63,6 @@ export default {
       });
       input.addEventListener('focus', () => this.renderHistory());
       input.focus();
-    }
-
-    const goBtn = document.getElementById('search-go-btn');
-    if (goBtn) {
-      goBtn.addEventListener('click', () => {
-        const val = input ? input.value.trim() : '';
-        if (val.length >= 2) {
-          this.addToHistory(val);
-          this.onSearch(val);
-        }
-      });
     }
 
     window.addEventListener('scroll', () => {

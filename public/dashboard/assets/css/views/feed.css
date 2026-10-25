@@ -874,16 +874,18 @@
 
 /* ============================================
    AUDIOLITE CARD AUTHOR NAME CONTRAST
-   Ensure author name is readable on light backgrounds
+   Theme-aware author name color for audiolite cards
    ============================================ */
-.audiolite-card .blog-author span {
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+.audiolite-cover-card .blog-author span {
   color: #fff;
 }
-
-/* For audiolite cards with solid color backgrounds, use the computed text color */
-.audiolite-card[style*="background:"] .blog-author span {
-  text-shadow: none;
+[data-theme="light"] .audiolite-cover-card .blog-author span {
+  color: #000;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+}
+[data-theme="dark"] .audiolite-cover-card .blog-author span {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 /* ============================================

@@ -34,7 +34,7 @@ const WALLET_TYPES = new Set(['topup', 'transfer_in', 'transfer_out', 'refund', 
 const GP_TYPES = new Set(['reward']);
 
 const TX_ICONS = {
-  topup: { color: '#64748b', path: 'M12 2v20M17 7H9.5a2.5 2.5 0 0 0 0 5h5a2.5 2.5 0 0 1 0 5H6' },
+  topup: { color: '#64748b', path: 'M12 5v14M5 12h14' },
   transfer_in: { color: '#64748b', path: 'M7 10l5 5 5-5M12 15V3' },
   transfer_out: { color: '#64748b', path: 'M7 14l5-5 5 5M12 9v12' },
   refund: { color: '#64748b', path: 'M3 12a9 9 0 1 0 9-9M3 3v9h9' },
