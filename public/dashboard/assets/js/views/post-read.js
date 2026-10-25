@@ -75,7 +75,8 @@ export default {
     }
 
     const interactions = await this.fetchInteractions(postId);
-    this.render(post, interactions);
+    const relatedPosts = await this.fetchRelatedPosts(post);
+    this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
 
     // Billing only runs while a post is actually open in the reader.
@@ -99,7 +100,21 @@ export default {
     return data || [];
   },
 
-  render(post, interactions) {
+  async fetchRelatedPosts(post) {
+    if (!post.user_id || !post.category) return [];
+    const { data } = await supabase
+      .from('feed_gliims')
+      .select(`id, title, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
+      .eq('user_id', post.user_id)
+      .eq('category', post.category)
+      .eq('status', 'approved')
+      .neq('id', post.id);
+    if (!data || data.length === 0) return [];
+    const shuffled = data.sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 3);
+  },
+
+  render(post, interactions, relatedPosts) {
     const isOwner = post.user_id === store.user.id;
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url
@@ -173,6 +188,31 @@ export default {
 
           ${blocksHtml}
 
+          ${relatedPosts.length > 0 ? `
+          <div class="related-posts-section">
+            <h3 class="related-posts-title">You may also like</h3>
+            <div class="related-posts-row">
+              ${relatedPosts.map(rp => {
+                const rpAvatarClass = tierClass(rp.profiles?.total_gp, 'blog-avatar');
+                const rpAvatar = rp.profiles?.avatar_url
+                  ? `<img src="${rp.profiles.avatar_url}" class="${rpAvatarClass}" style="object-fit:cover;">`
+                  : `<div class="${rpAvatarClass}"></div>`;
+                const coverStyle = rp.cover_url ? `background-image: url('${rp.cover_url}');` : (rp.cover_color ? `background: ${escapeHtml(rp.cover_color)};` : '');
+                return `<a class="related-post-card" href="#/post?id=${rp.id}" style="${coverStyle}">
+                  <div class="related-post-cover"></div>
+                  <div class="related-post-info">
+                    <div class="related-post-title">${escapeHtml(rp.title || 'Untitled')}</div>
+                    <div class="related-post-author">
+                      <div style="position: relative; flex-shrink: 0;">${rpAvatar}</div>
+                      <span>${escapeHtml(rp.profiles?.full_name || 'Gliimait')}</span>
+                    </div>
+                  </div>
+                </a>`;
+              }).join('')}
+            </div>
+          </div>
+          ` : ''}
+
           <div class="comment-section" id="comment-section-${post.id}">
             <h3>Comments</h3>
             <div class="comment-input-wrapper">
@@ -181,7 +221,6 @@ export default {
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
               </button>
             </div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">₦50 per comment</div>
             <div class="comment-list" id="comment-list-${post.id}">
               ${commentsHtml}
             </div>

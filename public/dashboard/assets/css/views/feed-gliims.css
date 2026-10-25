@@ -295,7 +295,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.1) 100%);
+  background: linear-gradient(to top, rgb(0 0 0 / 14%) 0%, rgb(204 198 198 / 0%) 40%, rgb(0 0 0 / 10%) 100%);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -808,4 +808,112 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 }
 .read-block-table tr:nth-child(even) td {
   background: var(--bg-secondary);
+}
+
+/* Related posts section in reader */
+.related-posts-section {
+  margin: 40px 0 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.related-posts-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px;
+}
+
+.related-posts-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.related-posts-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.related-posts-row::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.related-post-card {
+  flex: 0 0 200px;
+  min-width: 200px;
+  height: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  scroll-snap-align: start;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.related-post-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.related-post-cover {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+.related-post-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px;
+  z-index: 1;
+}
+
+.related-post-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.related-post-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+}
+
+.related-post-author .blog-avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+@media (max-width: 768px) {
+  .related-post-card {
+    flex: 0 0 160px;
+    min-width: 160px;
+    height: 200px;
+  }
+
+  .related-posts-row {
+    gap: 12px;
+  }
 }
