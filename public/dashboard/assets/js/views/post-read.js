@@ -242,8 +242,8 @@ export default {
           ${relatedPosts.length > 0 ? `
           <div class="related-posts-section">
             <h3 class="related-posts-title">More inspiring contents</h3>
-            <div class="related-posts-list">
-              ${relatedPosts.map(rp => hubView.renderPostCard(rp)).join('')}
+            <div class="related-posts-grid library-feed" id="related-posts-grid">
+              ${relatedPosts.map(rp => `<div class="feed-item feed-item--gliim">${hubView.renderPostCard(rp)}</div>`).join('')}
             </div>
           </div>
           ` : ''}
@@ -279,7 +279,24 @@ export default {
     });
     hubView.setupMentionPicker(post.id);
 
+    this.layoutRelatedMasonry();
     this.renderCommentsModal(post, commentsHtml);
+  },
+
+  layoutRelatedMasonry() {
+    const grid = document.getElementById('related-posts-grid');
+    if (!grid) return;
+
+    const ROW = 8;
+    const GAP = window.matchMedia('(max-width: 768px)').matches ? 12 : 24;
+
+    grid.querySelectorAll('.feed-item').forEach(item => {
+      const inner = item.firstElementChild;
+      if (!inner) return;
+      item.style.gridRowEnd = 'auto';
+      const height = inner.getBoundingClientRect().height;
+      item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((height + GAP) / ROW))}`;
+    });
   },
 
   renderCommentsModal(post, commentsHtml) {
