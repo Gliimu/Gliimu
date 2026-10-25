@@ -374,9 +374,6 @@ export default {
 
   renderGliimCard(post, profile) {
     const isAmbassador = (profile.total_gp || 0) >= 5000;
-    const avatar = profile.avatar_url
-      ? `<img src="${profile.avatar_url}" alt="${profile.full_name || 'Gliimait'}">`
-      : `<div style="width:28px; height:28px; border-radius:50%; background:var(--gradient-primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">${(profile.full_name || 'G').charAt(0).toUpperCase()}</div>`;
 
     const comments = post.comments_count || 0;
     const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
@@ -398,10 +395,6 @@ export default {
         <h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2>
         <p class="blog-desc">${post.description ? post.description.substring(0, 120) + (post.description.length > 120 ? '...' : '') : ''}</p>
         <div class="blog-footer">
-          <div class="blog-author">
-            <div style="position:relative;">${avatar}</div>
-            <span>${profile.full_name || 'Gliimait'}</span>
-          </div>
           <div class="blog-stats">
             <span class="blog-stat">${eyeSvg}${post.views || 0}</span>
             <span class="blog-stat">${commentSvg}${comments}</span>
