@@ -1761,27 +1761,20 @@ const hubView = {
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
 
-    // Audiolites: cover image background with a centered headset icon,
-    // title + author + stats at the bottom, badges in the corner.
+    // Audiolites: just the cover image with a centered headset icon — no text, no stats.
     if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
       const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
       if (post.cover_url) {
         const cardStyle = `background-image: url('${post.cover_url}');`;
         return `<article class="audiolite-card audiolite-cover-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${cardStyle}" onclick="hubInstance.openReadView('${post.id}')">
-          ${draftBadge || premiumBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : ''}
           <div class="audiolite-center-icon">${headsetSvg}</div>
-          <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
-          <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
         </article>`;
       }
       const color = String(post.cover_color || '').trim();
       const onColor = readableOn(color);
       const cardStyle = color && onColor ? ` style="background:${escapeHtml(color)};color:${onColor};"` : '';
       return `<article class="audiolite-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
-        ${draftBadge || premiumBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : ''}
         <div class="audiolite-center-icon">${headsetSvg}</div>
-        <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
-        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
     }
 

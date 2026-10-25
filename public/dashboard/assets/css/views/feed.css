@@ -481,18 +481,31 @@
   flex-direction: row;
   align-items: center;
   overflow: hidden;
-  padding: 16px 20px;
+  padding: 0;
 }
 .collection-tag-card:hover {
   border-color: var(--brand-primary);
   transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
 }
+.collection-tag-cover {
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.collection-tag-cover-empty {
+  background: var(--gradient-primary);
+  opacity: 0.3;
+}
 .collection-tag-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 16px 20px;
 }
 .collection-tag-name {
   font-size: 16px;

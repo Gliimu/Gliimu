@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=82';
+import hubView from './feed-gliims.js?v=83';
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 
@@ -161,7 +161,7 @@ export default {
     const postIds = [...new Set(rows.map(r => r.post_id))];
     const { data: posts } = await supabase
       .from('feed_gliims')
-      .select('id, user_id, views')
+      .select('id, user_id, views, cover_url')
       .in('id', postIds);
 
     const { data: interactions } = await supabase
@@ -192,6 +192,7 @@ export default {
     const counts = {};
     const contributors = {};
     const stats = {};
+    const topPost = {};
     rows.forEach(r => {
       const tag = (r.hashtag || '').toLowerCase();
       if (!tag) return;
@@ -208,6 +209,10 @@ export default {
       const postInteractions = interactionMap[r.post_id] || { likes: 0, comments: 0, shares: 0 };
       stats[tag].comments += postInteractions.comments;
       stats[tag].shares += postInteractions.shares;
+      const pv = Number(post.views || 0);
+      if (!topPost[tag] || pv > topPost[tag].views) {
+        topPost[tag] = { views: pv, cover_url: post.cover_url };
+      }
     });
 
     const currentUserId = store.user?.id;
@@ -238,6 +243,11 @@ export default {
         .slice(0, 9)
         .map(([uid]) => ({ user_id: uid, avatar_url: avatarMap[uid] }));
       const collectionStats = stats[t] || { views: 0, comments: 0, shares: 0 };
+      const topCover = topPost[t]?.cover_url;
+
+      const coverHtml = topCover
+        ? `<div class="collection-tag-cover" style="background-image:url('${topCover}');"></div>`
+        : `<div class="collection-tag-cover collection-tag-cover-empty"></div>`;
 
       const avatarsHtml = topContribs.length
         ? `<div class="collection-tag-avatars">${topContribs.map(c => c.avatar_url ? `<img src="${c.avatar_url}" alt="" class="collection-tag-avatar">` : `<div class="collection-tag-avatar collection-tag-avatar-fallback"></div>`).join('')}</div>`
@@ -250,6 +260,7 @@ export default {
       </div>`;
 
       return `<div class="collection-tag-card" onclick="window.location.hash='#/collection?name=${encodeURIComponent(t)}'">
+        ${coverHtml}
         <div class="collection-tag-info">
           <span class="collection-tag-name">#${escapeHtml(t)}</span>
           <span class="collection-tag-count">${counts[t]} ${counts[t] === 1 ? 'gliim' : 'gliims'}</span>
