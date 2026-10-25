@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=2';
-import hubView from './feed-gliims.js?v=84';
+import hubView from './feed-gliims.js?v=85';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -146,6 +146,8 @@ export default {
     const blocksHtml = this.renderBlocks(post, isOwner);
 
     const backIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
+    const minimizeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+    const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
@@ -159,17 +161,20 @@ export default {
       <div class="post-read-progress" id="post-read-progress"></div>
 
       <header class="post-read-header">
-        <button class="post-read-back" onclick="history.back()" title="Go back">${backIcon}</button>
         <div class="post-read-header-title">${escapeHtml((post.title || 'Gliim').substring(0, 40))}</div>
-        <div class="hub-menu-wrapper">
-          <button class="hub-menu-btn post-read-menu-btn" onclick="hubInstance.toggleReadMenu('${post.id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-          </button>
-          <div class="hub-read-menu" id="read-menu-${post.id}">
-            <div class="hub-read-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
-            <div class="hub-read-menu-item" onclick="hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
-            ${deleteBtnHtml}
+        <div class="post-read-header-actions">
+          <button class="post-read-action-btn" onclick="hubInstance.minimizeReader('${post.id}')" title="Open in new tab">${minimizeIcon}</button>
+          <div class="hub-menu-wrapper">
+            <button class="post-read-action-btn" onclick="hubInstance.toggleReadMenu('${post.id}')" title="More options">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            </button>
+            <div class="hub-read-menu" id="read-menu-${post.id}">
+              <div class="hub-read-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
+              <div class="hub-read-menu-item" onclick="hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
+              ${deleteBtnHtml}
+            </div>
           </div>
+          <button class="post-read-action-btn" onclick="hubInstance.closeReader()" title="Close">${closeIcon}</button>
         </div>
       </header>
 
@@ -192,23 +197,7 @@ export default {
           <div class="related-posts-section">
             <h3 class="related-posts-title">You may also like</h3>
             <div class="related-posts-row">
-              ${relatedPosts.map(rp => {
-                const rpAvatarClass = tierClass(rp.profiles?.total_gp, 'blog-avatar');
-                const rpAvatar = rp.profiles?.avatar_url
-                  ? `<img src="${rp.profiles.avatar_url}" class="${rpAvatarClass}" style="object-fit:cover;">`
-                  : `<div class="${rpAvatarClass}"></div>`;
-                const coverStyle = rp.cover_url ? `background-image: url('${rp.cover_url}');` : (rp.cover_color ? `background: ${escapeHtml(rp.cover_color)};` : '');
-                return `<a class="related-post-card" href="#/post?id=${rp.id}" style="${coverStyle}">
-                  <div class="related-post-cover"></div>
-                  <div class="related-post-info">
-                    <div class="related-post-title">${escapeHtml(rp.title || 'Untitled')}</div>
-                    <div class="related-post-author">
-                      <div style="position: relative; flex-shrink: 0;">${rpAvatar}</div>
-                      <span>${escapeHtml(rp.profiles?.full_name || 'Gliimait')}</span>
-                    </div>
-                  </div>
-                </a>`;
-              }).join('')}
+              ${relatedPosts.map(rp => `<div class="related-post-card-wrapper">${hubView.renderPostCard(rp)}</div>`).join('')}
             </div>
           </div>
           ` : ''}
@@ -341,12 +330,33 @@ export default {
   setupScrollProgress() {
     const bar = document.getElementById('post-read-progress');
     if (!bar) return;
+
+    const scrollKey = `gliimu_scroll_${this.postId}`;
+    const savedScroll = sessionStorage.getItem(scrollKey);
+
     scrollHandler = () => {
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const pct = docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0;
       bar.style.width = pct + '%';
+
+      sessionStorage.setItem(scrollKey, String(scrollTop));
     };
     window.addEventListener('scroll', scrollHandler, { passive: true });
+
+    if (savedScroll) {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScroll, 10));
+      }, 100);
+    }
+  },
+
+  minimizeReader(postId) {
+    const url = `${location.origin}/dashboard/#/post?id=${postId}`;
+    window.open(url, '_blank');
+  },
+
+  closeReader() {
+    history.back();
   }
 };

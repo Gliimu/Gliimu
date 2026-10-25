@@ -2550,7 +2550,14 @@ window.hubInstance = {
   promptReport: (targetType, targetId) => hubView.promptReport(targetType, targetId),
   removeTag: (index) => hubView.removeTag(index),
   removeHashtag: (index) => hubView.removeHashtag(index),
-  isModalOpen: () => hubView.isModalOpen
+  isModalOpen: () => hubView.isModalOpen,
+  minimizeReader: (id) => {
+    const url = `${location.origin}/dashboard/#/post?id=${id}`;
+    window.open(url, '_blank');
+  },
+  closeReader: () => {
+    history.back();
+  }
 };
 
 export default hubView;
