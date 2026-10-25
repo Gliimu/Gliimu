@@ -108,11 +108,25 @@ export default {
     const postIds = [...new Set(rows.map(r => r.post_id))];
     const { data: posts } = await supabase
       .from('feed_gliims')
-      .select('id, user_id, cover_url')
+      .select('id, user_id, views')
       .in('id', postIds);
+
+    const { data: interactions } = await supabase
+      .from('feed_interactions')
+      .select('post_id, interaction_type')
+      .in('post_id', postIds)
+      .in('interaction_type', ['like', 'comment', 'share']);
 
     const postMap = {};
     (posts || []).forEach(p => { postMap[p.id] = p; });
+
+    const interactionMap = {};
+    (interactions || []).forEach(i => {
+      if (!interactionMap[i.post_id]) interactionMap[i.post_id] = { likes: 0, comments: 0, shares: 0 };
+      if (i.interaction_type === 'like') interactionMap[i.post_id].likes++;
+      else if (i.interaction_type === 'comment') interactionMap[i.post_id].comments++;
+      else if (i.interaction_type === 'share') interactionMap[i.post_id].shares++;
+    });
 
     const userIds = [...new Set((posts || []).map(p => p.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length
@@ -124,7 +138,7 @@ export default {
 
     const counts = {};
     const contributors = {};
-    const previews = {};
+    const stats = {};
     rows.forEach(r => {
       const tag = (r.hashtag || '').toLowerCase();
       if (!tag) return;
@@ -136,22 +150,23 @@ export default {
         if (!contributors[tag]) contributors[tag] = {};
         contributors[tag][userId] = (contributors[tag][userId] || 0) + 1;
       }
-      if (post.cover_url) {
-        if (!previews[tag]) previews[tag] = [];
-        if (previews[tag].length < 3) previews[tag].push(post.cover_url);
-      }
+      if (!stats[tag]) stats[tag] = { views: 0, comments: 0, shares: 0 };
+      stats[tag].views += Number(post.views || 0);
+      const postInteractions = interactionMap[r.post_id] || { likes: 0, comments: 0, shares: 0 };
+      stats[tag].comments += postInteractions.comments;
+      stats[tag].shares += postInteractions.shares;
     });
 
     this._collectionsData = Object.keys(counts)
       .sort((a, b) => counts[b] - counts[a])
-      .slice(0, 12)
+      .slice(0, 2)
       .map(t => {
         const contribMap = contributors[t] || {};
         const topContribs = Object.entries(contribMap)
           .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
+          .slice(0, 9)
           .map(([uid]) => ({ user_id: uid, avatar_url: avatarMap[uid] }));
-        return { tag: t, count: counts[t], contribs: topContribs, previews: previews[t] || [] };
+        return { tag: t, count: counts[t], contribs: topContribs, stats: stats[t] || { views: 0, comments: 0, shares: 0 } };
       });
 
     this.renderCollections();
@@ -167,18 +182,21 @@ export default {
       </div>
       <div class="collections-grid">
         ${this._collectionsData.map(c => {
-          const previewHtml = c.previews.length
-            ? `<div class="collection-tag-previews">${c.previews.map(url => `<img src="${url}" alt="" class="collection-tag-preview-img">`).join('')}</div>`
-            : `<div class="collection-tag-previews collection-tag-previews-empty"></div>`;
           const avatarsHtml = c.contribs.length
             ? `<div class="collection-tag-avatars">${c.contribs.map(a => a.avatar_url ? `<img src="${a.avatar_url}" alt="" class="collection-tag-avatar">` : `<div class="collection-tag-avatar collection-tag-avatar-fallback"></div>`).join('')}</div>`
             : '';
+          const collectionStats = c.stats || { views: 0, comments: 0, shares: 0 };
+          const statsHtml = `<div class="collection-tag-stats">
+            <span class="collection-stat"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>${collectionStats.views.toLocaleString()}</span>
+            <span class="collection-stat"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>${collectionStats.comments.toLocaleString()}</span>
+            <span class="collection-stat"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>${collectionStats.shares.toLocaleString()}</span>
+          </div>`;
           return `<div class="collection-tag-card" onclick="searchInstance.openCollection('${encodeURIComponent(c.tag)}')">
-            ${previewHtml}
             <div class="collection-tag-info">
               <span class="collection-tag-name">#${escapeHtml(c.tag)}</span>
               <span class="collection-tag-count">${c.count} ${c.count === 1 ? 'gliim' : 'gliims'}</span>
               ${avatarsHtml}
+              ${statsHtml}
             </div>
           </div>`;
         }).join('')}
