@@ -903,10 +903,14 @@
 .hub-category-tabs {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 150;
   background: var(--bg-tertiary);
   padding: 12px 0;
-  margin-bottom: 16px;
+  margin: 0 -16px 16px -16px;
+  padding-left: 16px;
+  padding-right: 16px;
   border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
