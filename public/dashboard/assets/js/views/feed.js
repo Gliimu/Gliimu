@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=81';
+import hubView from './feed-gliims.js?v=82';
 import { supabase } from '/shared/js/config.js';
 
 function escapeHtml(value) {
@@ -229,11 +229,12 @@ export default {
     }).join('')}</div>`;
   },
 
-  renderFeed() {
+  async renderFeed() {
     const container = document.getElementById('library-feed');
     if (!container) return;
 
-    const gliimCards = hubView.filterPosts().map(post => ({
+    const filtered = await hubView.filterPosts();
+    const gliimCards = filtered.map(post => ({
         at: Date.parse(post.created_at) || 0,
         html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
       }));

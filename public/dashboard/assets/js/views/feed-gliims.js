@@ -1703,7 +1703,7 @@ const hubView = {
 
   // Gliim cards live inside the merged Library feed, so filtering and card
   // markup are split out: Library interleaves these cards with shelf items.
-  filterPosts(feed_gliims) {
+  async filterPosts(feed_gliims) {
     let filtered = feed_gliims || this.currentPosts || [];
 
     if (this.currentFilter === 'drafts') {
@@ -1815,13 +1815,13 @@ const hubView = {
     return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
-  renderPosts(feed_gliims) {
+  async renderPosts(feed_gliims) {
     // The merged Library feed owns rendering; hand off to it when embedded.
     if (this.onFeedChange) { this.onFeedChange(); return; }
 
     const container = document.getElementById('feed_gliims-container');
     if (!container) return;
-    const filtered = this.filterPosts(feed_gliims);
+    const filtered = await this.filterPosts(feed_gliims);
     
     const postsHtml = filtered.map(post => this.renderPostCard(post)).join('');
     

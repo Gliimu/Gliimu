@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { uploadFile } from '../upload.js';
-import hubView from './feed-gliims.js?v=81';
+import hubView from './feed-gliims.js?v=82';
 import { notify } from '../notify.js?v=33';
 
 export default {
