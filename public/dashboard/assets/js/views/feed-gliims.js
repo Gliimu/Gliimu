@@ -1726,7 +1726,11 @@ const hubView = {
           return inDesc || inBlocks || inComments;
         });
       } else if (this.currentFilter === 'xploring') {
-        // Xploring: sort by interest score
+        // Xploring: only show posts from users I'm following, sorted by interest score
+        const { data: following } = await supabase.from('followed_users').select('followed_id').eq('follower_id', store.user.id);
+        const followingIds = new Set((following || []).map(f => f.followed_id));
+        filtered = filtered.filter(p => followingIds.has(p.user_id));
+        
         const interest = this.loadInterest();
         filtered = filtered.map(p => ({ post: p, score: this.feedScore(p, interest) }))
           .sort((a, b) => b.score - a.score)

@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { renderFileInto } from '../reader.js?v=32';
-import hubView from './feed-gliims.js?v=80';
+import hubView from './feed-gliims.js?v=81';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
