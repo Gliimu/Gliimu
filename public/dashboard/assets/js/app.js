@@ -4,7 +4,7 @@ import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js';
-import * as heartbeat from './heartbeat.js?v=1';
+import * as heartbeat from './heartbeat.js?v=2';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER

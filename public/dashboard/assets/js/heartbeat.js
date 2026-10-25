@@ -50,6 +50,7 @@ async function sendHeartbeat() {
         showLowBalanceWarning();
         stop();
       } else if (data.code === 'NO_ACTIVE_PLAN') {
+        showPlanNotice();
         stop();
       }
       return;
@@ -63,13 +64,9 @@ async function sendHeartbeat() {
   }
 }
 
-function showLowBalanceWarning(balance) {
+function showBillingNotice(msg) {
   if (window._lowBalanceShown) return;
   window._lowBalanceShown = true;
-
-  const msg = balance !== undefined
-    ? `Your balance is low: G${balance}. Top up to keep using the platform.`
-    : 'Your balance has reached G0. Top up to continue using the platform.';
 
   setTimeout(() => {
     if (typeof appAlert === 'function') {
@@ -79,6 +76,16 @@ function showLowBalanceWarning(balance) {
       });
     }
   }, 500);
+}
+
+function showLowBalanceWarning(balance) {
+  showBillingNotice(balance !== undefined
+    ? `Your balance is low: G${balance}. Top up to keep using the platform.`
+    : 'Your balance has reached G0. Top up to continue using the platform.');
+}
+
+function showPlanNotice() {
+  showBillingNotice('Your plan is not active. Pick a plan on the Wallet page to keep using the platform.');
 }
 
 export function start() {
