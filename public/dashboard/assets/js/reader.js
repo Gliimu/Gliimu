@@ -246,10 +246,8 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
             ? window.libraryInstance.resolveAuthor(item)
             : null;
           if (authorTarget) {
-            if (authorTarget.id === store.user.id) sessionStorage.removeItem('view_profile_id');
-            else sessionStorage.setItem('view_profile_id', authorTarget.id);
             api.destroy();
-            window.location.hash = '#/profile';
+            window.location.hash = authorTarget.id === store.user.id ? '#/profile' : `#/profile?u=${authorTarget.id}`;
           }
         }
       });

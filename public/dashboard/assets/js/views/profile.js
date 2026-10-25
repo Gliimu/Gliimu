@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
 import { uploadFile } from '../upload.js';
-import hubView from './feed-gliims.js?v=79';
+import hubView from './feed-gliims.js?v=80';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -17,15 +17,10 @@ export default {
     this._projectFilter = 'all';
     this._isFollowing = false;
 
-    // Deep links: sessionStorage (hub/library) or ?u=<id> in the hash (QR scans)
-    let targetId = sessionStorage.getItem('view_profile_id');
-    if (targetId) {
-      sessionStorage.removeItem('view_profile_id');
-    } else {
-      const m = location.hash.match(/[?&]u=([a-zA-Z0-9-]+)/);
-      if (m) targetId = m[1];
-    }
-    this.targetUserId = targetId || store.user.id;
+    // Get user ID from hash parameter ?u=<id> for persistence across refresh
+    const m = location.hash.match(/[?&]u=([a-zA-Z0-9-]+)/);
+    const targetId = m ? m[1] : store.user.id;
+    this.targetUserId = targetId;
 
     window.profileInstance = {
       printProfile: async () => {

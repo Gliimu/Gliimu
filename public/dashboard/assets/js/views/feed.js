@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=79';
+import hubView from './feed-gliims.js?v=80';
 import { supabase } from '/shared/js/config.js';
 
 function escapeHtml(value) {

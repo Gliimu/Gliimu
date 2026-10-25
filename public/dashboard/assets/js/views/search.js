@@ -341,7 +341,6 @@ export default {
 
   openProfile(id) {
     this.addToHistory(this.query || '');
-    sessionStorage.setItem('view_profile_id', id);
-    window.location.hash = '#/profile';
+    window.location.hash = id === store.user.id ? '#/profile' : `#/profile?u=${id}`;
   }
 };

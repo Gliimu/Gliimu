@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=31';
+import { renderFileInto } from '../reader.js?v=32';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -286,16 +286,12 @@ const hubView = {
   viewAuthor(userId) {
     this.closeUserMenu();
     this.closeModal();
-    if (userId === store.user.id) {
-      sessionStorage.removeItem('view_profile_id');
-    } else {
-      sessionStorage.setItem('view_profile_id', userId);
-    }
-    // Setting the hash to its current value fires no hashchange; re-render manually
+    // Use hash parameter for persistence across refresh
+    const hash = userId === store.user.id ? '#/profile' : `#/profile?u=${userId}`;
     if (window.location.hash.startsWith('#/profile')) {
-      window.dispatchEvent(new Event('hashchange'));
+      window.location.hash = hash;
     } else {
-      window.location.hash = '#/profile';
+      window.location.hash = hash;
     }
   },
 
