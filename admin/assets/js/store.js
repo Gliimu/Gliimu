@@ -4,7 +4,6 @@ export const ROLE_LABELS = {
   super: 'Super Admin',
   crm: 'CRM',
   registrar: 'Registrar',
-  captain: 'Captain / Instructor',
   operations: 'Operations'
 };
 

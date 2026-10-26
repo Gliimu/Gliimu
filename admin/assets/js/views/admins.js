@@ -4,7 +4,7 @@ import { escapeHtml, timeAgo, badge, empty, avatar, rpcError } from '../ui.js';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const ROLES = Object.keys(ROLE_LABELS);
-const ROLE_TONE = { super: 'error', crm: 'brand', registrar: 'info', captain: 'warning', operations: 'neutral' };
+const ROLE_TONE = { super: 'error', crm: 'brand', registrar: 'info', operations: 'neutral' };
 
 function roleOptions(selected) {
   return ROLES.map(r => `<option value="${r}"${r === selected ? ' selected' : ''}>${escapeHtml(ROLE_LABELS[r])}</option>`).join('');

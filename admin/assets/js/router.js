@@ -7,7 +7,7 @@ import { store } from './store.js';
 
 // Support and the admins room are staff-wide: support_can_view() in SQL is true
 // for every admin role, so the desk must be reachable from all of them too.
-const STAFF = 'crm operations registrar captain super';
+const STAFF = 'crm operations registrar super';
 
 const routes = {
   '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=1').then(m => m.default) },
@@ -20,14 +20,13 @@ const routes = {
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js?v=2').then(m => m.default) },
   '/ledger': { role: 'registrar', title: 'Ledger', load: () => import('./views/ledger.js?v=1').then(m => m.default) },
   '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=2').then(m => m.default) },
-  '/triads': { role: 'captain', title: 'Triads & Apprentices', load: () => import('./views/triads.js').then(m => m.default) },
   '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=11').then(m => m.default) },
   '/arena': { role: 'operations', title: 'XpLoRe', load: () => import('./views/updates.js?v=14').then(m => m.default) },
   '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=18').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/dashboard', '/submissions', '/reports', '/content', '/crm-members', '/support', '/admin-room', '/finance', '/ledger', '/revenue', '/triads', '/operations', '/arena', '/members', '/admins'];
+const order = ['/dashboard', '/submissions', '/reports', '/content', '/crm-members', '/support', '/admin-room', '/finance', '/ledger', '/revenue', '/operations', '/arena', '/members', '/admins'];
 
 export function firstRoute() {
   return order.find(path => {
