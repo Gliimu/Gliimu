@@ -22,7 +22,7 @@ const routes = {
   '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=2').then(m => m.default) },
   '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=11').then(m => m.default) },
   '/arena': { role: 'operations', title: 'XpLoRe', load: () => import('./views/updates.js?v=14').then(m => m.default) },
-  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=18').then(m => m.default) },
+  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=19').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
