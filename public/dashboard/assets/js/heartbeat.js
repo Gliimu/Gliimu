@@ -46,12 +46,12 @@ async function sendHeartbeat() {
     }
 
     if (data.ok === false) {
-      if (data.code === 'INSUFFICIENT_BALANCE') {
-        showLowBalanceWarning();
+      if (data.code === 'INSUFFICIENT_BALANCE' || data.code === 'NO_ACTIVE_PLAN') {
+        // Stop heartbeat and redirect to XpLoRe where the G0 modal will show
         stop();
-      } else if (data.code === 'NO_ACTIVE_PLAN') {
-        showPlanNotice();
-        stop();
+        if (window.location.hash !== '#/xplore') {
+          window.location.hash = '#/xplore';
+        }
       }
       return;
     }

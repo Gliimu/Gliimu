@@ -117,6 +117,9 @@ export function createRecorder({ instanceName, inputAreaId, restore, send }) {
   async function start() {
     try {
       cancelled = false;
+      if (typeof requestDevicePermission === 'function') {
+        await requestDevicePermission('audio');
+      }
       recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(recStream);
       audioChunks = [];

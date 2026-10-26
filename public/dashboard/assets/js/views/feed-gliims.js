@@ -60,9 +60,32 @@ const hubView = {
 
     this.setupRealtime();
 
+    // Check balance on XpLoRe page and show G0 modal if needed
+    this.checkBalanceAndShowModal();
+
     this.fetchPosts().then(() => {
       this.checkPersistedModal();
     });
+  },
+
+  async checkBalanceAndShowModal() {
+    if (!store.user || !store.profile) return;
+    try {
+      const { data: balanceData } = await supabase.rpc('gliits_get_balance');
+      if (!balanceData) return;
+      const balance = Number(balanceData.balance || 0);
+      const plan = balanceData.plan;
+      const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
+      if (balance <= 0 && !planActive && typeof appAlert === 'function') {
+        setTimeout(() => {
+          appAlert('Your balance has reached G0. Top up or activate a plan to continue using the platform.').then(() => {
+            window.location.hash = '#/wallet';
+          });
+        }, 500);
+      }
+    } catch (e) {
+      console.warn('Balance check failed:', e.message);
+    }
   },
 
   async checkPersistedModal() {
@@ -2159,7 +2182,7 @@ const hubView = {
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                 </button>
               </div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">₦50 per comment</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">Earn 5 GP per comment</div>
               <div class="comment-list" id="comment-list-${post.id}">
                 ${commentsHtml}
               </div>
@@ -2176,7 +2199,7 @@ const hubView = {
             <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
             <span>${comments}</span>
           </button>
-          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')" title="Earn 2 GP">
+          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${post.title}')" title="Earn 5 GP">
             <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
             <span>${shares}</span>
           </button>
@@ -2458,6 +2481,7 @@ const hubView = {
       await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
       this.interestSignal(3, post.category);
     }
+    await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 5 });
     if (post) this.notifyMentions(postId, post, text, data?.id);
     if (this.pickedMentions) delete this.pickedMentions[postId];
   },
@@ -2511,7 +2535,7 @@ const hubView = {
     if (data) this.allInteractions.push(data);
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
-    await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 2 });
+    await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 5 });
 
     this.closeModal();
     this.openReadView(postId);

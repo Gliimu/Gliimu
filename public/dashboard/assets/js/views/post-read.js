@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js';
 import { renderFileInto } from '../reader.js?v=32';
-import * as heartbeat from '../heartbeat.js?v=2';
-import hubView from './feed-gliims.js?v=86';
+import * as heartbeat from '../heartbeat.js?v=3';
+import hubView from './feed-gliims.js?v=87';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -49,6 +49,23 @@ export default {
     if (!postId) {
       window.location.hash = '#/xplore';
       return;
+    }
+
+    // Gate: block content access if wallet is G0 and no active plan
+    const { data: balanceData } = await supabase.rpc('gliits_get_balance');
+    if (balanceData) {
+      const balance = Number(balanceData.balance || 0);
+      const plan = balanceData.plan;
+      const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
+      if (balance <= 0 && !planActive) {
+        window.location.hash = '#/xplore';
+        setTimeout(() => {
+          if (typeof appAlert === 'function') {
+            appAlert('Your balance has reached G0. Top up or activate a plan to continue reading.');
+          }
+        }, 100);
+        return;
+      }
     }
 
     this.postId = postId;
@@ -259,7 +276,7 @@ export default {
           <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
           <span>${comments}</span>
         </button>
-        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 2 GP">
+        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 5 GP">
           <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
           <span>${shares}</span>
         </button>

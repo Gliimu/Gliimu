@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js';
-import * as heartbeat from '../heartbeat.js?v=2';
+import * as heartbeat from '../heartbeat.js?v=3';
 
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -654,6 +654,9 @@ const liveView = {
 
   async startMedia() {
     try {
+      if (typeof requestDevicePermission === 'function') {
+        await requestDevicePermission('camera_microphone');
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
       this.localStream = stream;
       this.currentFacing = 'user';
@@ -1164,6 +1167,9 @@ const liveView = {
     }
 
     try {
+      if (typeof requestDevicePermission === 'function') {
+        await requestDevicePermission('screen');
+      }
       const display = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' } });
       const screenTrack = display.getVideoTracks()[0];
       this.preShareTrack = this.localStream.getVideoTracks()[0] || null;

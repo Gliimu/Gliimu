@@ -23,10 +23,8 @@
 --      returns other titles in the same category (or type) for the
 --      "you finished — read this next" shelf. Returns display fields only.
 --
--- COMPLETION GP AMOUNT: 50 GP (the v_reward constant in complete_reading).
--- Change that one line to retune. Engagement GP (liking / commenting on a
--- title or author) is awarded separately by the existing add_gp path in the
--- client, not here.
+-- COMPLETION GP: removed. Engagement GP (commenting / sharing) is awarded
+-- by the client via add_gp, not here.
 --
 -- WHY complete_reading IS SECURITY DEFINER: it must read the item's type /
 -- unlock state and write profiles.total_gp + a transactions ledger row
@@ -110,7 +108,6 @@ set search_path = public
 as $$
 declare
   uid          uuid := auth.uid();
-  v_reward     integer := 10;              -- completion GP; retune here
   v_type       text;
   v_title      text;
   v_unlocked   boolean;
@@ -152,7 +149,7 @@ begin
     from public.reading_progress
    where user_id = uid and item_id = p_item;
 
-  -- Bundles have no single end: record completion but award no GP.
+  -- Bundles have no single end: record completion but no GP.
   if v_type not in ('publication', 'audiolite') then
     update public.reading_progress
        set completed_at = coalesce(completed_at, now()), updated_at = now()
@@ -164,7 +161,7 @@ begin
     return jsonb_build_object('ok', true, 'status', 'already_completed', 'gp_awarded', 0);
   end if;
 
-  -- First completion: stamp it, credit GP, write the ledger row.
+  -- First completion: stamp it, no GP.
   update public.reading_progress
      set completed_at  = now(),
          gp_awarded_at = now(),
@@ -172,15 +169,7 @@ begin
          updated_at    = now()
    where user_id = uid and item_id = p_item;
 
-  update public.profiles
-     set total_gp = coalesce(total_gp, 0) + v_reward
-   where id = uid;
-
-  insert into public.transactions (user_id, amount, type, status, points, description)
-  values (uid, 0, 'reward', 'success', v_reward,
-          'Completed reading: ' || coalesce(v_title, 'a title'));
-
-  return jsonb_build_object('ok', true, 'status', 'completed', 'gp_awarded', v_reward);
+  return jsonb_build_object('ok', true, 'status', 'completed', 'gp_awarded', 0);
 end $$;
 
 revoke all on function public.complete_reading(uuid) from public, anon;

@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  var LOGO = '/icons/logo.png';
+  var LOGO = '/icons/icon.png';
   var Z_INDEX = 2147483000;
 
   var styles = [
@@ -257,5 +257,19 @@
   window.prompt = function () {
     console.warn('Gliimu: window.prompt is disabled. Use await appPrompt(message, options).');
     return null;
+  };
+
+  // Device permission pre-modal: explains why the permission is needed before
+  // the browser's native permission prompt appears.
+  window.requestDevicePermission = async function (type) {
+    var messages = {
+      camera: 'Gliimu needs access to your camera for the live session. Please allow camera access when prompted.',
+      microphone: 'Gliimu needs access to your microphone for the live session. Please allow microphone access when prompted.',
+      camera_microphone: 'Gliimu needs access to your camera and microphone for the live session. Please allow both when prompted.',
+      screen: 'Gliimu needs permission to share your screen. Please select what you want to share when prompted.',
+      audio: 'Gliimu needs access to your microphone to record voice messages. Please allow microphone access when prompted.'
+    };
+    var msg = messages[type] || 'Gliimu needs a device permission. Please allow it when prompted.';
+    await appAlert(msg);
   };
 })();

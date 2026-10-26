@@ -599,7 +599,7 @@ end;
 $$;
 
 -- 14c. bump_post_views() — uses feed_gliims, also tracks event views
--- Awards 10 GP to the post author on each unique viewer's first view.
+-- No GP awarded for views; engagement GP comes from commenting and sharing.
 drop function if exists public.bump_post_views(uuid);
 create table if not exists public.post_views (
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -618,39 +618,24 @@ set search_path = public
 as $$
 declare
   v_viewer uuid := auth.uid();
-  v_author uuid;
   v_new_views integer;
   v_event_id uuid;
-  v_inserted boolean;
 begin
   if v_viewer is null then
     return (select views from public.feed_gliims where id = p_post);
   end if;
 
-  -- Try to record this view. If the row already exists, this viewer already
-  -- viewed this post — just increment the counter, no GP.
   insert into public.post_views (user_id, post_id)
   values (v_viewer, p_post)
   on conflict (user_id, post_id) do nothing;
-  v_inserted := found;
 
   update public.feed_gliims
      set views = views + 1
    where id = p_post
-  returning views, event_id, user_id into v_new_views, v_event_id, v_author;
+  returning views, event_id into v_new_views, v_event_id;
 
   if v_event_id is not null then
     perform public.event_track_view(p_post);
-  end if;
-
-  -- Award 10 GP to the author on the viewer's first view only.
-  -- Authors cannot earn GP from viewing their own posts.
-  if v_inserted and v_author is not null and v_author <> v_viewer then
-    update public.profiles
-       set total_gp = coalesce(total_gp, 0) + 10
-     where id = v_author;
-    insert into public.transactions (user_id, amount, type, status, points, description)
-    values (v_author, 0, 'reward', 'success', 10, 'Post view reward');
   end if;
 
   return v_new_views;
@@ -2576,6 +2561,7 @@ grant execute on function public.referral_list() to authenticated, service_role;
 -- ============================================================
 
 -- 23a. complete_reading(p_item) — param name matches the client
+-- No GP awarded; engagement GP comes from commenting and sharing.
 drop function if exists public.complete_reading(uuid) cascade;
 create or replace function public.complete_reading(p_item uuid)
 returns jsonb
@@ -2602,12 +2588,7 @@ begin
     return jsonb_build_object('ok', true, 'already_completed', true);
   end if;
 
-  -- Award GP for completing reading
-  update public.profiles
-     set total_gp = coalesce(total_gp, 0) + 10
-   where id = v_user;
-
-  return jsonb_build_object('ok', true, 'gp_awarded', 10);
+  return jsonb_build_object('ok', true, 'gp_awarded', 0);
 end;
 $$;
 
