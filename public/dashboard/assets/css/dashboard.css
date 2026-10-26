@@ -448,18 +448,6 @@ body.sidebar-open .sidebar-backdrop {
   flex-shrink: 0;
 }
 
-.badge-pen {
-  color: var(--text-secondary);
-}
-
-.badge-tick {
-  color: #1DA1F2;
-}
-
-.badge-pod {
-  color: #F59E0B;
-}
-
 /* ============================================
    UNIFIED SIDEBAR OVERLAY LOGIC
    Sidebar slides over content on all screen sizes.
