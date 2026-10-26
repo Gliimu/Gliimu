@@ -2,12 +2,8 @@ import { supabase } from '/shared/js/config.js';
 
 // Verification badge icons displayed next to usernames
 export function badgeIcon(badge) {
-  if (badge === 'tick')
-    return `<svg class="badge-icon badge-tick" width="14" height="14" viewBox="0 0 24 24" fill="#1DA1F2" stroke="#1DA1F2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
-  if (badge === 'pen')
-    return `<svg class="badge-icon badge-pen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>`;
-  if (badge === 'pod')
-    return `<svg class="badge-icon badge-pod" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>`;
+  if (badge === 'tick' || badge === 'pen' || badge === 'pod')
+    return `<img src="/icons/${badge}.svg" alt="${badge}" class="badge-icon badge-${badge}" width="14" height="14">`;
   return '';
 }
 
