@@ -39,7 +39,7 @@ export default {
 
     if (error) {
       host.innerHTML = empty(error.code === '42883'
-        ? 'registrar_overview() is not installed yet. Run sql/registrar_gliits.sql.'
+        ? 'registrar_overview() is not installed yet. Run the SQL scripts in sql/ folder.'
         : `Could not load finance: ${error.message}`);
       return;
     }

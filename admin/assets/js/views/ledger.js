@@ -60,7 +60,7 @@ export default {
 
     if (error) {
       body.innerHTML = empty(error.code === '42883'
-        ? 'registrar_ledger() is not installed yet. Run sql/registrar.sql.'
+        ? 'registrar_ledger() is not installed yet. Run the SQL scripts in sql/ folder.'
         : `Could not load the ledger: ${error.message}`);
       return;
     }

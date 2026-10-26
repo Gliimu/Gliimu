@@ -32,7 +32,7 @@ export default {
 
     if (error) {
       body.innerHTML = empty(error.code === '42883'
-        ? 'registrar_members() is not installed yet. Run sql/registrar_gliits.sql.'
+        ? 'registrar_members() is not installed yet. Run the SQL scripts in sql/ folder.'
         : `Could not load members: ${error.message}`);
       return;
     }

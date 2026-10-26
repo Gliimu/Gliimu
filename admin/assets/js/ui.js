@@ -160,7 +160,7 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
-  MISSING_TABLE: 'This screen needs a table your database does not have yet. Re-run the SQL scripts: sql/setup_all.sql first, then sql/gliits_billing.sql, then sql/registrar_gliits.sql.',
+  MISSING_TABLE: 'This screen needs a table your database does not have yet. Run sql/setup_core.sql first, then the feature scripts (gliits_billing.sql, admin.sql, etc.).',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };
 
