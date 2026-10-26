@@ -60,12 +60,9 @@ export default {
     const pendingReports = reports ? reports.length : 0;
     document.getElementById('pending-reports').textContent = pendingReports;
 
-    // Open support threads (threads with no admin response yet)
-    const { data: threads } = await supabase
-      .from('support_threads')
-      .select('id')
-      .eq('status', 'open');
-    const openThreads = threads ? threads.length : 0;
+    // Open support threads (threads with unread messages)
+    const { data: threads } = await supabase.rpc('support_inbox');
+    const openThreads = threads ? threads.filter(t => t.unread > 0).length : 0;
     document.getElementById('open-support').textContent = openThreads;
 
     // Total members
