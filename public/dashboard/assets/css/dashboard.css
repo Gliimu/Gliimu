@@ -440,27 +440,23 @@ body.sidebar-open .sidebar-backdrop {
   margin-left: 4px;
 }
 
-/* Tier icons next to usernames */
-.tier-icon {
+/* Verification badges next to usernames */
+.badge-icon {
   display: inline-block;
   vertical-align: middle;
   margin-left: 4px;
   flex-shrink: 0;
 }
 
-.tier-bulb {
-  color: #F59E0B;
-}
-
-.tier-pen {
+.badge-pen {
   color: var(--text-secondary);
 }
 
-.tier-tick {
+.badge-tick {
   color: #1DA1F2;
 }
 
-.tier-star {
+.badge-pod {
   color: #F59E0B;
 }
 

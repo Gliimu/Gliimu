@@ -270,7 +270,7 @@ export default {
         </div>
         <div class="profile-header-info">
           <div class="profile-name-row">
-            <h1>${p.full_name || 'Gliimait'}${tierIcon(gp)}</h1>
+            <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
           </div>
           ${p.bio ? `<p class="profile-bio">${p.bio}</p>` : ''}
         </div>

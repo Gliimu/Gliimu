@@ -101,6 +101,13 @@ export default {
 
     overlay.querySelector('#apply-wallet').addEventListener('click', () => this.adjustWallet(p, overlay, close));
     overlay.querySelector('#apply-days').addEventListener('click', () => this.adjustDays(p, plan, overlay, close));
+
+    overlay.querySelectorAll('.badge-grant-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.grantBadge(p, btn.dataset.badge, overlay, close));
+    });
+
+    const revokeBtn = overlay.querySelector('#revoke-badge');
+    if (revokeBtn) revokeBtn.addEventListener('click', () => this.revokeBadge(p, overlay, close));
   },
 
   memberBody(d, ledger) {
@@ -111,11 +118,29 @@ export default {
     const buys = Array.isArray(d.purchases) ? d.purchases : null;
     const sells = Array.isArray(d.feed_items) ? d.feed_items : null;
     const edits = d.adjustments || [];
+    const currentBadge = p.verification_badge || null;
 
     const section = (title, inner) => `<div class="section-title">${escapeHtml(title)}</div>${inner}`;
     const schemaNote = (value) => `<p class="muted small">Not available — ${escapeHtml(value && value.detail ? value.detail : 'the table shape did not match.')} </p>`;
 
+    const badgeButtons = ['tick', 'pen', 'pod'].map(b => `
+      <button class="btn-quiet badge-grant-btn ${currentBadge === b ? 'badge-active' : ''}" data-badge="${b}">
+        <img src="/icons/${b}.svg" alt="${b}" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+        ${b.charAt(0).toUpperCase() + b.slice(1)}
+      </button>
+    `).join('');
+
     return `
+      ${section('Verification badge', `
+        <div style="margin-bottom: 8px;">
+          ${currentBadge ? `<span class="badge-brand">Current: <img src="/icons/${currentBadge}.svg" alt="${currentBadge}" width="14" height="14" style="vertical-align: middle;"></span>` : '<span class="muted small">No badge granted</span>'}
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          ${badgeButtons}
+        </div>
+        ${currentBadge ? '<button class="btn-quiet" id="revoke-badge" style="color: #EF4444;">Remove badge</button>' : ''}
+      `)}
+
       <dl class="kv" style="margin-bottom: 6px;">
         <dt>Wallet</dt><dd>${gliits(p.wallet_balance)}</dd>
         <dt>GP</dt><dd>${gp(p.total_gp)}</dd>
@@ -262,5 +287,35 @@ export default {
     close();
     await this.load(document.getElementById('member-search').value);
     await appAlert(`Plan ${data.tier}${data.subscription_expires_at ? ` until ${new Date(data.subscription_expires_at).toLocaleString()}` : ''}.`);
+  },
+
+  async grantBadge(p, badgeType, overlay, close) {
+    const ok = await appConfirm(
+      `Grant ${badgeType} verification badge to ${p.full_name || p.username}?`,
+      { title: 'Grant badge?', okText: 'Grant' }
+    );
+    if (!ok) return;
+
+    const { error } = await supabase.rpc('admin_grant_verification', { p_user_id: p.id, p_badge: badgeType });
+    if (error) return appAlert(`Could not grant badge: ${error.message}`);
+
+    close();
+    await this.load(document.getElementById('member-search').value);
+    await appAlert(`${badgeType.charAt(0).toUpperCase() + badgeType.slice(1)} badge granted to ${p.full_name || p.username}.`);
+  },
+
+  async revokeBadge(p, overlay, close) {
+    const ok = await appConfirm(
+      `Remove verification badge from ${p.full_name || p.username}?`,
+      { title: 'Remove badge?', okText: 'Remove', danger: true }
+    );
+    if (!ok) return;
+
+    const { error } = await supabase.rpc('admin_revoke_verification', { p_user_id: p.id });
+    if (error) return appAlert(`Could not remove badge: ${error.message}`);
+
+    close();
+    await this.load(document.getElementById('member-search').value);
+    await appAlert(`Badge removed from ${p.full_name || p.username}.`);
   }
 };

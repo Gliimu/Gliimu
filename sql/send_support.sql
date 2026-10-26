@@ -5,6 +5,7 @@
 -- ============================================================
 -- SEND SUPPORT FUNCTION
 -- ============================================================
+drop function if exists public.send_support(uuid);
 create or replace function public.send_support(p_post uuid)
 returns numeric
 language plpgsql
