@@ -363,7 +363,7 @@ export default {
             </div>
           ` : ''}
         </div>
-        <div class="profile-gliims-grid blog-feed">
+        <div class="profile-gliims-grid">
           ${(() => {
             let filteredPosts = posts || [];
             if (this._projectFilter === 'saved' && hubView.savedPosts) {

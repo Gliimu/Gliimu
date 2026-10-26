@@ -577,12 +577,24 @@
   border-color: var(--brand-primary);
 }
 
-/* Gliims grid uses blog-feed from feed.css */
+/* Gliims grid — masonry layout using CSS columns */
 .profile-gliims-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  column-count: 2;
+  column-gap: 20px;
   padding: 24px;
+}
+
+.profile-gliims-grid .blog-card {
+  break-inside: avoid;
+  margin-bottom: 20px;
+  display: inline-block;
+  width: 100%;
+}
+
+@media (min-width: 1200px) {
+  .profile-gliims-grid {
+    column-count: 3;
+  }
 }
 
 /* ============================================
@@ -623,8 +635,12 @@
   }
 
   .profile-gliims-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    column-count: 2;
+    column-gap: 12px;
+  }
+
+  .profile-gliims-grid .blog-card {
+    margin-bottom: 12px;
   }
 }
 
@@ -718,9 +734,12 @@
   }
 
   .profile-gliims-grid {
-    grid-template-columns: 1fr;
+    column-count: 1;
     padding: 16px;
-    gap: 16px;
+  }
+
+  .profile-gliims-grid .blog-card {
+    margin-bottom: 16px;
   }
 
   .qr-large-actions {
