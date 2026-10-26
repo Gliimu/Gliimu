@@ -25,7 +25,6 @@ begin
              p.full_name  as referee_name,
              r.status,
              r.signup_reward_gp,
-             r.purchase_bonus_gp,
              r.created_at,
              r.vested_at
         from public.referrals r

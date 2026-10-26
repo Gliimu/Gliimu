@@ -941,7 +941,7 @@ export default {
                       const name = r.referee_name || 'Member';
                       const status = r.status === 'vested' ? 'Vested' : 'Pending';
                       const statusColor = r.status === 'vested' ? '#10b981' : '#f59e0b';
-                      const gp = Number(r.signup_reward_gp || 0) + Number(r.purchase_bonus_gp || 0);
+                      const gp = Number(r.signup_reward_gp || 0);
                       const date = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                       return `
                         <tr style="border-bottom: 1px solid var(--border);">

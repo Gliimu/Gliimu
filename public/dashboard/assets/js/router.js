@@ -4,7 +4,7 @@ const routes = {
   '/xplore': () => import('./views/feed.js?v=81').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=81').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=48').then(m => m.default),
-  '/wallet': () => import('./views/wallet.js?v=44').then(m => m.default),
+  '/wallet': () => import('./views/wallet.js?v=45').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=3').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=5').then(m => m.default),
@@ -12,7 +12,7 @@ const routes = {
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=55').then(m => m.default),
   '/feature': () => import('./views/feature.js?v=1').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=19').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=20').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=12').then(m => m.default),
 };
 

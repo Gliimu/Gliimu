@@ -110,7 +110,7 @@ set search_path = public
 as $$
 declare
   uid          uuid := auth.uid();
-  v_reward     integer := 50;              -- completion GP; retune here
+  v_reward     integer := 10;              -- completion GP; retune here
   v_type       text;
   v_title      text;
   v_unlocked   boolean;

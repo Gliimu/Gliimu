@@ -464,9 +464,7 @@ create table if not exists public.referrals (
                    check (status in ('pending', 'vested', 'invalid')),
   signup_reward_gp integer not null default 100,
   created_at       timestamptz not null default now(),
-  vested_at        timestamptz,
-  purchase_bonus_gp integer,
-  purchase_bonus_at timestamptz
+  vested_at        timestamptz
 );
 create unique index if not exists referrals_referee_once
   on public.referrals (referee_id);
@@ -601,24 +599,61 @@ end;
 $$;
 
 -- 14c. bump_post_views() — uses feed_gliims, also tracks event views
+-- Awards 10 GP to the post author on each unique viewer's first view.
 drop function if exists public.bump_post_views(uuid);
+create table if not exists public.post_views (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  post_id uuid not null references public.feed_gliims(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+alter table public.post_views enable row level security;
+revoke all on public.post_views from public, anon, authenticated;
+
 create or replace function public.bump_post_views(p_post uuid)
-returns void
+returns integer
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
+  v_viewer uuid := auth.uid();
+  v_author uuid;
+  v_new_views integer;
   v_event_id uuid;
+  v_inserted boolean;
 begin
+  if v_viewer is null then
+    return (select views from public.feed_gliims where id = p_post);
+  end if;
+
+  -- Try to record this view. If the row already exists, this viewer already
+  -- viewed this post — just increment the counter, no GP.
+  insert into public.post_views (user_id, post_id)
+  values (v_viewer, p_post)
+  on conflict (user_id, post_id) do nothing;
+  v_inserted := found;
+
   update public.feed_gliims
      set views = views + 1
    where id = p_post
-  returning event_id into v_event_id;
+  returning views, event_id, user_id into v_new_views, v_event_id, v_author;
 
   if v_event_id is not null then
     perform public.event_track_view(p_post);
   end if;
+
+  -- Award 10 GP to the author on the viewer's first view only.
+  -- Authors cannot earn GP from viewing their own posts.
+  if v_inserted and v_author is not null and v_author <> v_viewer then
+    update public.profiles
+       set total_gp = coalesce(total_gp, 0) + 10
+     where id = v_author;
+    insert into public.transactions (user_id, amount, type, status, points, description)
+    values (v_author, 0, 'reward', 'success', 10, 'Post view reward');
+  end if;
+
+  return v_new_views;
 end;
 $$;
 
@@ -2479,7 +2514,6 @@ begin
   end if;
 
   perform public.referral_vest_due(v_uid);
-  perform public.referral_purchase_bonus_due(v_uid);
 
   select p.referral_code into v_code
   from public.profiles p where p.id = v_uid;
@@ -2491,9 +2525,6 @@ begin
       'pending', count(*) filter (where rf.status = 'pending'),
       'vested', count(*) filter (where rf.status = 'vested'),
       'gp_earned', coalesce(sum(rf.signup_reward_gp) filter (where rf.status = 'vested'), 0)
-        + coalesce(sum(rf.purchase_bonus_gp) filter (where rf.purchase_bonus_at is not null), 0),
-      'purchase_count', count(*) filter (where rf.purchase_bonus_at is not null),
-      'purchase_gp', coalesce(sum(rf.purchase_bonus_gp) filter (where rf.purchase_bonus_at is not null), 0)
     )
     from public.referrals rf
    where rf.referrer_id = v_uid
@@ -2503,51 +2534,7 @@ $$;
 revoke execute on function public.referral_summary() from public, anon;
 grant execute on function public.referral_summary() to authenticated, service_role;
 
--- 22f. referral_purchase_bonus_due(p_referrer) — 20 GP bonus when referee makes first purchase
-drop function if exists public.referral_purchase_bonus_due(uuid) cascade;
-create or replace function public.referral_purchase_bonus_due(p_referrer uuid default null)
-returns integer
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  r record;
-  v_bonus constant integer := 20;
-  v_count integer := 0;
-begin
-  for r in
-    select rf.id, rf.referrer_id
-      from public.referrals rf
-     where rf.purchase_bonus_at is null
-       and rf.status in ('pending', 'vested')
-       and (p_referrer is null or rf.referrer_id = p_referrer)
-       and exists (
-         select 1 from public.gliits_topups t
-          where t.user_id = rf.referee_id
-            and t.payment_status = 'success'
-            and t.created_at >= rf.created_at
-       )
-     order by rf.referrer_id, rf.id
-  loop
-    update public.referrals
-       set purchase_bonus_gp = v_bonus, purchase_bonus_at = now()
-     where id = r.id
-       and purchase_bonus_at is null
-       and status in ('pending', 'vested');
-    if found then
-      update public.profiles
-         set total_gp = coalesce(total_gp, 0) + v_bonus
-       where id = r.referrer_id;
-      insert into public.transactions (user_id, amount, type, status, points, description)
-      values (r.referrer_id, 0, 'reward', 'success', v_bonus, 'Referral purchase bonus');
-      v_count := v_count + 1;
-    end if;
-  end loop;
-  return v_count;
-end $$;
-revoke execute on function public.referral_purchase_bonus_due(uuid) from public, anon, authenticated;
-grant execute on function public.referral_purchase_bonus_due(uuid) to service_role;
+-- 22f. (removed — purchase bonus no longer awarded)
 
 -- 22g. referral_list() — per-referral rows for the Refer & Earn modal
 drop function if exists public.referral_list() cascade;
@@ -2572,7 +2559,6 @@ begin
              p.full_name  as referee_name,
              r.status,
              r.signup_reward_gp,
-             r.purchase_bonus_gp,
              r.created_at,
              r.vested_at
         from public.referrals r
@@ -3559,7 +3545,7 @@ declare
     'increment_wallet(uuid,integer)','add_gp(uuid,integer)',
     'make_referral_code()','profiles_assign_referral_code()',
     'apply_referral(text)','referral_vest_due(uuid)','referral_summary()',
-    'referral_purchase_bonus_due(uuid)','referral_list()',
+    'referral_list()',
     'complete_reading(uuid)','related_publications(uuid,integer)',
     'gliim_kind(jsonb)',
     'admin_delete_feed_item(uuid)',
