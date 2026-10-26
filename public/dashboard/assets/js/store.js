@@ -3,7 +3,7 @@ import { supabase } from '/shared/js/config.js';
 // Verification badge icons displayed next to usernames
 export function badgeIcon(badge) {
   if (badge === 'tick' || badge === 'pen' || badge === 'pod')
-    return `<img src="/icons/${badge}.svg" alt="${badge}" class="badge-icon badge-${badge}" width="14" height="14">`;
+    return `<img src="/icons/${badge}.svg?v=3" alt="${badge}" class="badge-icon badge-${badge}" width="14" height="14">`;
   return '';
 }
 

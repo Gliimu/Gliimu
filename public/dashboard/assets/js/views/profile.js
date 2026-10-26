@@ -209,7 +209,7 @@ export default {
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
-      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, is_premium, status').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
       isMe ? Promise.resolve({ data: null }) : supabase.from('followed_users').select('*').eq('follower_id', store.user.id).eq('followed_id', userId).maybeSingle()
@@ -432,6 +432,10 @@ export default {
     const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
     const commentSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
 
+    const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+    const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}Premium</span>` : '';
+    const draftBadge = post.status === 'draft' ? `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,.15);color:#4B5563;font-size:11px;font-weight:700;">Draft</span>` : '';
+
     const coverHtml = post.cover_url
       ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>`
       : post.cover_color
@@ -448,12 +452,13 @@ export default {
       <div class="blog-content">
         <div class="blog-meta">
           <span class="blog-category">${post.category || 'General'}</span>
+          ${draftBadge}${premiumBadge}
           <span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
         </div>
         <h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2>
         <p class="blog-desc">${desc}</p>
         <div class="blog-footer">
-          <div class="blog-author" onclick="event.stopPropagation();">
+          <div class="blog-author hub-author-hit" onclick="event.stopPropagation();">
             <div style="position:relative;">${avatar}</div>
             <span>${this.escapeHtml(profile.full_name || 'Gliimait')}</span>
           </div>
