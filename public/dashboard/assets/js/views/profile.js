@@ -208,7 +208,7 @@ export default {
     // the profiles.username column is revoked from authenticated, and this
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
-      supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio').eq('id', userId).single(),
+      supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
       supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),

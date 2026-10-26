@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store, tierClass } from '../store.js';
+import { store, tierClass, badgeIcon } from '../store.js';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
 
 function escapeHtml(value) {
@@ -98,12 +98,12 @@ export default {
       })(),
       (async () => {
         try {
-          const { data, error } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp')
+          const { data, error } = await supabase.from('profiles').select('id, full_name, avatar_url, total_gp, verification_badge')
             .order('total_gp', { ascending: false, nullsFirst: false }).order('id').limit(9);
           if (error) throw error;
           render('search-creators', data.length ? data.map(user => `<a class="search-creator" href="${this.profileHref(user.id)}">
             ${user.avatar_url ? `<img class="${tierClass(user.total_gp, 'search-creator-avatar')}" src="${escapeHtml(user.avatar_url)}" alt="" loading="lazy">` : ''}
-            <span class="search-creator-name">${escapeHtml(user.full_name)}</span>
+            <span class="search-creator-name">${escapeHtml(user.full_name)}${badgeIcon(user.verification_badge)}</span>
             <span class="search-creator-gp">${Number(user.total_gp || 0).toLocaleString()} GP</span>
           </a>`).join('') : '<p class="search-section-status">No creators yet.</p>');
         } catch (error) {
@@ -198,7 +198,7 @@ export default {
         supabase.from('feed_gliims').select('id, user_id, title, description, category, cover_url, created_at')
           .eq('status', 'approved').or(`title.ilike."${filter}",description.ilike."${filter}"`).limit(10),
         loadCollections(),
-        supabase.from('profiles').select('id, full_name, avatar_url, total_gp').ilike('full_name', q).limit(10)
+        supabase.from('profiles').select('id, full_name, avatar_url, total_gp, verification_badge').ilike('full_name', q).limit(10)
       ]);
       if (postsResult.error) throw postsResult.error;
       if (usersResult.error) throw usersResult.error;
@@ -228,7 +228,7 @@ export default {
     container.innerHTML = `<div class="search-result-count">${total} results</div>
       ${collections.length ? `<div class="search-row search-collections-row">${collections.map(renderCollectionCard).join('')}</div>` : ''}
       ${users.map(user => `<a class="search-result-item" href="${this.profileHref(user.id)}">
-        <div class="search-result-title">${user.avatar_url ? `<img src="${escapeHtml(user.avatar_url)}" class="search-result-avatar" alt="">` : ''}${escapeHtml(user.full_name)}</div>
+        <div class="search-result-title">${user.avatar_url ? `<img src="${escapeHtml(user.avatar_url)}" class="search-result-avatar" alt="">` : ''}${escapeHtml(user.full_name)}${badgeIcon(user.verification_badge)}</div>
         <div class="search-result-desc">${Number(user.total_gp || 0).toLocaleString()} GP</div>
       </a>`).join('')}
       ${gliims.map(post => this.renderGliimCard(post)).join('')}`;

@@ -24,7 +24,7 @@ export default {
         </div>
       </div>
 
-      <div class="dash-card" data-link="#/crm-members">
+      <div class="dash-card" data-link="#/members">
         <div class="dash-icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
         </div>
@@ -41,7 +41,7 @@ export default {
         <a href="#/submissions" class="dash-action-btn">Review Submissions</a>
         <a href="#/reports" class="dash-action-btn">Check Reports</a>
         <a href="#/support" class="dash-action-btn">Open Support Desk</a>
-        <a href="#/crm-members" class="dash-action-btn">Manage Members</a>
+        <a href="#/members" class="dash-action-btn">Manage Members</a>
       </div>
     </div>
   `,

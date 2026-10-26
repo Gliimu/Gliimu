@@ -43,24 +43,28 @@ begin
   end if;
 
   select jsonb_agg(jsonb_build_object(
-    'id', p.id,
-    'full_name', p.full_name,
-    'username', p.username,
-    'wallet_balance', coalesce(p.wallet_balance, 0),
-    'total_gp', coalesce(p.total_gp, 0),
-    'plan_type', gp.plan_type,
-    'plan_expires_at', gp.expires_at
+    'id', sub.id,
+    'full_name', sub.full_name,
+    'username', sub.username,
+    'wallet_balance', coalesce(sub.wallet_balance, 0),
+    'total_gp', coalesce(sub.total_gp, 0),
+    'plan_type', sub.plan_type,
+    'plan_expires_at', sub.plan_expires_at
   ))
   into v_members
-  from public.profiles p
-  left join public.gliits_plans gp on gp.user_id = p.id
-  where (
-    p_q is null
-    or p.full_name ilike '%' || p_q || '%'
-    or p.username ilike '%' || p_q || '%'
-  )
-  order by p.created_at desc
-  limit p_limit;
+  from (
+    select p.id, p.full_name, p.username, p.wallet_balance, p.total_gp,
+           gp.plan_type, gp.expires_at as plan_expires_at
+    from public.profiles p
+    left join public.gliits_plans gp on gp.user_id = p.id
+    where (
+      p_q is null
+      or p.full_name ilike '%' || p_q || '%'
+      or p.username ilike '%' || p_q || '%'
+    )
+    order by p.created_at desc
+    limit p_limit
+  ) sub;
 
   return jsonb_build_object('ok', true, 'members', coalesce(v_members, '[]'::jsonb));
 end
