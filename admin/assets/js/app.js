@@ -45,7 +45,7 @@ function showShell() {
   }
 
   // Section labels that end up with no visible links underneath should hide
-  // themselves — otherwise super sees empty "CRM" / "Captain" headings.
+  // themselves — otherwise super sees empty "CRM" / "Registrar" headings.
   document.querySelectorAll('.nav-label[data-role]').forEach(label => {
     const roles = label.dataset.role.split(/\s+/);
     if (!roles.some(r => store.can(r))) { label.hidden = true; return; }

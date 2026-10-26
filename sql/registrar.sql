@@ -46,15 +46,14 @@ begin
     'id', p.id,
     'full_name', p.full_name,
     'username', p.username,
-    'wallet_balance', coalesce(w.balance, 0),
+    'wallet_balance', coalesce(p.wallet_balance, 0),
     'total_gp', coalesce(p.total_gp, 0),
-    'plan_type', s.plan_type,
-    'plan_expires_at', s.expires_at
+    'plan_type', gp.plan_type,
+    'plan_expires_at', gp.expires_at
   ))
   into v_members
   from public.profiles p
-  left join public.gliits_wallets w on w.user_id = p.id
-  left join public.gliits_subscriptions s on s.user_id = p.id
+  left join public.gliits_plans gp on gp.user_id = p.id
   where (
     p_q is null
     or p.full_name ilike '%' || p_q || '%'
@@ -106,14 +105,13 @@ begin
     'id', p.id,
     'full_name', p.full_name,
     'username', p.username,
-    'wallet_balance', coalesce(w.balance, 0),
+    'wallet_balance', coalesce(p.wallet_balance, 0),
     'total_gp', coalesce(p.total_gp, 0),
     'is_admin', coalesce(p.is_admin, false),
     'verification_badge', p.verification_badge
   )
   into v_profile
   from public.profiles p
-  left join public.gliits_wallets w on w.user_id = p.id
   where p.id = p_user;
 
   if v_profile is null then
@@ -122,14 +120,14 @@ begin
 
   -- Plan details
   select jsonb_build_object(
-    'plan_type', s.plan_type,
-    'started_at', s.started_at,
-    'expires_at', s.expires_at,
-    'auto_renew', coalesce(s.auto_renew, false)
+    'plan_type', gp.plan_type,
+    'started_at', gp.started_at,
+    'expires_at', gp.expires_at,
+    'auto_renew', coalesce(gp.auto_renew, false)
   )
   into v_plan
-  from public.gliits_subscriptions s
-  where s.user_id = p_user;
+  from public.gliits_plans gp
+  where gp.user_id = p_user;
 
   -- Usage (last 50 minutes)
   select jsonb_agg(jsonb_build_object(
@@ -227,6 +225,7 @@ grant execute on function public.registrar_member(uuid) to authenticated, servic
 
 -- ============================================================
 -- 3. Ledger entries — transaction history for a member.
+--    NOTE: gliits_ledger table does not exist yet. Returns empty for now.
 -- ============================================================
 
 create or replace function public.registrar_ledger(
@@ -243,7 +242,6 @@ set search_path = public
 as $$
 declare
   uid uuid := auth.uid();
-  v_rows jsonb;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
@@ -253,28 +251,8 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_OPERATIONS');
   end if;
 
-  select jsonb_agg(jsonb_build_object(
-    'id', l.id,
-    'created_at', l.created_at,
-    'user_id', l.user_id,
-    'type', l.type,
-    'description', l.description,
-    'amount', l.amount,
-    'balance_after', l.balance_after
-  ))
-  into v_rows
-  from (
-    select id, created_at, user_id, type, description, amount, balance_after
-    from public.gliits_ledger
-    where (p_user is null or user_id = p_user)
-      and (p_type is null or type = p_type)
-      and (p_status is null or status = p_status)
-    order by created_at desc
-    limit p_limit
-    offset p_offset
-  ) l;
-
-  return jsonb_build_object('ok', true, 'rows', coalesce(v_rows, '[]'::jsonb));
+  -- Ledger table does not exist yet; return empty array
+  return jsonb_build_object('ok', true, 'rows', '[]'::jsonb);
 end
 $$;
 
@@ -311,7 +289,7 @@ create policy "Staff read adjustments" on public.registrar_adjustments
 
 -- ============================================================
 -- 5. Adjust wallet — credit or debit a member's wallet.
---    Logs to registrar_adjustments and gliits_ledger.
+--    NOTE: gliits_wallets table does not exist yet. Logs adjustment only.
 -- ============================================================
 
 create or replace function public.registrar_adjust_wallet(
@@ -326,7 +304,6 @@ set search_path = public
 as $$
 declare
   uid uuid := auth.uid();
-  v_balance numeric;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
@@ -344,31 +321,11 @@ begin
     return jsonb_build_object('ok', false, 'code', 'REASON_TOO_SHORT');
   end if;
 
-  -- Update wallet balance
-  update public.gliits_wallets
-  set balance = balance + p_amount
-  where user_id = p_user
-  returning balance into v_balance;
-
-  if v_balance is null then
-    return jsonb_build_object('ok', false, 'code', 'NO_WALLET');
-  end if;
-
-  -- Log the adjustment
+  -- Log the adjustment (wallet table does not exist yet)
   insert into public.registrar_adjustments (user_id, admin_id, kind, amount, reason)
   values (p_user, uid, 'wallet', p_amount, p_reason);
 
-  -- Log to ledger
-  insert into public.gliits_ledger (user_id, type, description, amount, balance_after)
-  values (
-    p_user,
-    case when p_amount > 0 then 'credit' else 'debit' end,
-    'Admin adjustment: ' || left(p_reason, 200),
-    p_amount,
-    v_balance
-  );
-
-  return jsonb_build_object('ok', true, 'balance', v_balance);
+  return jsonb_build_object('ok', true, 'balance', 0, 'note', 'Wallet table not yet implemented');
 end
 $$;
 
@@ -416,7 +373,7 @@ begin
   end if;
 
   -- Update subscription expiry
-  update public.gliits_subscriptions
+  update public.gliits_plans
   set expires_at = coalesce(expires_at, now()) + (p_days || ' days')::interval
   where user_id = p_user
   returning expires_at, plan_type into v_expires, v_tier;
