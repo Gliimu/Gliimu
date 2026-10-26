@@ -295,7 +295,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgb(0 0 0 / 14%) 0%, rgb(204 198 198 / 0%) 40%, rgb(0 0 0 / 10%) 100%);
+  background: linear-gradient(to top, rgb(255 255 255 / 76%) 0%, rgb(204 198 198 / 0%) 40%, rgb(0 0 0 / 10%) 100%);
   border-radius: inherit;
   pointer-events: none;
 }

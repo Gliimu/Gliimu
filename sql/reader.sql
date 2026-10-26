@@ -3,13 +3,13 @@
 -- Run this in the Supabase SQL Editor (Dashboard > SQL Editor).
 -- Safe to run more than once (idempotent).
 --
--- RUN ORDER: after sql/billing.sql (needs effective_tier, is_admin,
--- purchases) and after sql/library_content.sql (needs library_contents
--- and library_item_unlocked). Standalone otherwise.
+-- RUN ORDER: after sql/setup_all.sql (needs feed_items, feed_submissions,
+-- and library_item_unlocked function) and after sql/gliits_billing.sql
+-- (needs effective_tier, is_admin). Standalone otherwise.
 --
 -- WHAT THIS INSTALLS
---   1. library_items.category + library_submissions.category — a subject
---      tag (Media|Tech|Business|Personal|Education) so the reader can show
+--   1. feed_items.category + feed_submissions.category — a subject tag
+--      (Media|Tech|Business|Personal|Education) so the reader can show
 --      "more in a similar category" at the end. Nullable: an item with no
 --      category falls back to matching by type.
 --   2. reading_progress — one row per (member, item): reading percent,
@@ -40,18 +40,13 @@ select pg_advisory_xact_lock(hashtext('gliimu-reader'));
 -- ============================================================
 
 do $$ begin
-  if to_regclass('public.library_items') is null then
-    raise exception 'library_items is MISSING — run this against the live library project.';
+  if to_regclass('public.feed_items') is null then
+    raise exception 'feed_items is MISSING — run setup_all.sql first.';
   end if;
 end $$;
 
-alter table public.library_items
-  add column if not exists category text;
-
-alter table public.library_submissions
-  add column if not exists category text;
-
-create index if not exists library_items_category_idx on public.library_items (category);
+-- feed_items and feed_submissions already have category column in CREATE TABLE
+create index if not exists idx_feed_items_category on public.feed_items (category);
 
 
 -- ============================================================
@@ -60,7 +55,7 @@ create index if not exists library_items_category_idx on public.library_items (c
 
 create table if not exists public.reading_progress (
   user_id       uuid not null references public.profiles(id) on delete cascade,
-  item_id       uuid not null references public.library_items(id) on delete cascade,
+  item_id       uuid not null references public.feed_items(id) on delete cascade,
   percent       integer not null default 0,
   completed_at  timestamptz,
   gp_awarded_at timestamptz,
@@ -100,6 +95,7 @@ create policy "own reading progress update" on public.reading_progress
 -- 3. complete_reading — mark done, award GP once
 -- ============================================================
 
+drop function if exists public.complete_reading(uuid);
 create or replace function public.complete_reading(p_item uuid)
 returns jsonb
 language plpgsql
@@ -126,7 +122,7 @@ begin
   perform pg_advisory_xact_lock(hashtext('reading:' || uid::text || ':' || p_item::text));
 
   select li.type, li.title into v_type, v_title
-    from public.library_items li
+    from public.feed_items li
    where li.id = p_item;
 
   if not found then
@@ -150,7 +146,7 @@ begin
    where user_id = uid and item_id = p_item;
 
   -- Bundles have no single end: record completion but no GP.
-  if v_type not in ('publication', 'audiolite') then
+  if v_type not in ('book', 'audiolite') then
     update public.reading_progress
        set completed_at = coalesce(completed_at, now()), updated_at = now()
      where user_id = uid and item_id = p_item and completed_at is null;
@@ -178,11 +174,12 @@ grant execute on function public.complete_reading(uuid) to authenticated, servic
 
 -- ============================================================
 -- 4. related_publications — "read this next"
---    SECURITY DEFINER so the shelf is not blinded by library_items RLS.
+--    SECURITY DEFINER so the shelf is not blinded by feed_items RLS.
 --    Returns display fields only (never owner_id). Matches by category
 --    first; if this item has no category, matches by type instead.
 -- ============================================================
 
+drop function if exists public.related_publications(uuid, integer);
 create or replace function public.related_publications(p_item uuid, p_limit integer default 6)
 returns jsonb
 language plpgsql
@@ -200,7 +197,7 @@ begin
   end if;
 
   select category, type into v_category, v_type
-    from public.library_items
+    from public.feed_items
    where id = p_item;
 
   if not found then
@@ -218,9 +215,9 @@ begin
              'author',    li.author,
              'author_avatar', li.author_avatar)
              order by li.sales desc nulls last, li.created_at desc)
-      from public.library_items li
+      from public.feed_items li
      where li.id <> p_item
-       and li.type in ('publication', 'audiolite')
+       and li.type in ('book', 'audiolite')
        and (
              (v_category is not null and li.category = v_category)
           or (v_category is null and li.type = v_type)
@@ -240,13 +237,13 @@ notify pgrst, 'reload schema';
 -- SELF CHECK — returns a grid. Every row should read OK.
 -- ============================================================
 
-select 1 as "#", 'library_items.category exists' as item,
+select 1 as "#", 'feed_items.category exists' as item,
        case when exists (select 1 from information_schema.columns
-                          where table_schema='public' and table_name='library_items' and column_name='category')
+                          where table_schema='public' and table_name='feed_items' and column_name='category')
             then 'OK' else 'MISSING' end as result
-union all select 2, 'library_submissions.category exists',
+union all select 2, 'feed_submissions.category exists',
        case when exists (select 1 from information_schema.columns
-                          where table_schema='public' and table_name='library_submissions' and column_name='category')
+                          where table_schema='public' and table_name='feed_submissions' and column_name='category')
             then 'OK' else 'MISSING' end
 union all select 3, 'reading_progress table exists',
        case when to_regclass('public.reading_progress') is not null then 'OK' else 'MISSING' end
@@ -271,7 +268,7 @@ union all select 10, 'related_publications is SECURITY DEFINER',
        case when (select p.prosecdef from pg_proc p
                    where p.oid = to_regprocedure('public.related_publications(uuid,integer)'))
             then 'OK' else 'NOT DEFINER' end
-union all select 11, 'publications/audiolites with a category',
-       (select count(*)::text from public.library_items
-         where type in ('publication','audiolite') and category is not null)
+union all select 11, 'books/audiolites with a category',
+       (select count(*)::text from public.feed_items
+         where type in ('book','audiolite') and category is not null)
 order by "#";
