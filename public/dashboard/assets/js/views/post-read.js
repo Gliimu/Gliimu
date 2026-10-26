@@ -57,11 +57,11 @@ export default {
       const balance = Number(balanceData.balance || 0);
       const plan = balanceData.plan;
       const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
-      if (balance <= 0 && !planActive) {
+      if (balance < 3 && !planActive) {
         window.location.hash = '#/xplore';
         setTimeout(() => {
           if (typeof appAlert === 'function') {
-            appAlert('Your balance has reached G0. Top up or activate a plan to continue reading.');
+            appAlert('Your balance is below G3. Top up or activate a plan to continue reading.');
           }
         }, 100);
         return;

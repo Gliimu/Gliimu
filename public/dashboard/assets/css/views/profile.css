@@ -80,56 +80,66 @@
   gap: 10px;
 }
 
-.profile-message-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 12px;
-  white-space: nowrap;
-}
-
-.profile-message-btn svg {
-  flex-shrink: 0;
-}
-
-.follow-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 12px;
-  border: none;
+.profile-follow-btn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
   background: var(--brand-primary);
   color: white;
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
-  font-family: var(--font-sans);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translate(25%, 25%);
 }
 
-.follow-btn:hover {
+.profile-follow-btn:hover {
   background: var(--brand-primary-hover);
-  transform: translateY(-1px);
+  transform: translate(25%, 25%) scale(1.08);
 }
 
-.follow-btn.following {
+.profile-follow-btn.following {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
-.follow-btn.following:hover {
+.profile-follow-btn.following:hover {
   background: var(--surface-hover);
-  border-color: var(--text-muted);
+  color: var(--text-primary);
 }
 
-.follow-btn:disabled {
+.profile-follow-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
+  transform: translate(25%, 25%);
+}
+
+.profile-ping-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.profile-ping-btn:hover {
+  background: var(--brand-primary);
+  color: white;
+  border-color: var(--brand-primary);
+  transform: scale(1.05);
 }
 
 .profile-header-info {
@@ -231,6 +241,64 @@
 .tag-secondary {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
+}
+
+/* ============================================
+   STREAK SECTION — activity stats
+   ============================================ */
+.profile-streak-section {
+  padding: 24px;
+}
+
+.streak-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.streak-header svg {
+  color: var(--brand-primary);
+  flex-shrink: 0;
+}
+
+.streak-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.streak-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.streak-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.streak-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--brand-primary);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.streak-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
 }
 
 /* ============================================
@@ -518,33 +586,6 @@
 }
 
 /* ============================================
-   COPY NAME BUTTON
-   ============================================ */
-.copy-name-btn {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: none;
-  border-radius: 50%;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.copy-name-btn:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-
-.copy-name-btn .ic-check { display: none; }
-.copy-name-btn.copied .ic-copy { display: none; }
-.copy-name-btn.copied .ic-check { display: block; color: var(--success, #22c55e); }
-
-/* ============================================
    PRINT STYLES
    ============================================ */
 @media print {
@@ -572,7 +613,8 @@
   .profile-avatar-edit,
   .profile-action-btn,
   .profile-projects-actions,
-  .profile-verify {
+  .profile-verify,
+  .profile-follow-btn {
     display: none !important;
   }
 
@@ -630,10 +672,8 @@
     justify-content: center;
   }
 
-  .follow-btn,
-  .profile-message-btn {
-    flex: 1 1 140px;
-    justify-content: center;
+  .profile-ping-btn {
+    flex: 0 0 auto;
   }
 
   .profile-name-row {
@@ -690,5 +730,18 @@
   .qr-large-actions .btn-secondary,
   .qr-large-actions .btn-primary {
     width: 100%;
+  }
+
+  .streak-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .streak-item {
+    padding: 12px;
+  }
+
+  .streak-value {
+    font-size: 24px;
   }
 }

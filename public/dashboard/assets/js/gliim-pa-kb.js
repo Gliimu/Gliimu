@@ -123,7 +123,7 @@ Unread counts show as a badge on the Ping tab and clear the moment you open the 
 - You need **100 GP** to request or host a live session.
 - Both people can toggle their camera, share their screen and take a screenshot.
 - Sessions have a view cap and expire after a few views, so make them count.
-- Hosting earns you a **25 GP** reward.
+- You earn **1 GP per minute** while live.
 
 Open Ping, pick the Gliimait you want to meet, and start the session. While you are live, your other sessions are locked so you can focus on the one in front of you.`
   },

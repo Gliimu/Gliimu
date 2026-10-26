@@ -76,9 +76,9 @@ const hubView = {
       const balance = Number(balanceData.balance || 0);
       const plan = balanceData.plan;
       const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
-      if (balance <= 0 && !planActive && typeof appAlert === 'function') {
+      if (balance < 3 && !planActive && typeof appAlert === 'function') {
         setTimeout(() => {
-          appAlert('Your balance has reached G0. Top up or activate a plan to continue using the platform.').then(() => {
+          appAlert('Your balance is below G3. Top up or activate a plan to continue using the platform.').then(() => {
             window.location.hash = '#/wallet';
           });
         }, 500);
@@ -479,11 +479,7 @@ const hubView = {
   },
 
   async openCreateModal(opts = {}) {
-    // Eligibility ladder: 50 GP to post in the Feed at all.
     const userGP = (store.profile && store.profile.total_gp) || 0;
-    if (userGP < 50) {
-      return alert(`You need at least 50 GP to post in the Feed. You have ${userGP.toLocaleString()} GP.`);
-    }
 
     // 1000 GP to premium-lock a bundle.
     const canLock = userGP >= 1000;
@@ -1772,7 +1768,6 @@ const hubView = {
 
   renderPostCard(post) {
     const premiumPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
-    const isAmbassador = (post.profiles?.total_gp || 0) >= 5000;
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
@@ -1788,7 +1783,7 @@ const hubView = {
       const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
       if (post.cover_url) {
         const cardStyle = `background-image: url('${post.cover_url}');`;
-        return `<article class="audiolite-card audiolite-cover-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${cardStyle}" onclick="hubInstance.openReadView('${post.id}')">
+        return `<article class="audiolite-card audiolite-cover-card" id="post-${post.id}" style="${cardStyle}" onclick="hubInstance.openReadView('${post.id}')">
           <div class="audiolite-center-icon" aria-hidden="true">${headsetSvg}</div>
           <h2 class="audiolite-title">${escapeHtml(post.title)}</h2>
         </article>`;
@@ -1796,7 +1791,7 @@ const hubView = {
       const color = String(post.cover_color || '').trim();
       const onColor = readableOn(color);
       const cardStyle = color && onColor ? ` style="background:${escapeHtml(color)};color:${onColor};"` : '';
-      return `<article class="audiolite-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
+      return `<article class="audiolite-card" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
         <div class="audiolite-center-icon" aria-hidden="true">${headsetSvg}</div>
         <h2 class="audiolite-title">${escapeHtml(post.title)}</h2>
       </article>`;
@@ -1804,7 +1799,7 @@ const hubView = {
 
     // Books: just the cover image as a square — no title, no author, no stats.
     if (this.cardKinds && this.cardKinds[post.id] === 'book' && post.cover_url) {
-      return `<article class="book-cover-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
+      return `<article class="book-cover-card" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
         ${draftBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : (premiumBadge ? `<div class="book-cover-badges">${premiumBadge}</div>` : '')}
       </article>`;
     }
@@ -1812,7 +1807,7 @@ const hubView = {
     // Bundles: square card with cover image background + gradient + title/author/stats.
     if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && post.cover_url) {
       const bundleSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
-      return `<article class="audiolite-card bundle-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
+      return `<article class="audiolite-card bundle-card" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
         <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bundleSvg}Bundle</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
@@ -1822,14 +1817,14 @@ const hubView = {
     // Image-only gliims render as 1:1 squares with the first image as the card background.
     if (this.cardKinds && this.cardKinds[post.id] === 'image-only' && post.cover_url) {
       const imgCover = `background-image: url('${post.cover_url}');`;
-      return `<article class="audiolite-card image-only-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" style="${imgCover}" onclick="hubInstance.openReadView('${post.id}')">
+      return `<article class="audiolite-card image-only-card" id="post-${post.id}" style="${imgCover}" onclick="hubInstance.openReadView('${post.id}')">
         <div class="blog-meta audiolite-meta"><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
     }
 
-    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+    return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
   async renderPosts(feed_gliims) {
@@ -2420,13 +2415,13 @@ const hubView = {
     const { data: credited, error } = await supabase.rpc('send_support', { p_post: postId });
     if (error) {
       const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet to support. ₦1,000 is required.");
+      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet to support. G500 is required.");
       if (msg.includes('ALREADY_SUPPORTED') || msg.includes('CANNOT_SUPPORT_SELF')) return;
       return appAlert("Support failed: " + msg);
     }
 
     this.allInteractions.push({ id: `local-${Date.now()}`, post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: credited });
-    this.userBalance = (this.userBalance || 0) - 1000;
+    this.userBalance = (this.userBalance || 0) - 500;
     if (store.profile) store.profile.wallet_balance = this.userBalance;
 
     this.interestSignal(4, post?.category);

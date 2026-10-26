@@ -440,9 +440,28 @@ body.sidebar-open .sidebar-backdrop {
   margin-left: 4px;
 }
 
-.glow-avatar {
-  border: 2px dotted var(--brand-primary);
-  box-shadow: none;
+/* Tier icons next to usernames */
+.tier-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.tier-bulb {
+  color: #F59E0B;
+}
+
+.tier-pen {
+  color: var(--text-secondary);
+}
+
+.tier-tick {
+  color: #1DA1F2;
+}
+
+.tier-star {
+  color: #F59E0B;
 }
 
 /* ============================================

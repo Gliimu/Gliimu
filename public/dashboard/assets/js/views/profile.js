@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store, tierClass, tierIcon } from '../store.js';
 import { uploadFile } from '../upload.js';
 import hubView from './feed-gliims.js?v=87';
 import { notify } from '../notify.js?v=33';
@@ -176,12 +176,11 @@ export default {
 
       // Update button state
       btn.classList.toggle('following', this._isFollowing);
+      btn.title = this._isFollowing ? 'Unfollow' : 'Follow';
       btn.innerHTML = this._isFollowing ? `
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>Following</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       ` : `
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>Follow</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
       `;
 
       // Refresh follower count
@@ -249,35 +248,29 @@ export default {
               <button class="profile-avatar-edit" title="Change profile picture" onclick="window.location.hash='#/settings'">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
               </button>
-            ` : ''}
+            ` : `
+              <button class="profile-follow-btn ${this._isFollowing ? 'following' : ''}" onclick="profileInstance.toggleFollow()" id="follow-btn" title="${this._isFollowing ? 'Unfollow' : 'Follow'}">
+                ${this._isFollowing ? `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                ` : `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                `}
+              </button>
+            `}
           </div>
           <div class="profile-action-btn">
             ${isMe ? `
               <button class="btn-secondary" onclick="window.location.hash='#/settings'">Edit Profile</button>
             ` : `
-              <button class="follow-btn ${this._isFollowing ? 'following' : ''}" onclick="profileInstance.toggleFollow()" id="follow-btn">
-                ${this._isFollowing ? `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                  <span>Following</span>
-                ` : `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                  <span>Follow</span>
-                `}
-              </button>
-              <button type="button" class="btn-secondary profile-message-btn" onclick="profileInstance.messageUser()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                <span>Message</span>
+              <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send message">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
               </button>
             `}
           </div>
         </div>
         <div class="profile-header-info">
           <div class="profile-name-row">
-            <h1>${p.full_name || 'Gliimait'}</h1>
-            <button class="copy-name-btn" title="Copy name" onclick="profileInstance.copyName()">
-              <svg class="ic-copy" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              <svg class="ic-check" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </button>
+            <h1>${p.full_name || 'Gliimait'}${tierIcon(gp)}</h1>
           </div>
           ${p.bio ? `<p class="profile-bio">${p.bio}</p>` : ''}
         </div>
@@ -321,6 +314,28 @@ export default {
           ` : ''}
         </div>
       ` : ''}
+
+      <!-- Streak Section -->
+      <div class="profile-streak-section card">
+        <div class="streak-header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+          <h3>Activity Streak</h3>
+        </div>
+        <div class="streak-stats">
+          <div class="streak-item">
+            <span class="streak-value">${posts?.length || 0}</span>
+            <span class="streak-label">Total Gliims</span>
+          </div>
+          <div class="streak-item">
+            <span class="streak-value">${this.calculateStreak(posts)}</span>
+            <span class="streak-label">Day Streak</span>
+          </div>
+          <div class="streak-item">
+            <span class="streak-value">${this.getMostActiveDay(posts)}</span>
+            <span class="streak-label">Most Active</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Gliims Section -->
       <div class="profile-projects-section">
@@ -383,8 +398,35 @@ export default {
     `;
   },
 
+  calculateStreak(posts) {
+    if (!posts || !posts.length) return 0;
+    const days = new Set(posts.map(p => new Date(p.created_at).toDateString()));
+    const sorted = [...days].map(d => new Date(d)).sort((a, b) => b - a);
+    let streak = 1;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const diff = (sorted[i] - sorted[i + 1]) / 86400000;
+      if (diff === 1) streak++;
+      else break;
+    }
+    return streak;
+  },
+
+  getMostActiveDay(posts) {
+    if (!posts || !posts.length) return '—';
+    const dayCounts = {};
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    posts.forEach(p => {
+      const day = dayNames[new Date(p.created_at).getDay()];
+      dayCounts[day] = (dayCounts[day] || 0) + 1;
+    });
+    return Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0][0];
+  },
+
   renderGliimCard(post, profile) {
-    const isAmbassador = (profile.total_gp || 0) >= 5000;
+    const avatarClass = tierClass(profile.total_gp, 'blog-avatar');
+    const avatar = profile.avatar_url
+      ? `<img src="${profile.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
+      : `<div class="${avatarClass}"></div>`;
 
     const comments = post.comments_count || 0;
     const eyeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
@@ -396,7 +438,12 @@ export default {
         ? `<div class="blog-cover" style="background: ${post.cover_color};"></div>`
         : '';
 
-    return `<article class="blog-card${isAmbassador ? ' ambassador-card' : ''}" id="post-${post.id}" onclick="profileInstance.openProject('${post.id}')">
+    const desc = post.description
+      ? this.escapeHtml(post.description).replace(/#([a-z0-9_]+)/gi, (match, tag) =>
+          `<a href="#/collection?name=${tag.toLowerCase()}" class="hub-hashtag" onclick="event.stopPropagation()">#${this.escapeHtml(tag.toLowerCase())}</a>`)
+      : '';
+
+    return `<article class="blog-card" id="post-${post.id}" onclick="profileInstance.openProject('${post.id}')">
       ${coverHtml}
       <div class="blog-content">
         <div class="blog-meta">
@@ -404,8 +451,12 @@ export default {
           <span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span>
         </div>
         <h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2>
-        <p class="blog-desc">${post.description ? post.description.substring(0, 120) + (post.description.length > 120 ? '...' : '') : ''}</p>
+        <p class="blog-desc">${desc}</p>
         <div class="blog-footer">
+          <div class="blog-author" onclick="event.stopPropagation();">
+            <div style="position:relative;">${avatar}</div>
+            <span>${this.escapeHtml(profile.full_name || 'Gliimait')}</span>
+          </div>
           <div class="blog-stats">
             <span class="blog-stat">${eyeSvg}${post.views || 0}</span>
             <span class="blog-stat">${commentSvg}${comments}</span>
@@ -413,6 +464,15 @@ export default {
         </div>
       </div>
     </article>`;
+  },
+
+  escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   },
 
   openQrModal() {

@@ -11,8 +11,8 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function naira(amount) {
-  return '\u20A6' + Number(amount || 0).toLocaleString();
+function gliits(amount) {
+  return 'G' + Number(amount || 0).toLocaleString();
 }
 
 export default {
@@ -110,26 +110,26 @@ export default {
           <div class="feature-duration-options">
             <button type="button" class="feature-duration-btn active" data-days="1" data-price="${p1}" onclick="featureInstance.selectDuration(this)">
               <span class="feature-duration-period">1 Day</span>
-              <span class="feature-duration-price">${naira(p1)}</span>
+              <span class="feature-duration-price">${gliits(p1)}</span>
             </button>
             <button type="button" class="feature-duration-btn" data-days="7" data-price="${p7}" onclick="featureInstance.selectDuration(this)">
               <span class="feature-duration-period">1 Week</span>
-              <span class="feature-duration-price">${naira(p7)}</span>
-              ${p7 < p1 * 7 ? `<span class="feature-duration-save">Save ${naira(p1 * 7 - p7)}</span>` : ''}
+              <span class="feature-duration-price">${gliits(p7)}</span>
+              ${p7 < p1 * 7 ? `<span class="feature-duration-save">Save ${gliits(p1 * 7 - p7)}</span>` : ''}
             </button>
             <button type="button" class="feature-duration-btn" data-days="30" data-price="${p30}" onclick="featureInstance.selectDuration(this)">
               <span class="feature-duration-period">1 Month</span>
-              <span class="feature-duration-price">${naira(p30)}</span>
-              ${p30 < p1 * 30 ? `<span class="feature-duration-save">Save ${naira(p1 * 30 - p30)}</span>` : ''}
+              <span class="feature-duration-price">${gliits(p30)}</span>
+              ${p30 < p1 * 30 ? `<span class="feature-duration-save">Save ${gliits(p1 * 30 - p30)}</span>` : ''}
             </button>
           </div>
 
           <div class="feature-wallet-info">
-            Your wallet: <strong>${naira(balance)}</strong>
+            Your wallet: <strong>${gliits(balance)}</strong>
           </div>
 
           <button class="feature-submit-btn" id="feature-submit-btn" onclick="featureInstance.submit()">
-            Pay ${naira(p1)} to submit for review
+            Pay ${gliits(p1)} to submit for review
           </button>
           <p class="feature-page-note">Your submission will be reviewed by our team before going live. Payment is deducted from your wallet.</p>
         </div>
@@ -156,7 +156,7 @@ export default {
     btn.classList.add('active');
     const price = parseInt(btn.dataset.price, 10);
     const submitBtn = document.getElementById('feature-submit-btn');
-    if (submitBtn) submitBtn.textContent = `Pay ${naira(price)} to submit for review`;
+    if (submitBtn) submitBtn.textContent = `Pay ${gliits(price)} to submit for review`;
   },
 
   async submit() {
@@ -180,8 +180,8 @@ export default {
 
       const balance = store.profile?.wallet_balance || 0;
       if (balance < price) {
-        appAlert(`Insufficient balance. You need ${naira(price)} but have ${naira(balance)}. Please top up your wallet.`);
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = `Pay ${naira(price)} to submit for review`; }
+        appAlert(`Insufficient balance. You need ${gliits(price)} but have ${gliits(balance)}. Please top up your wallet.`);
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = `Pay ${gliits(price)} to submit for review`; }
         return;
       }
 
@@ -211,7 +211,7 @@ export default {
       window.location.hash = '#/profile';
     } catch (err) {
       appAlert(err.message || 'Something went wrong. Please try again.');
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = `Pay ${naira(price)} to submit for review`; }
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = `Pay ${gliits(price)} to submit for review`; }
     }
   }
 };
