@@ -435,15 +435,21 @@ export default {
 
   setupScrollProgress() {
     const bar = document.getElementById('post-read-progress');
-    if (!bar) return;
+    const main = document.querySelector('.post-read-main');
+    if (!bar || !main) return;
 
     const scrollKey = `gliimu_scroll_${this.postId}`;
     const savedScroll = sessionStorage.getItem(scrollKey);
 
     scrollHandler = () => {
       const scrollTop = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const pct = docHeight > 0 ? Math.min(100, (scrollTop / docHeight) * 100) : 0;
+      const mainRect = main.getBoundingClientRect();
+      const mainTop = mainRect.top + window.scrollY;
+      const mainHeight = main.offsetHeight;
+      const viewportHeight = window.innerHeight;
+      const scrollableDistance = mainHeight + mainTop - viewportHeight;
+      const scrolledDistance = scrollTop - mainTop;
+      const pct = scrollableDistance > 0 ? Math.min(100, Math.max(0, (scrolledDistance / scrollableDistance) * 100)) : 0;
       bar.style.width = pct + '%';
 
       sessionStorage.setItem(scrollKey, String(scrollTop));
