@@ -23,7 +23,7 @@ const routes = {
   '/triads': { role: 'captain', title: 'Triads & Apprentices', load: () => import('./views/triads.js').then(m => m.default) },
   '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=11').then(m => m.default) },
   '/arena': { role: 'operations', title: 'XpLoRe', load: () => import('./views/updates.js?v=14').then(m => m.default) },
-  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=17').then(m => m.default) },
+  '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=18').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 

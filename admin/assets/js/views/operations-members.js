@@ -125,7 +125,7 @@ export default {
 
     const badgeButtons = ['tick', 'pen', 'pod'].map(b => `
       <button class="btn-quiet badge-grant-btn ${currentBadge === b ? 'badge-active' : ''}" data-badge="${b}">
-        <img src="/icons/${b}.svg" alt="${b}" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
+        <img src="https://gliimu.com/icons/${b}.svg" alt="${b}" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
         ${b.charAt(0).toUpperCase() + b.slice(1)}
       </button>
     `).join('');
@@ -133,7 +133,7 @@ export default {
     return `
       ${section('Verification badge', `
         <div style="margin-bottom: 8px;">
-          ${currentBadge ? `<span class="badge-brand">Current: <img src="/icons/${currentBadge}.svg" alt="${currentBadge}" width="14" height="14" style="vertical-align: middle;"></span>` : '<span class="muted small">No badge granted</span>'}
+          ${currentBadge ? `<span class="badge-brand">Current: <img src="https://gliimu.com/icons/${currentBadge}.svg" alt="${currentBadge}" width="14" height="14" style="vertical-align: middle;"></span>` : '<span class="muted small">No badge granted</span>'}
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
           ${badgeButtons}
