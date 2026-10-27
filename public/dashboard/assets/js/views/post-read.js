@@ -241,7 +241,7 @@ export default {
         </div>
       </header>
 
-      <main class="post-read-main">
+      <main class="post-read-main" id="post-read-section-1">
         <div class="read-body">
           <span class="blog-category">${post.category || 'General'}</span>
           <h1 class="read-title">${escapeHtml(post.title || 'Untitled Gliim')}</h1>
@@ -255,15 +255,6 @@ export default {
           </div>
 
           ${blocksHtml}
-
-          ${relatedPosts.length > 0 ? `
-          <div class="related-posts-section">
-            <h3 class="related-posts-title">More inspiring contents</h3>
-            <div class="related-posts-grid library-feed" id="related-posts-grid">
-              ${relatedPosts.map(rp => `<div class="feed-item feed-item--gliim">${hubView.renderPostCard(rp)}</div>`).join('')}
-            </div>
-          </div>
-          ` : ''}
         </div>
       </main>
 
@@ -286,6 +277,15 @@ export default {
           <span>${supports}</span>
         </button>` : ''}
       </div>
+
+      ${relatedPosts.length > 0 ? `
+      <section class="post-read-related" id="post-read-section-2">
+        <h3 class="related-posts-title">More inspiring contents</h3>
+        <div class="related-posts-grid library-feed feed-grid" id="related-posts-grid">
+          ${relatedPosts.map(rp => `<div class="feed-item feed-item--gliim">${hubView.renderPostCard(rp)}</div>`).join('')}
+        </div>
+      </section>
+      ` : ''}
     `;
 
     hubView.setupMediaBlocks(container);
@@ -452,21 +452,33 @@ export default {
 
   setupScrollProgress() {
     const bar = document.getElementById('post-read-progress');
-    const main = document.querySelector('.post-read-main');
-    if (!bar || !main) return;
+    const section1 = document.getElementById('post-read-section-1');
+    const section2 = document.getElementById('post-read-section-2');
+    if (!bar || !section1) return;
 
     const scrollKey = `gliimu_scroll_${this.postId}`;
     const savedScroll = sessionStorage.getItem(scrollKey);
 
     scrollHandler = () => {
       const scrollTop = window.scrollY;
-      const mainRect = main.getBoundingClientRect();
-      const mainTop = mainRect.top + window.scrollY;
-      const mainHeight = main.offsetHeight;
+      const section1Rect = section1.getBoundingClientRect();
+      const section1Top = section1Rect.top + window.scrollY;
+      const section1Height = section1.offsetHeight;
       const viewportHeight = window.innerHeight;
-      const scrollableDistance = mainHeight + mainTop - viewportHeight;
-      const scrolledDistance = scrollTop - mainTop;
-      const pct = scrollableDistance > 0 ? Math.min(100, Math.max(0, (scrolledDistance / scrollableDistance) * 100)) : 0;
+      
+      // Calculate progress through section 1 only
+      const scrollableDistance = section1Height + section1Top - viewportHeight;
+      const scrolledDistance = scrollTop - section1Top;
+      let pct = scrollableDistance > 0 ? Math.min(100, Math.max(0, (scrolledDistance / scrollableDistance) * 100)) : 0;
+      
+      // If section 2 exists and user has scrolled past section 1, cap at 100%
+      if (section2) {
+        const section2Rect = section2.getBoundingClientRect();
+        if (section2Rect.top <= 0) {
+          pct = 100;
+        }
+      }
+      
       bar.style.width = pct + '%';
 
       sessionStorage.setItem(scrollKey, String(scrollTop));
