@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
 import hubView, { gliimKindOf } from './feed-gliims.js?v=90';
-import feedView from './feed.js?v=87';
+import feedView from './feed.js?v=88';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -486,7 +486,6 @@ export default {
       </div>
     `;
 
-    feedView.fitFullBleed(document.querySelector('.profile-header'));
     feedView.layoutMasonry('#profile-container');
   },
 

@@ -1,7 +1,9 @@
-/* Profile Layout */
+/* Profile Layout — the layout root spans the main content area edge-to-edge
+   (cancelling .view-container's 2rem padding) so the banner sits flush with
+   the viewport top, the sidebar rail and the scrollbar; each inner section
+   re-applies its own 1500px centering. */
 .profile-layout {
-  max-width: 1500px;
-  margin: 0 auto;
+  margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -13,10 +15,6 @@
 .profile-header {
   padding: 0;
   overflow: visible;
-  /* Full-bleed banner row; .main-content's overflow-x: clip absorbs the
-     breakout (same pattern as the XpLoRe featured carousel) */
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -609,6 +607,11 @@
   border-radius: 0;
   padding: 0 24px;
   overflow: visible;
+  /* Center the section content inside the edge-to-edge .profile-layout */
+  max-width: 1500px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .profile-projects-header {
