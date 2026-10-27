@@ -14,6 +14,7 @@ function escapeHtml(value) {
 
 let scrollHandler = null;
 let keydownHandler = null;
+let clickOutsideHandler = null;
 
 export default {
   template: `
@@ -31,6 +32,10 @@ export default {
     if (keydownHandler) {
       document.removeEventListener('keydown', keydownHandler);
       keydownHandler = null;
+    }
+    if (clickOutsideHandler) {
+      document.removeEventListener('click', clickOutsideHandler);
+      clickOutsideHandler = null;
     }
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
@@ -131,7 +136,7 @@ export default {
   async fetchInteractions(postId) {
     const { data } = await supabase
       .from('feed_interactions')
-      .select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)')
+      .select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url, total_gp)')
       .eq('post_id', postId);
     return data || [];
   },
@@ -224,6 +229,35 @@ export default {
 
     const blocksHtml = this.renderBlocks(post, isOwner);
 
+    const commenterMap = new Map();
+    for (const c of postComments) {
+      const existing = commenterMap.get(c.user_id);
+      if (!existing || new Date(c.created_at) > new Date(existing.created_at)) {
+        commenterMap.set(c.user_id, c);
+      }
+    }
+    const commenters = Array.from(commenterMap.values())
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    const MAX_RAIL = 12;
+    const railCommenters = commenters.slice(0, MAX_RAIL);
+    const railRemaining = commenters.length - railCommenters.length;
+
+    const commenterRailHtml = commenters.length > 0 ? `
+      <div class="commenter-rail" id="commenter-rail">
+        ${railCommenters.map(c => {
+          const name = c.profiles?.full_name || 'Gliimait';
+          const avatarInner = c.profiles?.avatar_url
+            ? `<img class="commenter-rail-avatar" src="${c.profiles.avatar_url}" alt="${escapeHtml(name)}" style="object-fit:cover;">`
+            : `<div class="commenter-rail-avatar commenter-rail-avatar-placeholder">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
+          const rawText = c.comment_text || '';
+          const previewText = rawText.length > 120 ? rawText.substring(0, 120) + '...' : rawText;
+          return `<div class="commenter-rail-item" data-user-id="${c.user_id}">${avatarInner}<div class="commenter-rail-tooltip"><div class="commenter-rail-tooltip-name">${escapeHtml(name)}</div><div class="commenter-rail-tooltip-text">${escapeHtml(previewText)}</div></div></div>`;
+        }).join('')}
+        ${railRemaining > 0 ? `<div class="commenter-rail-more">+${railRemaining}</div>` : ''}
+      </div>
+    ` : '';
+
     const backIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
     const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
@@ -297,6 +331,8 @@ export default {
         </div>
       </main>
 
+      ${commenterRailHtml}
+
       ${relatedPosts.length > 0 ? `
       <section class="post-read-related" id="post-read-section-2">
         <div class="related-posts-inner">
@@ -324,6 +360,7 @@ export default {
 
     this.layoutRelatedMasonry();
     this.renderCommentsModal(post, commentsHtml);
+    this.setupCommenterRail();
   },
 
   layoutRelatedMasonry() {
@@ -394,6 +431,28 @@ export default {
       modal.style.display = 'none';
       document.body.style.overflow = '';
     }
+  },
+
+  setupCommenterRail() {
+    const rail = document.getElementById('commenter-rail');
+    if (!rail) return;
+
+    rail.querySelectorAll('.commenter-rail-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasActive = item.classList.contains('active');
+        rail.querySelectorAll('.commenter-rail-item.active').forEach(el => el.classList.remove('active'));
+        if (!wasActive) item.classList.add('active');
+      });
+    });
+
+    if (clickOutsideHandler) {
+      document.removeEventListener('click', clickOutsideHandler);
+    }
+    clickOutsideHandler = () => {
+      rail.querySelectorAll('.commenter-rail-item.active').forEach(el => el.classList.remove('active'));
+    };
+    document.addEventListener('click', clickOutsideHandler);
   },
 
   renderBlocks(post, isOwner) {
