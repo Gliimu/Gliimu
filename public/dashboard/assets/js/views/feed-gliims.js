@@ -2596,7 +2596,7 @@ window.hubInstance = {
     const isActive = section1.classList.toggle('eye-protection');
     localStorage.setItem('gliimu_eye_protection', isActive ? '1' : '0');
     const menu = section1.closest('.post-read-layout').querySelector('.hub-read-menu');
-    if (menu) menu.style.display = 'none';
+    if (menu) menu.classList.remove('active');
   }
 };
 
