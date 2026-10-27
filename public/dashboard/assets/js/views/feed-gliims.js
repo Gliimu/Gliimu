@@ -309,13 +309,11 @@ const hubView = {
   viewAuthor(userId) {
     this.closeUserMenu();
     this.closeModal();
-    // Use hash parameter for persistence across refresh
-    const hash = userId === store.user.id ? '#/profile' : `#/profile?u=${userId}`;
-    if (window.location.hash.startsWith('#/profile')) {
-      window.location.hash = hash;
-    } else {
-      window.location.hash = hash;
-    }
+    // Card clicks can fire after the session drops (store.user null) or with a
+    // missing author id — bail out instead of crashing.
+    if (!userId || userId === 'null') return;
+    const hash = userId === store.user?.id ? '#/profile' : `#/profile?u=${userId}`;
+    window.location.hash = hash;
   },
 
   promptReport(targetType, targetId) {
