@@ -60,6 +60,23 @@
   color: var(--brand-primary);
 }
 
+/* Banner Upload */
+.banner-upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.banner-preview {
+  width: 100%;
+  height: 120px;
+  border-radius: 12px;
+  background: var(--bg-tertiary) center / cover no-repeat;
+  border: 1px dashed var(--border);
+}
+
 /* Avatar Upload */
 .avatar-upload-section {
   display: flex;

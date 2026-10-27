@@ -8,10 +8,54 @@
 }
 
 /* ============================================
-   PROFILE HEADER — avatar, info, stats
+   PROFILE HEADER — banner, avatar, info, stats
    ============================================ */
 .profile-header {
-  padding: 32px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.profile-banner {
+  position: relative;
+  height: 180px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.profile-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-banner-social {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 65%;
+  padding: 7px 12px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  backdrop-filter: blur(6px);
+  transition: background 0.2s;
+}
+
+.profile-banner-social:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.profile-banner-social span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-header-top {
@@ -20,6 +64,7 @@
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 20px;
+  padding: 24px 32px 0;
 }
 
 .profile-avatar-wrap {
@@ -144,6 +189,7 @@
 
 .profile-header-info {
   margin-bottom: 8px;
+  padding: 0 32px 32px;
 }
 
 .profile-name-row {
@@ -222,29 +268,8 @@
 }
 
 /* ============================================
-   TAGS SECTION — skills & interests
+   TAGS — skill & interest pills (details modal)
    ============================================ */
-.profile-tags-section {
-  padding: 24px;
-}
-
-.profile-tag-group {
-  margin-bottom: 20px;
-}
-
-.profile-tag-group:last-child {
-  margin-bottom: 0;
-}
-
-.profile-tag-group h3 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-  font-weight: 700;
-}
-
 .tag-group {
   display: flex;
   flex-wrap: wrap;
@@ -269,64 +294,12 @@
 }
 
 /* ============================================
-   STREAK SECTION — collapsible, owner only
+   STREAK STATS — inside the details accordion
    ============================================ */
-.profile-streak-section {
-  padding: 0;
-}
-
-.streak-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: none;
-  border: none;
-  padding: 20px 24px;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  color: var(--text-primary);
-}
-
-.streak-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.streak-header svg {
-  color: var(--brand-primary);
-  flex-shrink: 0;
-}
-
-.streak-header h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.streak-chevron {
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-}
-
-.profile-streak-section.open .streak-chevron {
-  transform: rotate(180deg);
-}
-
 .streak-stats {
-  display: none;
+  display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  padding: 0 24px 20px;
-}
-
-.profile-streak-section.open .streak-stats {
-  display: grid;
 }
 
 .streak-item {
@@ -356,21 +329,8 @@
 }
 
 /* ============================================
-   VERIFICATION QR — compact card at bottom
+   QR & SHARE — inside the details accordion
    ============================================ */
-.profile-verify {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.profile-verify:hover {
-  background: var(--bg-tertiary);
-}
-
 .portfolio-qr-img {
   position: relative;
   width: 80px;
@@ -399,20 +359,31 @@
   object-fit: contain;
 }
 
-.portfolio-verify-info {
+.details-share-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.details-share-row .portfolio-qr-img {
+  width: 72px;
+  height: 72px;
+}
+
+.details-share-info {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
 }
 
-.portfolio-verify .verify-title {
+.details-share-info .verify-title {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-.portfolio-verify .verify-hint {
+.details-share-info .verify-hint {
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -532,22 +503,24 @@
 }
 
 /* ============================================
-   GLIIMS SECTION — Xplore-style cards
+   GLIIMS SECTION — transparent shell, XpLoRe-sized feed
    ============================================ */
 .profile-projects-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  background: none;
+  border: none;
+  border-radius: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .profile-projects-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0;
+  border-bottom: none;
   gap: 12px;
 }
 
@@ -712,24 +685,72 @@
   width: 100%;
 }
 
-/* Gliims grid — masonry layout using CSS columns */
-.profile-gliims-grid {
-  column-count: 2;
-  column-gap: 20px;
-  padding: 24px;
+/* ============================================
+   DETAILS ACCORDION — streak & QR/share
+   ============================================ */
+.details-acc {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-.profile-gliims-grid .blog-card {
-  break-inside: avoid;
-  margin-bottom: 20px;
-  display: inline-block;
+.details-acc + .details-acc {
+  margin-top: 10px;
+}
+
+.details-acc-head {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
 }
 
-@media (min-width: 1200px) {
-  .profile-gliims-grid {
-    column-count: 3;
-  }
+.details-acc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.details-acc-title svg {
+  color: var(--brand-primary);
+  flex-shrink: 0;
+}
+
+.details-acc-chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.details-acc.open .details-acc-chevron {
+  transform: rotate(180deg);
+}
+
+.details-acc-body {
+  display: none;
+  padding: 0 16px 16px;
+}
+
+.details-acc.open .details-acc-body {
+  display: block;
+}
+
+/* Gliims feed — same column as the XpLoRe feed (800px, single list) */
+.profile-gliims-feed {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 /* ============================================
@@ -754,14 +775,22 @@
     bottom: 110%;
   }
 
-  .profile-header {
-    padding: 24px 20px;
+  .profile-banner {
+    height: 120px;
+  }
+
+  .profile-header-top {
+    padding: 16px 16px 0;
   }
 
   .profile-header-top {
     flex-direction: column;
     align-items: center;
     text-align: center;
+  }
+
+  .profile-header-info {
+    padding: 0 16px 24px;
   }
 
   .profile-avatar-large,
@@ -799,13 +828,9 @@
     min-width: calc(50% - 10px);
   }
 
-  .profile-tags-section {
-    padding: 20px;
-  }
-
   .profile-projects-header {
     flex-wrap: wrap;
-    padding: 16px;
+    padding: 0 12px;
   }
 
   .profile-projects-actions {
@@ -821,13 +846,8 @@
     padding: 8px 10px;
   }
 
-  .profile-gliims-grid {
-    column-count: 1;
-    padding: 16px;
-  }
-
-  .profile-gliims-grid .blog-card {
-    margin-bottom: 16px;
+  .profile-gliims-feed {
+    padding: 0 12px;
   }
 
   .qr-large-actions {

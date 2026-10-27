@@ -39,7 +39,7 @@ export default {
       applyFilter: (filter) => this.applyFilter(filter),
       toggleFollow: () => this.toggleFollow(),
       messageUser: () => this.messageUser(),
-      toggleStreak: () => this.toggleStreak(),
+      toggleDetailsAcc: (head) => this.toggleDetailsAcc(head),
       openDetails: () => this.openDetails(),
       closeDetails: (e, el) => { if (e.target === el) el.remove(); }
     };
@@ -164,19 +164,82 @@ export default {
     this.renderProfile(this.targetUserId);
   },
 
-  toggleStreak() {
-    document.getElementById('profile-streak-section')?.classList.toggle('open');
+  toggleDetailsAcc(head) {
+    const item = head.closest('.details-acc');
+    if (!item) return;
+    const wasOpen = item.classList.contains('open');
+    item.parentElement.querySelectorAll('.details-acc.open').forEach(el => el.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
   },
 
   openDetails() {
     document.getElementById('profile-details-overlay')?.remove();
     const p = this.currentUser;
     if (!p) return;
+    const isMe = this.targetUserId === store.user.id;
 
     const gp = p.total_gp || 0;
     const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
     const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
     const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
+
+    const boltSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>`;
+    const chevronSvg = `<svg class="details-acc-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    const shareSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>`;
+    const copySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+
+    const profileUrl = `${location.origin}/dashboard/#/profile?u=${this.targetUserId}`;
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
+
+    const streakAcc = isMe ? `
+      <div class="details-acc">
+        <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
+          <span class="details-acc-title">${boltSvg}Activity Streak</span>
+          ${chevronSvg}
+        </button>
+        <div class="details-acc-body">
+          <div class="streak-stats">
+            <div class="streak-item">
+              <span class="streak-value">${this._posts.length}</span>
+              <span class="streak-label">Total Gliims</span>
+            </div>
+            <div class="streak-item">
+              <span class="streak-value">${this.calculateStreak(this._posts)}</span>
+              <span class="streak-label">Day Streak</span>
+            </div>
+            <div class="streak-item">
+              <span class="streak-value">${this.getMostActiveDay(this._posts)}</span>
+              <span class="streak-label">Most Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    const shareAcc = isMe ? `
+      <div class="details-acc">
+        <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
+          <span class="details-acc-title">${shareSvg}Profile QR & share</span>
+          ${chevronSvg}
+        </button>
+        <div class="details-acc-body">
+          <div class="details-share-row">
+            <div class="portfolio-qr-img" onclick="profileInstance.openQr()" title="Enlarge QR code">
+              <img class="qr" src="${qrSrc}" alt="Profile QR code">
+              <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
+            </div>
+            <div class="details-share-info">
+              <span class="verify-title">Share your profile</span>
+              <div class="profile-share-row">
+                <span class="profile-share-url">${profileUrl}</span>
+                <button class="profile-share-copy" onclick="profileInstance.copyShareLink()" title="Copy link">${copySvg}</button>
+              </div>
+              <span class="verify-hint">Tap the QR code to enlarge</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : '';
 
     const overlay = document.createElement('div');
     overlay.id = 'profile-details-overlay';
@@ -215,6 +278,8 @@ export default {
             <div class="tag-group">${interests.map(i => `<span class="tag tag-secondary">${i}</span>`).join('')}</div>
           </div>
         ` : ''}
+        ${streakAcc}
+        ${shareAcc}
         <button class="btn-primary profile-details-done" onclick="document.getElementById('profile-details-overlay')?.remove()">Done</button>
       </div>
     `;
@@ -276,7 +341,7 @@ export default {
     // the profiles.username column is revoked from authenticated, and this
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
-      supabase.from('profiles').select('full_name, avatar_url, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
+      supabase.from('profiles').select('full_name, avatar_url, banner_url, social_link, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
       supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, is_premium, status').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
@@ -295,6 +360,7 @@ export default {
     this.currentName = user.full_name || '';
     this.currentUser = user;
     this._postsCount = posts?.length || 0;
+    this._posts = posts || [];
     this._followersCount = followerCount;
     this._followingCount = followingCount;
 
@@ -304,12 +370,15 @@ export default {
     const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
     const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
 
-    const profileUrl = `${location.origin}/dashboard/#/profile?u=${userId}`;
-    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
-
     const settingsGearSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
-    const copySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
-    const chevronDownSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+    const socialLink = (p.social_link || '').trim();
+    const socialOk = /^https?:\/\//i.test(socialLink);
+    let socialHost = '';
+    if (socialOk) { try { socialHost = new URL(socialLink).hostname.replace(/^www\./, ''); } catch { socialHost = ''; } }
+    const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escText = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const globeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
 
     // Grid list first, then card context, then the template — cards must render
     // with their kinds and comment counts already known.
@@ -338,6 +407,14 @@ export default {
     container.innerHTML = `
       <!-- Profile Header -->
       <div class="profile-header card">
+        ${p.banner_url || socialOk ? `
+        <div class="profile-banner"${p.banner_url ? '' : ' style="height:56px;"'}>
+          ${p.banner_url ? `<img src="${escAttr(p.banner_url)}" alt="">` : ''}
+          ${socialOk ? `
+            <a class="profile-banner-social" href="${escAttr(socialLink)}" target="_blank" rel="noopener noreferrer nofollow">${globeSvg}<span>${escText(socialHost)}</span></a>
+          ` : ''}
+        </div>
+        ` : ''}
         <div class="profile-header-top">
           <div class="profile-avatar-wrap">
             ${p.avatar_url
@@ -389,72 +466,6 @@ export default {
         </div>
       </div>
 
-      ${isMe ? `
-        <!-- Share / QR card -->
-        <div class="profile-verify card">
-          <div class="portfolio-qr-img" onclick="profileInstance.openQr()" title="Enlarge QR code">
-            <img class="qr" src="${qrSrc}" alt="Profile QR code">
-            <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
-          </div>
-          <div class="portfolio-verify-info">
-            <span class="verify-title">Share your profile</span>
-            <div class="profile-share-row">
-              <span class="profile-share-url">${profileUrl}</span>
-              <button class="profile-share-copy" onclick="profileInstance.copyShareLink()" title="Copy link">${copySvg}</button>
-            </div>
-            <span class="verify-hint">Tap the QR code to enlarge</span>
-          </div>
-        </div>
-      ` : ''}
-
-      ${skills.length > 0 || interests.length > 0 ? `
-        <div class="profile-tags-section card">
-          ${skills.length > 0 ? `
-            <div class="profile-tag-group">
-              <h3>Skills</h3>
-              <div class="tag-group">
-                ${skills.map(s => `<span class="tag tag-primary">${s}</span>`).join('')}
-              </div>
-            </div>
-          ` : ''}
-          ${interests.length > 0 ? `
-            <div class="profile-tag-group">
-              <h3>Interests</h3>
-              <div class="tag-group">
-                ${interests.map(i => `<span class="tag tag-secondary">${i}</span>`).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
-
-      ${isMe ? `
-        <!-- Activity Streak — collapsible, owner only -->
-        <div class="profile-streak-section card" id="profile-streak-section">
-          <button class="streak-toggle" onclick="profileInstance.toggleStreak()">
-            <div class="streak-header">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-              <h3>Activity Streak</h3>
-            </div>
-            <span class="streak-chevron">${chevronDownSvg}</span>
-          </button>
-          <div class="streak-stats">
-            <div class="streak-item">
-              <span class="streak-value">${posts?.length || 0}</span>
-              <span class="streak-label">Total Gliims</span>
-            </div>
-            <div class="streak-item">
-              <span class="streak-value">${this.calculateStreak(posts)}</span>
-              <span class="streak-label">Day Streak</span>
-            </div>
-            <div class="streak-item">
-              <span class="streak-value">${this.getMostActiveDay(posts)}</span>
-              <span class="streak-label">Most Active</span>
-            </div>
-          </div>
-        </div>
-      ` : ''}
-
       <!-- Gliims Section -->
       <div class="profile-projects-section">
         <div class="profile-projects-header">
@@ -468,10 +479,12 @@ export default {
             </div>
           ` : ''}
         </div>
-        <div class="profile-gliims-grid">
-          ${gridPosts.length
-            ? gridPosts.map(item => this.renderCard(item, p)).join('')
-            : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`}
+        <div class="profile-gliims-feed">
+          <div class="blog-feed">
+            ${gridPosts.length
+              ? gridPosts.map(item => this.renderCard(item, p)).join('')
+              : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`}
+          </div>
         </div>
       </div>
     `;

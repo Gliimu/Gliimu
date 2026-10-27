@@ -64,6 +64,11 @@ export default {
       <!-- Profile Settings -->
       <div class="card settings-card">
         <h2>Profile</h2>
+        <div class="banner-upload-section">
+          <div class="banner-preview" id="banner-preview"></div>
+          <input type="file" id="banner-input" accept="image/*" style="display: none;">
+          <button type="button" class="btn-secondary" id="upload-banner-btn">Change Banner</button>
+        </div>
         <div class="avatar-upload-section">
           <img id="avatar-preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E" class="settings-avatar" alt="Avatar">
           <div>
@@ -93,6 +98,10 @@ export default {
               <label>Interests (Comma separated)</label>
               <input type="text" id="settings-interests" class="input">
             </div>
+          </div>
+          <div class="form-group">
+            <label>Social Link</label>
+            <input type="url" id="settings-social" class="input" placeholder="https://example.com/you">
           </div>
           <button type="submit" class="btn-primary">Save Changes</button>
         </form>
@@ -192,17 +201,39 @@ export default {
     // Fetch Profile Data. Explicit columns (never select('*')) because the
     // profiles.username column is revoked from authenticated; username is
     // shown from the JWT-sourced store.profile.username instead.
-    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url').eq('id', store.user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url, banner_url, social_link').eq('id', store.user.id).single();
     if (profile) {
       document.getElementById('settings-name').value = profile.full_name || '';
       document.getElementById('settings-username').value = store.profile?.username || '';
       document.getElementById('settings-bio').value = profile.bio || '';
       document.getElementById('settings-skills').value = profile.skills || '';
       document.getElementById('settings-interests').value = profile.interests || '';
+      document.getElementById('settings-social').value = profile.social_link || '';
       if (profile.avatar_url) {
         document.getElementById('avatar-preview').src = profile.avatar_url + `?t=${Date.now()}`;
       }
+      if (profile.banner_url) {
+        document.getElementById('banner-preview').style.backgroundImage = `url("${profile.banner_url}?t=${Date.now()}")`;
+      }
     }
+
+    // Handle Banner Upload
+    const bannerInput = document.getElementById('banner-input');
+    document.getElementById('upload-banner-btn').addEventListener('click', () => bannerInput.click());
+    bannerInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      let bannerUrl;
+      try {
+        bannerUrl = await uploadFile(file, 'avatar');
+      } catch (err) {
+        return alert("Error uploading banner: " + (err.message || err));
+      }
+      const { error: updateError } = await supabase.from('profiles').update({ banner_url: bannerUrl }).eq('id', store.user.id);
+      if (updateError) return alert("Error saving banner picture.");
+      document.getElementById('banner-preview').style.backgroundImage = `url("${bannerUrl}?t=${Date.now()}")`;
+      alert("Banner picture updated!");
+    });
 
     // Handle Avatar Upload
     const fileInput = document.getElementById('avatar-input');
@@ -225,11 +256,14 @@ export default {
     // Handle Profile Update
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      let social = document.getElementById('settings-social').value.trim();
+      if (social && !/^https?:\/\//i.test(social)) social = 'https://' + social;
       const updates = {
         full_name: document.getElementById('settings-name').value,
         bio: document.getElementById('settings-bio').value,
         skills: document.getElementById('settings-skills').value,
-        interests: document.getElementById('settings-interests').value
+        interests: document.getElementById('settings-interests').value,
+        social_link: social
       };
       const { error } = await supabase.from('profiles').update(updates).eq('id', store.user.id);
       if (error) alert("Error updating profile.");
