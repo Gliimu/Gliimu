@@ -85,6 +85,7 @@ export default {
       return;
     }
     el.style.display = '';
+    this.fitFullBleed(el);
     el.onmouseenter = () => {
       if (this._featuredTimer) { clearInterval(this._featuredTimer); this._featuredTimer = null; }
     };
@@ -192,6 +193,27 @@ export default {
 
   wrapItem(html, kind) {
     return `<div class="feed-item feed-item--${kind}">${html}</div>`;
+  },
+
+  // Stretch el to span exactly the main content area (sidebar edge to
+  // scrollbar edge). vw-based breakouts overshoot into the fixed sidebar and
+  // under the scrollbar, so measure and shift instead; a ResizeObserver keeps
+  // it fitted when the sidebar toggles or the window resizes.
+  fitFullBleed(el) {
+    const main = document.querySelector('.main-content');
+    if (!main || !el || !el.parentElement) return;
+    const fit = () => {
+      if (!el.isConnected) return;
+      el.style.width = main.clientWidth + 'px';
+      el.style.marginLeft = '0px';
+      el.style.marginLeft = (main.getBoundingClientRect().left - el.getBoundingClientRect().left) + 'px';
+    };
+    fit();
+    this._fullBleedFit = fit;
+    if (!this._fullBleedRO) {
+      this._fullBleedRO = new ResizeObserver(() => { if (this._fullBleedFit) this._fullBleedFit(); });
+      this._fullBleedRO.observe(main);
+    }
   },
 
   // Pinterest masonry: each item spans exactly its own height in 8px row

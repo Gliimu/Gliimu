@@ -194,20 +194,22 @@
   white-space: nowrap;
 }
 
-/* Social chip pinned to the banner's bottom-right corner */
+/* Social chip pinned to the banner's bottom-right corner.
+   Dark glass so it stays readable on light banner images. */
 .profile-banner:not(.no-image) .profile-banner-social {
   position: absolute;
   right: 24px;
   bottom: 24px;
   z-index: 2;
   max-width: 200px;
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(255, 255, 255, 0.4);
   color: #fff;
   backdrop-filter: blur(6px);
 }
 
 .profile-banner:not(.no-image) .profile-banner-social:hover {
+  background: rgba(0, 0, 0, 0.65);
   border-color: #fff;
   color: #fff;
 }
