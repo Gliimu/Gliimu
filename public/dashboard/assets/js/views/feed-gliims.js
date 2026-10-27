@@ -23,7 +23,7 @@ function parseHashtags(text) {
 // bundle; audio (no video) → audiolite; document (no video/audio) → book;
 // image-only (no video/audio/document/pdf) → image-only.
 // Cards use it to style audiolites/books/image-only, without ever loading the body.
-function gliimKindOf(blocks) {
+export function gliimKindOf(blocks) {
   const types = new Set((blocks || []).map(b => b && b.type).filter(Boolean));
   if (types.has('video')) return 'bundle';
   if (types.has('audio')) return 'audiolite';
