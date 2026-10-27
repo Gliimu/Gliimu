@@ -12,7 +12,14 @@
    ============================================ */
 .profile-header {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
+  /* Full-bleed banner row; .main-content's overflow-x: clip absorbs the
+     breakout (same pattern as the XpLoRe featured carousel) */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .profile-banner {
@@ -117,6 +124,11 @@
   flex-wrap: wrap;
   padding: 16px 32px;
   border-bottom: 1px solid var(--border);
+  /* Re-center the row content inside the full-bleed header */
+  max-width: 1500px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .profile-header-actions-right {
@@ -180,6 +192,37 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Social chip pinned to the banner's bottom-right corner */
+.profile-banner:not(.no-image) .profile-banner-social {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2;
+  max-width: 200px;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+.profile-banner:not(.no-image) .profile-banner-social:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* Keep the identity text clear of the corner chip */
+.profile-banner:has(.profile-banner-social):not(.no-image) .profile-banner-identity {
+  padding-right: 216px;
+}
+
+/* No banner picture: chip flows under the identity, right-aligned */
+.profile-banner.no-image .profile-banner-social {
+  position: static;
+  display: flex;
+  width: fit-content;
+  margin: 0 32px 16px auto;
 }
 
 .profile-avatar-wrap {
@@ -275,10 +318,21 @@
 .profile-details-panel {
   display: none;
   padding: 20px 32px 24px;
+  /* Re-center panel content inside the full-bleed header */
+  max-width: 1500px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .profile-details-panel.open {
   display: block;
+}
+
+.profile-details-panel .profile-feature-btn {
+  margin-top: 20px;
+  width: 100%;
+  justify-content: center;
 }
 
 .profile-details-stats {
@@ -571,12 +625,6 @@
   margin: 0;
 }
 
-.profile-projects-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .profile-feature-btn {
   display: flex;
   align-items: center;
@@ -638,7 +686,7 @@
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
   min-width: 160px;
-  z-index: 100;
+  z-index: 600;
   overflow: hidden;
 }
 
@@ -821,24 +869,21 @@
   }
 
   .profile-projects-section {
-    padding: 0 12px;
+    padding: 0 8px;
   }
 
   .profile-projects-header {
     flex-wrap: wrap;
   }
 
-  .profile-projects-actions {
-    width: 100%;
-    justify-content: flex-end;
+  .profile-banner:not(.no-image) .profile-banner-social {
+    right: 16px;
+    bottom: 16px;
+    max-width: 150px;
   }
 
-  .profile-feature-btn span {
-    display: none;
-  }
-
-  .profile-feature-btn {
-    padding: 8px 10px;
+  .profile-banner:has(.profile-banner-social):not(.no-image) .profile-banner-identity {
+    padding-right: 150px;
   }
 
   .qr-large-actions {

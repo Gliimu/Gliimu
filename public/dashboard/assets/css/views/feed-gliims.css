@@ -9,6 +9,9 @@
 @media (min-width: 768px) and (max-width: 1199px) { .blog-feed { column-count: 2; } }
 @media (max-width: 767px) { .blog-feed { column-count: 1; column-gap: 16px; } }
 
+/* Spacing for non-.blog-card kinds (audiolites/books/bundles) in this fallback */
+.blog-feed > article { margin-bottom: 24px; break-inside: avoid; }
+
 .blog-card {
   background: var(--surface);
   border: 1px solid var(--border);

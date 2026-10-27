@@ -2,6 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
 import hubView, { gliimKindOf } from './feed-gliims.js?v=90';
+import feedView from './feed.js?v=86';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -42,6 +43,15 @@ export default {
       toggleDetailsAcc: (head) => this.toggleDetailsAcc(head),
       toggleDetails: () => this.toggleDetails()
     };
+
+    // Re-slice the masonry when the viewport width changes (column count flips).
+    if (!this._masonryResize) {
+      this._masonryResize = () => {
+        clearTimeout(this._masonryTimer);
+        this._masonryTimer = setTimeout(() => feedView.layoutMasonry('#profile-container'), 120);
+      };
+      window.addEventListener('resize', this._masonryResize);
+    }
 
     await this.fetchAllUsers();
     this.setupTopbar();
@@ -235,6 +245,14 @@ export default {
       </div>
     ` : '';
 
+    const starSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+    const featureAcc = isMe ? `
+      <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
+        ${starSvg}
+        <span>Feature your content</span>
+      </button>
+    ` : '';
+
     return `
       <div class="profile-details-panel" id="profile-details-panel">
         <div class="profile-details-stats">
@@ -269,6 +287,7 @@ export default {
         ` : ''}
         ${streakAcc}
         ${shareAcc}
+        ${featureAcc}
       </div>
     `;
   },
@@ -412,15 +431,15 @@ export default {
               ${p.bio ? `<p class="profile-banner-bio">${escText(p.bio)}</p>` : ''}
             </div>
           </div>
+          ${socialOk ? `
+            <a class="profile-social-chip profile-banner-social" href="${escAttr(socialLink)}" target="_blank" rel="noopener noreferrer nofollow" title="${escAttr(socialLink)}">${globeSvg}<span>${escText(socialHost)}</span></a>
+          ` : ''}
         </div>
         <div class="profile-header-actions">
           <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
             More details
             ${chevronDownSvg}
           </button>
-          ${socialOk ? `
-            <a class="profile-social-chip" href="${escAttr(socialLink)}" target="_blank" rel="noopener noreferrer nofollow" title="${escAttr(socialLink)}">${globeSvg}<span>${escText(socialHost)}</span></a>
-          ` : ''}
           <div class="profile-header-actions-right">
             ${isMe ? `
               <div class="profile-filter-wrap">
@@ -456,24 +475,16 @@ export default {
       <div class="profile-projects-section">
         <div class="profile-projects-header">
           <h2>Gliims</h2>
-          ${isMe ? `
-            <div class="profile-projects-actions">
-              <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                <span>Feature your content</span>
-              </button>
-            </div>
-          ` : ''}
         </div>
         <div class="profile-gliims-feed">
-          <div class="blog-feed">
-            ${gridPosts.length
-              ? gridPosts.map(item => this.renderCard(item, p)).join('')
-              : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`}
-          </div>
+          ${gridPosts.length
+            ? `<div class="library-feed feed-grid">${gridPosts.map(item => feedView.wrapItem(this.renderCard(item, p), 'gliim')).join('')}</div>`
+            : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`}
         </div>
       </div>
     `;
+
+    feedView.layoutMasonry('#profile-container');
   },
 
   // Point the shared XpLoRe renderer at this profile's data: block shapes for

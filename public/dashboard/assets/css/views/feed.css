@@ -41,7 +41,7 @@
    MERGED FEED — gliims + shelf in one responsive grid.
    Wide screens: multi-column grid of cards. Mobile: single-column list.
    ============================================ */
-.libmerge.hub-layout { max-width: 1240px; }
+.libmerge.hub-layout { max-width: 1500px; }
 @media (max-width: 768px) {
   .libmerge.hub-layout { padding-left: 8px; padding-right: 8px; }
 }
@@ -607,14 +607,17 @@
   flex-shrink: 0;
 }
 
-/* Featured carousel */
+/* Featured carousel — hero banner spans the full horizontal space of the
+   main area (overflow-x: clip on .main-content absorbs the breakout). */
 .featured-carousel {
   margin-bottom: 16px;
   position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
 }
 .featured-slide {
   position: relative;
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
   height: 280px;
   cursor: pointer;

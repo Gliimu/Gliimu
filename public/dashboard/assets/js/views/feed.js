@@ -197,8 +197,8 @@ export default {
   // Pinterest masonry: each item spans exactly its own height in 8px row
   // slices (plus its bottom gap), so short tiles tuck under tall cards with
   // no row-sized dead space. Re-run whenever widths change.
-  layoutMasonry() {
-    const feed = document.querySelector('#library-feed .library-feed');
+  layoutMasonry(scope = '#library-feed') {
+    const feed = document.querySelector(`${scope} .library-feed`);
     if (!feed) return;
 
     const ROW = 8;
