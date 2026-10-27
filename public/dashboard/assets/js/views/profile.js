@@ -40,8 +40,7 @@ export default {
       toggleFollow: () => this.toggleFollow(),
       messageUser: () => this.messageUser(),
       toggleDetailsAcc: (head) => this.toggleDetailsAcc(head),
-      openDetails: () => this.openDetails(),
-      closeDetails: (e, el) => { if (e.target === el) el.remove(); }
+      toggleDetails: () => this.toggleDetails()
     };
 
     await this.fetchAllUsers();
@@ -172,12 +171,7 @@ export default {
     if (!wasOpen) item.classList.add('open');
   },
 
-  openDetails() {
-    document.getElementById('profile-details-overlay')?.remove();
-    const p = this.currentUser;
-    if (!p) return;
-    const isMe = this.targetUserId === store.user.id;
-
+  buildDetailsPanel(p, isMe) {
     const gp = p.total_gp || 0;
     const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
     const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
@@ -241,12 +235,8 @@ export default {
       </div>
     ` : '';
 
-    const overlay = document.createElement('div');
-    overlay.id = 'profile-details-overlay';
-    overlay.onclick = (e) => profileInstance.closeDetails(e, overlay);
-    overlay.innerHTML = `
-      <div class="profile-details-box">
-        <h3>Profile details</h3>
+    return `
+      <div class="profile-details-panel" id="profile-details-panel">
         <div class="profile-details-stats">
           <div class="profile-stat">
             <span class="stat-value">${gpDisplay}</span>
@@ -265,7 +255,6 @@ export default {
             <span class="stat-label">Following</span>
           </div>
         </div>
-        ${p.bio ? `<p class="profile-details-bio">${p.bio}</p>` : ''}
         ${skills.length ? `
           <div class="profile-details-group">
             <h4>Skills</h4>
@@ -280,10 +269,15 @@ export default {
         ` : ''}
         ${streakAcc}
         ${shareAcc}
-        <button class="btn-primary profile-details-done" onclick="document.getElementById('profile-details-overlay')?.remove()">Done</button>
       </div>
     `;
-    document.body.appendChild(overlay);
+  },
+
+  toggleDetails() {
+    const panel = document.getElementById('profile-details-panel');
+    if (!panel) return;
+    const open = panel.classList.toggle('open');
+    document.getElementById('profile-details-toggle')?.classList.toggle('open', open);
   },
 
   async toggleFollow() {
@@ -365,10 +359,6 @@ export default {
     this._followingCount = followingCount;
 
     const p = user;
-    const gp = p.total_gp || 0;
-
-    const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
-    const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
 
     const settingsGearSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
@@ -379,6 +369,7 @@ export default {
     const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const escText = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const globeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
+    const chevronDownSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
     // Grid list first, then card context, then the template — cards must render
     // with their kinds and comment counts already known.
@@ -404,37 +395,33 @@ export default {
       : this._projectFilter === 'drafts' ? 'No drafts found.'
       : 'No gliims found.';
 
+    const detailsPanel = this.buildDetailsPanel(p, isMe);
+
     container.innerHTML = `
-      <!-- Profile Header -->
+      <!-- Profile Header: banner identity, actions row, inline details panel -->
       <div class="profile-header card">
-        ${p.banner_url || socialOk ? `
-        <div class="profile-banner"${p.banner_url ? '' : ' style="height:56px;"'}>
+        <div class="profile-banner${p.banner_url ? '' : ' no-image'}">
           ${p.banner_url ? `<img src="${escAttr(p.banner_url)}" alt="">` : ''}
-          ${socialOk ? `
-            <a class="profile-banner-social" href="${escAttr(socialLink)}" target="_blank" rel="noopener noreferrer nofollow">${globeSvg}<span>${escText(socialHost)}</span></a>
-          ` : ''}
-        </div>
-        ` : ''}
-        <div class="profile-header-top">
-          <div class="profile-avatar-wrap">
+          <div class="profile-banner-scrim"></div>
+          <div class="profile-banner-identity">
             ${p.avatar_url
-              ? `<img src="${p.avatar_url}" alt="${p.full_name || 'Gliimait'}" class="profile-avatar-large">`
+              ? `<img src="${escAttr(p.avatar_url)}" alt="${escText(p.full_name || 'Gliimait')}" class="profile-avatar-large">`
               : `<div class="profile-avatar-fallback">${(p.full_name || 'G').charAt(0).toUpperCase()}</div>`}
-            ${isMe ? `
-              <button class="profile-avatar-edit" title="Edit profile picture" onclick="window.location.hash='#/settings'">
-                ${settingsGearSvg}
-              </button>
-            ` : `
-              <button class="profile-follow-btn ${this._isFollowing ? 'following' : ''}" onclick="profileInstance.toggleFollow()" id="follow-btn" title="${this._isFollowing ? 'Unfollow' : 'Follow'}">
-                ${this._isFollowing ? `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                ` : `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                `}
-              </button>
-            `}
+            <div class="profile-banner-text">
+              <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
+              ${p.bio ? `<p class="profile-banner-bio">${escText(p.bio)}</p>` : ''}
+            </div>
           </div>
-          <div class="profile-action-btn">
+        </div>
+        <div class="profile-header-actions">
+          <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
+            More details
+            ${chevronDownSvg}
+          </button>
+          ${socialOk ? `
+            <a class="profile-social-chip" href="${escAttr(socialLink)}" target="_blank" rel="noopener noreferrer nofollow" title="${escAttr(socialLink)}">${globeSvg}<span>${escText(socialHost)}</span></a>
+          ` : ''}
+          <div class="profile-header-actions-right">
             ${isMe ? `
               <div class="profile-filter-wrap">
                 <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
@@ -447,23 +434,22 @@ export default {
                   <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
                 </div>
               </div>
+              <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
             ` : `
+              <button class="profile-follow-btn ${this._isFollowing ? 'following' : ''}" onclick="profileInstance.toggleFollow()" id="follow-btn" title="${this._isFollowing ? 'Unfollow' : 'Follow'}">
+                ${this._isFollowing ? `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                ` : `
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                `}
+              </button>
               <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send message">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
               </button>
             `}
           </div>
         </div>
-        <div class="profile-header-info">
-          <div class="profile-name-row">
-            <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
-          </div>
-          ${p.bio ? `<p class="profile-bio">${p.bio}</p>` : ''}
-          <button class="profile-more-details" onclick="profileInstance.openDetails()">
-            More details
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </button>
-        </div>
+        ${detailsPanel}
       </div>
 
       <!-- Gliims Section -->

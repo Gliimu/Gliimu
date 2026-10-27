@@ -1,8 +1,13 @@
 /* Hub Layout */
-.hub-layout { max-width: 800px; margin: 0 auto; padding-bottom: 100px; }
+.hub-layout { max-width: 1500px; margin: 0 auto; padding: 0 24px 100px; }
 
-/* Gliim feed — one list of cards */
-.blog-feed { display: flex; flex-direction: column; gap: 32px; }
+/* Gliim feed — wide masonry of cards (shared by XpLoRe and profile) */
+.blog-feed { column-gap: 24px; }
+
+@media (min-width: 1600px) { .blog-feed { column-count: 4; } }
+@media (min-width: 1200px) and (max-width: 1599px) { .blog-feed { column-count: 3; } }
+@media (min-width: 768px) and (max-width: 1199px) { .blog-feed { column-count: 2; } }
+@media (max-width: 767px) { .blog-feed { column-count: 1; column-gap: 16px; } }
 
 .blog-card {
   background: var(--surface);
@@ -14,6 +19,9 @@
   box-shadow: var(--shadow-sm);
   margin-bottom: 24px;
   break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .blog-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
@@ -542,11 +550,11 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .poll-option-row.poll-option-mine .poll-option-label::after { content: ' · Your pick'; font-size: 11px; font-weight: 500; color: var(--brand-primary); }
 .poll-total { margin-top: 12px; font-size: 12px; color: var(--text-muted); text-align: right; }
 
-/* Mobile: the feed is a single list of cards */
+/* Mobile: the feed is a single column of cards */
 @media (max-width: 768px) {
   .hub-layout { padding-left: 12px; padding-right: 12px; }
-  .blog-feed { gap: 16px; }
-  .blog-card { margin-bottom: 0; border-radius: 12px; max-width: 100%; box-sizing: border-box; }
+  .blog-feed { column-gap: 16px; }
+  .blog-card { margin-bottom: 16px; border-radius: 12px; max-width: 100%; box-sizing: border-box; }
   .blog-content { padding: 16px; box-sizing: border-box; }
   .blog-cover { height: 180px; }
   .blog-title { font-size: 19px; margin-bottom: 8px; }
