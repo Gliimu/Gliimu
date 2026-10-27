@@ -4,7 +4,7 @@
 // derived in the database (gliimpa_paused), so nobody has to press a button to
 // hand the conversation back.
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store } from '../store.js?v=2';
 import { kbAnswer } from '../gliim-pa-kb.js?v=29';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js';
 

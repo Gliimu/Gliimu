@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store, tierClass, tierIcon } from '../store.js';
+import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
 import hubView from './feed-gliims.js?v=87';
 import { notify } from '../notify.js?v=33';

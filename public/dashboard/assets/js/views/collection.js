@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store, tierClass } from '../store.js';
+import { store, tierClass } from '../store.js?v=2';
 import hubView from './feed-gliims.js?v=87';
 
 function escapeHtml(value) {

@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store } from './store.js';
+import { store } from './store.js?v=2';
 import { getBalance, setPlan, initTopup, start as startHeartbeat, stop as stopHeartbeat } from './heartbeat.js';
 
 export { getBalance, setPlan, initTopup, startHeartbeat, stopHeartbeat };

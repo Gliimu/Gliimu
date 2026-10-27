@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { uploadFile } from '../upload.js';
-import { store } from '../store.js';
+import { store } from '../store.js?v=2';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

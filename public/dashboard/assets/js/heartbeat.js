@@ -1,5 +1,5 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
-import { store } from './store.js';
+import { store } from './store.js?v=2';
 
 let heartbeatInterval = null;
 let lastActivity = Date.now();

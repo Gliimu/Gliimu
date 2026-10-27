@@ -1,6 +1,6 @@
 import hubView from './feed-gliims.js?v=88';
 import { supabase } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
 
 function escapeHtml(value) {

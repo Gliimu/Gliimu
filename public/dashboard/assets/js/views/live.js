@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js';
-import { store } from '../store.js';
+import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
 
 const ICE_SERVERS = [
