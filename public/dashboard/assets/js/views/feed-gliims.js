@@ -2525,7 +2525,7 @@ const hubView = {
 
   async sharePost(postId, title) {
     const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'share' }).select('*').single();
-    if (data) this.allInteractions.push(data);
+    if (data && this.allInteractions) this.allInteractions.push(data);
     const post = this.currentPosts.find(p => p.id === postId);
     if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
     await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 5 });
@@ -2591,11 +2591,11 @@ window.hubInstance = {
     }
   },
   toggleEyeProtection: () => {
-    const container = document.getElementById('post-read-container');
-    if (!container) return;
-    const isActive = container.classList.toggle('eye-protection');
+    const section1 = document.getElementById('post-read-section-1');
+    if (!section1) return;
+    const isActive = section1.classList.toggle('eye-protection');
     localStorage.setItem('gliimu_eye_protection', isActive ? '1' : '0');
-    const menu = container.querySelector('.hub-read-menu');
+    const menu = section1.closest('.post-read-layout').querySelector('.hub-read-menu');
     if (menu) menu.style.display = 'none';
   }
 };

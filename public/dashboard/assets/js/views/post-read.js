@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView from './feed-gliims.js?v=91';
+import hubView from './feed-gliims.js?v=92';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -310,7 +310,8 @@ export default {
     `;
 
     if (eyeProtectionActive) {
-      container.classList.add('eye-protection');
+      const section1 = document.getElementById('post-read-section-1');
+      if (section1) section1.classList.add('eye-protection');
     }
 
     hubView.setupMediaBlocks(container);

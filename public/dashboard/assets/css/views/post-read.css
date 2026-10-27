@@ -7,19 +7,16 @@
   background: var(--surface);
 }
 
-/* Eye protection mode — warm sepia tone for comfortable reading */
-.post-read-layout.eye-protection {
+/* Eye protection mode — warm sepia tone for comfortable reading (section 1 only) */
+.post-read-main.eye-protection {
   background: #f5f0e0;
   filter: sepia(0.15) saturate(0.85);
 }
-.post-read-layout.eye-protection .post-read-header {
+.post-read-main.eye-protection .post-read-header {
   background: #f5f0e0;
 }
-.post-read-layout.eye-protection .post-read-bottom {
+.post-read-main.eye-protection .post-read-bottom {
   background: #f5f0e0;
-}
-.post-read-layout.eye-protection .post-read-related {
-  background: #ede8d6;
 }
 
 /* Disable text selection and highlighting on the reader page */
@@ -159,11 +156,26 @@
   margin-bottom: 0;
 }
 
+/* Mobile grid: match XpLoRe exactly — 2 columns for books/audiolites, full-width for bundles */
+@media (max-width: 768px) {
+  .post-read-related .related-posts-grid {
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: 12px;
+  }
+  .post-read-related .related-posts-grid .feed-item--gliim {
+    grid-column: 1 / -1;
+  }
+  .post-read-related .related-posts-grid .feed-item--gliim:has(.book-cover-card),
+  .post-read-related .related-posts-grid .feed-item--gliim:has(.audiolite-card:not(.bundle-card)),
+  .post-read-related .related-posts-grid .feed-item--gliim:has(.image-only-card) {
+    grid-column: auto;
+  }
+}
+
 /* Engagement bar — sticky at bottom until section 1 ends, then scrolls with content */
 .post-read-bottom {
   position: sticky;
   bottom: 0;
-  max-width: 800px;
   width: 100%;
   margin: 0 auto;
   background: var(--surface);
