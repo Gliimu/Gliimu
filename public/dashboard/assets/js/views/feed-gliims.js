@@ -2589,6 +2589,14 @@ window.hubInstance = {
       modal.style.display = 'none';
       document.body.style.overflow = '';
     }
+  },
+  toggleEyeProtection: () => {
+    const container = document.getElementById('post-read-container');
+    if (!container) return;
+    const isActive = container.classList.toggle('eye-protection');
+    localStorage.setItem('gliimu_eye_protection', isActive ? '1' : '0');
+    const menu = container.querySelector('.hub-read-menu');
+    if (menu) menu.style.display = 'none';
   }
 };
 

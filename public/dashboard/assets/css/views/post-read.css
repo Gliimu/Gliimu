@@ -159,14 +159,18 @@
   margin-bottom: 0;
 }
 
-/* Engagement bar — inline after post content, scrolls with section 1 */
+/* Engagement bar — sticky at bottom until section 1 ends, then scrolls with content */
 .post-read-bottom {
+  position: sticky;
+  bottom: 0;
   max-width: 800px;
   width: 100%;
   margin: 0 auto;
   background: var(--surface);
   padding: 16px 16px;
   border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+  z-index: 50;
   display: flex;
   gap: 32px;
   justify-content: center;
