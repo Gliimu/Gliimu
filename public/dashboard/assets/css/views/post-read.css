@@ -7,6 +7,43 @@
   background: var(--surface);
 }
 
+/* Eye protection mode — warm sepia tone for comfortable reading */
+.post-read-layout.eye-protection {
+  background: #f5f0e0;
+  filter: sepia(0.15) saturate(0.85);
+}
+.post-read-layout.eye-protection .post-read-header {
+  background: #f5f0e0;
+}
+.post-read-layout.eye-protection .post-read-bottom {
+  background: #f5f0e0;
+}
+.post-read-layout.eye-protection .post-read-related {
+  background: #ede8d6;
+}
+
+/* Disable text selection and highlighting on the reader page */
+.post-read-layout {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Allow selection inside input fields and textareas so comments still work */
+.post-read-layout input,
+.post-read-layout textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Hide everything when printing */
+@media print {
+  body > * { display: none !important; }
+}
+
 /* Scroll progress bar */
 .post-read-progress {
   position: fixed;
@@ -74,21 +111,28 @@
   max-width: 800px;
   width: 100%;
   margin: 0 auto;
-  padding: 0 16px 100px;
+  padding: 0 16px 0;
 }
 
 .post-read-main .read-body {
   padding: 32px 0;
 }
 
-/* Related posts section (Section 2) */
+/* Related posts section (Section 2) — cancel .view-container padding to match XpLoRe grid width exactly */
 .post-read-related {
-  width: 100%;
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 48px 24px 100px;
+  width: calc(100% + var(--space-8) * 2);
+  margin-left: calc(-1 * var(--space-8));
+  margin-right: calc(-1 * var(--space-8));
+  max-width: none;
+  padding: 48px 0 100px;
   border-top: 2px solid var(--border);
   background: var(--bg-secondary);
+}
+
+.post-read-related .related-posts-inner {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
 .post-read-related .related-posts-title {
@@ -115,17 +159,14 @@
   margin-bottom: 0;
 }
 
-/* Bottom engagement bar */
+/* Engagement bar — inline after post content, scrolls with section 1 */
 .post-read-bottom {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
   background: var(--surface);
-  padding: 12px 24px;
+  padding: 16px 16px;
   border-top: 1px solid var(--border);
-  box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
-  z-index: 100;
   display: flex;
   gap: 32px;
   justify-content: center;
@@ -137,13 +178,13 @@
     padding: 10px 16px;
   }
   .post-read-main {
-    padding: 0 12px 100px;
+    padding: 0 12px 0;
   }
   .post-read-main .read-body {
     padding: 20px 0;
   }
   .post-read-bottom {
-    padding: 10px 16px;
+    padding: 12px;
     gap: 24px;
   }
 }

@@ -13,6 +13,7 @@ function escapeHtml(value) {
 }
 
 let scrollHandler = null;
+let keydownHandler = null;
 
 export default {
   template: `
@@ -26,6 +27,10 @@ export default {
     if (scrollHandler) {
       window.removeEventListener('scroll', scrollHandler);
       scrollHandler = null;
+    }
+    if (keydownHandler) {
+      document.removeEventListener('keydown', keydownHandler);
+      keydownHandler = null;
     }
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
@@ -69,6 +74,15 @@ export default {
     }
 
     this.postId = postId;
+
+    // Block Ctrl+S (save) and Ctrl+P (print) on the reader page
+    keydownHandler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('keydown', keydownHandler);
 
     const post = await this.fetchPost(postId);
     if (!post) {
@@ -215,10 +229,14 @@ export default {
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+    const eyeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 
     const deleteBtnHtml = isOwner ? `
       <div class="hub-read-menu-item danger" onclick="hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete Gliim</div>
     ` : '';
+
+    const eyeProtectionActive = localStorage.getItem('gliimu_eye_protection') === '1';
+    const eyeCheckIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
     const container = document.getElementById('post-read-container');
     container.innerHTML = `
@@ -232,6 +250,7 @@ export default {
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
             </button>
             <div class="hub-read-menu" id="read-menu-${post.id}">
+              <div class="hub-read-menu-item" onclick="hubInstance.toggleEyeProtection()">${eyeIcon} ${eyeProtectionActive ? eyeCheckIcon + ' ' : ''}Eye Protection</div>
               <div class="hub-read-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
               <div class="hub-read-menu-item" onclick="hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
               ${deleteBtnHtml}
@@ -256,37 +275,43 @@ export default {
 
           ${blocksHtml}
         </div>
-      </main>
 
-      <div class="post-read-bottom">
-        <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-          <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
-          <span>${likes}</span>
-        </button>
-        <button class="action-btn" onclick="hubInstance.openCommentsModal('${post.id}')">
-          <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
-          <span>${comments}</span>
-        </button>
-        <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 5 GP">
-          <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
-          <span>${shares}</span>
-        </button>
-        ${(post.profiles?.total_gp || 0) >= 500 ? `
-        <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span>${supports}</span>
-        </button>` : ''}
-      </div>
+        <div class="post-read-bottom">
+          <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+            <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
+            <span>${likes}</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.openCommentsModal('${post.id}')">
+            <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
+            <span>${comments}</span>
+          </button>
+          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 5 GP">
+            <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
+            <span>${shares}</span>
+          </button>
+          ${(post.profiles?.total_gp || 0) >= 500 ? `
+          <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>${supports}</span>
+          </button>` : ''}
+        </div>
+      </main>
 
       ${relatedPosts.length > 0 ? `
       <section class="post-read-related" id="post-read-section-2">
-        <h3 class="related-posts-title">More inspiring contents</h3>
-        <div class="related-posts-grid library-feed feed-grid" id="related-posts-grid">
-          ${relatedPosts.map(rp => `<div class="feed-item feed-item--gliim">${hubView.renderPostCard(rp)}</div>`).join('')}
+        <div class="related-posts-inner">
+          <h3 class="related-posts-title">More inspiring contents</h3>
+          <div class="related-posts-grid library-feed feed-grid" id="related-posts-grid">
+            ${relatedPosts.map(rp => `<div class="feed-item feed-item--gliim">${hubView.renderPostCard(rp)}</div>`).join('')}
+          </div>
         </div>
       </section>
       ` : ''}
     `;
+
+    if (eyeProtectionActive) {
+      container.classList.add('eye-protection');
+    }
 
     hubView.setupMediaBlocks(container);
     hubView.hydratePolls(container);
@@ -494,5 +519,14 @@ export default {
 
   closeReader() {
     history.back();
+  },
+
+  toggleEyeProtection() {
+    const container = document.getElementById('post-read-container');
+    if (!container) return;
+    const isActive = container.classList.toggle('eye-protection');
+    localStorage.setItem('gliimu_eye_protection', isActive ? '1' : '0');
+    const menu = container.querySelector('.hub-read-menu');
+    if (menu) menu.style.display = 'none';
   }
 };
