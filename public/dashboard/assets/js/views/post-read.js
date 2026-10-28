@@ -562,16 +562,26 @@ export default {
       
       bar.style.width = pct + '%';
 
-      const railItems = document.querySelectorAll('.commenter-rail-item');
-      const progress = pct / 100;
-      railItems.forEach(item => {
-        const threshold = parseFloat(item.dataset.scrollThreshold);
-        if (progress >= threshold) {
-          item.classList.add('visible');
-        } else {
-          item.classList.remove('visible');
+      const rail = document.getElementById('commenter-rail');
+      if (rail) {
+        if (section2) {
+          const section2Rect = section2.getBoundingClientRect();
+          rail.style.opacity = section2Rect.top <= 0 ? '0' : '';
+          rail.style.pointerEvents = section2Rect.top <= 0 ? 'none' : '';
         }
-      });
+        if (rail.style.opacity !== '0') {
+          const railItems = rail.querySelectorAll('.commenter-rail-item');
+          const progress = pct / 100;
+          railItems.forEach(item => {
+            const threshold = parseFloat(item.dataset.scrollThreshold);
+            if (progress >= threshold) {
+              item.classList.add('visible');
+            } else {
+              item.classList.remove('visible');
+            }
+          });
+        }
+      }
 
       sessionStorage.setItem(scrollKey, String(scrollTop));
     };
