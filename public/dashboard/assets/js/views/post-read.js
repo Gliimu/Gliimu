@@ -45,6 +45,9 @@ export default {
       modal.remove();
     }
     document.body.style.overflow = '';
+    if (window.hubInstance) {
+      delete window.hubInstance.toggleCommentStrip;
+    }
   },
 
   async init() {
@@ -120,6 +123,8 @@ export default {
     await this.populateCardKinds(relatedPosts);
     this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
+
+    window.hubInstance.toggleCommentStrip = () => this.toggleCommentStrip();
 
     // Billing only runs while a post is actually open in the reader.
     heartbeat.setCurrentPost(postId);
