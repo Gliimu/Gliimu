@@ -2367,15 +2367,22 @@ const hubView = {
   toggleReadMenu(postId) {
     const menu = document.getElementById(`read-menu-${postId}`);
     if (!menu) return;
-    menu.classList.toggle('active');
-    if (menu.classList.contains('active')) {
+    if (menu._closeHandler) {
+      document.removeEventListener('click', menu._closeHandler);
+      menu._closeHandler = null;
+    }
+    const isNowActive = menu.classList.toggle('active');
+    if (isNowActive) {
+      const handler = (e) => {
+        if (!menu.contains(e.target)) {
+          menu.classList.remove('active');
+          document.removeEventListener('click', handler);
+          menu._closeHandler = null;
+        }
+      };
+      menu._closeHandler = handler;
       setTimeout(() => {
-        document.addEventListener('click', function closeMenu(e) {
-          if (!menu.contains(e.target)) {
-            menu.classList.remove('active');
-            document.removeEventListener('click', closeMenu);
-          }
-        });
+        document.addEventListener('click', handler);
       }, 0);
     }
   },
@@ -2596,7 +2603,10 @@ window.hubInstance = {
     const isActive = section1.classList.toggle('eye-protection');
     localStorage.setItem('gliimu_eye_protection', isActive ? '1' : '0');
     const menu = section1.closest('.post-read-layout').querySelector('.hub-read-menu');
-    if (menu) menu.classList.remove('active');
+    if (menu) {
+      const postId = menu.id.replace('read-menu-', '');
+      hubView.toggleReadMenu(postId);
+    }
   }
 };
 
