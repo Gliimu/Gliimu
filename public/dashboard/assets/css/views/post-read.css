@@ -4,19 +4,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-}
-
-/* Eye protection mode — warm sepia tone for comfortable reading (section 1 only) */
-.post-read-main.eye-protection {
-  background: #f5f0e0;
-  filter: sepia(0.15) saturate(0.85);
-}
-.post-read-main.eye-protection .post-read-header {
-  background: #f5f0e0;
-}
-.post-read-main.eye-protection .post-read-bottom {
-  background: #f5f0e0;
+  background: transparent;
 }
 
 /* Disable text selection and highlighting on the reader page */
@@ -62,7 +50,7 @@
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
-  background: var(--surface);
+  background: transparent;
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
@@ -176,13 +164,20 @@
 .post-read-bottom {
   position: sticky;
   bottom: 0;
-  width: 100%;
-  margin: 0 auto;
+  width: 100vw;
+  left: 50%;
+  margin-left: -50vw;
   background: var(--surface);
-  padding: 16px 16px;
   border-top: 1px solid var(--border);
   box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
   z-index: 50;
+  padding: 16px 0;
+}
+
+.post-read-bottom-inner {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 24px;
   display: flex;
   gap: 32px;
   justify-content: center;
@@ -200,9 +195,12 @@
     padding: 20px 0;
   }
   .post-read-bottom {
-    padding: 12px;
-    gap: 24px;
+    padding: 12px 0;
   }
+  .post-read-bottom-inner {
+    padding: 0 16px;
+    gap: 24px;
+ }
 }
 
 /* Commenter avatars rail — fixed right side, desktop only */
