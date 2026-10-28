@@ -12,7 +12,7 @@ const routes = {
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=70').then(m => m.default),
   '/feature': () => import('./views/feature.js?v=3').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=36').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=37').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=15').then(m => m.default),
 };
 

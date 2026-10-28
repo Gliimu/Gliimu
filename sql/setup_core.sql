@@ -293,7 +293,6 @@ create table if not exists public.feed_interactions (
   interaction_type text check (interaction_type in ('like','comment','share','save','support')),
   comment_text text,
   amount integer,
-  scroll_position decimal(5,4),
   created_at timestamptz not null default now()
 );
 create index if not exists idx_feed_interactions_post on public.feed_interactions(post_id);

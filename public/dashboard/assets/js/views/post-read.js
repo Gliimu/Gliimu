@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=97';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=98';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -45,9 +45,6 @@ export default {
       modal.remove();
     }
     document.body.style.overflow = '';
-    if (window.hubInstance) {
-      delete window.hubInstance.toggleCommentStrip;
-    }
   },
 
   async init() {
@@ -124,8 +121,6 @@ export default {
     this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
 
-    window.hubInstance.toggleCommentStrip = () => this.toggleCommentStrip();
-
     // Billing only runs while a post is actually open in the reader.
     heartbeat.setCurrentPost(postId);
     heartbeat.start();
@@ -142,7 +137,7 @@ export default {
   async fetchInteractions(postId) {
     const { data } = await supabase
       .from('feed_interactions')
-      .select('id, post_id, user_id, interaction_type, amount, comment_text, scroll_position, created_at, profiles:profiles!user_id(full_name, avatar_url, total_gp)')
+      .select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url, total_gp)')
       .eq('post_id', postId);
     return data || [];
   },
@@ -247,44 +242,11 @@ export default {
 
     const blocksHtml = this.renderBlocks(post, isOwner);
 
-    const commenterMap = new Map();
-    for (const c of postComments) {
-      const existing = commenterMap.get(c.user_id);
-      if (!existing || new Date(c.created_at) > new Date(existing.created_at)) {
-        commenterMap.set(c.user_id, c);
-      }
-    }
-    const commenters = Array.from(commenterMap.values())
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    const MAX_RAIL = 12;
-    const railCommenters = commenters.slice(0, MAX_RAIL);
-    const railRemaining = commenters.length - railCommenters.length;
-
-    const commenterRailHtml = commenters.length > 0 ? `
-      <div class="commenter-rail" id="commenter-rail">
-        ${railCommenters.map(c => {
-          const name = c.profiles?.full_name || 'Gliimait';
-          const avatarInner = c.profiles?.avatar_url
-            ? `<img class="commenter-rail-avatar" src="${c.profiles.avatar_url}" alt="${escapeHtml(name)}" style="object-fit:cover;">`
-            : `<div class="commenter-rail-avatar commenter-rail-avatar-placeholder">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
-          const rawText = c.comment_text || '';
-          const previewText = rawText.length > 120 ? rawText.substring(0, 120) + '...' : rawText;
-          return `<div class="commenter-rail-item" data-user-id="${c.user_id}">${avatarInner}<div class="commenter-rail-tooltip"><div class="commenter-rail-tooltip-name">${escapeHtml(name)}</div><div class="commenter-rail-tooltip-text">${escapeHtml(previewText)}</div></div></div>`;
-        }).join('')}
-        ${railRemaining > 0 ? `<div class="commenter-rail-more">+${railRemaining}</div>` : ''}
-      </div>
-    ` : '';
-
     const backIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
     const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     const saveIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
-    const viewCommentsIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-
-    const stripEnabled = localStorage.getItem('reader_comment_strip') !== 'off';
-    const stripCheck = stripEnabled ? '&#10003; ' : '&nbsp;&nbsp;&nbsp;&nbsp;';
 
     const deleteBtnHtml = isOwner ? `
       <div class="hub-read-menu-item danger" onclick="hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete Gliim</div>
@@ -304,7 +266,6 @@ export default {
               </button>
               <div class="hub-read-menu" id="read-menu-${post.id}">
                 <div class="hub-read-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
-                <div class="hub-read-menu-item" onclick="hubInstance.toggleCommentStrip()">${stripCheck}${viewCommentsIcon} View Comments</div>
                 <div class="hub-read-menu-item" onclick="hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
                 ${deleteBtnHtml}
               </div>
@@ -353,10 +314,6 @@ export default {
         </div>
       </main>
 
-      ${commenterRailHtml}
-
-      ${this.buildCommentStripHtml(postComments, stripEnabled)}
-
       ${relatedPosts.length > 0 ? `
       <section class="post-read-related" id="post-read-section-2">
         <div class="related-posts-inner">
@@ -379,8 +336,6 @@ export default {
 
     this.layoutRelatedMasonry();
     this.renderCommentsModal(post, commentsHtml);
-    this.setupCommenterRail();
-    this.setupCommentStrip();
   },
 
   layoutRelatedMasonry() {
@@ -451,115 +406,6 @@ export default {
       modal.style.display = 'none';
       document.body.style.overflow = '';
     }
-  },
-
-  setupCommenterRail() {
-    const rail = document.getElementById('commenter-rail');
-    if (!rail) return;
-
-    const items = rail.querySelectorAll('.commenter-rail-item');
-    const total = items.length;
-    items.forEach((item, i) => {
-      item.dataset.scrollThreshold = String((i + 1) / (total + 1));
-    });
-
-    rail.querySelectorAll('.commenter-rail-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const wasActive = item.classList.contains('active');
-        rail.querySelectorAll('.commenter-rail-item.active').forEach(el => el.classList.remove('active'));
-        if (!wasActive) item.classList.add('active');
-      });
-    });
-
-    if (clickOutsideHandler) {
-      document.removeEventListener('click', clickOutsideHandler);
-    }
-    clickOutsideHandler = () => {
-      rail.querySelectorAll('.commenter-rail-item.active').forEach(el => el.classList.remove('active'));
-    };
-    document.addEventListener('click', clickOutsideHandler);
-  },
-
-  buildCommentStripHtml(comments, enabled) {
-    const positioned = comments
-      .filter(c => c.scroll_position != null)
-      .sort((a, b) => (a.scroll_position || 0) - (b.scroll_position || 0));
-    if (positioned.length === 0) return '';
-
-    const cards = positioned.map(c => {
-      const name = c.profiles?.full_name || 'Gliimait';
-      const avatarHtml = c.profiles?.avatar_url
-        ? `<img class="comment-strip-avatar" src="${c.profiles.avatar_url}" alt="${escapeHtml(name)}" style="object-fit:cover;">`
-        : `<div class="comment-strip-avatar-placeholder">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
-      const rawText = c.comment_text || '';
-      const isLong = rawText.length > 120;
-      const displayText = isLong ? escapeHtml(rawText.substring(0, 120)) : escapeHtml(rawText);
-      return `<div class="comment-strip-card" data-scroll-pos="${c.scroll_position || 0}">${avatarHtml}<div class="comment-strip-text${isLong ? '' : ' expanded'}">${displayText}${isLong ? `<span class="comment-strip-expand" onclick="this.parentElement.classList.toggle('expanded'); this.style.display='none'">... view full comment</span>` : ''}</div></div>`;
-    }).join('');
-
-    return `<div class="comment-strip${enabled ? ' visible' : ''}" id="comment-strip"><div class="comment-strip-track" id="comment-strip-track">${cards}</div></div>`;
-  },
-
-  setupCommentStrip() {
-    const strip = document.getElementById('comment-strip');
-    if (!strip) return;
-    const track = document.getElementById('comment-strip-track');
-    if (!track) return;
-
-    let touchStartX = 0;
-    let touchStartTranslate = 0;
-    let isSwiping = false;
-
-    track.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-      const currentTransform = track.style.transform || 'translateX(0px)';
-      const match = currentTransform.match(/translateX\((-?[\d.]+)px\)/);
-      touchStartTranslate = match ? parseFloat(match[1]) : 0;
-      isSwiping = true;
-      track.style.transition = 'none';
-    }, { passive: true });
-
-    track.addEventListener('touchmove', (e) => {
-      if (!isSwiping) return;
-      const dx = e.touches[0].clientX - touchStartX;
-      track.style.transform = `translateX(${touchStartTranslate + dx}px)`;
-    }, { passive: true });
-
-    track.addEventListener('touchend', () => {
-      isSwiping = false;
-      track.style.transition = 'transform 0.35s ease';
-    }, { passive: true });
-  },
-
-  toggleCommentStrip() {
-    const strip = document.getElementById('comment-strip');
-    if (!strip) return;
-    const isEnabled = strip.classList.contains('visible');
-    strip.classList.toggle('visible');
-    localStorage.setItem('reader_comment_strip', isEnabled ? 'off' : 'on');
-    hubView.closeReadMenu && hubView.closeReadMenu();
-  },
-
-  slideCommentStrip(progress) {
-    const track = document.getElementById('comment-strip-track');
-    if (!track) return;
-    const cards = track.querySelectorAll('.comment-strip-card');
-    if (cards.length === 0) return;
-
-    let activeIndex = 0;
-    for (let i = 0; i < cards.length; i++) {
-      const pos = parseFloat(cards[i].dataset.scrollPos);
-      if (progress >= pos) activeIndex = i;
-    }
-
-    const cardWidth = cards[0].getBoundingClientRect().width;
-    const containerWidth = window.innerWidth;
-    const offset = -(activeIndex * cardWidth) + (containerWidth / 2) - (cardWidth / 2);
-    const maxOffset = 0;
-    const minOffset = -(cards.length * cardWidth - containerWidth);
-    const clamped = Math.max(minOffset, Math.min(maxOffset, offset));
-    track.style.transform = `translateX(${clamped}px)`;
   },
 
   renderBlocks(post, isOwner) {
@@ -672,32 +518,6 @@ export default {
       }
       
       bar.style.width = pct + '%';
-
-      const rail = document.getElementById('commenter-rail');
-      if (rail) {
-        if (section2) {
-          const section2Rect = section2.getBoundingClientRect();
-          rail.style.opacity = section2Rect.top <= 0 ? '0' : '';
-          rail.style.pointerEvents = section2Rect.top <= 0 ? 'none' : '';
-        }
-        if (rail.style.opacity !== '0') {
-          const railItems = rail.querySelectorAll('.commenter-rail-item');
-          const progress = pct / 100;
-          railItems.forEach(item => {
-            const threshold = parseFloat(item.dataset.scrollThreshold);
-            if (progress >= threshold) {
-              item.classList.add('visible');
-            } else {
-              item.classList.remove('visible');
-            }
-          });
-        }
-      }
-
-      const strip = document.getElementById('comment-strip');
-      if (strip && strip.classList.contains('visible')) {
-        this.slideCommentStrip(pct / 100);
-      }
 
       sessionStorage.setItem(scrollKey, String(scrollTop));
     };

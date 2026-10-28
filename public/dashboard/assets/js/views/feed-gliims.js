@@ -2458,11 +2458,8 @@ const hubView = {
     const text = input.value.trim();
     if (!text) return;
 
-    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-    const scrollPos = scrollable > 0 ? Math.round((window.scrollY / scrollable) * 10000) / 10000 : 0;
-
     const post = (this.currentPosts || []).find(p => p.id === postId);
-    const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text, scroll_position: scrollPos }).select('*').single();
+    const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();
 
     if (data) {
       data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp };
