@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView from './feed-gliims.js?v=96';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=96';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -117,6 +117,7 @@ export default {
 
     const interactions = await this.fetchInteractions(postId);
     const relatedPosts = await this.fetchRelatedPosts(post);
+    await this.populateCardKinds(relatedPosts);
     this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
 
@@ -198,6 +199,18 @@ export default {
     return data;
   },
 
+  async populateCardKinds(posts) {
+    if (!posts || posts.length === 0) return;
+    hubView.cardKinds = hubView.cardKinds || {};
+    try {
+      const ids = posts.map(p => p.id);
+      const { data: kindRows } = await supabase.from('feed_gliim_contents').select('post_id, blocks').in('post_id', ids);
+      for (const row of kindRows || []) {
+        hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+      }
+    } catch { /* cards keep the default style */ }
+  },
+
   render(post, interactions, relatedPosts) {
     const isOwner = post.user_id === store.user.id;
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
@@ -273,19 +286,21 @@ export default {
       <div class="post-read-progress" id="post-read-progress"></div>
 
       <header class="post-read-header">
-        <div class="post-read-header-title">${escapeHtml((post.title || 'Gliim').substring(0, 40))}</div>
-        <div class="post-read-header-actions">
-          <div class="hub-menu-wrapper">
-            <button class="post-read-action-btn" onclick="hubInstance.toggleReadMenu('${post.id}')" title="More options">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-            </button>
-            <div class="hub-read-menu" id="read-menu-${post.id}">
-              <div class="hub-read-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
-              <div class="hub-read-menu-item" onclick="hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
-              ${deleteBtnHtml}
+        <div class="post-read-header-inner">
+          <div class="post-read-header-title">${escapeHtml((post.title || 'Gliim').substring(0, 40))}</div>
+          <div class="post-read-header-actions">
+            <div class="hub-menu-wrapper">
+              <button class="post-read-action-btn" onclick="hubInstance.toggleReadMenu('${post.id}')" title="More options">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+              <div class="hub-read-menu" id="read-menu-${post.id}">
+                <div class="hub-read-menu-item" onclick="hubInstance.toggleSavePost('${post.id}')">${saveIcon} ${isSaved ? 'Unsave Gliim' : 'Save Gliim'}</div>
+                <div class="hub-read-menu-item" onclick="hubInstance.promptReport('post', '${post.id}')">${reportIcon} Report Gliim</div>
+                ${deleteBtnHtml}
+              </div>
             </div>
+            <button class="post-read-action-btn" onclick="hubInstance.closeReader()" title="Close">${closeIcon}</button>
           </div>
-          <button class="post-read-action-btn" onclick="hubInstance.closeReader()" title="Close">${closeIcon}</button>
         </div>
       </header>
 
@@ -306,23 +321,25 @@ export default {
         </div>
 
         <div class="post-read-bottom">
-          <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
-            <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
-            <span>${likes}</span>
-          </button>
-          <button class="action-btn" onclick="hubInstance.openCommentsModal('${post.id}')">
-            <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
-            <span>${comments}</span>
-          </button>
-          <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 5 GP">
-            <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
-            <span>${shares}</span>
-          </button>
-          ${(post.profiles?.total_gp || 0) >= 500 ? `
-          <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span>${supports}</span>
-          </button>` : ''}
+          <div class="post-read-bottom-inner">
+            <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
+              <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
+              <span>${likes}</span>
+            </button>
+            <button class="action-btn" onclick="hubInstance.openCommentsModal('${post.id}')">
+              <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
+              <span>${comments}</span>
+            </button>
+            <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 5 GP">
+              <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
+              <span>${shares}</span>
+            </button>
+            ${(post.profiles?.total_gp || 0) >= 500 ? `
+            <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>${supports}</span>
+            </button>` : ''}
+          </div>
         </div>
       </main>
 
