@@ -52,6 +52,9 @@
   padding: 12px 20px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
+  width: 100vw;
+  left: 50%;
+  margin-left: -50vw;
 }
 
 .post-read-back {
@@ -110,7 +113,7 @@
   max-width: none;
   padding: 48px 0 100px;
   border-top: 2px solid var(--border);
-  background: var(--bg-secondary);
+  background: transparent;
 }
 
 .post-read-related .related-posts-inner {
