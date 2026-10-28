@@ -41,16 +41,14 @@
   transition: width 0.1s linear;
 }
 
-/* Header */
+/* Header — edge-to-edge within .view-container (cancel its padding) */
 .post-read-header {
   position: sticky;
   top: 0;
   z-index: 100;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  width: 100vw;
-  left: 50%;
-  margin-left: -50vw;
+  margin: 0 calc(-1 * var(--space-8));
 }
 
 .post-read-header-inner {
@@ -167,16 +165,14 @@
   }
 }
 
-/* Engagement bar — sticky at bottom until section 1 ends, then scrolls with content */
+/* Engagement bar — sticky at bottom, edge-to-edge within .view-container */
 .post-read-bottom {
   position: sticky;
   bottom: 0;
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
   z-index: 50;
-  width: 100vw;
-  left: 50%;
-  margin-left: -50vw;
+  margin: 0 calc(-1 * var(--space-8));
 }
 
 .post-read-bottom-inner {
