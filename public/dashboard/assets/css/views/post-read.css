@@ -200,3 +200,36 @@
     gap: 24px;
   }
 }
+
+/* Follow button on author avatar in reader */
+.reader-follow-avatar-btn {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  color: white;
+  border: 2px solid var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s, transform 0.15s;
+  z-index: 5;
+}
+.reader-follow-avatar-btn:hover {
+  background: var(--brand-primary-hover);
+  transform: scale(1.1);
+}
+.reader-follow-avatar-btn.following {
+  background: #10B981;
+}
+.reader-follow-avatar-btn.following:hover {
+  background: #059669;
+}

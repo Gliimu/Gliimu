@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
-import { store, tierClass } from '../store.js?v=2';
+import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=32';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=98';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=99';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -118,6 +118,7 @@ export default {
     const interactions = await this.fetchInteractions(postId);
     const relatedPosts = await this.fetchRelatedPosts(post);
     await this.populateCardKinds(relatedPosts);
+    await this.checkFollowStatus(post.user_id);
     this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
 
@@ -128,7 +129,7 @@ export default {
 
   async fetchPost(postId) {
     const { data, error } = await supabase.from('feed_gliims')
-      .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp)`)
+      .select(`*, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`)
       .eq('id', postId).single();
     if (error || !data) return null;
     return data;
@@ -140,6 +141,37 @@ export default {
       .select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url, total_gp)')
       .eq('post_id', postId);
     return data || [];
+  },
+
+  async checkFollowStatus(authorId) {
+    if (!store.user || authorId === store.user.id) {
+      this._isFollowing = false;
+      this._authorId = null;
+      return;
+    }
+    this._authorId = authorId;
+    const { data } = await supabase.from('followed_users').select('*').eq('follower_id', store.user.id).eq('followed_id', authorId).maybeSingle();
+    this._isFollowing = !!data;
+  },
+
+  async toggleFollow() {
+    if (!this._authorId) return;
+    const btn = document.getElementById('reader-follow-btn');
+    try {
+      if (this._isFollowing) {
+        const { error } = await supabase.from('followed_users').delete().eq('follower_id', store.user.id).eq('followed_id', this._authorId);
+        if (error) throw error;
+        this._isFollowing = false;
+        if (btn) { btn.classList.remove('following'); btn.innerHTML = '+'; btn.title = 'Follow'; }
+      } else {
+        const { error } = await supabase.from('followed_users').insert({ follower_id: store.user.id, followed_id: this._authorId });
+        if (error) throw error;
+        this._isFollowing = true;
+        if (btn) { btn.classList.add('following'); btn.innerHTML = '✓'; btn.title = 'Following'; }
+      }
+    } catch (err) {
+      console.error('Follow error:', err);
+    }
   },
 
   async fetchRelatedPosts(post) {
@@ -155,7 +187,7 @@ export default {
       }
     };
 
-    const fields = `id, title, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp)`;
+    const fields = `id, title, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
 
     const [sameAuthor, sameCategory, interestResult] = await Promise.all([
       supabase.from('feed_gliims').select(fields)
@@ -217,6 +249,7 @@ export default {
     const avatar = post.profiles?.avatar_url
       ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
       : `<div class="${avatarClass}"></div>`;
+    const followBtnHtml = !isOwner ? `<button class="reader-follow-avatar-btn ${this._isFollowing ? 'following' : ''}" id="reader-follow-btn" onclick="event.stopPropagation(); hubInstance.toggleFollow()" title="${this._isFollowing ? 'Following' : 'Follow'}">${this._isFollowing ? '✓' : '+'}</button>` : '';
 
     const likes = interactions.filter(i => i.interaction_type === 'like').length;
     const comments = interactions.filter(i => i.interaction_type === 'comment').length;
@@ -280,10 +313,10 @@ export default {
           <span class="blog-category">${post.category || 'General'}</span>
           <h1 class="read-title">${escapeHtml(post.title || 'Untitled Gliim')}</h1>
 
-          <div class="blog-author hub-author-hit" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center;" onclick="hubInstance.viewAuthor('${post.user_id}')">
-            <div style="position: relative; flex-shrink: 0; margin-right: 12px;">${avatar}</div>
+          <div class="blog-author hub-author-hit" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center; width: fit-content; cursor: pointer;" onclick="hubInstance.viewAuthor('${post.user_id}')">
+            <div style="position: relative; flex-shrink: 0; margin-right: 12px;">${avatar}${followBtnHtml}</div>
             <div style="display: flex; flex-direction: column;">
-              <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(post.profiles?.full_name || 'Gliimait')}</span>
+              <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span>
               <span style="font-size: 12px; color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</span>
             </div>
           </div>

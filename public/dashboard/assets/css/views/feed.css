@@ -614,7 +614,6 @@
 /* Featured carousel — hero banner fills .xplore-page, which already spans
    the main content area edge-to-edge (see .xplore-page above). */
 .featured-carousel {
-  margin-bottom: 16px;
   position: relative;
   width: 100%;
 }

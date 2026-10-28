@@ -194,7 +194,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--brand-primary) 50%, transparent);
+  background: color-mix(in srgb, #000000 50%, #868686bd);
   color: #fff;
   box-shadow: var(--shadow-md);
   z-index: 1;
