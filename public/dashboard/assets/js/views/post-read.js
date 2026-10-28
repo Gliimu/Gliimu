@@ -306,7 +306,6 @@ export default {
         </div>
 
         <div class="post-read-bottom">
-          <div class="post-read-bottom-inner">
           <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
             <img src="/icons/clap.svg" class="action-icon-img" alt="Punch-it" loading="eager" decoding="async">
             <span>${likes}</span>
@@ -324,7 +323,6 @@ export default {
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span>${supports}</span>
           </button>` : ''}
-          </div>
         </div>
       </main>
 
@@ -428,6 +426,12 @@ export default {
   setupCommenterRail() {
     const rail = document.getElementById('commenter-rail');
     if (!rail) return;
+
+    const items = rail.querySelectorAll('.commenter-rail-item');
+    const total = items.length;
+    items.forEach((item, i) => {
+      item.dataset.scrollThreshold = String((i + 1) / (total + 1));
+    });
 
     rail.querySelectorAll('.commenter-rail-item').forEach(item => {
       item.addEventListener('click', (e) => {
@@ -557,6 +561,17 @@ export default {
       }
       
       bar.style.width = pct + '%';
+
+      const railItems = document.querySelectorAll('.commenter-rail-item');
+      const progress = pct / 100;
+      railItems.forEach(item => {
+        const threshold = parseFloat(item.dataset.scrollThreshold);
+        if (progress >= threshold) {
+          item.classList.add('visible');
+        } else {
+          item.classList.remove('visible');
+        }
+      });
 
       sessionStorage.setItem(scrollKey, String(scrollTop));
     };
