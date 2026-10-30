@@ -95,13 +95,10 @@ async function updateDbUrls(bucket) {
   const urlColumns = [
     { table: 'profiles', columns: ['avatar_url', 'portfolio_image_url'] },
     { table: 'feed_gliims', columns: ['cover_url', 'media_url'] },
-    { table: 'feed_items', columns: ['cover_url', 'file_url', 'audio_url'] },
-    { table: 'feed_submissions', columns: ['cover_url', 'file_url', 'audio_url'] },
     { table: 'site_settings', columns: ['hero_video_url', 'hero_fallback_image_url', 'squad_bg_url', 'app_download_bg_url'] },
     { table: 'messages', columns: ['file_url'] },
     { table: 'support_messages', columns: ['body'] },
     { table: 'partners', columns: ['logo_url', 'website_url'] },
-    { table: 'feed_contents', columns: ['blocks', 'files'] },
     { table: 'feed_gliim_contents', columns: ['blocks'] },
   ];
 

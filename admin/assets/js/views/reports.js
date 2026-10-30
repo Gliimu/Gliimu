@@ -129,19 +129,11 @@ export default {
         <p class="card-body">${escapeHtml(data.description || '—')}</p>`;
     }
 
-    const { data } = await supabase.from('feed_items')
-      .select('title, type, description, price, author')
-      .eq('id', item.target_id).maybeSingle();
-    if (!data) return '<p class="muted small">This library item no longer exists.</p>';
-    return `
-      <dl class="kv">
-        <dt>Title</dt><dd>${escapeHtml(data.title || '—')}</dd>
-        <dt>Author</dt><dd>${escapeHtml(data.author || '—')}</dd>
-        <dt>Format</dt><dd>${escapeHtml(data.type || '—')}</dd>
-        <dt>Price</dt><dd>${escapeHtml(String(data.price || 0))}</dd>
-      </dl>
-      <div class="section-title">Description</div>
-      <p class="card-body">${escapeHtml(data.description || '—')}</p>`;
+    if (item.target_type === 'comment') {
+      return '<p class="muted small">Comment details not available.</p>';
+    }
+
+    return '<p class="muted small">Unknown report type.</p>';
   },
 
   async openDrawer(id) {

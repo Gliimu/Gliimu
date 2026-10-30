@@ -1,19 +1,19 @@
 const routes = {
-  '/alerts': () => import('./views/alerts.js?v=10').then(m => m.default),
+  '/alerts': () => import('./views/alerts.js?v=11').then(m => m.default),
   '/search': () => import('./views/search.js?v=13').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=88').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=88').then(m => m.default),
-  '/ping': () => import('./views/ping.js?v=50').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=89').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=89').then(m => m.default),
+  '/ping': () => import('./views/ping.js?v=51').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=5').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=7').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=5').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=6').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=70').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=72').then(m => m.default),
   '/feature': () => import('./views/feature.js?v=3').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=39').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=15').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=40').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=16').then(m => m.default),
 };
 
 // Routes with no sidebar entry borrow another tab's highlight

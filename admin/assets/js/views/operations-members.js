@@ -116,7 +116,6 @@ export default {
     const usage = Array.isArray(d.usage) ? d.usage : [];
     const topups = Array.isArray(d.topups) ? d.topups : [];
     const buys = Array.isArray(d.purchases) ? d.purchases : null;
-    const sells = Array.isArray(d.feed_items) ? d.feed_items : null;
     const edits = d.adjustments || [];
     const currentBadge = p.verification_badge || null;
 
@@ -198,12 +197,6 @@ export default {
           <div class="table-wrap"><table class="table">
             <tbody>${buys.map(b => `<tr><td>${escapeHtml(b.title || b.item_id)}</td><td class="num muted">${gliits(b.price)}</td></tr>`).join('')}</tbody>
           </table></div>` : '<p class="muted small">Nothing unlocked.</p>'}
-        ${sells === null ? '' : sells.length ? `
-          <div class="card-sub" style="margin: 12px 0 6px;">On the shelf (${sells.length})</div>
-          <div class="table-wrap"><table class="table">
-            <thead><tr><th>Title</th><th class="num">Price</th><th class="num">Sales</th></tr></thead>
-            <tbody>${sells.map(s => `<tr><td>${escapeHtml(s.title || '—')}</td><td class="num">${gliits(s.price)}</td><td class="num">${Number(s.sales || 0)}</td></tr>`).join('')}</tbody>
-          </table></div>` : ''}
       `)}
 
       ${edits.length ? section(`Admin adjustments (${edits.length})`, `

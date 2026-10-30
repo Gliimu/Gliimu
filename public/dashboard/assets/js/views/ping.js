@@ -422,7 +422,7 @@ export default {
   openHubMention(postId, commentId) {
     sessionStorage.setItem('openReadViewId', postId);
     if (commentId) sessionStorage.setItem('openCommentId', commentId);
-    window.location.hash = '#/library';
+    window.location.hash = '#/read';
   },
 
   chatHeaderHtml() {

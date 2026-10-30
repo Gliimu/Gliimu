@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=32';
+import { renderFileInto } from '../reader.js?v=33';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

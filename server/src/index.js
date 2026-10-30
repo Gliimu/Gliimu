@@ -609,14 +609,11 @@ app.post('/api/reset-password', async (req, res) => {
 // CONTENT DELETION — DB + R2 CLEANUP
 // ==========================================
 // One endpoint for member and admin deletes. Collects every R2 URL attached to
-// the item (cover, files, block media), removes the objects from the bucket,
-// then wipes the DB rows. Also cleans up the matching feed_submissions record
-// so deleted items disappear from the admin dashboard immediately.
+// the gliim (cover, media, block images), removes the objects from the bucket,
+// then wipes the DB rows.
 //
 // Auth: Bearer token. Ownership check for members; admin_has_role('crm') for
-// admins. The caller never chooses the table — the endpoint probes all three
-// (feed_items, feed_gliims, feed_submissions) and deletes from whichever holds
-// the row.
+// admins.
 
 function extractR2Keys(urls) {
   if (!r2Ready()) return [];
@@ -700,50 +697,18 @@ app.delete('/api/content/:id', async (req, res) => {
     let owner = null;
     let allUrls = [];
 
-    const { data: item } = await supabaseAdmin
-      .from('feed_items').select('id, owner_id, cover_url, type, title')
+    const { data: gliim } = await supabaseAdmin
+      .from('feed_gliims').select('id, user_id, cover_url, media_url, description')
       .eq('id', itemId).maybeSingle();
+    if (gliim) {
+      type = 'feed_gliim';
+      owner = gliim.user_id;
+      allUrls.push(gliim.cover_url, gliim.media_url);
 
-    if (item) {
-      type = 'feed_item';
-      owner = item.owner_id;
-      allUrls.push(item.cover_url);
-
-      const { data: contents } = await supabaseAdmin
-        .from('feed_contents').select('blocks, files').eq('item_id', itemId).maybeSingle();
-      if (contents) {
-        allUrls.push(...collectUrlsFromBlocks(contents.blocks));
-        allUrls.push(...collectUrlsFromFiles(contents.files));
-      }
-    }
-
-    if (!type) {
-      const { data: gliim } = await supabaseAdmin
-        .from('feed_gliims').select('id, user_id, description')
-        .eq('id', itemId).maybeSingle();
-      if (gliim) {
-        type = 'feed_gliim';
-        owner = gliim.user_id;
-
-        const { data: gc } = await supabaseAdmin
-          .from('feed_gliim_contents').select('body').eq('post_id', itemId).maybeSingle();
-        if (gc?.body && typeof gc.body === 'string') {
-          const imgMatches = gc.body.match(/https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|svg)/gi);
-          if (imgMatches) allUrls.push(...imgMatches);
-        }
-      }
-    }
-
-    if (!type) {
-      const { data: sub } = await supabaseAdmin
-        .from('feed_submissions').select('id, user_id, cover_url, file_url, blocks, bundle_items')
-        .eq('id', itemId).maybeSingle();
-      if (sub) {
-        type = 'feed_submission';
-        owner = sub.user_id;
-        allUrls.push(sub.cover_url, sub.file_url);
-        allUrls.push(...collectUrlsFromBlocks(sub.blocks));
-        allUrls.push(...collectUrlsFromFiles(sub.bundle_items));
+      const { data: gc } = await supabaseAdmin
+        .from('feed_gliim_contents').select('blocks').eq('post_id', itemId).maybeSingle();
+      if (gc?.blocks) {
+        allUrls.push(...collectUrlsFromBlocks(gc.blocks));
       }
     }
 
@@ -753,25 +718,10 @@ app.delete('/api/content/:id', async (req, res) => {
     const r2Keys = extractR2Keys(allUrls.filter(Boolean));
     const r2Result = await deleteR2Objects(r2Keys);
 
-    if (type === 'feed_item') {
-      await supabaseAdmin.from('saved_items').delete().eq('item_id', itemId);
-      await supabaseAdmin.from('purchases').delete().eq('item_id', itemId);
-      await supabaseAdmin.from('reports').delete().eq('target_type', 'library_item').eq('target_id', itemId);
-      await supabaseAdmin.from('feed_contents').delete().eq('item_id', itemId);
-      await supabaseAdmin.from('feed_items').delete().eq('id', itemId);
-
-      if (item) {
-        await supabaseAdmin.from('feed_submissions').delete()
-          .eq('user_id', item.owner_id).eq('title', item.title).eq('type', item.type).eq('status', 'approved');
-      }
-    } else if (type === 'feed_gliim') {
-      await supabaseAdmin.from('feed_interactions').delete().eq('post_id', itemId);
-      await supabaseAdmin.from('reports').delete().eq('target_type', 'post').eq('target_id', itemId);
-      await supabaseAdmin.from('feed_gliim_contents').delete().eq('post_id', itemId);
-      await supabaseAdmin.from('feed_gliims').delete().eq('id', itemId);
-    } else {
-      await supabaseAdmin.from('feed_submissions').delete().eq('id', itemId);
-    }
+    await supabaseAdmin.from('feed_interactions').delete().eq('post_id', itemId);
+    await supabaseAdmin.from('reports').delete().eq('target_type', 'post').eq('target_id', itemId);
+    await supabaseAdmin.from('feed_gliim_contents').delete().eq('post_id', itemId);
+    await supabaseAdmin.from('feed_gliims').delete().eq('id', itemId);
 
     res.json({
       deleted: true,
@@ -827,19 +777,6 @@ app.post('/api/r2-sweep', async (req, res) => {
     // 2. Collect all referenced URLs from DB
     const referencedUrls = new Set();
 
-    // feed_items: cover_url
-    const { data: feedItems } = await supabaseAdmin.from('feed_items').select('cover_url');
-    feedItems?.forEach(item => {
-      if (item.cover_url) referencedUrls.add(item.cover_url);
-    });
-
-    // feed_contents: blocks and files (JSON with URLs)
-    const { data: feedContents } = await supabaseAdmin.from('feed_contents').select('blocks, files');
-    feedContents?.forEach(fc => {
-      if (fc.blocks) collectUrlsFromBlocks(fc.blocks).forEach(u => referencedUrls.add(u));
-      if (fc.files) collectUrlsFromFiles(fc.files).forEach(u => referencedUrls.add(u));
-    });
-
     // feed_gliims: cover_url, media_url
     const { data: feedGliims } = await supabaseAdmin.from('feed_gliims').select('cover_url, media_url');
     feedGliims?.forEach(g => {
@@ -878,13 +815,6 @@ app.post('/api/r2-sweep', async (req, res) => {
     const { data: partners } = await supabaseAdmin.from('partners').select('logo_url');
     partners?.forEach(p => {
       if (p.logo_url) referencedUrls.add(p.logo_url);
-    });
-
-    // feed_submissions: cover_url, file_url
-    const { data: submissions } = await supabaseAdmin.from('feed_submissions').select('cover_url, file_url');
-    submissions?.forEach(s => {
-      if (s.cover_url) referencedUrls.add(s.cover_url);
-      if (s.file_url) referencedUrls.add(s.file_url);
     });
 
     // 3. Convert referenced URLs to R2 keys

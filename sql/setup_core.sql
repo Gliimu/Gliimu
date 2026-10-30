@@ -135,7 +135,7 @@ create table if not exists public.partners (
 create table if not exists public.reports (
   id bigserial primary key,
   reporter_id uuid references auth.users(id) on delete cascade,
-  target_type text check (target_type in ('post','comment','user','library_item')),
+  target_type text check (target_type in ('post','comment','user')),
   target_id uuid not null,
   reason text not null,
   status text not null default 'open' check (status in ('open','resolved','dismissed')),
@@ -198,50 +198,6 @@ create table if not exists public.contact_info (
 -- 4. FEED TABLES
 -- ============================================================
 
--- 4a. feed_submissions (was library_submissions)
-create table if not exists public.feed_submissions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  type text not null check (type in ('book','audiolite')),
-  title text not null,
-  description text,
-  price integer,
-  cover_url text,
-  file_url text,
-  blocks jsonb,
-  bundle_items jsonb,
-  category text,
-  status text not null default 'pending' check (status in ('pending','approved','rejected')),
-  reviewed_by uuid,
-  reviewed_at timestamptz,
-  review_note text,
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_feed_submissions_user on public.feed_submissions(user_id);
-create index if not exists idx_feed_submissions_status on public.feed_submissions(status);
-create index if not exists idx_feed_submissions_category on public.feed_submissions(category);
-
--- 4b. feed_items (was library_items)
-create table if not exists public.feed_items (
-  id uuid primary key default gen_random_uuid(),
-  type text not null check (type in ('book','audiolite')),
-  title text not null,
-  description text,
-  price integer,
-  cover_url text,
-  cover_color text,
-  sales integer,
-  author text,
-  author_avatar text,
-  owner_id uuid references auth.users(id) on delete set null,
-  category text,
-  status text default 'approved',
-  created_at timestamptz not null default now()
-);
-create index if not exists idx_feed_items_type on public.feed_items(type);
-create index if not exists idx_feed_items_owner on public.feed_items(owner_id);
-create index if not exists idx_feed_items_category on public.feed_items(category);
-
 -- 4c. feed_gliims (was posts)
 create table if not exists public.feed_gliims (
   id uuid primary key default gen_random_uuid(),
@@ -277,13 +233,6 @@ create table if not exists public.feed_gliim_contents (
 alter table public.feed_gliim_contents enable row level security;
 revoke all on public.feed_gliim_contents from anon;
 grant select, insert, update, delete on public.feed_gliim_contents to authenticated;
-
--- 4e. feed_contents (was library_contents)
-create table if not exists public.feed_contents (
-  item_id uuid primary key references public.feed_items(id) on delete cascade,
-  blocks jsonb,
-  files jsonb
-);
 
 -- 4f. feed_interactions (was hub_interactions)
 create table if not exists public.feed_interactions (
@@ -603,21 +552,6 @@ create table if not exists public.live_requests (
   ended_at timestamptz,
   created_at timestamptz not null default now()
 );
-
--- 11b. reading_progress
-create table if not exists public.reading_progress (
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  item_id uuid not null references public.feed_items(id) on delete cascade,
-  percent integer not null default 0,
-  completed_at timestamptz,
-  gp_awarded_at timestamptz,
-  updated_at timestamptz not null default now(),
-  primary key (user_id, item_id)
-);
-
-alter table public.reading_progress enable row level security;
-revoke all on public.reading_progress from anon;
-grant select, insert, update on public.reading_progress to authenticated;
 
 -- 11c. referrals
 create table if not exists public.referrals (

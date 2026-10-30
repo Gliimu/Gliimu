@@ -18,8 +18,8 @@
 -- rows for disliked answers, opens the desk to every admin role, and creates
 -- the admins-only room (admin_chat) with voice-note attachments.
 --
--- This script is the authoritative definition of admin_review_submission and
--- admin_review_post — run it LAST in the review-function family.
+-- This script is the authoritative definition of admin_review_post —
+-- run it LAST in the review-function family.
 -- ============================================================
 
 begin;
@@ -310,116 +310,8 @@ on conflict (id) do nothing;
 
 -- ============================================================
 -- 8. Review notices now land in Support instead of Ping.
---    Authoritative copies of both RPCs — keep in sync with sql/admin.sql,
---    sql/library_kinds.sql and sql/gliim_approval.sql.
+--    Authoritative copy — keep in sync with sql/gliim_approval.sql.
 -- ============================================================
-
-create or replace function public.admin_review_submission(p_submission uuid, p_action text, p_note text default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  uid       uuid := auth.uid();
-  v_sub     public.library_submissions%rowtype;
-  v_item    uuid;
-  v_files   jsonb;
-  v_body    text;
-begin
-  if uid is null then
-    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
-  end if;
-
-  if not public.admin_has_role(uid, 'crm') then
-    return jsonb_build_object('ok', false, 'code', 'NOT_CRM');
-  end if;
-
-  if p_action not in ('approve', 'reject') then
-    return jsonb_build_object('ok', false, 'code', 'BAD_ACTION');
-  end if;
-
-  select * into v_sub from public.library_submissions where id = p_submission;
-  if not found then
-    return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
-  end if;
-
-  if v_sub.status <> 'pending' then
-    return jsonb_build_object('ok', false, 'code', 'ALREADY_REVIEWED', 'status', v_sub.status);
-  end if;
-
-  if p_action = 'reject' then
-    if coalesce(btrim(p_note), '') = '' then
-      return jsonb_build_object('ok', false, 'code', 'NOTE_REQUIRED');
-    end if;
-
-    update public.library_submissions
-       set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
-     where id = p_submission;
-
-    insert into public.support_messages (thread_user, sender_id, content)
-    values (v_sub.user_id, uid,
-            'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note);
-
-    return jsonb_build_object('ok', true, 'status', 'rejected');
-  end if;
-
-  -- Every multi-part shape (a bundle's files, an audiolite's ordered chapters)
-  -- rides in bundle_items as [{title,url}]; a single-file book rides in
-  -- file_url. They all land in library_contents.files the same way the
-  -- backfill in sql/library_content.sql does it.
-  v_files := case
-    when jsonb_typeof(coalesce(v_sub.bundle_items, '[]'::jsonb)) = 'array'
-     and jsonb_array_length(coalesce(v_sub.bundle_items, '[]'::jsonb)) > 0
-      then v_sub.bundle_items
-    when coalesce(v_sub.file_url, '') <> ''
-      then jsonb_build_array(jsonb_build_object('title', v_sub.title, 'url', v_sub.file_url))
-    else '[]'::jsonb
-  end;
-
-  -- library_items predates these scripts, so its exact columns are not in
-  -- the repo. An unexpected schema must fail loudly and leave the
-  -- submission pending rather than half-publish it — the exception block
-  -- rolls back to this point only.
-  begin
-    insert into public.library_items (title, type, description, price, cover_url, author, author_avatar, owner_id)
-    select v_sub.title,
-           v_sub.type,
-           v_sub.description,
-           v_sub.price,
-           v_sub.cover_url,
-           coalesce(p.full_name, p.username, 'Gliimu'),
-           p.avatar_url,
-           v_sub.user_id
-      from public.profiles p
-     where p.id = v_sub.user_id
-    returning id into v_item;
-  exception when others then
-    v_body := SQLERRM;
-    return jsonb_build_object('ok', false, 'code', 'SCHEMA_MISMATCH', 'detail', v_body);
-  end;
-
-  if v_item is null then
-    return jsonb_build_object('ok', false, 'code', 'NO_AUTHOR_PROFILE');
-  end if;
-
-  insert into public.library_contents (item_id, blocks, files)
-  values (v_item, coalesce(v_sub.blocks, '[]'::jsonb), v_files);
-
-  update public.library_submissions
-     set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
-   where id = p_submission;
-
-  insert into public.support_messages (thread_user, sender_id, content)
-  values (v_sub.user_id, uid,
-          'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.');
-
-  return jsonb_build_object('ok', true, 'status', 'approved', 'item_id', v_item);
-end
-$$;
-
-revoke execute on function public.admin_review_submission(uuid, text, text) from public, anon;
-grant execute on function public.admin_review_submission(uuid, text, text) to authenticated, service_role;
 
 create or replace function public.admin_review_post(p_post uuid, p_action text, p_note text default null)
 returns jsonb
@@ -840,18 +732,14 @@ with support_fns (name, oid) as (
                       where conrelid = 'public.messages'::regclass and conname = 'messages_feedback_check'
                         and pg_get_constraintdef(oid) ilike '%like%dislike%')
   union all
-  select 13, 'both review RPCs post to support_messages (2 notices each)',
-         (select count(*) = 2 from regexp_matches(
-            (select prosrc from pg_proc where oid = to_regprocedure('public.admin_review_submission(uuid,text,text)')),
-            'insert\s+into\s+public\.support_messages\s*\(thread_user,\s*sender_id,\s*content\)\s*values\s*\([^;]+\);', 'gi'))
-         and (select count(*) = 2 from regexp_matches(
+  select 13, 'review RPC posts to support_messages',
+         (select count(*) = 1 from regexp_matches(
             (select prosrc from pg_proc where oid = to_regprocedure('public.admin_review_post(uuid,text,text)')),
             'insert\s+into\s+public\.support_messages\s*\(thread_user,\s*sender_id,\s*content\)\s*values\s*\([^;]+\);', 'gi'))
   union all
   select 14, 'no review RPC still writes an is_admin notice into messages',
          not exists (select 1 from pg_proc
-                      where oid in (to_regprocedure('public.admin_review_submission(uuid,text,text)'),
-                                    to_regprocedure('public.admin_review_post(uuid,text,text)'))
+                      where oid = to_regprocedure('public.admin_review_post(uuid,text,text)')
                         and prosrc ilike '%is_admin%')
   union all
   select 15, 'every migratable admin notice is now in a support thread',

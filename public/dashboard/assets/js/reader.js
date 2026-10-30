@@ -212,27 +212,24 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
     if (menuReport) {
       menuReport.addEventListener('click', () => {
         menuDropup?.classList.remove('active');
-        if (window.libraryInstance && window.libraryInstance.logInteraction) {
-          // Delegate to library's report flow
-          const overlay2 = document.createElement('div');
-          overlay2.className = 'modal-overlay';
-          overlay2.innerHTML = `
-            <div class="modal-content" style="max-width:440px;">
-              <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-              <h2 style="margin-bottom:8px;">Report Content</h2>
-              <p class="text-muted" style="margin-bottom:16px;">State your reason for reporting this item.</p>
-              <textarea id="rdr-report-reason" class="input" rows="4" placeholder="Reason for reporting..."></textarea>
-              <button class="btn-primary" id="rdr-report-submit" style="width:100%;margin-top:16px;">Submit Report</button>
-            </div>`;
-          document.body.appendChild(overlay2);
-          overlay2.querySelector('#rdr-report-submit').addEventListener('click', async () => {
-            const reason = overlay2.querySelector('#rdr-report-reason').value.trim();
-            if (reason.length < 5) return alert('Please state a reason (at least 5 characters).');
-            await supabase.from('reports').insert({ reporter_id: store.user.id, target_type: 'library', target_id: eng.itemId, reason });
-            overlay2.remove();
-            alert('Thank you. Your report has been submitted for review.');
-          });
-        }
+        const overlay2 = document.createElement('div');
+        overlay2.className = 'modal-overlay';
+        overlay2.innerHTML = `
+          <div class="modal-content" style="max-width:440px;">
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+            <h2 style="margin-bottom:8px;">Report Content</h2>
+            <p class="text-muted" style="margin-bottom:16px;">State your reason for reporting this item.</p>
+            <textarea id="rdr-report-reason" class="input" rows="4" placeholder="Reason for reporting..."></textarea>
+            <button class="btn-primary" id="rdr-report-submit" style="width:100%;margin-top:16px;">Submit Report</button>
+          </div>`;
+        document.body.appendChild(overlay2);
+        overlay2.querySelector('#rdr-report-submit').addEventListener('click', async () => {
+          const reason = overlay2.querySelector('#rdr-report-reason').value.trim();
+          if (reason.length < 5) return alert('Please state a reason (at least 5 characters).');
+          await supabase.from('reports').insert({ reporter_id: store.user.id, target_type: 'post', target_id: eng.itemId, reason });
+          overlay2.remove();
+          alert('Thank you. Your report has been submitted for review.');
+        });
       });
     }
 
@@ -241,14 +238,10 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
       menuAuthor.addEventListener('click', () => {
         menuDropup?.classList.remove('active');
         eng.onRecordInteraction && eng.onRecordInteraction('ask_me');
-        if (window.libraryInstance && window.libraryInstance.logInteraction) {
-          const authorTarget = window.libraryInstance.resolveAuthor
-            ? window.libraryInstance.resolveAuthor(item)
-            : null;
-          if (authorTarget) {
-            api.destroy();
-            window.location.hash = authorTarget.id === store.user.id ? '#/profile' : `#/profile?u=${authorTarget.id}`;
-          }
+        const authorId = item.user_id;
+        if (authorId) {
+          api.destroy();
+          window.location.hash = authorId === store.user.id ? '#/profile' : `#/profile?u=${authorId}`;
         }
       });
     }
@@ -386,7 +379,8 @@ export function openReader({ item, blocks, fileUrl, renderBlock, engagement }) {
       card.addEventListener('click', () => {
         const id = card.dataset.id;
         api.destroy();
-        if (window.libraryInstance && window.libraryInstance.openDetails) window.libraryInstance.openDetails(id);
+        sessionStorage.setItem('openReadViewId', id);
+        window.location.hash = '#/read';
       });
     });
   }

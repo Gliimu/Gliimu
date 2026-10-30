@@ -117,15 +117,13 @@ export default {
     const balanceData = await getBalance();
     this.balance = Number(balanceData?.balance || 0);
 
-    const [txResult, usageResult, topupResult, submissionResult, supportResult] = await Promise.all([
+    const [txResult, usageResult, topupResult, supportResult] = await Promise.all([
       supabase.from('transactions').select('id, amount, points, type, status, description, reference, created_at')
         .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(200),
       supabase.from('gliits_usage').select('id, gliits_charged, creator_credited, minute_at')
         .eq('user_id', store.user.id).order('minute_at', { ascending: false }).limit(500),
       supabase.from('gliits_topups').select('id, amount_gliits, amount_naira, payment_status, payment_reference, created_at')
         .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(50),
-      supabase.from('feed_submissions').select('id, title, status, review_note, reviewed_at, created_at')
-        .eq('user_id', store.user.id).in('status', ['approved', 'rejected']).order('created_at', { ascending: false }).limit(50),
       supabase.from('support_messages').select('id, content, kind, created_at')
         .eq('thread_user', store.user.id).neq('sender_id', store.user.id).order('created_at', { ascending: false }).limit(50)
     ]);
@@ -177,22 +175,6 @@ export default {
         points: 0,
         time: t.created_at,
         status: t.payment_status
-      });
-    }
-
-    const submissions = submissionResult.data || [];
-    for (const s of submissions) {
-      const approved = s.status === 'approved';
-      this.allAlerts.push({
-        id: `sub-${s.id}`,
-        category: 'system',
-        icon: approved ? TX_ICONS.content : TX_ICONS.content_rejected,
-        title: approved ? `"${s.title}" approved` : `"${s.title}" not approved`,
-        subtitle: s.review_note || (approved ? 'Published to the library' : 'CRM did not approve this submission'),
-        amount: 0,
-        points: 0,
-        time: s.reviewed_at || s.created_at,
-        status: s.status
       });
     }
 

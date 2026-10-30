@@ -223,17 +223,6 @@ do $$ begin
   else
     raise warning 'public.legal_documents is missing — the CRM legal policy was skipped.';
   end if;
-
-  if to_regclass('public.library_submissions') is not null then
-    execute 'drop policy if exists "Library submissions review" on public.library_submissions';
-    execute $p$
-      create policy "Library submissions review" on public.library_submissions
-        for select to authenticated
-        using (public.admin_has_role(auth.uid(), 'crm'))
-    $p$;
-  else
-    raise warning 'public.library_submissions is missing — run sql/library_submissions.sql, then re-run this script.';
-  end if;
 end $$;
 
 -- Contact details live in their own contact_info table (address, phone,
@@ -244,147 +233,12 @@ end $$;
 -- sql/operations.sql.
 
 
--- ============================================================
--- 5. Audit columns on library_submissions
--- ============================================================
-
-do $$ begin
-  if to_regclass('public.library_submissions') is null then
-    raise warning 'public.library_submissions is missing — the review audit columns were skipped.';
-    return;
-  end if;
-
-  alter table public.library_submissions
-    add column if not exists reviewed_by uuid references public.profiles(id) on delete set null;
-
-  alter table public.library_submissions
-    add column if not exists reviewed_at timestamptz;
-
-  alter table public.library_submissions
-    add column if not exists review_note text;
-end $$;
-
-
--- ============================================================
--- 6. Submission review
---    Approving writes three things that must not drift apart: the shelf
---    item, its locked body, and the submission's audit trail. One
---    transaction, one RPC.
--- ============================================================
-
 -- Review notices must be branded even before messages_admin.sql is run.
 alter table public.messages add column if not exists is_admin boolean not null default false;
 
-create or replace function public.admin_review_submission(p_submission uuid, p_action text, p_note text default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  uid       uuid := auth.uid();
-  v_sub     public.library_submissions%rowtype;
-  v_item    uuid;
-  v_files   jsonb;
-  v_body    text;
-begin
-  if uid is null then
-    return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
-  end if;
-
-  if not public.admin_has_role(uid, 'crm') then
-    return jsonb_build_object('ok', false, 'code', 'NOT_CRM');
-  end if;
-
-  if p_action not in ('approve', 'reject') then
-    return jsonb_build_object('ok', false, 'code', 'BAD_ACTION');
-  end if;
-
-  select * into v_sub from public.library_submissions where id = p_submission;
-  if not found then
-    return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
-  end if;
-
-  if v_sub.status <> 'pending' then
-    return jsonb_build_object('ok', false, 'code', 'ALREADY_REVIEWED', 'status', v_sub.status);
-  end if;
-
-  if p_action = 'reject' then
-    if coalesce(btrim(p_note), '') = '' then
-      return jsonb_build_object('ok', false, 'code', 'NOTE_REQUIRED');
-    end if;
-
-    update public.library_submissions
-       set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
-     where id = p_submission;
-
-    insert into public.support_messages (thread_user, sender_id, content)
-    values (v_sub.user_id, uid,
-            'Your library submission "' || v_sub.title || '" was not approved. Reason: ' || p_note);
-
-    return jsonb_build_object('ok', true, 'status', 'rejected');
-  end if;
-
-  -- Every multi-part shape (a bundle's files, an audiolite's ordered chapters)
-  -- rides in bundle_items as [{title,url}]; a single-file book rides in
-  -- file_url. They all land in library_contents.files the same way the
-  -- backfill in sql/library_content.sql does it.
-  v_files := case
-    when jsonb_typeof(coalesce(v_sub.bundle_items, '[]'::jsonb)) = 'array'
-     and jsonb_array_length(coalesce(v_sub.bundle_items, '[]'::jsonb)) > 0
-      then v_sub.bundle_items
-    when coalesce(v_sub.file_url, '') <> ''
-      then jsonb_build_array(jsonb_build_object('title', v_sub.title, 'url', v_sub.file_url))
-    else '[]'::jsonb
-  end;
-
-  -- library_items predates these scripts, so its exact columns are not in
-  -- the repo. An unexpected schema must fail loudly and leave the
-  -- submission pending rather than half-publish it — the exception block
-  -- rolls back to this point only.
-  begin
-    insert into public.library_items (title, type, description, price, cover_url, author, author_avatar, owner_id)
-    select v_sub.title,
-           v_sub.type,
-           v_sub.description,
-           v_sub.price,
-           v_sub.cover_url,
-           coalesce(p.full_name, p.username, 'Gliimu'),
-           p.avatar_url,
-           v_sub.user_id
-      from public.profiles p
-     where p.id = v_sub.user_id
-    returning id into v_item;
-  exception when others then
-    v_body := SQLERRM;
-    return jsonb_build_object('ok', false, 'code', 'SCHEMA_MISMATCH', 'detail', v_body);
-  end;
-
-  if v_item is null then
-    return jsonb_build_object('ok', false, 'code', 'NO_AUTHOR_PROFILE');
-  end if;
-
-  insert into public.library_contents (item_id, blocks, files)
-  values (v_item, coalesce(v_sub.blocks, '[]'::jsonb), v_files);
-
-  update public.library_submissions
-     set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
-   where id = p_submission;
-
-  insert into public.support_messages (thread_user, sender_id, content)
-  values (v_sub.user_id, uid,
-          'Your library submission "' || v_sub.title || '" was approved and is now live on the shelf.');
-
-  return jsonb_build_object('ok', true, 'status', 'approved', 'item_id', v_item);
-end
-$$;
-
-revoke execute on function public.admin_review_submission(uuid, text, text) from public, anon;
-grant execute on function public.admin_review_submission(uuid, text, text) to authenticated, service_role;
-
 
 -- ============================================================
--- 7. Report resolution
+-- 5. Report resolution
 -- ============================================================
 
 create or replace function public.admin_resolve_report(p_report uuid, p_status text)
@@ -552,7 +406,6 @@ grant execute on function public.admin_list_admins() to authenticated, service_r
 
 do $$
 declare
-  v_pending integer;
   v_open    integer;
 begin
   raise notice '==== ADMIN SELF CHECK ====';
@@ -560,7 +413,6 @@ begin
   raise notice 'RLS enabled:              %', case when (select relrowsecurity from pg_class where oid = to_regclass('public.admin_users')) is true then 'OK' else 'MISSING' end;
   raise notice 'admin_role():             %', coalesce(to_regprocedure('public.admin_role(uuid)')::text, 'MISSING');
   raise notice 'admin_has_role():         %', coalesce(to_regprocedure('public.admin_has_role(uuid,text)')::text, 'MISSING');
-  raise notice 'admin_review_submission():%', coalesce(to_regprocedure('public.admin_review_submission(uuid,text,text)')::text, 'MISSING');
   raise notice 'admin_resolve_report():   %', coalesce(to_regprocedure('public.admin_resolve_report(uuid,text)')::text, 'MISSING');
   raise notice 'admin_grant_role():       %', coalesce(to_regprocedure('public.admin_grant_role(uuid,text,text)')::text, 'MISSING');
   raise notice 'admin_revoke_role():      %', coalesce(to_regprocedure('public.admin_revoke_role(uuid)')::text, 'MISSING');
@@ -571,20 +423,10 @@ begin
   raise notice 'admin roles:              %', coalesce((select string_agg(role || ':' || coalesce(p.username, '?'), ', ')
                                                             from public.admin_users a
                                                             left join public.profiles p on p.id = a.user_id), 'none');
-  raise notice 'CRM policies (expect 4):  %', (select count(*) from pg_policies
+  raise notice 'CRM policies (expect 3):  %', (select count(*) from pg_policies
                                                  where schemaname = 'public'
-                                                   and policyname in ('CRM read reports', 'Library submissions review',
+                                                   and policyname in ('CRM read reports',
                                                                       'CRM manage faqs', 'CRM manage legal documents'));
-  raise notice 'submissions audit cols:   %', case when exists (
-      select 1 from information_schema.columns
-       where table_schema = 'public' and table_name = 'library_submissions' and column_name = 'reviewed_by'
-    ) then 'OK' else 'MISSING' end;
-  if to_regclass('public.library_submissions') is not null then
-    select count(*) into v_pending from public.library_submissions where status = 'pending';
-    raise notice 'pending submissions:      %', v_pending;
-  else
-    raise notice 'pending submissions:      skipped — run sql/library_submissions.sql';
-  end if;
 
   if to_regclass('public.reports') is not null then
     select count(*) into v_open from public.reports where status = 'open';
@@ -592,13 +434,6 @@ begin
   else
     raise notice 'open reports:             skipped — table missing';
   end if;
-  -- Paste this line back if approving a submission ever returns
-  -- SCHEMA_MISMATCH: it shows the real shape of library_items.
-  raise notice 'library_items columns:    %', (select string_agg(column_name || ' ' || data_type ||
-                                                              case when is_nullable = 'NO' then ' NOT NULL' else '' end,
-                                                              ', ' order by ordinal_position)
-                                                from information_schema.columns
-                                               where table_schema = 'public' and table_name = 'library_items');
   raise notice 'site_settings columns:    %', (select string_agg(column_name, ', ' order by ordinal_position)
                                                 from information_schema.columns
                                                where table_schema = 'public' and table_name = 'site_settings');

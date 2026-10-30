@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
-import { renderFileInto } from '../reader.js?v=32';
+import { renderFileInto } from '../reader.js?v=33';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=99';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=100';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
