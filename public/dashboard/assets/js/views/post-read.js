@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
-import { renderFileInto } from '../reader.js?v=33';
+import { renderFileInto } from '../reader.js?v=34';
 import * as heartbeat from '../heartbeat.js?v=3';
 import hubView, { gliimKindOf } from './feed-gliims.js?v=102';
 

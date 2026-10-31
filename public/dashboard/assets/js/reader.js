@@ -583,10 +583,52 @@ async function renderDocx(url, bodyEl, setBlob) {
   if (!window.mammoth) throw new Error('mammoth unavailable');
   const blob = await fetchBlob(url);
   const buf = await blob.arrayBuffer();
-  const result = await window.mammoth.convertToHtml({ arrayBuffer: buf });
+  
+  // Preserve formatting: styleMap maps Word styles to CSS, convertParagraphsToHtml keeps structure
+  const options = {
+    styleMap: [
+      "p[style-name='Heading 1'] => h1:fresh",
+      "p[style-name='Heading 2'] => h2:fresh",
+      "p[style-name='Heading 3'] => h3:fresh",
+      "p[style-name='Heading 4'] => h4:fresh",
+      "p[style-name='Title'] => h1.title:fresh",
+      "p[style-name='Subtitle'] => h2.subtitle:fresh",
+      "p[style-name='Quote'] => blockquote:fresh",
+      "p[style-name='List Paragraph'] => p.list:fresh",
+      "r[style-name='Strong'] => strong",
+      "r[style-name='Emphasis'] => em",
+      "u => u",
+      "strike => s",
+      "p => p:fresh"
+    ],
+    convertParagraphsToHtml: true,
+    includeDefaultStyleMap: true,
+    transformDocument: window.mammoth.transforms.ignoreEmptyParagraphs
+  };
+  
+  const result = await window.mammoth.convertToHtml({ arrayBuffer: buf }, options);
   const holder = document.createElement('div');
   holder.className = 'lib-article rdr-docx';
   holder.innerHTML = result.value;
+  
+  // Add basic styling for preserved elements
+  const style = document.createElement('style');
+  style.textContent = `
+    .rdr-docx h1, .rdr-docx h2, .rdr-docx h3, .rdr-docx h4 { margin: 1em 0 0.5em; font-weight: 600; }
+    .rdr-docx h1 { font-size: 1.8em; }
+    .rdr-docx h2 { font-size: 1.5em; }
+    .rdr-docx h3 { font-size: 1.3em; }
+    .rdr-docx h4 { font-size: 1.1em; }
+    .rdr-docx blockquote { margin: 1em 0; padding: 0.5em 1em; border-left: 3px solid var(--border); color: var(--text-muted); font-style: italic; }
+    .rdr-docx p.list { margin: 0.5em 0 0.5em 2em; }
+    .rdr-docx strong { font-weight: 600; }
+    .rdr-docx em { font-style: italic; }
+    .rdr-docx u { text-decoration: underline; }
+    .rdr-docx s { text-decoration: line-through; }
+    .rdr-docx p { margin: 0.8em 0; line-height: 1.6; }
+  `;
+  holder.insertBefore(style, holder.firstChild);
+  
   bodyEl.innerHTML = '';
   bodyEl.appendChild(holder);
 }
