@@ -22,11 +22,12 @@ function initSignaling(server) {
     ws.userId = null;
     ws.isAlive = true;
     ws.authTimer = null;
+    console.log('[WebRTC] New WebSocket connection established');
 
     // Must authenticate within 10 seconds
     ws.authTimer = setTimeout(() => {
       if (!ws.userId) {
-        console.log('[WebRTC] Closing unauthenticated connection');
+        console.log('[WebRTC] Closing unauthenticated connection after 10s');
         ws.close(4001, 'Authentication required');
       }
     }, 10000);
@@ -49,6 +50,7 @@ function initSignaling(server) {
       if (ws.userId) {
         console.log('[WebRTC] User disconnected:', ws.userId);
         users.delete(ws.userId);
+        console.log('[WebRTC] Users map size after disconnect:', users.size);
         // Clean up any active calls for this user
         cleanupUserCalls(ws.userId, wss);
       }
@@ -183,7 +185,15 @@ async function handleCallInitiate(ws, msg, wss) {
 
   // Forward to receiver
   const receiverWs = users.get(receiverId);
-  console.log('[WebRTC] Call initiate:', { callId, caller: ws.userId, receiver: receiverId, receiverConnected: !!receiverWs, receiverState: receiverWs?.readyState });
+  console.log('[WebRTC] Call initiate:', { 
+    callId, 
+    caller: ws.userId, 
+    receiver: receiverId, 
+    receiverConnected: !!receiverWs, 
+    receiverState: receiverWs?.readyState,
+    totalUsersOnline: users.size,
+    onlineUserIds: Array.from(users.keys())
+  });
   
   if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
     // Get caller profile
