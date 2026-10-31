@@ -420,10 +420,10 @@ const liveView = {
 
   async createDailyRoom(requestId) {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(`${API_BASE_URL}/api/daily/create-room`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ requestId })
       });
 
@@ -460,10 +460,10 @@ const liveView = {
       const request = this.requests.find(r => r.room_id === roomId);
       if (!request) return;
       
+      const { data: { session } } = await supabase.auth.getSession();
       await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ requestId: request.id })
       });
     } catch (error) {
@@ -778,10 +778,10 @@ const liveView = {
     if (!content || !this.activeSession) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(`${API_BASE_URL}/api/live/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ roomId: this.activeSession.id, content: content.slice(0, 1000) })
       });
 
