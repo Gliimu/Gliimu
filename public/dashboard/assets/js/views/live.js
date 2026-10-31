@@ -215,6 +215,7 @@ const liveView = {
     const matches = (r) => !q || (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
     const presence = window.GliimuPresence;
     const isOnline = (id) => !presence || presence.isOnline(id);
+    const parseIds = (v) => { if (!v) return []; if (Array.isArray(v)) return v; try { return JSON.parse(v); } catch { return []; } };
 
     const mine = this.requests
       .filter(r => r.user_id === store.user.id && (r.status === 'open' || r.status === 'active') && matches(r))
@@ -223,7 +224,7 @@ const liveView = {
     const open = this.requests.filter(r =>
       r.user_id !== store.user.id && r.status === 'open' && matches(r) && isOnline(r.user_id) &&
       (r.sharing_mode === 'general' ||
-       (r.invited_user_ids && JSON.parse(r.invited_user_ids).includes(store.user.id)))
+       parseIds(r.invited_user_ids).includes(store.user.id))
     );
 
     let html = '';

@@ -155,11 +155,12 @@ drop policy if exists "Public can read gliims" on public.feed_gliims;
 drop policy if exists "feed_gliims_read" on public.feed_gliims;
 
 -- Owners see their own rows in every status (draft, pending, rejected).
+-- All authenticated users see approved posts from anyone.
 create policy "feed_gliims_read"
   on public.feed_gliims
   for select
   to authenticated
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() OR status = 'approved');
 
 -- 6c. Tighten updates to owner-only ("Users can update gliims" was qual=true).
 drop policy if exists "Users can update gliims" on public.feed_gliims;

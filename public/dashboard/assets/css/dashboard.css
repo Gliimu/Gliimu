@@ -479,6 +479,7 @@ body.sidebar-open .sidebar-backdrop {
 
   .main-content {
     margin-left: 64px;
+    width: auto;
   }
 
   .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
