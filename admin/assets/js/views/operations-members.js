@@ -122,7 +122,7 @@ export default {
     const section = (title, inner) => `<div class="section-title">${escapeHtml(title)}</div>${inner}`;
     const schemaNote = (value) => `<p class="muted small">Not available — ${escapeHtml(value && value.detail ? value.detail : 'the table shape did not match.')} </p>`;
 
-    const badgeButtons = ['tick', 'pen', 'pod'].map(b => `
+    const badgeButtons = ['tick', 'pen'].map(b => `
       <button class="btn-quiet badge-grant-btn ${currentBadge === b ? 'badge-active' : ''}" data-badge="${b}">
         <img src="https://gliimu.com/icons/${b}.svg" alt="${b}" width="14" height="14" style="vertical-align: middle; margin-right: 4px;">
         ${b.charAt(0).toUpperCase() + b.slice(1)}

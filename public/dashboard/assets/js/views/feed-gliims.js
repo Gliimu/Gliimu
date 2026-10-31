@@ -2,6 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
 import { renderFileInto } from '../reader.js?v=33';
+import { notify } from '../notify.js?v=33';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -649,8 +650,8 @@ const hubView = {
       const premiumToggle = document.getElementById('post-premium-toggle');
       if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
-      // No .select(): a member's gliim is forced to 'pending' and RLS hides it
-      // even from its author, so RETURNING would abort the insert. We set the id.
+      // The id is generated client-side so the body write and tag pings can
+      // reference it without a RETURNING round-trip.
       const { error } = await supabase.from('feed_gliims').insert(payload);
 
       if (error) {
@@ -672,11 +673,18 @@ const hubView = {
         return;
       }
 
-      // Bundles (gliims) auto-publish without approval. Tag pings go out
-      // immediately since the post is live.
-      for (const u of this.taggedUsers) {
-        const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
-        await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+      // Pen-badge members and staff publish instantly; everyone else lands
+      // in the review queue. Tag pings only go out once the post is live —
+      // recipients can't open a page that is still pending.
+      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
+      if (willBeLive) {
+        for (const u of this.taggedUsers) {
+          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
+          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+        }
+        notify.toast('Published');
+      } else {
+        notify.toast('Submitted for review');
       }
       this.clearComposerAutosave();
       closeComposer();
@@ -964,12 +972,18 @@ const hubView = {
         return;
       }
 
-      // Tag pings
-      for (const u of this.taggedUsers) {
-        const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${this.editingDraftId}]]`;
-        await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+      // Same gate as a fresh publish: tag pings only once the post is live.
+      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
+      if (willBeLive) {
+        for (const u of this.taggedUsers) {
+          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${this.editingDraftId}]]`;
+          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+        }
+        notify.toast('Published');
+      } else {
+        notify.toast('Submitted for review');
       }
-      
+
       this.clearComposerAutosave();
       this.editingDraftId = null;
       document.querySelector('.modal-overlay').remove();
@@ -1697,8 +1711,11 @@ const hubView = {
     this.allInteractions = interactions || [];
     
     // A row with no status predates moderation and stays visible; approved gliims
-    // reach the feed; drafts are visible to their owners.
-    const visible = (feed_gliims || []).filter(p => !p.status || p.status === 'approved' || (p.status === 'draft' && p.user_id === store.user.id));
+    // reach everyone; owners also see their drafts, pending and rejected rows.
+    const visible = (feed_gliims || []).filter(p =>
+      !p.status || p.status === 'approved' ||
+      (p.user_id === store.user.id && (p.status === 'draft' || p.status === 'pending' || p.status === 'rejected'))
+    );
     this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.item_id) || []);
 
@@ -1773,7 +1790,11 @@ const hubView = {
     const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
     const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
     const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
-    const draftBadge = post.status === 'draft' ? `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,.15);color:#4B5563;font-size:11px;font-weight:700;">Draft</span>` : '';
+    const statusChip = (label, bg, fg) => `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:${bg};color:${fg};font-size:11px;font-weight:700;">${label}</span>`;
+    const statusBadge = post.status === 'draft' ? statusChip('Draft', 'rgba(107,114,128,.15)', '#4B5563')
+      : post.status === 'pending' ? statusChip('Pending review', 'rgba(245,158,11,.15)', '#B45309')
+      : post.status === 'rejected' ? statusChip('Not approved', 'rgba(239,68,68,.15)', '#B91C1C')
+      : '';
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
 
@@ -1798,7 +1819,7 @@ const hubView = {
     // Books: just the cover image as a square — no title, no author, no stats.
     if (this.cardKinds && this.cardKinds[post.id] === 'book' && post.cover_url) {
       return `<article class="book-cover-card" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
-        ${draftBadge ? `<div class="book-cover-badges">${draftBadge}${premiumBadge}</div>` : (premiumBadge ? `<div class="book-cover-badges">${premiumBadge}</div>` : '')}
+        ${statusBadge ? `<div class="book-cover-badges">${statusBadge}${premiumBadge}</div>` : (premiumBadge ? `<div class="book-cover-badges">${premiumBadge}</div>` : '')}
       </article>`;
     }
 
@@ -1806,7 +1827,7 @@ const hubView = {
     if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && post.cover_url) {
       const bundleSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
       return `<article class="audiolite-card bundle-card" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bundleSvg}Bundle</span><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bundleSvg}Bundle</span><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
@@ -1816,13 +1837,13 @@ const hubView = {
     if (this.cardKinds && this.cardKinds[post.id] === 'image-only' && post.cover_url) {
       const imgCover = `background-image: url('${post.cover_url}');`;
       return `<article class="audiolite-card image-only-card" id="post-${post.id}" style="${imgCover}" onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-spacer"></span>${draftBadge}${premiumBadge}</div>
+        <div class="blog-meta audiolite-meta"><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
     }
 
-    return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${draftBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+    return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${statusBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
   async renderPosts(feed_gliims) {

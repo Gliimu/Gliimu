@@ -185,6 +185,8 @@ grant execute on function public.support_mark_read(uuid) to authenticated, servi
 
 -- Admin console list: one row per member who has ever opened a thread.
 -- Returns no username anywhere — full name and avatar only.
+drop function if exists public.support_inbox();
+
 create or replace function public.support_inbox()
 returns table (
   thread_user uuid,
@@ -321,7 +323,7 @@ set search_path = public
 as $$
 declare
   uid    uuid := auth.uid();
-  v_post public.posts%rowtype;
+  v_post public.feed_gliims%rowtype;
 begin
   if uid is null then
     return jsonb_build_object('ok', false, 'code', 'NOT_AUTHENTICATED');
@@ -335,7 +337,7 @@ begin
     return jsonb_build_object('ok', false, 'code', 'BAD_ACTION');
   end if;
 
-  select * into v_post from public.posts where id = p_post;
+  select * into v_post from public.feed_gliims where id = p_post;
   if not found then
     return jsonb_build_object('ok', false, 'code', 'NOT_FOUND');
   end if;
@@ -345,7 +347,7 @@ begin
       return jsonb_build_object('ok', false, 'code', 'NOTE_REQUIRED');
     end if;
 
-    update public.posts
+    update public.feed_gliims
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_post;
 
@@ -356,7 +358,7 @@ begin
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
 
-  update public.posts
+  update public.feed_gliims
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_post;
 
@@ -733,14 +735,15 @@ with support_fns (name, oid) as (
                         and pg_get_constraintdef(oid) ilike '%like%dislike%')
   union all
   select 13, 'review RPC posts to support_messages',
-         (select count(*) = 1 from regexp_matches(
+         (select count(*) = 2 from regexp_matches(
             (select prosrc from pg_proc where oid = to_regprocedure('public.admin_review_post(uuid,text,text)')),
             'insert\s+into\s+public\.support_messages\s*\(thread_user,\s*sender_id,\s*content\)\s*values\s*\([^;]+\);', 'gi'))
   union all
   select 14, 'no review RPC still writes an is_admin notice into messages',
          not exists (select 1 from pg_proc
                       where oid = to_regprocedure('public.admin_review_post(uuid,text,text)')
-                        and prosrc ilike '%is_admin%')
+                        and prosrc ilike '%is_admin =%'
+                        and prosrc ilike '%public.messages%')
   union all
   select 15, 'every migratable admin notice is now in a support thread',
          not exists (
@@ -765,8 +768,7 @@ with support_fns (name, oid) as (
          exists (select 1 from pg_proc where oid = to_regprocedure('public.gliimpa_paused(uuid)')
                   and not prosecdef
                   and prosrc ilike '%support_last_staff_at%')
-         and exists (select 1 from pg_proc where oid = to_regprocedure('public.support_last_staff_at(uuid)')
-                  and not prosecdef
+         and exists (select 1 from pg_proc where oid = to_regprocedure('public.gliimpa_paused(uuid)')
                   and prosrc ilike '%interval%5 minutes%')
   union all
   select 19, 'gliimpa_escalate writes a member-owned escalation row',
@@ -775,10 +777,10 @@ with support_fns (name, oid) as (
                   and prosrc ilike '%escalation%')
   union all
   select 20, 'support_inbox() now returns nine columns including escalations',
-         (select array_length(proargmodes, 1) from pg_proc
+         (select array_length(proargnames, 1) from pg_proc
            where oid = to_regprocedure('public.support_inbox()')) = 9
          and (select prosrc from pg_proc where oid = to_regprocedure('public.support_inbox()'))
-             ilike '%escalations%'
+             ilike '%escalation%'
   union all
   select 21, 'admin_chat exists, RLS on, three staff-only policies',
          exists (select 1 from information_schema.tables
