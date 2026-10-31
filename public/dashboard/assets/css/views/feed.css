@@ -47,6 +47,7 @@
    child re-applies the inner padding for tabs and feed. */
 .xplore-page { margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0; }
 @media (max-width: 768px) {
+  .xplore-page { margin: 0; }
   .libmerge.hub-layout { padding-left: 8px; padding-right: 8px; }
 }
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its

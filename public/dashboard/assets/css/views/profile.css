@@ -9,6 +9,10 @@
   gap: 24px;
 }
 
+@media (max-width: 768px) {
+  .profile-layout { margin: 0; }
+}
+
 /* ============================================
    PROFILE HEADER — banner with identity, actions row
    ============================================ */
