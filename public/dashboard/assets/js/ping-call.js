@@ -187,7 +187,7 @@ const CallManager = {
         type: 'call-offer',
         callId: this.currentCall.id,
         sdp: offer
-      }));      }));
+      }));
 
       // Show calling UI
       this._showCallingUI(contactId, callType);
