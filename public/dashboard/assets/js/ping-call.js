@@ -31,6 +31,8 @@ const CallManager = {
   callStartTime: null,
   isMuted: false,
   isVideoOff: false,
+  pendingOffer: null,
+  pendingCandidates: [],
 
   async init() {
     if (this.ws) return;
@@ -221,8 +223,16 @@ const CallManager = {
         this.peerConnection.addTrack(track, this.localStream);
       });
 
-      // Wait for offer (should already be received)
-      // Send answer
+      // Apply buffered offer from caller
+      if (this.pendingOffer) {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(this.pendingOffer));
+        this.pendingOffer = null;
+      } else {
+        console.error('[PingCall] No offer available when accepting');
+        throw new Error('Call offer not received yet. Please try again.');
+      }
+
+      // Create and send answer
       const answer = await this.peerConnection.createAnswer();
       await this.peerConnection.setLocalDescription(answer);
 
@@ -231,6 +241,16 @@ const CallManager = {
         callId: this.currentCall.id,
         sdp: answer
       }));
+
+      // Apply any buffered ICE candidates
+      for (const candidate of this.pendingCandidates) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn('[PingCall] Buffered ICE candidate failed:', e);
+        }
+      }
+      this.pendingCandidates = [];
 
       this.currentCall.status = 'connecting';
       this._showCallConnectingUI();
@@ -257,7 +277,12 @@ const CallManager = {
     if (!this.currentCall || this.currentCall.role !== 'receiver') return;
 
     const { sdp } = msg;
-    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+    if (this.peerConnection) {
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+    } else {
+      this.pendingOffer = sdp;
+      console.log('[PingCall] Buffered offer (peer connection not ready yet)');
+    }
   },
 
   async _handleCallAnswer(msg) {
@@ -268,13 +293,17 @@ const CallManager = {
   },
 
   async _handleIceCandidate(msg) {
-    if (!this.peerConnection) return;
+    if (!this.currentCall) return;
 
     const { candidate } = msg;
-    try {
-      await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (error) {
-      console.error('[PingCall] Add ICE candidate error:', error);
+    if (this.peerConnection) {
+      try {
+        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.error('[PingCall] Add ICE candidate error:', error);
+      }
+    } else {
+      this.pendingCandidates.push(candidate);
     }
   },
 
@@ -551,6 +580,8 @@ const CallManager = {
       this.remoteStream = null;
     }
 
+    this.pendingOffer = null;
+    this.pendingCandidates = [];
     this.currentCall = null;
     this.callStartTime = null;
     this.isMuted = false;
