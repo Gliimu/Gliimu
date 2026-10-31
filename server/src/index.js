@@ -1142,6 +1142,14 @@ app.post('/api/calls/init', async (req, res) => {
       .in('status', ['ringing'])
       .lt('created_at', new Date(Date.now() - 35000).toISOString());
 
+    // Clean up caller's own stale records (any status older than 1 minute)
+    await supabaseAdmin
+      .from('ping_calls')
+      .update({ status: 'ended', ended_at: new Date().toISOString() })
+      .eq('caller_id', user.id)
+      .in('status', ['ringing', 'accepted', 'active'])
+      .lt('created_at', new Date(Date.now() - 60000).toISOString());
+
     // Check if caller is already in a call
     const { data: callerActiveCalls } = await supabaseAdmin
       .from('ping_calls')

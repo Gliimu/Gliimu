@@ -135,6 +135,13 @@ const CallManager = {
     }
 
     try {
+      // Fetch contact profile first
+      const { data: contactProfile } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', contactId)
+        .single();
+
       // Create call record via API
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${API_BASE_URL}/api/calls/init`, {
@@ -155,6 +162,8 @@ const CallManager = {
       this.currentCall = {
         id: data.callId,
         contactId,
+        contactName: contactProfile?.full_name,
+        contactAvatar: contactProfile?.avatar_url,
         callType: data.callType,
         role: 'caller',
         status: 'initiating'

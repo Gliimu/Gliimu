@@ -3,7 +3,7 @@ import { store, tierClass } from '../store.js?v=2';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
 import supportView from './support.js?v=39';
-import CallManager from '../ping-call.js?v=9';
+import CallManager from '../ping-call.js?v=10';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
