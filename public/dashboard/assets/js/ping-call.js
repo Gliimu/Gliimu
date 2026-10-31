@@ -171,7 +171,7 @@ const CallManager = {
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
 
-      // Send offer via signaling
+      // Send call-initiate first
       this.ws.send(JSON.stringify({
         type: 'call-initiate',
         callId: this.currentCall.id,
@@ -179,11 +179,15 @@ const CallManager = {
         callType: data.callType
       }));
 
+      // Wait briefly for server to create the call room
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Then send the offer
       this.ws.send(JSON.stringify({
         type: 'call-offer',
         callId: this.currentCall.id,
         sdp: offer
-      }));
+      }));      }));
 
       // Show calling UI
       this._showCallingUI(contactId, callType);
