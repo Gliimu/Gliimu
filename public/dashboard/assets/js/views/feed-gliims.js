@@ -674,16 +674,27 @@ const hubView = {
       }
 
       // Pen-badge members and staff publish instantly; everyone else lands
-      // in the review queue. Tag pings only go out once the post is live —
-      // recipients can't open a page that is still pending.
+      // in the review queue. Tag notifications only go out once the post is
+      // live — otherwise the tags are queued and fan out on CRM approval.
       const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
       if (willBeLive) {
         for (const u of this.taggedUsers) {
-          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${newId}]]`;
-          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+          await supabase.from('notifications').insert({
+            user_id: u.id,
+            actor_id: store.user.id,
+            kind: 'tag',
+            title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
+            link_post: newId
+          });
         }
         notify.toast('Published');
       } else {
+        if (this.taggedUsers.length) {
+          await supabase.from('feed_gliim_mentions').upsert(
+            this.taggedUsers.map(u => ({ post_id: newId, user_id: u.id, mentioned_by: store.user.id, kind: 'tag' })),
+            { onConflict: 'post_id,user_id', ignoreDuplicates: true }
+          );
+        }
         notify.toast('Submitted for review');
       }
       this.clearComposerAutosave();
@@ -972,15 +983,27 @@ const hubView = {
         return;
       }
 
-      // Same gate as a fresh publish: tag pings only once the post is live.
+      // Same gate as a fresh publish: notify now when live, queue the tags
+      // for the approval fan-out otherwise.
       const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
       if (willBeLive) {
         for (const u of this.taggedUsers) {
-          const content = `${store.profile.full_name} tagged you in the hub page: "${title}" — click to check it out. [[hub:${this.editingDraftId}]]`;
-          await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: u.id, content, is_ai: false });
+          await supabase.from('notifications').insert({
+            user_id: u.id,
+            actor_id: store.user.id,
+            kind: 'tag',
+            title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
+            link_post: this.editingDraftId
+          });
         }
         notify.toast('Published');
       } else {
+        if (this.taggedUsers.length) {
+          await supabase.from('feed_gliim_mentions').upsert(
+            this.taggedUsers.map(u => ({ post_id: this.editingDraftId, user_id: u.id, mentioned_by: store.user.id, kind: 'tag' })),
+            { onConflict: 'post_id,user_id', ignoreDuplicates: true }
+          );
+        }
         notify.toast('Submitted for review');
       }
 
@@ -2507,13 +2530,14 @@ const hubView = {
     if (this.pickedMentions) delete this.pickedMentions[postId];
   },
 
-  // Ping every @FullName-mentioned user via the message system.
+  // Notify every @FullName-mentioned user on the Alerts page.
   // When the sender picked from the @ dropdown, the picked id wins —
   // namesakes who were not picked are skipped. Manually typed names
   // still fall back to matching every profile with that name.
-  // The trailing [[hub:...]] marker is stripped by the chat
-  // renderer, which shows a "Check it out" button that deep-links
-  // to the exact post — and to the exact comment on a reply.
+  // Mentions on a live post deliver immediately (with a deep link to
+  // the exact post, and the exact comment on a reply); mentions on a
+  // post that is still pending review are queued for the approval
+  // fan-out.
   async notifyMentions(postId, post, text, commentId) {
     const picks = (this.pickedMentions && this.pickedMentions[postId]) || [];
 
@@ -2525,11 +2549,25 @@ const hubView = {
     const lower = text.toLowerCase();
     const myName = (store.profile?.full_name || '').toLowerCase();
     const seen = new Set();
-    const marker = commentId ? ` [[hub:${postId}:${commentId}]]` : ` [[hub:${postId}]]`;
+    const isLive = !post.status || post.status === 'approved';
 
     const ping = async (receiverId) => {
-      const content = `${store.profile.full_name} tagged you in the hub page: "${post.title || 'a gliim'}" — click to check it out.${marker}`;
-      await supabase.from('messages').insert({ sender_id: store.user.id, receiver_id: receiverId, content, is_ai: false });
+      const title = `${store.profile.full_name} tagged you in the hub page: "${post.title || 'a gliim'}"`;
+      if (isLive) {
+        await supabase.from('notifications').insert({
+          user_id: receiverId,
+          actor_id: store.user.id,
+          kind: 'mention',
+          title,
+          link_post: postId,
+          link_comment: commentId || null
+        });
+      } else {
+        await supabase.from('feed_gliim_mentions').upsert(
+          { post_id: postId, user_id: receiverId, mentioned_by: store.user.id, kind: 'mention', comment_id: commentId || null },
+          { onConflict: 'post_id,user_id', ignoreDuplicates: true }
+        );
+      }
     };
 
     const pickedNames = new Set();

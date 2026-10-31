@@ -311,8 +311,8 @@ select m.id, m.receiver_id, m.sender_id, coalesce(m.content, ''), m.attachment_u
 on conflict (id) do nothing;
 
 -- ============================================================
--- 8. Review notices now land in Support instead of Ping.
---    Authoritative copy — keep in sync with sql/gliim_approval.sql.
+-- 8. Review notices land on the Alerts page (public.notifications).
+--    Authoritative copy — keep in sync with sql/notifications.sql.
 -- ============================================================
 
 create or replace function public.admin_review_post(p_post uuid, p_action text, p_note text default null)
@@ -351,9 +351,10 @@ begin
        set status = 'rejected', reviewed_by = uid, reviewed_at = now(), review_note = p_note
      where id = p_post;
 
-    insert into public.support_messages (thread_user, sender_id, content)
-    values (v_post.user_id, uid,
-            'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved. Reason: ' || p_note);
+    insert into public.notifications (user_id, actor_id, kind, title, body, link_post)
+    values (v_post.user_id, uid, 'review',
+            'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was not approved',
+            'Reason: ' || p_note, p_post);
 
     return jsonb_build_object('ok', true, 'status', 'rejected');
   end if;
@@ -362,9 +363,10 @@ begin
      set status = 'approved', reviewed_by = uid, reviewed_at = now(), review_note = p_note
    where id = p_post;
 
-  insert into public.support_messages (thread_user, sender_id, content)
-  values (v_post.user_id, uid,
-          'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live in the Hub.');
+  insert into public.notifications (user_id, actor_id, kind, title, link_post)
+  values (v_post.user_id, uid, 'review',
+          'Your gliim "' || coalesce(v_post.title, 'Untitled') || '" was approved and is now live',
+          p_post);
 
   return jsonb_build_object('ok', true, 'status', 'approved');
 end
@@ -734,10 +736,11 @@ with support_fns (name, oid) as (
                       where conrelid = 'public.messages'::regclass and conname = 'messages_feedback_check'
                         and pg_get_constraintdef(oid) ilike '%like%dislike%')
   union all
-  select 13, 'review RPC posts to support_messages',
-         (select count(*) = 2 from regexp_matches(
-            (select prosrc from pg_proc where oid = to_regprocedure('public.admin_review_post(uuid,text,text)')),
-            'insert\s+into\s+public\.support_messages\s*\(thread_user,\s*sender_id,\s*content\)\s*values\s*\([^;]+\);', 'gi'))
+  select 13, 'review RPC posts a notification (Alerts), not support_messages',
+         (select prosrc from pg_proc where oid = to_regprocedure('public.admin_review_post(uuid,text,text)'))
+         ilike '%insert into public.notifications%'
+         and (select prosrc from pg_proc where oid = to_regprocedure('public.admin_review_post(uuid,text,text)'))
+         not ilike '%insert into public.support_messages%'
   union all
   select 14, 'no review RPC still writes an is_admin notice into messages',
          not exists (select 1 from pg_proc

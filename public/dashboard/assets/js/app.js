@@ -1,5 +1,5 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=118';
+import { router } from './router.js?v=119';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
@@ -12,6 +12,7 @@ const NotificationManager = {
   counts: {
     ping: 0,
     support: 0,
+    alerts: 0,
     settings: 0
   },
 
@@ -33,7 +34,7 @@ const NotificationManager = {
     }
 
     // Update favicon notification dot
-    const hasNotifications = this.counts.ping > 0 || this.counts.support > 0;
+    const hasNotifications = this.counts.ping > 0 || this.counts.support > 0 || this.counts.alerts > 0;
     notify.faviconDot(hasNotifications);
   },
 
@@ -87,6 +88,34 @@ const NotificationManager = {
     this.updateBadge('support', this.counts.support);
   },
 
+  // Unread notifications (tags, mentions, review results, live joins) badge
+  // the sidebar Alerts tab. Expected to fail until sql/notifications.sql runs.
+  async refreshAlertsUnread() {
+    const request = this.alertsRequest = (this.alertsRequest || 0) + 1;
+    const { count, error } = await supabase.from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', store.user.id)
+      .filter('read_at', 'is', null);
+    if (request !== this.alertsRequest) return;
+    if (error) {
+      console.warn('Could not read the alerts unread count:', error.message);
+      return;
+    }
+    this.counts.alerts = count || 0;
+    this.updateBadge('alerts', this.counts.alerts);
+  },
+
+  async alertNotification(row) {
+    const onAlerts = /^#\/alerts/.test(window.location.hash) && !document.hidden;
+    if (onAlerts) return;
+    notify.message({
+      title: 'New alert',
+      body: row.title || 'You have a new notification',
+      tag: `gliimu-alert-${row.id}`,
+      desktop: document.hidden
+    });
+  },
+
   // Staff replies arrive under the agent's own id, so the sender has to be
   // looked up before the alert can name them.
   async alertSupport(row) {
@@ -106,6 +135,7 @@ const NotificationManager = {
   async fetchInitialCounts() {
     await this.refreshUnread();
     await this.refreshSupportUnread();
+    await this.refreshAlertsUnread();
 
     // Settings (App Version - Placeholder logic)
     // For now, we'll just set it to 0. You can change this to 1 when you deploy a new version.
@@ -125,10 +155,18 @@ const NotificationManager = {
         // Thread-keyed, not sender-keyed: every admin answers with their own id.
         this.alertSupport(row);
         this.refreshSupportUnread();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${store.user.id}`
+      }, ({ new: row }) => {
+        this.alertNotification(row);
+        this.refreshAlertsUnread();
       }).subscribe(status => {
         if (status === 'SUBSCRIBED') {
           this.refreshUnread();
           this.refreshSupportUnread();
+          this.refreshAlertsUnread();
         }
       });
     window.addEventListener('gliimu-chat-read', () => this.refreshUnread());

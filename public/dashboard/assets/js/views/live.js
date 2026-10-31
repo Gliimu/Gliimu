@@ -451,11 +451,11 @@ const liveView = {
       return;
     }
 
-    await supabase.from('messages').insert({
-      sender_id: store.user.id,
-      receiver_id: claimed.user_id,
-      content: 'I joined your live session.',
-      is_ai: false
+    await supabase.from('notifications').insert({
+      user_id: claimed.user_id,
+      actor_id: store.user.id,
+      kind: 'live',
+      title: `${store.profile.full_name} joined your live session`
     });
 
     this.loadBoard();

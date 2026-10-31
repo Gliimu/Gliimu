@@ -24,6 +24,7 @@ function gliits(value) {
 
 const FILTERS = [
   { id: 'all', label: 'All' },
+  { id: 'notify', label: 'Notifications' },
   { id: 'wallet', label: 'Wallet' },
   { id: 'usage', label: 'Usage' },
   { id: 'gp', label: 'GP' },
@@ -62,6 +63,14 @@ const TX_LABELS = {
   live_session: 'Reading charge'
 };
 
+const NOTIF_ICONS = {
+  tag: { color: '#6366f1', path: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' },
+  mention: { color: '#6366f1', path: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' },
+  review: { color: '#16a34a', path: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
+  live: { color: '#6366f1', path: 'M23 7l-7 5 7 5V7zM1 5h15v14H1z' },
+  system: { color: '#64748b', path: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' }
+};
+
 export default {
   title: 'Alerts',
   template: `
@@ -75,6 +84,7 @@ export default {
             ${FILTERS.map(f => `<div class="alerts-filter-item" data-filter="${f.id}">${escapeHtml(f.label)}</div>`).join('')}
           </div>
         </div>
+        <button id="alerts-mark-read" style="display:none;font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;">Mark all read</button>
       </div>
       <div class="alerts-scroll" id="alerts-scroll">
         <p style="color: var(--text-muted); text-align: center; padding: 40px;">Loading...</p>
@@ -106,7 +116,40 @@ export default {
       document.getElementById('alerts-filter-menu')?.classList.remove('active');
     });
 
+    document.getElementById('alerts-mark-read')?.addEventListener('click', () => this.markAllRead());
+
+    // Click-through: a notification row with a deep link opens the post
+    // (and the exact comment on a mention reply) and marks the row read.
+    document.getElementById('alerts-scroll')?.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-notif-id]');
+      if (!row) return;
+      this.openAlert(row.dataset);
+    });
+
     this.load();
+  },
+
+  async markAllRead() {
+    await supabase.from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', store.user.id)
+      .filter('read_at', 'is', null);
+    if (window.NotificationManager?.refreshAlertsUnread) await window.NotificationManager.refreshAlertsUnread();
+    this.load();
+  },
+
+  async openAlert(ds) {
+    if (ds.notifId) {
+      supabase.from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', ds.notifId)
+        .then(() => window.NotificationManager?.refreshAlertsUnread?.());
+    }
+    if (ds.linkPost) {
+      sessionStorage.setItem('openReadViewId', ds.linkPost);
+      if (ds.linkComment) sessionStorage.setItem('openCommentId', ds.linkComment);
+      window.location.hash = '#/read';
+    }
   },
 
   destroy() {},
@@ -117,7 +160,7 @@ export default {
     const balanceData = await getBalance();
     this.balance = Number(balanceData?.balance || 0);
 
-    const [txResult, usageResult, topupResult, supportResult] = await Promise.all([
+    const [txResult, usageResult, topupResult, supportResult, notifyResult] = await Promise.all([
       supabase.from('transactions').select('id, amount, points, type, status, description, reference, created_at')
         .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(200),
       supabase.from('gliits_usage').select('id, gliits_charged, creator_credited, minute_at')
@@ -125,7 +168,9 @@ export default {
       supabase.from('gliits_topups').select('id, amount_gliits, amount_naira, payment_status, payment_reference, created_at')
         .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('support_messages').select('id, content, kind, created_at')
-        .eq('thread_user', store.user.id).neq('sender_id', store.user.id).order('created_at', { ascending: false }).limit(50)
+        .eq('thread_user', store.user.id).neq('sender_id', store.user.id).order('created_at', { ascending: false }).limit(50),
+      supabase.from('notifications').select('id, kind, title, body, link_post, link_comment, created_at, read_at')
+        .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(100)
     ]);
 
     this.allAlerts = [];
@@ -193,6 +238,24 @@ export default {
       });
     }
 
+    const notifications = notifyResult.data || [];
+    for (const n of notifications) {
+      this.allAlerts.push({
+        id: `ntf-${n.id}`,
+        category: 'notify',
+        icon: NOTIF_ICONS[n.kind] || NOTIF_ICONS.system,
+        title: n.title,
+        subtitle: n.body || '',
+        amount: 0,
+        points: 0,
+        time: n.created_at,
+        status: n.read_at ? 'info' : 'unread',
+        notifId: n.id,
+        linkPost: n.link_post,
+        linkComment: n.link_comment
+      });
+    }
+
     if (this.balance > 0 && this.balance <= 12) {
       this.allAlerts.push({
         id: 'low-balance',
@@ -240,20 +303,26 @@ export default {
       ? this.allAlerts
       : this.allAlerts.filter(a => a.category === this.filter);
 
+    const unreadCount = this.allAlerts.filter(a => a.status === 'unread').length;
+    const markBtn = document.getElementById('alerts-mark-read');
+    if (markBtn) markBtn.style.display = unreadCount > 0 ? '' : 'none';
+
     if (!filtered.length) {
       const emptyLabels = {
         all: 'No alerts yet',
+        notify: 'No notifications yet',
         wallet: 'No wallet activity',
         usage: 'No usage charges yet',
         gp: 'No GP activity yet',
         system: 'No system alerts'
       };
       const emptySubs = {
-        all: 'Top-ups, transfers, usage charges, rewards and system notices will appear here.',
+        all: 'Notifications, top-ups, transfers, usage charges, rewards and system notices will appear here.',
+        notify: 'Tags, mentions, approvals and live-session updates will appear here.',
         wallet: 'Top-ups, transfers, refunds and plan payments will appear here.',
         usage: 'Your per-minute reading charges will appear here, grouped by day.',
         gp: 'GP rewards and conversions will appear here.',
-        system: 'Content approvals, support replies and balance warnings will appear here.'
+        system: 'Support replies and balance warnings will appear here.'
       };
       container.innerHTML = `
         <div class="notice-empty">
@@ -289,15 +358,20 @@ export default {
       statusBadge = '<span class="alert-badge alert-badge-warning">Warning</span>';
     } else if (a.status === 'failed') {
       statusBadge = '<span class="alert-badge alert-badge-failed">Failed</span>';
+    } else if (a.status === 'unread') {
+      statusBadge = '<span class="alert-badge" style="background:rgba(99,102,241,.12);color:#4F46E5;">New</span>';
     }
 
+    const clickable = a.linkPost ? 'cursor:pointer;' : '';
+    const attrs = a.notifId ? `data-notif-id="${escapeHtml(a.notifId)}" data-link-post="${escapeHtml(a.linkPost || '')}" data-link-comment="${escapeHtml(a.linkComment || '')}"` : '';
+
     return `
-      <div class="notice-item${a.status === 'warning' ? ' notice-item-warning' : ''}">
+      <div class="notice-item${a.status === 'warning' ? ' notice-item-warning' : ''}${a.status === 'unread' ? ' notice-item-unread' : ''}" style="${clickable}" ${attrs}>
         <div class="notice-icon" style="background: ${icon.color}15;">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${icon.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${icon.path}"></path></svg>
         </div>
         <div class="notice-info">
-          <span class="notice-title">${escapeHtml(a.title)}${statusBadge}</span>
+          <span class="notice-title" ${a.status === 'unread' ? 'style="font-weight:700;"' : ''}>${escapeHtml(a.title)}${statusBadge}</span>
           ${a.subtitle ? `<span class="notice-subtitle">${escapeHtml(a.subtitle)}</span>` : ''}
           <span class="notice-date">${escapeHtml(timeAgo(a.time))}</span>
         </div>

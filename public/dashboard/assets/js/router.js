@@ -1,5 +1,5 @@
 const routes = {
-  '/alerts': () => import('./views/alerts.js?v=11').then(m => m.default),
+  '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
   '/search': () => import('./views/search.js?v=13').then(m => m.default),
   '/xplore': () => import('./views/feed.js?v=89').then(m => m.default),
   '/feed': () => import('./views/feed.js?v=89').then(m => m.default),
