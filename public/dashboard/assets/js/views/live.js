@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
 
@@ -420,7 +420,7 @@ const liveView = {
 
   async createDailyRoom(requestId) {
     try {
-      const response = await fetch('/api/daily/create-room', {
+      const response = await fetch(`${API_BASE_URL}/api/daily/create-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -460,7 +460,7 @@ const liveView = {
       const request = this.requests.find(r => r.room_id === roomId);
       if (!request) return;
       
-      await fetch('/api/daily/delete-room', {
+      await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -778,7 +778,7 @@ const liveView = {
     if (!content || !this.activeSession) return;
 
     try {
-      const response = await fetch('/api/live/chat', {
+      const response = await fetch(`${API_BASE_URL}/api/live/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
