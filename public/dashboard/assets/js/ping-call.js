@@ -33,6 +33,10 @@ const CallManager = {
   isVideoOff: false,
   pendingOffer: null,
   pendingCandidates: [],
+  isAccepting: false,
+  ringtoneCtx: null,
+  ringtoneOsc: null,
+  ringtoneGain: null,
 
   async init() {
     if (this.ws) return;
@@ -213,10 +217,15 @@ const CallManager = {
     };
 
     this._showIncomingCallModal(caller, callType);
+    this._startRingtone();
   },
 
   async acceptCall() {
     if (!this.currentCall || this.currentCall.role !== 'receiver') return;
+    if (this.isAccepting) return;
+    this.isAccepting = true;
+
+    this._stopRingtone();
 
     try {
       // Get media stream
@@ -264,6 +273,7 @@ const CallManager = {
 
     } catch (error) {
       console.error('[PingCall] Accept call error:', error);
+      this.isAccepting = false;
       alert('Failed to accept call: ' + error.message);
       this.rejectCall();
     }
@@ -271,6 +281,8 @@ const CallManager = {
 
   rejectCall() {
     if (!this.currentCall) return;
+
+    this._stopRingtone();
 
     this.ws.send(JSON.stringify({
       type: 'call-reject',
@@ -390,8 +402,9 @@ const CallManager = {
     };
 
     this.peerConnection.oniceconnectionstatechange = () => {
+      if (!this.peerConnection) return;
       console.log('[PingCall] ICE state:', this.peerConnection.iceConnectionState);
-      if (this.peerConnection.iceConnectionState === 'connected') {
+      if (this.peerConnection && this.peerConnection.iceConnectionState === 'connected') {
         this._onCallConnected();
       } else if (this.peerConnection.iceConnectionState === 'failed' || 
                  this.peerConnection.iceConnectionState === 'disconnected') {
@@ -430,6 +443,9 @@ const CallManager = {
 
     this.currentCall.status = 'active';
     this.callStartTime = Date.now();
+    this.isAccepting = false;
+
+    this._playConnectSound();
 
     // Update call status in DB
     supabase.from('ping_calls').update({
@@ -593,9 +609,84 @@ const CallManager = {
     this.callStartTime = null;
     this.isMuted = false;
     this.isVideoOff = false;
+    this.isAccepting = false;
+
+    this._stopRingtone();
 
     // Remove UI
     this._removeCallUI();
+  },
+
+  _startRingtone() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.ringtoneCtx = ctx;
+
+      const playTone = (freq, startTime, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+        gain.gain.linearRampToValueAtTime(0, startTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      const ringPattern = () => {
+        if (!this.ringtoneCtx || this.ringtoneCtx.state === 'closed') return;
+        const now = ctx.currentTime;
+        playTone(440, now, 0.2);
+        playTone(520, now + 0.25, 0.2);
+        this.ringtoneTimer = setTimeout(ringPattern, 1500);
+      };
+
+      ringPattern();
+    } catch (e) {
+      console.warn('[PingCall] Could not start ringtone:', e);
+    }
+  },
+
+  _stopRingtone() {
+    if (this.ringtoneTimer) {
+      clearTimeout(this.ringtoneTimer);
+      this.ringtoneTimer = null;
+    }
+    if (this.ringtoneCtx && this.ringtoneCtx.state !== 'closed') {
+      this.ringtoneCtx.close().catch(() => {});
+      this.ringtoneCtx = null;
+    }
+  },
+
+  _playConnectSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = ctx.currentTime;
+
+      const playTone = (freq, startTime, duration) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.4, startTime + 0.03);
+        gain.gain.linearRampToValueAtTime(0, startTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      };
+
+      playTone(350, now, 0.15);
+      playTone(520, now + 0.18, 0.2);
+
+      setTimeout(() => ctx.close().catch(() => {}), 1000);
+    } catch (e) {
+      console.warn('[PingCall] Could not play connect sound:', e);
+    }
   },
 
   _showCallingUI(contactId, callType) {
