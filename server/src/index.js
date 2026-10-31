@@ -1135,6 +1135,13 @@ app.post('/api/calls/init', async (req, res) => {
       return res.status(404).json({ error: 'Receiver not found.' });
     }
 
+    // Auto-expire stale ringing records (older than 35 seconds)
+    await supabaseAdmin
+      .from('ping_calls')
+      .update({ status: 'missed', ended_at: new Date().toISOString() })
+      .in('status', ['ringing'])
+      .lt('created_at', new Date(Date.now() - 35000).toISOString());
+
     // Check if receiver is already in a call
     const { data: activeCalls } = await supabaseAdmin
       .from('ping_calls')
