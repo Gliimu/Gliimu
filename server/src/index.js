@@ -1,8 +1,10 @@
 require('dotenv').config();
 const crypto = require('crypto');
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const { initSignaling } = require('./webrtc-signaling');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1097,7 +1099,182 @@ app.get('/api/live/chat/:roomId', async (req, res) => {
   }
 });
 
+// ============================================================
+// PING CALLS API
+// ============================================================
+
+// Initiate a call
+app.post('/api/calls/init', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing access token.' });
+    }
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid access token.' });
+    }
+
+    const { receiver_id, call_type } = req.body;
+    if (!receiver_id) {
+      return res.status(400).json({ error: 'receiver_id is required.' });
+    }
+    if (receiver_id === user.id) {
+      return res.status(400).json({ error: 'Cannot call yourself.' });
+    }
+
+    // Check if receiver exists
+    const { data: receiver, error: receiverError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', receiver_id)
+      .single();
+
+    if (receiverError || !receiver) {
+      return res.status(404).json({ error: 'Receiver not found.' });
+    }
+
+    // Check if receiver is already in a call
+    const { data: activeCalls } = await supabaseAdmin
+      .from('ping_calls')
+      .select('id')
+      .eq('receiver_id', receiver_id)
+      .in('status', ['ringing', 'accepted', 'active'])
+      .limit(1);
+
+    if (activeCalls && activeCalls.length > 0) {
+      return res.status(409).json({ error: 'User is on another call.' });
+    }
+
+    // Create call record
+    const { data: call, error: callError } = await supabaseAdmin
+      .from('ping_calls')
+      .insert({
+        caller_id: user.id,
+        receiver_id: receiver_id,
+        call_type: call_type || 'voice',
+        status: 'ringing'
+      })
+      .select('*')
+      .single();
+
+    if (callError) {
+      console.error('Call init error:', callError);
+      return res.status(500).json({ error: 'Failed to initiate call.' });
+    }
+
+    res.json({ ok: true, callId: call.id, callType: call.call_type });
+  } catch (error) {
+    console.error('Call init error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Call billing heartbeat
+app.post('/api/calls/heartbeat', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing access token.' });
+    }
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid access token.' });
+    }
+
+    const { call_id } = req.body;
+    if (!call_id) {
+      return res.status(400).json({ error: 'call_id is required.' });
+    }
+
+    // Call the billing RPC
+    const { data, error } = await supabaseAdmin
+      .rpc('gliits_call_heartbeat', { p_call_id: call_id });
+
+    if (error) {
+      console.error('Call heartbeat error:', error);
+      if (error.message === 'INSUFFICIENT_BALANCE') {
+        return res.json({ ok: false, code: 'INSUFFICIENT_BALANCE' });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Call heartbeat error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// End a call
+app.post('/api/calls/end', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing access token.' });
+    }
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid access token.' });
+    }
+
+    const { call_id, duration_secs } = req.body;
+    if (!call_id) {
+      return res.status(400).json({ error: 'call_id is required.' });
+    }
+
+    // Update call record
+    const { error: updateError } = await supabaseAdmin
+      .from('ping_calls')
+      .update({
+        status: 'ended',
+        ended_at: new Date().toISOString(),
+        duration_secs: duration_secs || 0
+      })
+      .eq('id', call_id)
+      .in('caller_id', [user.id])
+      .or(`receiver_id.eq.${user.id}`);
+
+    if (updateError) {
+      console.error('Call end error:', updateError);
+      return res.status(500).json({ error: 'Failed to end call.' });
+    }
+
+    // Send notification to the other party
+    const { data: call } = await supabaseAdmin
+      .from('ping_calls')
+      .select('caller_id, receiver_id')
+      .eq('id', call_id)
+      .single();
+
+    if (call) {
+      const otherUserId = call.caller_id === user.id ? call.receiver_id : call.caller_id;
+      await supabaseAdmin
+        .from('notifications')
+        .insert({
+          user_id: otherUserId,
+          kind: 'call',
+          title: 'Call ended',
+          body: `Your call lasted ${Math.floor((duration_secs || 0) / 60)}m ${((duration_secs || 0) % 60)}s.`,
+          link_url: null
+        });
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Call end error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
 // Start Server
-app.listen(PORT, () => {
+const server = http.createServer(app);
+initSignaling(server);
+
+server.listen(PORT, () => {
   console.log(`Gliimu Server running on port ${PORT}`);
+  console.log(`[WebRTC] Signaling server ready on ws://localhost:${PORT}/ws/call-signaling`);
 });

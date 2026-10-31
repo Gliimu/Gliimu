@@ -1,0 +1,347 @@
+/* ============================================
+   PING CALL OVERLAY
+   ============================================ */
+.ping-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ping-call-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ============================================
+   CALL HEADER
+   ============================================ */
+.ping-call-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+}
+
+.ping-call-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.ping-call-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ping-call-contact-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.ping-call-status {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   VIDEO CONTAINERS
+   ============================================ */
+.ping-call-video-container {
+  flex: 1;
+  position: relative;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+#ping-call-remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#ping-call-local-video {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  width: 120px;
+  height: 160px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 5;
+  background: var(--bg-secondary);
+}
+
+@media (max-width: 768px) {
+  #ping-call-local-video {
+    width: 90px;
+    height: 120px;
+    top: 70px;
+    right: 12px;
+  }
+}
+
+/* ============================================
+   CALL CONTROLS
+   ============================================ */
+.ping-call-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+}
+
+.ping-call-control-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.ping-call-control-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.ping-call-control-btn:active {
+  transform: scale(0.95);
+}
+
+.ping-call-control-btn.active {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.ping-call-control-btn.end {
+  background: #EF4444;
+  width: 64px;
+  height: 64px;
+}
+
+.ping-call-control-btn.end:hover {
+  background: #DC2626;
+}
+
+.ping-call-control-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ============================================
+   INCOMING CALL MODAL
+   ============================================ */
+.ping-call-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.ping-call-modal {
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ping-call-modal-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--brand-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.ping-call-modal-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.ping-call-modal-status {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ping-call-modal-actions {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.ping-call-modal-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.ping-call-modal-btn:hover {
+  transform: scale(1.1);
+}
+
+.ping-call-modal-btn:active {
+  transform: scale(0.95);
+}
+
+.ping-call-modal-btn.accept {
+  background: #10B981;
+  color: white;
+}
+
+.ping-call-modal-btn.accept:hover {
+  background: #059669;
+}
+
+.ping-call-modal-btn.reject {
+  background: #EF4444;
+  color: white;
+}
+
+.ping-call-modal-btn.reject:hover {
+  background: #DC2626;
+}
+
+.ping-call-modal-btn svg {
+  width: 28px;
+  height: 28px;
+}
+
+/* ============================================
+   VOICE CALL (NO VIDEO)
+   ============================================ */
+.ping-call-overlay:not(:has(#ping-call-remote-video[src])) .ping-call-video-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+}
+
+.ping-call-overlay:not(:has(#ping-call-remote-video[src])) #ping-call-local-video {
+  display: none;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .ping-call-header {
+    padding: 12px 16px;
+  }
+
+  .ping-call-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .ping-call-contact-name {
+    font-size: 15px;
+  }
+
+  .ping-call-status {
+    font-size: 12px;
+  }
+
+  .ping-call-controls {
+    padding: 20px 16px;
+    gap: 12px;
+  }
+
+  .ping-call-control-btn {
+    width: 52px;
+    height: 52px;
+  }
+
+  .ping-call-control-btn.end {
+    width: 60px;
+    height: 60px;
+  }
+
+  .ping-call-modal {
+    padding: 32px 24px;
+  }
+
+  .ping-call-modal-avatar {
+    width: 80px;
+    height: 80px;
+  }
+
+  .ping-call-modal-name {
+    font-size: 18px;
+  }
+
+  .ping-call-modal-btn {
+    width: 56px;
+    height: 56px;
+  }
+}
