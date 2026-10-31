@@ -526,7 +526,7 @@ const CallManager = {
     }
   },
 
-  endCall() {
+  async endCall() {
     if (!this.currentCall) return;
 
     const durationSecs = this.callStartTime 
@@ -541,7 +541,7 @@ const CallManager = {
     }));
 
     // Update DB
-    const { data: { session } } = supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       fetch(`${API_BASE_URL}/api/calls/end`, {
         method: 'POST',
