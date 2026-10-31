@@ -302,9 +302,19 @@ const CallManager = {
     if (!this.currentCall || this.currentCall.role !== 'receiver') return;
 
     const { sdp } = msg;
-    if (this.peerConnection) {
+    if (this.peerConnection && this.peerConnection.remoteDescription === null) {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-    } else {
+      
+      // Apply any buffered ICE candidates
+      for (const candidate of this.pendingCandidates) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn('[PingCall] Buffered ICE candidate failed:', e);
+        }
+      }
+      this.pendingCandidates = [];
+    } else if (!this.peerConnection) {
       this.pendingOffer = sdp;
       console.log('[PingCall] Buffered offer (peer connection not ready yet)');
     }
@@ -315,13 +325,23 @@ const CallManager = {
 
     const { sdp } = msg;
     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+
+    // Apply any buffered ICE candidates
+    for (const candidate of this.pendingCandidates) {
+      try {
+        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.warn('[PingCall] Buffered ICE candidate failed:', e);
+      }
+    }
+    this.pendingCandidates = [];
   },
 
   async _handleIceCandidate(msg) {
     if (!this.currentCall) return;
 
     const { candidate } = msg;
-    if (this.peerConnection) {
+    if (this.peerConnection && this.peerConnection.remoteDescription) {
       try {
         await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (error) {
