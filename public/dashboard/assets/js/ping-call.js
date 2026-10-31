@@ -65,10 +65,13 @@ const CallManager = {
     this.ws.onclose = () => {
       console.log('[PingCall] WebSocket closed');
       this.ws = null;
-      // Auto-reconnect after 3 seconds if we have an active call
-      if (this.currentCall) {
-        setTimeout(() => this._connectWebSocket(), 3000);
-      }
+      // Always auto-reconnect after 3 seconds to maintain connection
+      setTimeout(() => {
+        if (!this.ws) {
+          console.log('[PingCall] Attempting to reconnect...');
+          this._connectWebSocket();
+        }
+      }, 3000);
     };
   },
 
