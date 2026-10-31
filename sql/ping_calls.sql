@@ -61,6 +61,7 @@ create policy "ping_calls_update_own"
 
 -- Grant permissions
 grant select, insert, update on public.ping_calls to authenticated;
+grant select, insert, update on public.ping_calls to service_role;
 revoke all on public.ping_calls from anon;
 
 -- ============================================================
