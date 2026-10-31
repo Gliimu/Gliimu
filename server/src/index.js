@@ -8,7 +8,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['https://www.gliimu.com', 'https://gliimu.com'],
+  credentials: true
+}));
 
 // Paystack webhook — needs the RAW body for HMAC signature verification,
 // so it must be registered before express.json() consumes the stream.
