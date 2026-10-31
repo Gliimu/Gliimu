@@ -183,6 +183,8 @@ async function handleCallInitiate(ws, msg, wss) {
 
   // Forward to receiver
   const receiverWs = users.get(receiverId);
+  console.log('[WebRTC] Call initiate:', { callId, caller: ws.userId, receiver: receiverId, receiverConnected: !!receiverWs, receiverState: receiverWs?.readyState });
+  
   if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
     // Get caller profile
     const { data: callerProfile } = await supabaseAdmin
