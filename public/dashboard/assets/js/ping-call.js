@@ -186,6 +186,12 @@ const CallManager = {
       // Wait briefly for server to create the call room
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      // Check if call state was cleared during async operations
+      if (!this.currentCall) {
+        console.error('[PingCall] Call state cleared during setup');
+        return;
+      }
+
       // Then send the offer
       this.ws.send(JSON.stringify({
         type: 'call-offer',

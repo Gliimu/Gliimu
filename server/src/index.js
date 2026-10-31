@@ -1142,6 +1142,18 @@ app.post('/api/calls/init', async (req, res) => {
       .in('status', ['ringing'])
       .lt('created_at', new Date(Date.now() - 35000).toISOString());
 
+    // Check if caller is already in a call
+    const { data: callerActiveCalls } = await supabaseAdmin
+      .from('ping_calls')
+      .select('id')
+      .eq('caller_id', user.id)
+      .in('status', ['ringing', 'accepted', 'active'])
+      .limit(1);
+
+    if (callerActiveCalls && callerActiveCalls.length > 0) {
+      return res.status(409).json({ error: 'You are already in a call.' });
+    }
+
     // Check if receiver is already in a call
     const { data: activeCalls } = await supabaseAdmin
       .from('ping_calls')
