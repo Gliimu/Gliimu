@@ -853,6 +853,247 @@ app.post('/api/r2-sweep', async (req, res) => {
   }
 });
 
+// ==========================================
+// DAILY.CO — ROOM MANAGEMENT
+// ==========================================
+const DAILY_API = 'https://api.daily.co/v1';
+
+async function dailyRequest(method, path, body = null) {
+  const apiKey = process.env.DAILY_API_KEY;
+  if (!apiKey) throw new Error('DAILY_API_KEY not configured');
+
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+
+  const res = await fetch(`${DAILY_API}${path}`, opts);
+  const data = await res.json();
+  if (!res.ok) {
+    console.error('Daily.co API error:', method, path, data);
+    throw new Error(data.message || `Daily.co request failed: ${res.status}`);
+  }
+  return data;
+}
+
+// Create a daily.co room for a live session
+app.post('/api/daily/create-room', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId, roomName, maxParticipants } = req.body || {};
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    // Verify user owns this request
+    const { data: request, error: reqError } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, user_id, room_id')
+      .eq('id', requestId)
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+
+    if (reqError || !request) {
+      return res.status(404).json({ error: 'Request not found or access denied.' });
+    }
+
+    // If room already exists, return existing URL
+    if (request.room_id) {
+      const { data: existing } = await supabaseAdmin
+        .from('live_requests')
+        .select('room_url')
+        .eq('id', requestId)
+        .maybeSingle();
+      return res.json({ room_url: existing?.room_url, room_id: request.room_id, created: false });
+    }
+
+    // Create room via daily.co API
+    const room = await dailyRequest('POST', '/rooms', {
+      name: roomName || `gliimu-${requestId}`,
+      properties: {
+        max_participants: maxParticipants || 10,
+        enable_chat: true,
+        enable_screenshare: true,
+        enable_prejoin: false,
+        start_video_off: false,
+        start_audio_off: false
+      }
+    });
+
+    // Store room info in database
+    const { error: updateError } = await supabaseAdmin
+      .from('live_requests')
+      .update({
+        room_id: room.id,
+        room_url: room.url
+      })
+      .eq('id', requestId);
+
+    if (updateError) {
+      console.error('Failed to store room info:', updateError);
+      // Room was created but we couldn't store it — delete it
+      await dailyRequest('DELETE', `/rooms/${room.id}`).catch(() => {});
+      return res.status(500).json({ error: 'Failed to store room info.' });
+    }
+
+    res.json({ room_url: room.url, room_id: room.id, created: true });
+  } catch (error) {
+    console.error('Create room error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Delete a daily.co room when session ends
+app.post('/api/daily/delete-room', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId } = req.body || {};
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    // Verify user owns this request
+    const { data: request, error: reqError } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, user_id, room_id')
+      .eq('id', requestId)
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+
+    if (reqError || !request || !request.room_id) {
+      return res.status(404).json({ error: 'Request not found or no room to delete.' });
+    }
+
+    // Delete room via daily.co API
+    await dailyRequest('DELETE', `/rooms/${request.room_id}`);
+
+    // Clear room info from database
+    await supabaseAdmin
+      .from('live_requests')
+      .update({ room_id: null, room_url: null })
+      .eq('id', requestId);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete room error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// ==========================================
+// LIVE CHAT — In-session messaging
+// ==========================================
+// Send a chat message in a live room
+app.post('/api/live/chat', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { roomId, content } = req.body || {};
+    if (!roomId || !content) return res.status(400).json({ error: 'Missing roomId or content.' });
+
+    // Verify room exists and is active
+    const { data: room, error: roomError } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, status')
+      .eq('id', roomId)
+      .maybeSingle();
+
+    if (roomError || !room || room.status !== 'active') {
+      return res.status(404).json({ error: 'Room not found or not active.' });
+    }
+
+    // Insert message
+    const { data: message, error: insertError } = await supabaseAdmin
+      .from('live_chat_messages')
+      .insert({
+        room_id: roomId,
+        user_id: authData.user.id,
+        content: content.slice(0, 1000)
+      })
+      .select('*, profiles:profiles!user_id(full_name, avatar_url)')
+      .single();
+
+    if (insertError) {
+      console.error('Chat insert error:', insertError);
+      return res.status(500).json({ error: 'Failed to send message.' });
+    }
+
+    res.json({ ok: true, message });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Get chat messages for a room
+app.get('/api/live/chat/:roomId', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { roomId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+
+    // Verify room exists
+    const { data: room, error: roomError } = await supabaseAdmin
+      .from('live_requests')
+      .select('id')
+      .eq('id', roomId)
+      .maybeSingle();
+
+    if (roomError || !room) {
+      return res.status(404).json({ error: 'Room not found.' });
+    }
+
+    // Fetch messages
+    const { data: messages, error: fetchError } = await supabaseAdmin
+      .from('live_chat_messages')
+      .select('*, profiles:profiles!user_id(full_name, avatar_url)')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (fetchError) {
+      console.error('Chat fetch error:', fetchError);
+      return res.status(500).json({ error: 'Failed to load messages.' });
+    }
+
+    res.json({ messages: messages || [] });
+  } catch (error) {
+    console.error('Chat fetch error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Gliimu Server running on port ${PORT}`);

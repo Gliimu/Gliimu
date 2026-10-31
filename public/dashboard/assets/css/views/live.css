@@ -62,22 +62,411 @@
 .live-post-btn:hover { opacity: 0.9; }
 
 /* ============================================
-   MY SESSIONS (active rows)
+   SHARING MODE BADGES
    ============================================ */
-.live-request-card.mine-active { border-color: var(--brand-primary); }
+.live-sharing-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.live-sharing-badge.triad {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8B5CF6;
+}
+.live-sharing-badge.users {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3B82F6;
+}
+.live-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
 
 /* ============================================
-   REQUEST BOARD
+   INVITE USER PICKER
    ============================================ */
-.live-board-section { margin-bottom: 28px; }
-.live-board-title {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
+.live-invite-user {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s ease;
 }
+.live-invite-user:hover {
+  background: var(--bg-tertiary);
+}
+.live-invite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--brand-primary);
+  color: white;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.live-invite-chip button {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   REQUEST CARDS (updated for multi-participant)
+   ============================================ */
+.live-request-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  transition: border-color 0.2s ease;
+}
+.live-request-card:hover { border-color: var(--brand-primary); }
+.live-request-card.mine-active { border-color: var(--brand-primary); }
+
+.live-req-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.live-req-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50% !important;
+  object-fit: cover;
+  background: var(--gradient-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.live-req-info { flex: 1; min-width: 0; }
+.live-req-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.live-req-time { font-size: 12px; color: var(--text-muted); }
+.live-req-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0; overflow-wrap: anywhere; }
+.live-req-desc { font-size: 13px; color: var(--text-secondary); margin: 4px 0; overflow-wrap: anywhere; }
+.live-req-meta { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+.live-req-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ============================================
+   MULTI-PARTICIPANT LIVE STUDIO
+   ============================================ */
+.live-session-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-studio-container {
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.live-video-main {
+  flex: 1;
+  position: relative;
+  background: #111;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Participant Grid */
+.live-participant-grid {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  overflow: hidden;
+}
+.live-participant-grid.grid-1 { grid-template-columns: 1fr; }
+.live-participant-grid.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.live-participant-grid.grid-4 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+.live-participant-grid.grid-6 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+.live-participant-grid.grid-9 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+
+.live-participant-tile {
+  position: relative;
+  background: #1a1a1a;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.live-participant-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.live-participant-tile.local {
+  border: 2px solid var(--brand-primary);
+}
+
+.live-participant-info {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: white;
+}
+.live-participant-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-mute-indicator {
+  color: var(--error);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Session Info Bar */
+.live-session-info {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.live-session-info h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-session-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.live-session-meta span {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+/* Status Message */
+.live-session-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  text-align: center;
+  max-width: 80%;
+  z-index: 10;
+}
+
+/* Control Bar */
+.live-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.live-ctrl-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.live-ctrl-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.live-ctrl-btn.danger { background: var(--error); border-color: var(--error); }
+.live-ctrl-btn.mic-on { background: var(--success); border-color: var(--success); }
+.live-ctrl-btn.mic-off { background: var(--error); border-color: var(--error); }
+.live-ctrl-btn.cam-on { background: var(--success); border-color: var(--success); }
+.live-ctrl-btn.cam-off { background: var(--error); border-color: var(--error); }
+.live-ctrl-btn.sharing { background: var(--brand-primary); border-color: var(--brand-primary); }
+.live-ctrl-btn.unsupported { opacity: 0.4; cursor: not-allowed; }
+
+/* ============================================
+   IN-SESSION CHAT PANEL
+   ============================================ */
+.live-chat-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  background: rgba(0, 0, 0, 0.95);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  z-index: 15;
+}
+
+.live-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.live-chat-header h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+}
+.live-chat-header button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.live-chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  max-width: 85%;
+}
+.live-chat-message.own {
+  align-self: flex-end;
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.live-chat-message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.live-chat-message-header strong {
+  color: white;
+  font-weight: 600;
+}
+.live-chat-message-time {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+}
+
+.live-chat-message-content {
+  color: white;
+  font-size: 13px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.live-chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.live-chat-input input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 13px;
+  outline: none;
+}
+.live-chat-input input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.live-chat-input button {
+  background: var(--brand-primary);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.live-chat-input button:hover {
+  opacity: 0.9;
+}
+
+/* ============================================
+   BOARD EMPTY STATE
+   ============================================ */
 .live-board-empty {
   color: var(--text-muted);
   text-align: center;
@@ -100,227 +489,22 @@
   margin-bottom: 8px;
 }
 
-.live-request-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  background: var(--surface);
-  transition: border-color 0.2s ease;
-}
-.live-request-card:hover { border-color: var(--brand-primary); }
-
-.live-req-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 50% !important;
-  object-fit: cover;
-  background: var(--gradient-primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* ============================================
+   MY SESSIONS (active rows)
+   ============================================ */
+.live-board-section { margin-bottom: 28px; }
+.live-board-title {
+  font-size: 13px;
   font-weight: 700;
-  font-size: 16px;
-  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
 }
-
-.live-req-info { flex: 1; min-width: 0; }
-.live-req-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; overflow-wrap: anywhere; }
-.live-req-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; overflow-wrap: anywhere; }
-.live-req-meta { font-size: 12px; color: var(--text-muted); }
-.live-req-action { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
 
 /* ============================================
-   1-ON-1 LIVE STUDIO
+   MOBILE RESPONSIVE
    ============================================ */
-.live-studio-overlay { padding: 0; background: rgba(0,0,0,0.95) !important; z-index: 2000 !important; }
-.live-studio-container { position: relative; width: 100%; max-width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; overflow: hidden; }
-
-.live-video-main { flex: 1; position: relative; background: #111; overflow: hidden; }
-.live-video-main video { width: 100%; height: 100%; object-fit: cover; }
-
-#live-remote-feed { transform: none; }
-
-/* Local camera as picture-in-picture, pinned to the mid-right */
-#live-local-feed {
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  width: 110px;
-  height: 150px;
-  border-radius: 12px;
-  border: 2px solid rgba(255,255,255,0.3);
-  object-fit: cover;
-  background: #000;
-  z-index: 6;
-  transform: translateY(-50%) scaleX(-1);
-}
-#live-local-feed.sharing { transform: translateY(-50%); }
-
-.live-video-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 24px;
-  background: transparent !important;
-  pointer-events: none;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin-top: 10px;
-  max-width: 70%;
-}
-.live-video-overlay h2 { color: white; margin-top: 0; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); text-align: left; overflow-wrap: anywhere; }
-
-.live-overlay-top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.live-indicator { display: inline-flex; align-items: center; gap: 6px; background: var(--error); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
-.live-pulse { width: 8px; height: 8px; background: white; border-radius: 50%; animation: livePulse 1.5s infinite; }
-
-@keyframes livePulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.live-timer {
-  background: rgba(0,0,0,0.6);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-}
-
-.live-gp {
-  background: rgba(0,0,0,0.6);
-  color: var(--success);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-}
-
-.live-open-flag {
-  background: rgba(0,0,0,0.6);
-  color: rgba(255,255,255,0.85);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* Centered status pill (waiting / connecting / failed) */
-.live-session-status {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.75);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: white;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-size: 14px;
-  text-align: center;
-  max-width: 80%;
-  z-index: 7;
-  display: none;
-}
-
-/* Tap-for-sound pill shown when the browser blocked autoplay with audio */
-.live-unmute-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 96px;
-  transform: translateX(-50%);
-  z-index: 21;
-  padding: 8px 18px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.65);
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  animation: liveHintPulse 1.6s infinite;
-}
-
-@keyframes liveHintPulse {
-  0%, 100% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.06); }
-}
-
-/* Control toolbar */
-.live-host-toolbar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(0,0,0,0.6);
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
-  z-index: 20;
-}
-
-.live-ctrl-btn {
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: white;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-.live-ctrl-btn:hover { background: rgba(255,255,255,0.2); }
-.live-ctrl-btn.danger { background: var(--error); }
-
-/* Mic/Cam Colors */
-.live-ctrl-btn.mic-on { background: var(--success); }
-.live-ctrl-btn.mic-off { background: var(--error); }
-.live-ctrl-btn.cam-on { background: var(--success); }
-.live-ctrl-btn.cam-off { background: var(--error); }
-.live-ctrl-btn.sharing { background: var(--brand-primary); }
-.live-ctrl-btn.unsupported { opacity: 0.4; cursor: not-allowed; }
-
-/* Aspect-ratio toggle: show the whole broadcast instead of cropping */
-#live-remote-feed.fit-contain { object-fit: contain; }
-
-/* Snapshot shutter flash */
-.live-snap-flash {
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  z-index: 40;
-  pointer-events: none;
-  animation: live-snap-fade 0.4s ease-out forwards;
-}
-
-@keyframes live-snap-fade {
-  from { opacity: 0.85; }
-  to { opacity: 0; }
-}
-
-/* Mobile Responsive */
 @media (max-width: 768px) {
   .live-layout { padding: 16px; }
 
@@ -328,12 +512,35 @@
   .live-post-btn { padding: 10px; }
   .live-topbar-search { max-width: none; }
 
-  .live-request-card { padding: 12px; gap: 10px; }
-  .live-req-action .btn-primary { padding: 8px 12px; }
+  .live-request-card { padding: 12px; }
+  .live-req-actions .btn-primary { padding: 8px 12px; }
 
-  /* Raise action buttons on mobile */
-  .live-host-toolbar { bottom: 40px; gap: 8px; padding: 8px; }
+  .live-controls { padding: 12px; gap: 8px; }
   .live-ctrl-btn { width: 44px; height: 44px; }
 
-  #live-local-feed { width: 84px; height: 112px; right: 12px; }
+  .live-participant-grid.grid-2,
+  .live-participant-grid.grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .live-participant-grid.grid-6,
+  .live-participant-grid.grid-9 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .live-chat-panel {
+    width: 100%;
+    border-left: none;
+  }
+
+  .live-session-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .live-session-info h3 {
+    font-size: 14px;
+  }
+  .live-session-meta {
+    font-size: 12px;
+  }
 }

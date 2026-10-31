@@ -1,8 +1,9 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=34';
+import { renderFileInto } from '../reader.js?v=35';
 import { notify } from '../notify.js?v=33';
+import { trackAudio, minimizeCurrentAudio, closeMinimizedPlayer } from '../audiolite-minimizer.js';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -32,6 +33,30 @@ export function gliimKindOf(blocks) {
   if (types.has('pdf')) return 'bundle';
   if (types.has('image') && types.size === 1) return 'image-only';
   return null;
+}
+
+// Format seconds as M:SS or H:MM:SS for audiolite timestamp badges.
+function formatAudioTimestamp(secs) {
+  const s = Math.floor(Number(secs) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+// Get the current playback position from the first audio element in the open reader.
+function getCurrentAudioTime() {
+  const audio = document.querySelector('.read-body .read-block-audio');
+  return audio ? audio.currentTime : null;
+}
+
+// Seek the first audio element in the reader to the given time and play it.
+function seekToAudioTime(postId, secs) {
+  const audio = document.querySelector('.read-body .read-block-audio');
+  if (!audio) return;
+  audio.currentTime = Number(secs) || 0;
+  audio.play().catch(() => {});
 }
 
 // Best-contrast text shade for a solid card color (null when the value isn't
@@ -154,6 +179,7 @@ const hubView = {
   },
 
   closeModal() {
+    minimizeCurrentAudio();
     document.querySelector('.modal-overlay')?.remove();
     this.isModalOpen = false;
     sessionStorage.removeItem('openReadViewId');
@@ -304,6 +330,27 @@ const hubView = {
       e.preventDefault();
       const u = matches[parseInt(row.dataset.index, 10)];
       if (u) choose(u);
+    });
+  },
+
+  setupAudioliteTimestampHint(postId) {
+    const hint = document.getElementById(`audiolite-ts-hint-${postId}`);
+    const current = document.getElementById(`audiolite-ts-current-${postId}`);
+    const input = document.getElementById(`comment-text-${postId}`);
+    if (!hint || !current || !input) return;
+    let timer = null;
+    const update = () => {
+      const t = getCurrentAudioTime();
+      if (t != null) current.textContent = formatAudioTimestamp(t);
+    };
+    input.addEventListener('focus', () => {
+      hint.style.display = '';
+      update();
+      timer = setInterval(update, 500);
+    });
+    input.addEventListener('blur', () => {
+      hint.style.display = 'none';
+      if (timer) { clearInterval(timer); timer = null; }
     });
   },
 
@@ -1718,7 +1765,7 @@ const hubView = {
     const colsLegacy = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
     const load = (cols) => Promise.all([
       supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }),
-      supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url)'),
+      supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, metadata, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id)
     ]);
@@ -2035,6 +2082,14 @@ const hubView = {
     const isSaved = this.savedPosts.has(post.id);
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
+    const isAudiolite = gliimKindOf(post.blocks) === 'audiolite';
+    if (isAudiolite) {
+      postComments.sort((a, b) => {
+        const ta = a.metadata?.audio_timestamp ?? Infinity;
+        const tb = b.metadata?.audio_timestamp ?? Infinity;
+        return ta - tb;
+      });
+    }
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
     if (postComments.length > 0) {
       commentsHtml = postComments.map(c => {
@@ -2042,7 +2097,9 @@ const hubView = {
         const cAvatar = c.profiles?.avatar_url ? `<img src="${c.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')"></div>`;
         const parsedText = this.parseTags(c.comment_text);
         const commentTime = new Date(c.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
+        const ts = c.metadata?.audio_timestamp;
+        const tsBadge = (isAudiolite && ts != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${post.id}', ${ts})" title="Jump to ${formatAudioTimestamp(ts)}">${formatAudioTimestamp(ts)}</button>` : '';
+        return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span>${tsBadge}<span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       }).join('');
     }
 
@@ -2220,6 +2277,7 @@ const hubView = {
                 </button>
               </div>
               <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">Earn 5 GP per comment</div>
+              ${isAudiolite ? `<div class="audiolite-ts-hint" id="audiolite-ts-hint-${post.id}" style="font-size: 11px; color: var(--brand-primary, #6366f1); margin-top: -12px; margin-bottom: 12px; display: none;">Comment will be timestamped at <span id="audiolite-ts-current-${post.id}">0:00</span></div>` : ''}
               <div class="comment-list" id="comment-list-${post.id}">
                 ${commentsHtml}
               </div>
@@ -2249,7 +2307,7 @@ const hubView = {
       </div>
     `;
     document.body.appendChild(modal);
-    this.setupMediaBlocks(modal);
+    this.setupMediaBlocks(modal, post);
     this.hydratePolls(modal);
     // Hydrate document/PDF blocks in-page (pdf.js/mammoth/epub.js) so they
     // never leave the read view for a new browser tab.
@@ -2258,6 +2316,7 @@ const hubView = {
       if (src) renderFileInto(src, el);
     });
     this.setupMentionPicker(post.id);
+    this.setupAudioliteTimestampHint(post.id);
   },
 
   // Pool blocks: fetch counts from the SECURITY DEFINER RPC (nobody can read
@@ -2331,10 +2390,15 @@ const hubView = {
   // Read-view media wiring: the equalizer dances while an audio chapter
   // plays, and every video gets the custom chrome (big play, seek, time,
   // mute, fullscreen) instead of the bare browser controls.
-  setupMediaBlocks(root) {
+  setupMediaBlocks(root, post) {
     root.querySelectorAll('.read-block-audio').forEach(a => {
       const eq = a.closest('.read-block-audio-wrapper')?.querySelector('.lib-eq');
       if (!eq) return;
+      
+      // Track audio for minimizer
+      if (post) {
+        trackAudio(a, post.id, post.title, post.cover_url);
+      }
       
       // Ensure audio can play (fix for browser autoplay policies)
       a.preload = 'metadata';
@@ -2347,7 +2411,10 @@ const hubView = {
         if (a.volume === 0) a.volume = 1.0;
       });
       a.addEventListener('pause', () => eq.classList.remove('playing'));
-      a.addEventListener('ended', () => eq.classList.remove('playing'));
+      a.addEventListener('ended', () => {
+        eq.classList.remove('playing');
+        closeMinimizedPlayer();
+      });
       
       // Add error handling
       a.addEventListener('error', (e) => {
@@ -2503,7 +2570,12 @@ const hubView = {
     if (!text) return;
 
     const post = (this.currentPosts || []).find(p => p.id === postId);
-    const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text }).select('*').single();
+    const isAudiolite = post && gliimKindOf(post.blocks) === 'audiolite';
+    const audioTs = isAudiolite ? getCurrentAudioTime() : null;
+    const metadata = audioTs != null ? { audio_timestamp: audioTs } : null;
+    const insertRow = { post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text };
+    if (metadata) insertRow.metadata = metadata;
+    const { data } = await supabase.from('feed_interactions').insert(insertRow).select('*').single();
 
     if (data) {
       data.profiles = { full_name: store.profile.full_name, avatar_url: store.profile.avatar_url, total_gp: store.profile.total_gp };
@@ -2513,7 +2585,8 @@ const hubView = {
       const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')"></div>`;
       const parsedText = this.parseTags(text);
       const commentTime = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const newComment = `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
+      const tsBadge = (isAudiolite && audioTs != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${postId}', ${audioTs})" title="Jump to ${formatAudioTimestamp(audioTs)}">${formatAudioTimestamp(audioTs)}</button>` : '';
+      const newComment = `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span>${tsBadge}<span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       if (list.querySelector('p')) {
         list.innerHTML = newComment;
       } else {
@@ -2657,5 +2730,10 @@ window.hubInstance = {
     }
   }
 };
+
+hubView.formatAudioTimestamp = formatAudioTimestamp;
+hubView.seekToAudioTime = seekToAudioTime;
+window.formatAudioTimestamp = formatAudioTimestamp;
+window.seekToAudioTime = seekToAudioTime;
 
 export default hubView;

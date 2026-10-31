@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
-import { renderFileInto } from '../reader.js?v=34';
+import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=102';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=104';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -138,7 +138,7 @@ export default {
   async fetchInteractions(postId) {
     const { data } = await supabase
       .from('feed_interactions')
-      .select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, profiles:profiles!user_id(full_name, avatar_url, total_gp)')
+      .select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, metadata, profiles:profiles!user_id(full_name, avatar_url, total_gp)')
       .eq('post_id', postId);
     return data || [];
   },
@@ -260,6 +260,14 @@ export default {
     const isSaved = (hubView.savedPosts || new Set()).has(post.id);
 
     const postComments = interactions.filter(i => i.interaction_type === 'comment');
+    const isAudiolite = gliimKindOf(post.blocks) === 'audiolite';
+    if (isAudiolite) {
+      postComments.sort((a, b) => {
+        const ta = a.metadata?.audio_timestamp ?? Infinity;
+        const tb = b.metadata?.audio_timestamp ?? Infinity;
+        return ta - tb;
+      });
+    }
     let commentsHtml = '<p style="font-size: 13px; color: var(--text-muted);">No comments yet.</p>';
     if (postComments.length > 0) {
       commentsHtml = postComments.map(c => {
@@ -269,7 +277,9 @@ export default {
           : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${c.user_id}', '${post.id}', '${c.profiles?.full_name || 'Gliimait'}')"></div>`;
         const parsedText = hubView.parseTags(c.comment_text);
         const commentTime = new Date(c.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span><span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
+        const ts = c.metadata?.audio_timestamp;
+        const tsBadge = (isAudiolite && ts != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${post.id}', ${ts})" title="Jump to ${formatAudioTimestamp(ts)}">${formatAudioTimestamp(ts)}</button>` : '';
+        return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span>${tsBadge}<span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       }).join('');
     }
 
@@ -366,6 +376,7 @@ export default {
       if (src) renderFileInto(src, el);
     });
     hubView.setupMentionPicker(post.id);
+    hubView.setupAudioliteTimestampHint(post.id);
 
     this.layoutRelatedMasonry();
     this.renderCommentsModal(post, commentsHtml);
@@ -423,6 +434,7 @@ export default {
     modal.onclick = () => hubInstance.closeCommentsModal();
 
     hubView.setupMentionPicker(post.id);
+    hubView.setupAudioliteTimestampHint(post.id);
   },
 
   openCommentsModal(postId) {
