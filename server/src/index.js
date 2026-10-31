@@ -877,8 +877,8 @@ async function dailyRequest(method, path, body = null) {
   const res = await fetch(`${DAILY_API}${path}`, opts);
   const data = await res.json();
   if (!res.ok) {
-    console.error('Daily.co API error:', method, path, data);
-    throw new Error(data.message || `Daily.co request failed: ${res.status}`);
+    console.error('Daily.co API error:', method, path, JSON.stringify(data));
+    throw new Error(data.error || data.message || `Daily.co request failed: ${res.status} — ${JSON.stringify(data)}`);
   }
   return data;
 }
@@ -927,7 +927,7 @@ app.post('/api/daily/create-room', async (req, res) => {
         max_participants: maxParticipants || 10,
         enable_chat: true,
         enable_screenshare: true,
-        enable_prejoin: false,
+        enable_prejoin_ui: false,
         start_video_off: false,
         start_audio_off: false
       }
