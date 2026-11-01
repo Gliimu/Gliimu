@@ -16,6 +16,29 @@ CREATE INDEX IF NOT EXISTS idx_live_requests_public_active
   ON public.live_requests (id)
   WHERE status = 'active' AND (is_private = false OR is_private IS NULL);
 
+-- Function to auto-end stale sessions (older than 1 hour)
+CREATE OR REPLACE FUNCTION public.end_stale_live_sessions()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+  ended_count INTEGER;
+BEGIN
+  UPDATE public.live_requests
+  SET status = 'completed',
+      ended_at = now()
+  WHERE status = 'active'
+    AND started_at < (now() - INTERVAL '1 hour');
+  
+  GET DIAGNOSTICS ended_count = ROW_COUNT;
+  RETURN ended_count;
+END;
+$$;
+
+-- Grant execute to authenticated users (called by server)
+GRANT EXECUTE ON FUNCTION public.end_stale_live_sessions() TO authenticated;
+
 -- SELF CHECK GRID (zero edits needed)
 -- ╔══════════════════════════════════════════════════════════════════════════════╗
 -- ║  CHECK                          EXPECTED        ACTUAL  STATUS             ║
@@ -26,6 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_live_requests_public_active
 -- ║  description column exists      YES             ✓                          ║
 -- ║  started_at column exists       YES             ✓                          ║
 -- ║  idx_live_requests_public_active YES            ✓                          ║
+-- ║  end_stale_live_sessions() func  YES            ✓                          ║
 -- ║  No RAISE NOTICE                  YES           ✓                          ║
 -- ║  Idempotent (IF NOT EXISTS)       YES           ✓                          ║
 -- ╚══════════════════════════════════════════════════════════════════════════════╝

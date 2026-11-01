@@ -1001,6 +1001,9 @@ app.get('/api/live/public-sessions', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
+    // Clean up stale sessions (older than 1 hour)
+    await supabaseAdmin.rpc('end_stale_live_sessions');
+
     // Fetch active public sessions (is_private = false or null, started within last hour)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: sessions, error: sessionsError } = await supabaseAdmin
