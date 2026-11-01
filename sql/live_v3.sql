@@ -8,7 +8,8 @@ ALTER TABLE public.live_requests
   ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS recording_url TEXT,
   ADD COLUMN IF NOT EXISTS screen_share_permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS description TEXT;
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
 
 -- Index for fast public session lookups
 CREATE INDEX IF NOT EXISTS idx_live_requests_public_active
@@ -23,6 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_live_requests_public_active
 -- ║  recording_url column exists    YES             ✓                          ║
 -- ║  screen_share_permissions exists YES            ✓                          ║
 -- ║  description column exists      YES             ✓                          ║
+-- ║  started_at column exists       YES             ✓                          ║
 -- ║  idx_live_requests_public_active YES            ✓                          ║
 -- ║  No RAISE NOTICE                  YES           ✓                          ║
 -- ║  Idempotent (IF NOT EXISTS)       YES           ✓                          ║

@@ -131,14 +131,17 @@ const liveView = {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
 
-      if (!response.ok) throw new Error('Failed to load sessions');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to load sessions');
+      }
 
       const result = await response.json();
       this.publicSessions = result.sessions || [];
       this.renderLanding();
     } catch (error) {
       console.error('Load sessions error:', error);
-      landing.innerHTML = '<div class="live-error">Failed to load sessions. Please refresh.</div>';
+      landing.innerHTML = `<div class="live-error">Failed to load sessions: ${error.message}</div>`;
     }
   },
 
