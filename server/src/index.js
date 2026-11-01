@@ -1140,7 +1140,7 @@ app.post('/api/live/chat', async (req, res) => {
         user_id: authData.user.id,
         content: content.slice(0, 1000)
       })
-      .select('*, profiles:profiles!user_id(full_name, avatar_url)')
+      .select()
       .single();
 
     if (insertError) {
@@ -1148,7 +1148,14 @@ app.post('/api/live/chat', async (req, res) => {
       return res.status(500).json({ error: 'Failed to send message.' });
     }
 
-    res.json({ ok: true, message });
+    // Fetch profile separately
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name, avatar_url')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    res.json({ ok: true, message: { ...message, profiles: profile } });
   } catch (error) {
     console.error('Chat error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });
@@ -1184,7 +1191,7 @@ app.get('/api/live/chat/:roomId', async (req, res) => {
     // Fetch messages
     const { data: messages, error: fetchError } = await supabaseAdmin
       .from('live_chat_messages')
-      .select('*, profiles:profiles!user_id(full_name, avatar_url)')
+      .select('*')
       .eq('room_id', roomId)
       .order('created_at', { ascending: true })
       .limit(limit);
@@ -1194,7 +1201,24 @@ app.get('/api/live/chat/:roomId', async (req, res) => {
       return res.status(500).json({ error: 'Failed to load messages.' });
     }
 
-    res.json({ messages: messages || [] });
+    // Fetch profiles for all unique user_ids
+    const userIds = [...new Set((messages || []).map(m => m.user_id))];
+    let profiles = [];
+    if (userIds.length > 0) {
+      const { data: profileData } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds);
+      profiles = profileData || [];
+    }
+
+    const profileMap = new Map(profiles.map(p => [p.id, p]));
+    const enriched = (messages || []).map(m => ({
+      ...m,
+      profiles: profileMap.get(m.user_id) || null
+    }));
+
+    res.json({ messages: enriched });
   } catch (error) {
     console.error('Chat fetch error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });
