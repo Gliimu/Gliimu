@@ -46,6 +46,7 @@ const liveView = {
   
   // Session controls
   isRecording: false,
+  screenSharing: false,
   screenSharePermissionGranted: new Set(),
   
   // Billing
@@ -673,14 +674,16 @@ const liveView = {
   async toggleScreenShare() {
     if (!this.callObject) return;
     
-    const isSharing = this.callObject.localScreen();
-    if (isSharing) {
+    // Track screen share state locally since call object API doesn't expose localScreen()
+    if (this.screenSharing) {
       this.callObject.stopScreenShare();
+      this.screenSharing = false;
       const btn = document.getElementById('live-screen-btn');
       if (btn) btn.classList.remove('active');
     } else {
       try {
         await this.callObject.startScreenShare();
+        this.screenSharing = true;
         const btn = document.getElementById('live-screen-btn');
         if (btn) btn.classList.add('active');
       } catch (error) {
@@ -1054,6 +1057,7 @@ const liveView = {
     this.chatMessages = [];
     this.activeSession = null;
     this.sessionRole = null;
+    this.screenSharing = false;
 
     document.getElementById('live-session-view').style.display = 'none';
     document.getElementById('live-landing').style.display = 'block';
