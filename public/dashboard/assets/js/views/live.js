@@ -636,8 +636,8 @@ const liveView = {
       });
 
     try {
-      await this.callObject.join();
       await this.callObject.startCamera();
+      await this.callObject.join();
     } catch (error) {
       console.error('Failed to join daily call', error);
       this.showSessionStatus('Could not connect. Check camera/mic permissions.');
@@ -761,15 +761,22 @@ const liveView = {
   },
 
   async loadChatMessages(requestId) {
-    const { data } = await supabase
-      .from('live_chat_messages')
-      .select('*, profiles:profiles!user_id(full_name)')
-      .eq('room_id', requestId)
-      .order('created_at', { ascending: true })
-      .limit(50);
-
-    this.chatMessages = data || [];
-    this.renderChatMessages();
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch(`${API_BASE_URL}/api/live/chat/${requestId}?limit=50`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (!response.ok) {
+        console.error('Chat fetch failed:', response.status);
+        return;
+      }
+      const result = await response.json();
+      this.chatMessages = result.messages || [];
+      this.renderChatMessages();
+    } catch (error) {
+      console.error('Chat load error:', error);
+    }
   },
 
   startChatPolling(requestId) {
