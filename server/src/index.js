@@ -989,6 +989,62 @@ app.post('/api/daily/create-room', async (req, res) => {
   }
 });
 
+// Get list of active public sessions
+app.get('/api/live/public-sessions', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    // Fetch active public sessions with host profile info
+    const { data: sessions, error: sessionsError } = await supabaseAdmin
+      .from('live_requests')
+      .select(`
+        id,
+        title,
+        description,
+        is_private,
+        participant_count,
+        started_at,
+        user_id,
+        profiles:user_id (
+          full_name,
+          verification_badge
+        )
+      `)
+      .eq('status', 'active')
+      .or('is_private.eq.false,is_private.is.null')
+      .order('started_at', { ascending: false });
+
+    if (sessionsError) {
+      console.error('Public sessions query error:', sessionsError);
+      return res.status(500).json({ error: 'Failed to fetch sessions.' });
+    }
+
+    // Format response
+    const formattedSessions = (sessions || []).map(s => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      is_private: s.is_private || false,
+      participant_count: s.participant_count || 0,
+      started_at: s.started_at,
+      host_name: s.profiles?.full_name || 'Unknown',
+      host_verified: !!s.profiles?.verification_badge
+    }));
+
+    res.json({ sessions: formattedSessions });
+  } catch (error) {
+    console.error('Public sessions error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
 // Resolve a join code to an active session (caller must be authenticated)
 app.post('/api/live/resolve-code', async (req, res) => {
   try {
