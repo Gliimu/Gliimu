@@ -36,13 +36,13 @@ const liveView = {
   callObject: null,
   participantTiles: new Map(),
   participantsMap: new Map(),
+  focusedSessionId: null,
   
   // UI state
   chatOpen: false,
   chatMessages: [],
   chatPollInterval: null,
   chatErrorCount: 0,
-  participantsPanelOpen: false,
   
   // Session controls
   isRecording: false,
@@ -78,7 +78,6 @@ const liveView = {
       toggleCamera: () => this.toggleCamera(),
       toggleMic: () => this.toggleMic(),
       toggleChat: () => this.toggleChat(),
-      toggleParticipantsPanel: () => this.toggleParticipantsPanel(),
       toggleHandRaise: () => this.toggleHandRaise(),
       sendChatMessage: () => this.sendChatMessage(),
       muteParticipant: (userId) => this.muteParticipant(userId),
@@ -369,7 +368,7 @@ const liveView = {
     this.liveSecs = 0;
     this.chatMessages = [];
     this.chatOpen = false;
-    this.participantsPanelOpen = false;
+    this.focusedSessionId = null;
     this.isRecording = false;
     this.screenSharePermissionGranted.clear();
 
@@ -393,16 +392,22 @@ const liveView = {
 
     sessionView.innerHTML = `
       <div class="live-studio-container">
-        <div class="live-video-area">
-          <div id="live-participant-grid" class="live-participant-grid"></div>
-          <div class="live-session-header">
-            <h3>${esc(s.title)} ${isPrivate ? '<span class="live-private-badge">' + ICONS.lock + ' Private</span>' : ''}</h3>
-            <div class="live-session-meta">
-              <span id="live-session-timer">60:00</span>
-              <span id="live-session-billing">Loading...</span>
-              ${isHost && this.isRecording ? `<span class="live-recording-indicator">${ICONS.record} Recording</span>` : ''}
-            </div>
+        <div class="live-session-header">
+          <h3>${esc(s.title)} ${isPrivate ? '<span class="live-private-badge">' + ICONS.lock + ' Private</span>' : ''}</h3>
+          <div class="live-session-meta">
+            <span id="live-session-timer">60:00</span>
+            <span id="live-session-billing">Loading...</span>
+            ${isHost && this.isRecording ? `<span class="live-recording-indicator">${ICONS.record} Recording</span>` : ''}
           </div>
+        </div>
+
+        <div class="live-video-area">
+          <div class="live-stage">
+            <video id="live-stage-video" autoplay playsinline muted></video>
+            <div class="live-stage-empty" id="live-stage-empty">Waiting for video&hellip;</div>
+            <div class="live-stage-info" id="live-stage-info"></div>
+          </div>
+          <div class="live-participant-rail" id="live-participant-rail"></div>
         </div>
 
         <div class="live-controls-bar">
@@ -412,7 +417,6 @@ const liveView = {
           ${!isHost ? `<button class="live-ctrl-btn" id="live-hand-btn" title="Raise hand">${ICONS.hand}</button>` : ''}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
           ${isHost && isPrivate ? `<button class="live-ctrl-btn" id="live-share-btn" title="Copy invite link">${ICONS.share}</button>` : ''}
-          ${isHost ? `<button class="live-ctrl-btn" id="live-participants-btn" title="Participants">${ICONS.users}</button>` : ''}
           ${isHost ? `<button class="live-ctrl-btn" id="live-record-btn" title="Toggle recording">${ICONS.record}</button>` : ''}
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
         </div>
@@ -428,16 +432,6 @@ const liveView = {
             <button onclick="liveInstance.sendChatMessage()">Send</button>
           </div>
         </div>
-
-        ${isHost ? `
-          <div id="live-participants-panel" class="live-participants-panel" style="display:none;">
-            <div class="live-participants-header">
-              <h4>Participants</h4>
-              <button onclick="liveInstance.toggleParticipantsPanel()">${ICONS.close}</button>
-            </div>
-            <div id="live-participants-list" class="live-participants-list"></div>
-          </div>
-        ` : ''}
       </div>
     `;
 
@@ -448,7 +442,6 @@ const liveView = {
     document.getElementById('live-hand-btn')?.addEventListener('click', () => this.toggleHandRaise());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.sharePrivateLink());
-    document.getElementById('live-participants-btn')?.addEventListener('click', () => this.toggleParticipantsPanel());
     document.getElementById('live-record-btn')?.addEventListener('click', () => this.toggleRecording());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
   },
@@ -492,6 +485,10 @@ const liveView = {
       .on('track-stopped', (e) => {
         if (e.track && e.participant) this.detachTrack(e.participant.session_id, e.track.kind);
       })
+      .on('active-speaker-change', (e) => {
+        if (e.participant) this.setActiveSpeaker(e.participant.session_id);
+        else this.setActiveSpeaker(null);
+      })
       .on('left-meeting', () => {
         this.cleanupSession();
       })
@@ -509,18 +506,24 @@ const liveView = {
   },
 
   addParticipantTile(p) {
-    const grid = document.getElementById('live-participant-grid');
-    if (!grid) return;
+    const rail = document.getElementById('live-participant-rail');
+    if (!rail) return;
 
     const sessionId = p.session_id;
     if (this.participantTiles.has(sessionId)) return;
 
     this.participantsMap.set(sessionId, p);
 
+    const hostId = this.activeSession?.user_id;
+    const isHost = !!(p.user_data?.user_id && hostId && p.user_data.user_id === hostId);
+    const name = p.user_name || (p.local ? 'You' : 'Participant');
+
     const tile = document.createElement('div');
-    tile.className = `live-participant-tile${p.local ? ' local' : ''}`;
+    tile.className = `live-participant-tile${p.local ? ' local' : ''}${isHost ? ' host' : ''}`;
     tile.dataset.sessionId = sessionId;
     if (p.user_data?.user_id) tile.dataset.userId = p.user_data.user_id;
+    tile.title = name;
+    tile.addEventListener('click', () => this.setFocus(sessionId));
 
     const video = document.createElement('video');
     video.id = `video-${sessionId}`;
@@ -537,24 +540,92 @@ const liveView = {
 
     const info = document.createElement('div');
     info.className = 'live-participant-info';
-    info.innerHTML = `<span>${esc(p.user_name || 'Participant')}${p.local ? ' (You)' : ''}</span>`;
+    info.innerHTML = `<span>${esc(name)}${p.local ? ' (You)' : ''}${isHost ? ' · Host' : ''}</span>`;
 
     tile.appendChild(video);
     tile.appendChild(audio);
     tile.appendChild(info);
-    grid.appendChild(tile);
+    rail.appendChild(tile);
 
-    this.participantTiles.set(sessionId, { tile, video, audio, info, local: !!p.local });
-    this.updateGridLayout();
+    this.participantTiles.set(sessionId, {
+      tile, video, audio, info,
+      local: !!p.local, isHost, name,
+      videoTrack: null, audioTrack: null
+    });
+
+    // Default the stage to the host; otherwise focus the first tile we get.
+    if (!this.focusedSessionId || isHost) {
+      this.setFocus(sessionId);
+    }
   },
 
   removeParticipantTile(sessionId) {
     const entry = this.participantTiles.get(sessionId);
-    if (entry) {
-      entry.tile.remove();
-      this.participantTiles.delete(sessionId);
-      this.participantsMap.delete(sessionId);
-      this.updateGridLayout();
+    if (!entry) return;
+
+    entry.tile.remove();
+    this.participantTiles.delete(sessionId);
+    this.participantsMap.delete(sessionId);
+
+    if (this.focusedSessionId === sessionId) {
+      this.focusedSessionId = null;
+      this.pickNextFocus();
+    }
+  },
+
+  pickNextFocus() {
+    if (this.participantTiles.size === 0) {
+      this.updateStage();
+      return;
+    }
+    // Prefer the host, then the local user, then anyone.
+    let next = null;
+    for (const [id, e] of this.participantTiles) {
+      if (e.isHost) { next = id; break; }
+      if (e.local && !next) next = id;
+    }
+    if (!next) next = this.participantTiles.keys().next().value;
+    this.setFocus(next);
+  },
+
+  setFocus(sessionId) {
+    if (!this.participantTiles.has(sessionId)) return;
+    this.focusedSessionId = sessionId;
+    for (const [id, e] of this.participantTiles) {
+      e.tile.classList.toggle('focused', id === sessionId);
+    }
+    this.updateStage();
+  },
+
+  updateStage() {
+    const stageVideo = document.getElementById('live-stage-video');
+    const stageInfo = document.getElementById('live-stage-info');
+    const stageEmpty = document.getElementById('live-stage-empty');
+    if (!stageVideo) return;
+
+    const entry = this.focusedSessionId ? this.participantTiles.get(this.focusedSessionId) : null;
+    if (entry && entry.videoTrack) {
+      stageVideo.srcObject = new MediaStream([entry.videoTrack]);
+      stageVideo.play?.().catch(() => {});
+      if (stageEmpty) stageEmpty.style.display = 'none';
+      stageVideo.classList.toggle('speaking', entry.tile.classList.contains('speaking'));
+    } else {
+      stageVideo.srcObject = null;
+      if (stageEmpty) stageEmpty.style.display = 'flex';
+    }
+    if (stageInfo) {
+      stageInfo.textContent = entry ? entry.name : '';
+      stageInfo.style.display = entry ? 'flex' : 'none';
+    }
+  },
+
+  setActiveSpeaker(sessionId) {
+    for (const [id, e] of this.participantTiles) {
+      e.tile.classList.toggle('speaking', id === sessionId);
+    }
+    const stageVideo = document.getElementById('live-stage-video');
+    if (stageVideo) {
+      stageVideo.classList.toggle('speaking', sessionId === this.focusedSessionId);
     }
   },
 
@@ -563,20 +634,23 @@ const liveView = {
     if (!entry) return;
 
     if (track.kind === 'video') {
+      entry.videoTrack = track;
       try {
         entry.video.srcObject = new MediaStream([track]);
         entry.video.play?.().catch(() => {});
       } catch (err) {
         console.error('Attach video failed:', err);
       }
+      if (sessionId === this.focusedSessionId) this.updateStage();
     } else if (track.kind === 'audio') {
       // Skip our own audio to avoid echo/feedback.
       if (entry.local) return;
+      entry.audioTrack = track;
       try {
         entry.audio.srcObject = new MediaStream([track]);
         entry.audio.muted = false;
-        const p = entry.audio.play?.();
-        if (p && p.catch) p.catch((err) => console.warn('Audio autoplay blocked:', err));
+        const pr = entry.audio.play?.();
+        if (pr && pr.catch) pr.catch((err) => console.warn('Audio autoplay blocked:', err));
       } catch (err) {
         console.error('Attach audio failed:', err);
       }
@@ -588,23 +662,13 @@ const liveView = {
     if (!entry) return;
 
     if (kind === 'video') {
+      entry.videoTrack = null;
       entry.video.srcObject = null;
+      if (sessionId === this.focusedSessionId) this.updateStage();
     } else if (kind === 'audio') {
+      entry.audioTrack = null;
       entry.audio.srcObject = null;
     }
-  },
-
-  updateGridLayout() {
-    const grid = document.getElementById('live-participant-grid');
-    if (!grid) return;
-
-    const count = this.participantTiles.size;
-    grid.className = 'live-participant-grid';
-    if (count === 1) grid.classList.add('grid-1');
-    else if (count === 2) grid.classList.add('grid-2');
-    else if (count <= 4) grid.classList.add('grid-4');
-    else if (count <= 6) grid.classList.add('grid-6');
-    else grid.classList.add('grid-9');
   },
 
   // ============================================
@@ -637,13 +701,6 @@ const liveView = {
     this.chatOpen = !this.chatOpen;
     const panel = document.getElementById('live-chat-panel');
     if (panel) panel.style.display = this.chatOpen ? 'flex' : 'none';
-  },
-
-  toggleParticipantsPanel() {
-    this.participantsPanelOpen = !this.participantsPanelOpen;
-    const panel = document.getElementById('live-participants-panel');
-    if (panel) panel.style.display = this.participantsPanelOpen ? 'block' : 'none';
-    if (this.participantsPanelOpen) this.renderParticipantsList();
   },
 
   async toggleHandRaise() {
@@ -810,14 +867,6 @@ const liveView = {
     }).join('');
 
     container.scrollTop = container.scrollHeight;
-  },
-
-  renderParticipantsList() {
-    const list = document.getElementById('live-participants-list');
-    if (!list) return;
-
-    // TODO: Fetch actual participant list from server
-    list.innerHTML = '<div class="live-loading">Loading participants...</div>';
   },
 
   // ============================================
@@ -1058,6 +1107,7 @@ const liveView = {
     this.activeSession = null;
     this.sessionRole = null;
     this.screenSharing = false;
+    this.focusedSessionId = null;
 
     document.getElementById('live-session-view').style.display = 'none';
     document.getElementById('live-landing').style.display = 'block';
