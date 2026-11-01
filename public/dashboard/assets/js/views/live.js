@@ -525,17 +525,25 @@ const liveView = {
     video.id = `video-${sessionId}`;
     video.autoplay = true;
     video.playsInline = true;
-    if (p.local) video.muted = true;
+    video.muted = true;
+
+    // Separate audio element: video is always muted so its audio track never
+    // plays through it, and remote audio is routed here instead.
+    const audio = document.createElement('audio');
+    audio.id = `audio-${sessionId}`;
+    audio.autoplay = true;
+    if (p.local) audio.muted = true;
 
     const info = document.createElement('div');
     info.className = 'live-participant-info';
     info.innerHTML = `<span>${esc(p.user_name || 'Participant')}${p.local ? ' (You)' : ''}</span>`;
 
     tile.appendChild(video);
+    tile.appendChild(audio);
     tile.appendChild(info);
     grid.appendChild(tile);
 
-    this.participantTiles.set(sessionId, { tile, video, info });
+    this.participantTiles.set(sessionId, { tile, video, audio, info, local: !!p.local });
     this.updateGridLayout();
   },
 
@@ -560,6 +568,17 @@ const liveView = {
       } catch (err) {
         console.error('Attach video failed:', err);
       }
+    } else if (track.kind === 'audio') {
+      // Skip our own audio to avoid echo/feedback.
+      if (entry.local) return;
+      try {
+        entry.audio.srcObject = new MediaStream([track]);
+        entry.audio.muted = false;
+        const p = entry.audio.play?.();
+        if (p && p.catch) p.catch((err) => console.warn('Audio autoplay blocked:', err));
+      } catch (err) {
+        console.error('Attach audio failed:', err);
+      }
     }
   },
 
@@ -569,6 +588,8 @@ const liveView = {
 
     if (kind === 'video') {
       entry.video.srcObject = null;
+    } else if (kind === 'audio') {
+      entry.audio.srcObject = null;
     }
   },
 
@@ -854,8 +875,21 @@ const liveView = {
         table: 'live_requests',
         filter: 'id=eq.' + id
       }, (payload) => {
-        // Handle session updates
-        console.log('Session updated:', payload.new);
+        const next = payload.new;
+        if (!next) return;
+
+        // Host ended (or cancelled) the session: everyone leaves.
+        if (next.status === 'completed' || next.status === 'cancelled') {
+          if (!this.activeSession) return; // already torn down locally
+          const wasHost = this.sessionRole === 'host';
+          this.cleanupSession();
+          if (!wasHost) {
+            appConfirm('The host ended this session.', { okText: 'OK' });
+          }
+          return;
+        }
+
+        console.log('Session updated:', next);
       })
       .subscribe();
   },
