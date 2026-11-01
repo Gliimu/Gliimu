@@ -2,145 +2,89 @@ import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
 
+const MIN_GP_TO_HOST = 1500;
+const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
 const GP_PER_MINUTE = 1;
-const MIN_GP_FOR_LIVE = 100;
-const MAX_HOST_SESSIONS = 3;
 
 const ICONS = {
-  mic: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
-  micOff: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
-  cam: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
-  camOff: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
-  screen: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
-  hand: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v1M14 7V4a2 2 0 0 0-4 0v6M10 10V3a2 2 0 0 0-4 0v11M18 11a2 2 0 0 1 4 0v3a8 8 0 0 1-8 8h-2c-2.5 0-4.5-1-6.2-2.8L3 15.2a2 2 0 0 1 2.8-2.8L6 13V6"></path></svg>',
-  chat: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
-  end: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>',
-  copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
-  link: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>',
-  check: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-  close: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'
+  video: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
+  videoOff: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
+  mic: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
+  micOff: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
+  users: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+  chat: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+  hand: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v1M14 7V4a2 2 0 0 0-4 0v6M10 10V3a2 2 0 0 0-4 0v11M18 11a2 2 0 0 1 4 0v3a8 8 0 0 1-8 8h-2c-2.5 0-4.5-1-6.2-2.8L3 15.2a2 2 0 0 1 2.8-2.8L6 13V6"></path></svg>',
+  screen: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
+  record: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>',
+  close: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+  plus: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+  lock: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const liveView = {
+  // State
   activeSession: null,
-  sessionRole: null,
-  sessionConnected: false,
-  sessionSettled: false,
-
+  sessionRole: null, // 'host' | 'participant'
+  publicSessions: [],
+  
+  // Daily.co
   callObject: null,
   participantTiles: new Map(),
   participantsMap: new Map(),
-
-  chatMessages: [],
+  
+  // UI state
   chatOpen: false,
+  chatMessages: [],
   chatPollInterval: null,
-
-  sessionChannel: null,
-
+  participantsPanelOpen: false,
+  
+  // Session controls
+  isRecording: false,
+  screenSharePermissionGranted: new Set(),
+  
+  // Billing
   sessionTimerInterval: null,
+  sessionStartTime: null,
   liveSecs: 0,
-  creditedGp: 0,
-  sessionGpByRequest: {},
   billingSummary: null,
-
-  raisedHands: {},
-  shareModalOpen: false,
+  
+  // Realtime
+  sessionChannel: null,
 
   template: `
     <div class="live-layout" id="live-container">
-      <div id="live-landing">
-        <div class="live-landing-card">
-          <h2>Live Sessions</h2>
-          <p>Join a session with a code, or host your own.</p>
-          <div class="live-landing-actions">
-            <button class="btn-primary live-landing-btn" onclick="liveInstance.openJoinModal()">
-              ${ICONS.link}
-              <span>Join session</span>
-            </button>
-            <button class="btn-secondary live-landing-btn" id="live-host-btn" onclick="liveInstance.openHostModal()">
-              ${ICONS.cam}
-              <span>Host session</span>
-            </button>
-          </div>
-          <p class="live-landing-hint" id="live-landing-hint"></p>
-        </div>
-      </div>
-
-      <div class="modal-overlay" id="live-join-modal" style="display:none;">
-        <div class="modal-content live-code-modal">
-          <button class="modal-close" onclick="liveInstance.closeJoinModal()">${ICONS.close}</button>
-          <h3>Enter join code</h3>
-          <p class="live-code-hint">Ask the host for the 6-character code.</p>
-          <input type="text" id="live-join-code-input" class="input live-code-input" maxlength="6" placeholder="ABC123" autocomplete="off" spellcheck="false">
-          <button class="btn-primary" style="width:100%;" onclick="liveInstance.joinByCode()">Join</button>
-          <p class="live-code-error" id="live-join-error"></p>
-        </div>
-      </div>
-
-      <div class="modal-overlay" id="live-host-modal" style="display:none;">
-        <div class="modal-content">
-          <button class="modal-close" onclick="liveInstance.closeHostModal()">${ICONS.close}</button>
-          <h3>Start a Live Session</h3>
-          <div class="form-group">
-            <label>Topic</label>
-            <input type="text" id="live-host-title" class="input" maxlength="60" placeholder="e.g. UI walkthrough">
-          </div>
-          <div class="form-group">
-            <label>Details (optional)</label>
-            <textarea id="live-host-desc" class="input" rows="3" maxlength="200" placeholder="What will you cover?"></textarea>
-          </div>
-          <button class="btn-primary" style="width:100%;" onclick="liveInstance.createSession()">Start session</button>
-        </div>
-      </div>
-
-      <div class="modal-overlay" id="live-share-modal" style="display:none;">
-        <div class="modal-content live-share-modal">
-          <button class="modal-close" onclick="liveInstance.closeShareModal()">${ICONS.close}</button>
-          <h3>Share this session</h3>
-          <div class="live-share-row">
-            <span class="live-share-label">Join code</span>
-            <code class="live-share-code" id="live-share-code">------</code>
-            <button class="btn-secondary btn-sm" onclick="liveInstance.copyShareCode()">${ICONS.copy} Copy</button>
-          </div>
-          <div class="live-share-row">
-            <span class="live-share-label">Join link</span>
-            <input type="text" class="input live-share-link" id="live-share-link" readonly>
-            <button class="btn-secondary btn-sm" onclick="liveInstance.copyShareLink()">${ICONS.copy} Copy</button>
-          </div>
-          <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="liveInstance.closeShareModal(); liveInstance.enterSession();">I'm ready, start</button>
-        </div>
-      </div>
+      <div id="live-landing"></div>
+      <div id="live-session-view" style="display:none;"></div>
     </div>
   `,
 
-  async init(opts = {}) {
-    this.embedded = !!opts.embedded;
+  async init() {
     window.liveInstance = {
-      openJoinModal: () => this.openJoinModal(),
-      closeJoinModal: () => this.closeJoinModal(),
-      joinByCode: () => this.joinByCode(),
+      loadPublicSessions: () => this.loadPublicSessions(),
       openHostModal: () => this.openHostModal(),
       closeHostModal: () => this.closeHostModal(),
       createSession: () => this.createSession(),
-      closeShareModal: () => this.closeShareModal(),
-      copyShareCode: () => this.copyShareCode(),
-      copyShareLink: () => this.copyShareLink(),
-      enterSession: () => this.enterSession(),
-      toggleMute: (type) => this.toggleMute(type),
-      toggleScreenShare: () => this.toggleScreenShare(),
-      toggleHandRaise: () => this.toggleHandRaise(),
-      dismissHand: (userId) => this.dismissHand(userId),
-      toggleChat: () => this.toggleChat(),
-      sendChatMessage: () => this.sendChatMessage(),
+      joinSession: (id) => this.joinSession(id),
+      joinPrivateSession: () => this.joinPrivateSession(),
+      leaveSession: () => this.leaveSession(),
       endSession: () => this.endSession(),
-      leaveSession: () => this.leaveSession()
+      toggleCamera: () => this.toggleCamera(),
+      toggleMic: () => this.toggleMic(),
+      toggleChat: () => this.toggleChat(),
+      toggleParticipantsPanel: () => this.toggleParticipantsPanel(),
+      toggleHandRaise: () => this.toggleHandRaise(),
+      sendChatMessage: () => this.sendChatMessage(),
+      muteParticipant: (userId) => this.muteParticipant(userId),
+      grantScreenShare: (userId) => this.grantScreenShare(userId),
+      revokeScreenShare: (userId) => this.revokeScreenShare(userId),
+      toggleRecording: () => this.toggleRecording(),
+      isLiveActive: () => !!this.activeSession,
+      endLive: () => this.forceEndLive()
     };
 
-    await this.checkHostEligibility();
-    this.renderLanding();
-    this.handleRouteCode();
+    await this.loadPublicSessions();
   },
 
   destroy() {
@@ -162,201 +106,145 @@ const liveView = {
     }
     this.participantTiles.clear();
     this.participantsMap.clear();
-    document.getElementById('live-session-overlay')?.remove();
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
   },
 
-  async checkHostEligibility() {
-    const btn = document.getElementById('live-host-btn');
-    const hint = document.getElementById('live-landing-hint');
-    const gp = store.profile?.total_gp || 0;
-    const badge = store.profile?.verification_badge;
+  // ============================================
+  // LANDING PAGE - Public Sessions List
+  // ============================================
+  
+  async loadPublicSessions() {
+    const landing = document.getElementById('live-landing');
+    if (!landing) return;
 
-    if (!badge) {
-      if (btn) {
-        btn.disabled = true;
-        btn.title = 'Only verified users can host.';
+    landing.innerHTML = '<div class="live-loading">Loading sessions...</div>';
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        landing.innerHTML = '<div class="live-empty">Please sign in to view live sessions.</div>';
+        return;
       }
-      if (hint) hint.textContent = 'Hosting requires a verification badge. Request one in Support.';
-    } else if (gp < MIN_GP_FOR_LIVE) {
-      if (btn) {
-        btn.disabled = true;
-        btn.title = `Need ${MIN_GP_FOR_LIVE} GP to host.`;
-      }
-      if (hint) hint.textContent = `Hosting requires at least ${MIN_GP_FOR_LIVE} GP.`;
-    } else {
-      if (hint) hint.textContent = '';
+
+      const response = await fetch(`${API_BASE_URL}/api/live/public-sessions`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load sessions');
+
+      const result = await response.json();
+      this.publicSessions = result.sessions || [];
+      this.renderLanding();
+    } catch (error) {
+      console.error('Load sessions error:', error);
+      landing.innerHTML = '<div class="live-error">Failed to load sessions. Please refresh.</div>';
     }
   },
 
   renderLanding() {
     const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'flex';
-    document.getElementById('live-session-overlay')?.remove();
-    this.checkHostEligibility();
-  },
+    if (!landing) return;
 
-  handleRouteCode() {
-    const hash = window.location.hash || '';
-    const match = hash.match(/[?&]code=([A-Za-z0-9]{6})/);
-    if (match) {
-      const code = match[1].toUpperCase();
-      window.location.hash = hash.replace(/[?&]code=[A-Za-z0-9]{6}/, '').replace(/\?$/, '');
-      this.resolveAndJoin(code);
+    const canHost = (store.profile?.total_gp || 0) >= MIN_GP_TO_HOST && store.profile?.verification_badge;
+
+    let html = `
+      <div class="live-header">
+        <h2>Live Sessions</h2>
+        ${canHost ? `<button class="btn-primary" onclick="liveInstance.openHostModal()">${ICONS.plus} Host Session</button>` : ''}
+      </div>
+    `;
+
+    if (this.publicSessions.length === 0) {
+      html += '<div class="live-empty">No active sessions. Be the first to host!</div>';
+    } else {
+      html += '<div class="live-sessions-grid">';
+      for (const session of this.publicSessions) {
+        html += `
+          <div class="live-session-card">
+            <div class="live-session-card-header">
+              <h3>${esc(session.title)}</h3>
+              ${session.is_private ? ICONS.lock : ''}
+            </div>
+            ${session.description ? `<p class="live-session-card-desc">${esc(session.description)}</p>` : ''}
+            <div class="live-session-card-meta">
+              <span class="live-session-card-host">Host: ${esc(session.host_name || 'Unknown')}</span>
+              <span class="live-session-card-participants">${ICONS.users} ${session.participant_count || 0}</span>
+            </div>
+            <button class="btn-primary live-session-card-join" onclick="liveInstance.joinSession('${session.id}')">
+              Join Session
+            </button>
+          </div>
+        `;
+      }
+      html += '</div>';
     }
-  },
 
-  openJoinModal() {
-    document.getElementById('live-join-modal').style.display = 'flex';
-    const input = document.getElementById('live-join-code-input');
-    if (input) {
-      input.value = '';
-      input.focus();
-    }
-    const err = document.getElementById('live-join-error');
-    if (err) err.textContent = '';
-  },
-
-  closeJoinModal() {
-    document.getElementById('live-join-modal').style.display = 'none';
+    landing.innerHTML = html;
   },
 
   openHostModal() {
-    const badge = store.profile?.verification_badge;
-    const gp = store.profile?.total_gp || 0;
-    if (!badge) return alert('Only verified users can host live sessions.');
-    if (gp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to host.`);
-
-    document.getElementById('live-host-modal').style.display = 'flex';
-    const t = document.getElementById('live-host-title');
-    if (t) {
-      t.value = '';
-      t.focus();
-    }
+    const modal = document.createElement('div');
+    modal.id = 'live-host-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" onclick="liveInstance.closeHostModal()">${ICONS.close}</button>
+        <h3>Host a Live Session</h3>
+        <div class="form-group">
+          <label>Session Title</label>
+          <input type="text" id="live-host-title" class="input" maxlength="60" placeholder="e.g. UI Design Workshop" required>
+        </div>
+        <div class="form-group">
+          <label>Description (optional)</label>
+          <textarea id="live-host-desc" class="input" rows="3" maxlength="200" placeholder="What will you cover?"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="live-host-private">
+            <span>Private session (hidden from public list, auto-records)</span>
+          </label>
+        </div>
+        <button class="btn-primary" style="width:100%;" onclick="liveInstance.createSession()">Create Session</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
   },
 
   closeHostModal() {
-    document.getElementById('live-host-modal').style.display = 'none';
-  },
-
-  async joinByCode() {
-    const input = document.getElementById('live-join-code-input');
-    const err = document.getElementById('live-join-error');
-    if (!input) return;
-    const code = input.value.trim().toUpperCase();
-    if (code.length !== 6) {
-      if (err) err.textContent = 'Code must be 6 characters.';
-      return;
-    }
-    this.closeJoinModal();
-    await this.resolveAndJoin(code);
-  },
-
-  async resolveAndJoin(code) {
-    const err = document.getElementById('live-join-error');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return alert('Please sign in first.');
-
-      const response = await fetch(`${API_BASE_URL}/api/live/resolve-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ code })
-      });
-      const result = await response.json();
-      if (!response.ok || !result.session) {
-        if (err) err.textContent = result.error || 'Could not find a session for that code.';
-        else alert(result.error || 'Could not find a session for that code.');
-        return;
-      }
-
-      const s = result.session;
-      if (s.is_locked) return alert('This session is locked.');
-
-      const { error: incErr } = await supabase.rpc('increment_participant_count', { p_request_id: s.id });
-      if (incErr) {
-        console.error('Join increment failed:', incErr);
-        return alert('Could not join session.');
-      }
-
-      try {
-        const { data: { session: authSession } } = await supabase.auth.getSession();
-        await fetch(`${API_BASE_URL}/api/live/join-session`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authSession.access_token}`
-          },
-          body: JSON.stringify({ requestId: s.id })
-        });
-      } catch (e) {
-        console.error('Join tracking error:', e);
-      }
-
-      await supabase.from('notifications').insert({
-        user_id: s.user_id,
-        actor_id: store.user.id,
-        kind: 'live',
-        title: `${store.profile.full_name} joined your live session`
-      }).catch(() => {});
-
-      this.activeSession = {
-        id: s.id,
-        user_id: s.user_id,
-        title: s.title,
-        description: s.description,
-        status: s.status,
-        sharing_mode: s.sharing_mode,
-        room_url: s.room_url,
-        room_id: s.room_id,
-        is_locked: s.is_locked,
-        participant_count: (s.participant_count || 0) + 1,
-        hand_raises: {},
-        host_name: s.host_name,
-        host_avatar: s.host_avatar,
-        join_code: code
-      };
-      this.sessionRole = 'participant';
-      this.enterSession();
-    } catch (e) {
-      console.error('resolveAndJoin error:', e);
-      alert('Could not join session.');
-    }
+    document.getElementById('live-host-modal')?.remove();
   },
 
   async createSession() {
     const title = document.getElementById('live-host-title')?.value?.trim();
     const description = document.getElementById('live-host-desc')?.value?.trim();
-    if (!title) return alert('Please enter a topic.');
+    const isPrivate = document.getElementById('live-host-private')?.checked || false;
 
-    this.closeHostModal();
-
-    const { data: request, error } = await supabase
-      .from('live_requests')
-      .insert({
-        user_id: store.user.id,
-        title: title.slice(0, 60),
-        description: description ? description.slice(0, 200) : null,
-        status: 'open',
-        sharing_mode: 'general',
-        invited_user_ids: [],
-        participant_count: 1,
-        hand_raises: {}
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Create session error:', error);
-      return alert('Could not create session.');
-    }
+    if (!title) return alert('Please enter a session title.');
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data: request, error } = await supabase
+        .from('live_requests')
+        .insert({
+          user_id: store.user.id,
+          title: title.slice(0, 60),
+          description: description ? description.slice(0, 200) : null,
+          status: 'active',
+          sharing_mode: 'general',
+          is_private: isPrivate,
+          participant_count: 1,
+          started_at: new Date().toISOString(),
+          hand_raises: {},
+          screen_share_permissions: {}
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create Daily.co room
       const response = await fetch(`${API_BASE_URL}/api/daily/create-room`, {
         method: 'POST',
         headers: {
@@ -365,114 +253,96 @@ const liveView = {
         },
         body: JSON.stringify({ requestId: request.id })
       });
+
       const result = await response.json();
-      if (!response.ok || !result.room_url) {
-        throw new Error(result.error || 'Failed to create room');
-      }
+      if (!response.ok) throw new Error(result.error || 'Failed to create room');
 
       await supabase
         .from('live_requests')
         .update({
           room_id: result.room_id,
-          room_url: result.room_url,
-          join_code: result.join_code,
-          status: 'active'
+          room_url: result.room_url
         })
         .eq('id', request.id);
 
-      try {
-        await fetch(`${API_BASE_URL}/api/live/join-session`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ requestId: request.id })
-        });
-      } catch (e) {
-        console.error('Host join tracking error:', e);
-      }
-
+      this.closeHostModal();
+      
+      // Enter as host
       this.activeSession = {
-        id: request.id,
-        user_id: store.user.id,
-        title: request.title,
-        description: request.description,
-        status: 'active',
-        sharing_mode: 'general',
+        ...request,
         room_url: result.room_url,
-        room_id: result.room_id,
-        join_code: result.join_code,
-        is_locked: false,
-        participant_count: 1,
-        hand_raises: {}
+        room_id: result.room_id
       };
       this.sessionRole = 'host';
-      this.openShareModal();
-    } catch (e) {
-      console.error('Create room error:', e);
-      alert('Could not create video room. Please try again.');
-      await supabase.from('live_requests').delete().eq('id', request.id);
+      this.enterSession();
+
+    } catch (error) {
+      console.error('Create session error:', error);
+      alert('Failed to create session: ' + error.message);
     }
   },
 
-  openShareModal() {
-    const code = this.activeSession?.join_code;
-    if (!code) return;
-    const link = `${window.location.origin}${window.location.pathname}#/live?code=${code}`;
-    document.getElementById('live-share-code').textContent = code;
-    document.getElementById('live-share-link').value = link;
-    document.getElementById('live-share-modal').style.display = 'flex';
-    this.shareModalOpen = true;
-  },
-
-  closeShareModal() {
-    document.getElementById('live-share-modal').style.display = 'none';
-    this.shareModalOpen = false;
-  },
-
-  async copyShareCode() {
-    const code = this.activeSession?.join_code;
-    if (!code) return;
+  async joinSession(sessionId) {
     try {
-      await navigator.clipboard.writeText(code);
-      const btn = document.querySelector('.live-share-row .btn-secondary');
-      if (btn) {
-        const original = btn.innerHTML;
-        btn.innerHTML = `${ICONS.check} Copied`;
-        setTimeout(() => { btn.innerHTML = original; }, 1500);
-      }
-    } catch (e) {}
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data: request, error } = await supabase
+        .from('live_requests')
+        .select('*')
+        .eq('id', sessionId)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !request) return alert('Session not found or no longer active.');
+
+      // Increment participant count
+      await supabase.rpc('increment_participant_count', { p_request_id: request.id });
+
+      // Track for billing
+      await fetch(`${API_BASE_URL}/api/live/join-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ requestId: request.id })
+      });
+
+      this.activeSession = request;
+      this.sessionRole = 'participant';
+      this.enterSession();
+
+    } catch (error) {
+      console.error('Join session error:', error);
+      alert('Failed to join session.');
+    }
   },
 
-  async copyShareLink() {
-    const input = document.getElementById('live-share-link');
-    if (!input) return;
-    try {
-      await navigator.clipboard.writeText(input.value);
-      const btn = input.nextElementSibling;
-      if (btn) {
-        const original = btn.innerHTML;
-        btn.innerHTML = `${ICONS.check} Copied`;
-        setTimeout(() => { btn.innerHTML = original; }, 1500);
-      }
-    } catch (e) {}
+  async joinPrivateSession() {
+    const code = prompt('Enter private session link or code:');
+    if (!code) return;
+    // TODO: Implement private session join via link/code
+    alert('Private session join not yet implemented.');
   },
+
+  // ============================================
+  // SESSION UI
+  // ============================================
 
   enterSession() {
     if (!this.activeSession) return;
-    const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'none';
-    this.sessionSettled = false;
-    this.sessionConnected = false;
-    this.participantsMap.clear();
-    this.participantTiles.clear();
+
+    document.getElementById('live-landing').style.display = 'none';
+    const sessionView = document.getElementById('live-session-view');
+    sessionView.style.display = 'block';
+
+    this.sessionStartTime = Date.now();
+    this.liveSecs = 0;
     this.chatMessages = [];
     this.chatOpen = false;
-    this.raisedHands = {};
-    this.liveSecs = 0;
-    this.creditedGp = 0;
-    this.billingSummary = null;
+    this.participantsPanelOpen = false;
+    this.isRecording = false;
+    this.screenSharePermissionGranted.clear();
 
     this.renderSessionUI();
     this.joinDailyCall(this.activeSession.room_url);
@@ -485,73 +355,73 @@ const liveView = {
   },
 
   renderSessionUI() {
-    document.getElementById('live-session-overlay')?.remove();
+    const sessionView = document.getElementById('live-session-view');
+    if (!sessionView) return;
 
-    const overlay = document.createElement('div');
-    overlay.id = 'live-session-overlay';
-    overlay.className = 'live-session-overlay';
-
-    const s = this.activeSession;
     const isHost = this.sessionRole === 'host';
-    const hostName = s.host_name || (isHost ? (store.profile?.full_name || 'You') : 'Host');
+    const s = this.activeSession;
 
-    overlay.innerHTML = `
+    sessionView.innerHTML = `
       <div class="live-studio-container">
-        <div class="live-video-main">
+        <div class="live-video-area">
           <div id="live-participant-grid" class="live-participant-grid"></div>
-          <div class="live-session-info">
+          <div class="live-session-header">
             <h3>${esc(s.title)}</h3>
             <div class="live-session-meta">
-              <span class="live-host-name">${esc(hostName)}</span>
-              <span id="live-session-timer">00:00</span>
-              <span id="live-session-gp">+0 GP</span>
+              <span id="live-session-timer">60:00</span>
+              <span id="live-session-billing">Loading...</span>
+              ${isHost && this.isRecording ? `<span class="live-recording-indicator">${ICONS.record} Recording</span>` : ''}
             </div>
           </div>
-          <div id="live-session-status" class="live-session-status" style="display:none;"></div>
         </div>
-        <div class="live-controls">
-          <button class="live-ctrl-btn mic-on" id="live-mute-mic-btn" title="Mute microphone">${ICONS.mic}</button>
-          <button class="live-ctrl-btn cam-on" id="live-mute-cam-btn" title="Turn off camera">${ICONS.cam}</button>
-          <button class="live-ctrl-btn" id="live-share-btn" title="Share screen">${ICONS.screen}</button>
-          <button class="live-ctrl-btn" id="live-hand-btn" title="Raise hand">${ICONS.hand}</button>
+
+        <div class="live-controls-bar">
+          <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
+          <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
+          ${!isHost ? `<button class="live-ctrl-btn" id="live-hand-btn" title="Raise hand">${ICONS.hand}</button>` : ''}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-          ${isHost
-            ? `<button class="live-ctrl-btn" id="live-show-code-btn" title="Show join code">${ICONS.link}</button>`
-            : ''}
-          <button class="live-ctrl-btn danger" id="live-end-btn" title="${isHost ? 'End session' : 'Leave session'}">${ICONS.end}</button>
+          ${isHost ? `<button class="live-ctrl-btn" id="live-participants-btn" title="Participants">${ICONS.users}</button>` : ''}
+          ${isHost ? `<button class="live-ctrl-btn" id="live-record-btn" title="Toggle recording">${ICONS.record}</button>` : ''}
+          <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
         </div>
-        <div id="live-hands-panel" class="live-hands-panel" style="display:none;"></div>
+
         <div id="live-chat-panel" class="live-chat-panel" style="display:none;">
           <div class="live-chat-header">
-            <h4>Session Chat</h4>
+            <h4>Chat</h4>
             <button onclick="liveInstance.toggleChat()">${ICONS.close}</button>
           </div>
           <div id="live-chat-messages" class="live-chat-messages"></div>
           <div class="live-chat-input">
-            <input type="text" id="live-chat-input-field" placeholder="Type a message..." maxlength="500" onkeypress="if(event.key==='Enter')liveInstance.sendChatMessage()">
+            <input type="text" id="live-chat-input" placeholder="Type a message..." maxlength="500" onkeypress="if(event.key==='Enter')liveInstance.sendChatMessage()">
             <button onclick="liveInstance.sendChatMessage()">Send</button>
           </div>
         </div>
+
+        ${isHost ? `
+          <div id="live-participants-panel" class="live-participants-panel" style="display:none;">
+            <div class="live-participants-header">
+              <h4>Participants</h4>
+              <button onclick="liveInstance.toggleParticipantsPanel()">${ICONS.close}</button>
+            </div>
+            <div id="live-participants-list" class="live-participants-list"></div>
+          </div>
+        ` : ''}
       </div>
     `;
-    document.body.appendChild(overlay);
 
-    document.getElementById('live-mute-mic-btn')?.addEventListener('click', () => this.toggleMute('mic'));
-    document.getElementById('live-mute-cam-btn')?.addEventListener('click', () => this.toggleMute('cam'));
-    document.getElementById('live-share-btn')?.addEventListener('click', () => this.toggleScreenShare());
+    // Attach event listeners
+    document.getElementById('live-camera-btn')?.addEventListener('click', () => this.toggleCamera());
+    document.getElementById('live-mic-btn')?.addEventListener('click', () => this.toggleMic());
     document.getElementById('live-hand-btn')?.addEventListener('click', () => this.toggleHandRaise());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
-    document.getElementById('live-show-code-btn')?.addEventListener('click', () => this.openShareModal());
-    document.getElementById('live-end-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
-
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      const shareBtn = document.getElementById('live-share-btn');
-      if (shareBtn) {
-        shareBtn.disabled = true;
-        shareBtn.classList.add('unsupported');
-      }
-    }
+    document.getElementById('live-participants-btn')?.addEventListener('click', () => this.toggleParticipantsPanel());
+    document.getElementById('live-record-btn')?.addEventListener('click', () => this.toggleRecording());
+    document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
   },
+
+  // ============================================
+  // Daily.co Integration
+  // ============================================
 
   async joinDailyCall(roomUrl) {
     if (this.callObject) {
@@ -559,66 +429,42 @@ const liveView = {
       this.callObject = null;
     }
 
-    this.showSessionStatus('Joining session...');
-
-    try {
-      if (typeof requestDevicePermission === 'function') {
-        await requestDevicePermission('camera microphone');
-      }
-    } catch (e) {}
-
     this.callObject = window.DailyIframe.createCallObject({
       url: roomUrl,
-      userName: store.profile?.full_name || store.user?.full_name || 'Gliimait',
+      userName: store.profile?.full_name || 'User',
       userData: { user_id: store.user.id }
     });
 
     this.callObject
       .on('joined-meeting', () => {
-        this.sessionConnected = true;
-        this.hideSessionStatus();
         const local = this.callObject.participants().local;
-        if (local) {
-          this.addParticipantTile(local);
-        }
-        console.log('[Live] Joined meeting successfully');
+        if (local) this.addParticipantTile(local);
       })
       .on('participant-joined', (e) => {
-        if (e.participant) {
-          this.addParticipantTile(e.participant);
-        }
+        if (e.participant) this.addParticipantTile(e.participant);
       })
       .on('participant-left', (e) => {
-        if (e.participant) {
-          this.removeParticipantTile(e.participant.session_id);
-        }
+        if (e.participant) this.removeParticipantTile(e.participant.session_id);
       })
       .on('track-started', (e) => {
-        if (e.track && e.participant) {
-          this.attachTrack(e.participant.session_id, e.track);
-        }
+        if (e.track && e.participant) this.attachTrack(e.participant.session_id, e.track);
       })
       .on('track-stopped', (e) => {
-        if (e.track && e.participant) {
-          this.detachTrack(e.participant.session_id, e.track.kind);
-        }
+        if (e.track && e.participant) this.detachTrack(e.participant.session_id, e.track.kind);
       })
       .on('left-meeting', () => {
-        console.log('[Live] Left meeting');
         this.cleanupSession();
       })
       .on('error', (e) => {
-        console.error('[Live] Daily.co error:', e);
-        this.showSessionStatus('Connection error. Please try again.');
+        console.error('Daily.co error:', e);
       });
 
     try {
       await this.callObject.startCamera();
       await this.callObject.join();
-      console.log('[Live] Join call initiated');
     } catch (error) {
-      console.error('[Live] Failed to join daily call:', error);
-      this.showSessionStatus('Could not connect. Check camera/mic permissions.');
+      console.error('Failed to join call:', error);
+      alert('Could not connect. Check camera/mic permissions.');
     }
   },
 
@@ -644,7 +490,7 @@ const liveView = {
 
     const info = document.createElement('div');
     info.className = 'live-participant-info';
-    info.innerHTML = `<span class="live-participant-name">${esc(p.user_name || 'Participant')}${p.local ? ' (You)' : ''}</span>`;
+    info.innerHTML = `<span>${esc(p.user_name || 'Participant')}${p.local ? ' (You)' : ''}</span>`;
 
     tile.appendChild(video);
     tile.appendChild(info);
@@ -668,34 +514,12 @@ const liveView = {
     const entry = this.participantTiles.get(sessionId);
     if (!entry) return;
 
-    const kind = track.kind;
-
-    if (kind === 'video') {
+    if (track.kind === 'video') {
       try {
-        const stream = new MediaStream([track]);
-        entry.video.srcObject = stream;
-        entry.video.play?.().catch(e => console.warn('[Live] Video play failed:', e));
-        console.log('[Live] Attached video track for', sessionId);
+        entry.video.srcObject = new MediaStream([track]);
+        entry.video.play?.().catch(() => {});
       } catch (err) {
-        console.error('[Live] Failed to attach video track:', err);
-      }
-    } else if (kind === 'screenVideo') {
-      let screenVideo = entry.tile.querySelector('.live-screen-video');
-      if (!screenVideo) {
-        screenVideo = document.createElement('video');
-        screenVideo.className = 'live-screen-video';
-        screenVideo.autoplay = true;
-        screenVideo.playsInline = true;
-        entry.tile.insertBefore(screenVideo, entry.info);
-        entry.tile.classList.add('screen-sharing');
-      }
-      try {
-        const stream = new MediaStream([track]);
-        screenVideo.srcObject = stream;
-        screenVideo.play?.().catch(e => console.warn('[Live] Screen play failed:', e));
-        console.log('[Live] Attached screen track for', sessionId);
-      } catch (err) {
-        console.error('[Live] Failed to attach screen track:', err);
+        console.error('Attach video failed:', err);
       }
     }
   },
@@ -706,13 +530,6 @@ const liveView = {
 
     if (kind === 'video') {
       entry.video.srcObject = null;
-    } else if (kind === 'screenVideo') {
-      const screenVideo = entry.tile.querySelector('.live-screen-video');
-      if (screenVideo) {
-        screenVideo.srcObject = null;
-        screenVideo.remove();
-        entry.tile.classList.remove('screen-sharing');
-      }
     }
   },
 
@@ -729,167 +546,76 @@ const liveView = {
     else grid.classList.add('grid-9');
   },
 
-  showSessionStatus(text) {
-    const el = document.getElementById('live-session-status');
-    if (!el) return;
-    el.textContent = text;
-    el.style.display = 'block';
-  },
+  // ============================================
+  // Controls
+  // ============================================
 
-  hideSessionStatus() {
-    const el = document.getElementById('live-session-status');
-    if (el) el.style.display = 'none';
-  },
-
-  toggleMute(type) {
+  toggleCamera() {
     if (!this.callObject) return;
-    if (type === 'mic') {
-      const current = this.callObject.localAudio();
-      this.callObject.setLocalAudio(!current);
-      const btn = document.getElementById('live-mute-mic-btn');
-      if (btn) {
-        btn.classList.toggle('mic-on', !current);
-        btn.classList.toggle('mic-off', current);
-        btn.innerHTML = !current ? ICONS.mic : ICONS.micOff;
-        btn.title = !current ? 'Mute microphone' : 'Unmute microphone';
-      }
-    } else if (type === 'cam') {
-      const current = this.callObject.localVideo();
-      this.callObject.setLocalVideo(!current);
-      const btn = document.getElementById('live-mute-cam-btn');
-      if (btn) {
-        btn.classList.toggle('cam-on', !current);
-        btn.classList.toggle('cam-off', current);
-        btn.innerHTML = !current ? ICONS.cam : ICONS.camOff;
-        btn.title = !current ? 'Turn off camera' : 'Turn on camera';
-      }
+    const current = this.callObject.localVideo();
+    this.callObject.setLocalVideo(!current);
+    const btn = document.getElementById('live-camera-btn');
+    if (btn) {
+      btn.innerHTML = !current ? ICONS.video : ICONS.videoOff;
+      btn.classList.toggle('active', !current);
     }
   },
 
-  async toggleScreenShare() {
+  toggleMic() {
     if (!this.callObject) return;
-    const btn = document.getElementById('live-share-btn');
-    try {
-      if (this.callObject.localScreenVideo()) {
-        await this.callObject.stopScreenShare();
-        btn?.classList.remove('sharing');
-      } else {
-        await this.callObject.startScreenShare();
-        btn?.classList.add('sharing');
-      }
-    } catch (e) {
-      console.error('Screen share toggle failed:', e);
+    const current = this.callObject.localAudio();
+    this.callObject.setLocalAudio(!current);
+    const btn = document.getElementById('live-mic-btn');
+    if (btn) {
+      btn.innerHTML = !current ? ICONS.mic : ICONS.micOff;
+      btn.classList.toggle('active', !current);
     }
-  },
-
-  async toggleHandRaise() {
-    const s = this.activeSession;
-    if (!s) return;
-    const currentlyRaised = this.isHandRaised(store.user.id);
-    const newRaised = !currentlyRaised;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${API_BASE_URL}/api/live/hand-raise`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: s.id, raised: newRaised })
-      });
-      if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || 'Failed to toggle hand raise.');
-      }
-      const result = await response.json();
-      this.raisedHands = this.normalizeHandRaises(result.hand_raises || {});
-      const btn = document.getElementById('live-hand-btn');
-      if (btn) {
-        btn.classList.toggle('raised', newRaised);
-        btn.title = newRaised ? 'Lower hand' : 'Raise hand';
-      }
-      this.updateHandsPanel();
-    } catch (e) {
-      console.error('toggleHandRaise error:', e);
-      alert(e.message || 'Could not change hand raise state.');
-    }
-  },
-
-  async dismissHand(userId) {
-    const s = this.activeSession;
-    if (!s || this.sessionRole !== 'host') return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${API_BASE_URL}/api/live/hand-raise`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: s.id, raised: false, targetUserId: userId })
-      });
-      if (!response.ok) throw new Error('Failed to dismiss hand.');
-      const result = await response.json();
-      this.raisedHands = this.normalizeHandRaises(result.hand_raises || {});
-      this.updateHandsPanel();
-    } catch (e) {
-      console.error('dismissHand error:', e);
-      alert(e.message || 'Could not dismiss hand.');
-    }
-  },
-
-  isHandRaised(userId) {
-    return !!(this.raisedHands && userId && this.raisedHands[userId]);
-  },
-
-  normalizeHandRaises(raw) {
-    const out = {};
-    if (!raw || typeof raw !== 'object') return out;
-    for (const [uid, ts] of Object.entries(raw)) {
-      out[uid] = {
-        raisedAt: ts,
-        name: 'Participant'
-      };
-    }
-    return out;
-  },
-
-  updateHandsPanel() {
-    const panel = document.getElementById('live-hands-panel');
-    if (!panel) return;
-    const isHost = this.sessionRole === 'host';
-    const raised = Object.entries(this.raisedHands || {});
-    if (!raised.length) {
-      panel.style.display = 'none';
-      panel.innerHTML = '';
-      return;
-    }
-    panel.style.display = 'block';
-    panel.innerHTML = `
-      <div class="live-hands-header">
-        <span>${raised.length} hand${raised.length === 1 ? '' : 's'} raised</span>
-      </div>
-      <div class="live-hands-list">
-        ${raised.map(([uid, info]) => `
-          <div class="live-hand-row">
-            <span>${esc(info.name || 'Participant')}</span>
-            ${isHost ? `<button class="btn-secondary btn-sm" onclick="liveInstance.dismissHand('${uid}')">Dismiss</button>` : ''}
-          </div>
-        `).join('')}
-      </div>
-    `;
   },
 
   toggleChat() {
-    const panel = document.getElementById('live-chat-panel');
-    if (!panel) return;
     this.chatOpen = !this.chatOpen;
-    panel.style.display = this.chatOpen ? 'flex' : 'none';
+    const panel = document.getElementById('live-chat-panel');
+    if (panel) panel.style.display = this.chatOpen ? 'flex' : 'none';
   },
 
+  toggleParticipantsPanel() {
+    this.participantsPanelOpen = !this.participantsPanelOpen;
+    const panel = document.getElementById('live-participants-panel');
+    if (panel) panel.style.display = this.participantsPanelOpen ? 'block' : 'none';
+    if (this.participantsPanelOpen) this.renderParticipantsList();
+  },
+
+  async toggleHandRaise() {
+    // TODO: Implement hand raise
+    alert('Hand raise feature coming soon.');
+  },
+
+  async muteParticipant(userId) {
+    // TODO: Implement host mute participant
+    alert('Mute participant feature coming soon.');
+  },
+
+  async grantScreenShare(userId) {
+    // TODO: Implement screen share permission
+    alert('Grant screen share feature coming soon.');
+  },
+
+  async revokeScreenShare(userId) {
+    // TODO: Implement revoke screen share
+    alert('Revoke screen share feature coming soon.');
+  },
+
+  async toggleRecording() {
+    // TODO: Implement recording
+    alert('Recording feature coming soon.');
+  },
+
+  // ============================================
+  // Chat
+  // ============================================
+
   async sendChatMessage() {
-    const input = document.getElementById('live-chat-input-field');
+    const input = document.getElementById('live-chat-input');
     if (!input) return;
     const content = input.value.trim();
     if (!content || !this.activeSession) return;
@@ -904,15 +630,14 @@ const liveView = {
         },
         body: JSON.stringify({ roomId: this.activeSession.id, content: content.slice(0, 1000) })
       });
+
       const result = await response.json();
       if (result.ok) {
         input.value = '';
         await this.loadChatMessages(this.activeSession.id);
-      } else {
-        console.error('Failed to send chat message', result.error);
       }
     } catch (error) {
-      console.error('Failed to send chat message', error);
+      console.error('Send chat error:', error);
     }
   },
 
@@ -920,15 +645,18 @@ const liveView = {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+
       const response = await fetch(`${API_BASE_URL}/api/live/chat/${requestId}?limit=50`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
+
       if (!response.ok) return;
+
       const result = await response.json();
       this.chatMessages = result.messages || [];
       this.renderChatMessages();
     } catch (error) {
-      console.error('Chat load error:', error);
+      console.error('Load chat error:', error);
     }
   },
 
@@ -940,6 +668,7 @@ const liveView = {
   renderChatMessages() {
     const container = document.getElementById('live-chat-messages');
     if (!container) return;
+
     container.innerHTML = this.chatMessages.map(msg => {
       const isOwn = msg.user_id === store.user.id;
       const name = msg.profiles?.full_name || 'Participant';
@@ -954,282 +683,214 @@ const liveView = {
         </div>
       `;
     }).join('');
+
     container.scrollTop = container.scrollHeight;
   },
 
+  renderParticipantsList() {
+    const list = document.getElementById('live-participants-list');
+    if (!list) return;
+
+    // TODO: Fetch actual participant list from server
+    list.innerHTML = '<div class="live-loading">Loading participants...</div>';
+  },
+
+  // ============================================
+  // Session Timer & Billing
+  // ============================================
+
   startSessionTimer() {
     if (this.sessionTimerInterval) return;
-    const requestId = this.activeSession?.id;
-    const isHost = this.sessionRole === 'host';
-    let billingMinute = 0;
 
     const tick = () => {
-      if (this.sessionConnected) {
-        this.liveSecs = (this.liveSecs || 0) + 1;
-        billingMinute++;
+      if (!this.sessionStartTime) return;
 
-        if (isHost) {
-          const earned = Math.floor(this.liveSecs / 60) * GP_PER_MINUTE;
-          if (earned > this.creditedGp) {
-            if (requestId) this.sessionGpByRequest[requestId] = (this.sessionGpByRequest[requestId] || 0) + (earned - this.creditedGp);
-            this.creditedGp = earned;
-          }
-        }
+      const elapsed = Date.now() - this.sessionStartTime;
+      const remaining = MAX_SESSION_DURATION - elapsed;
 
-        if (billingMinute >= 60) {
-          billingMinute = 0;
-          this.fetchBillingSummary();
-          if (isHost && requestId) {
-            this.triggerBillingTick(requestId);
-          }
+      if (remaining <= 0) {
+        alert('Session duration limit reached (1 hour). Session ending now.');
+        if (this.sessionRole === 'host') {
+          this.endSession();
+        } else {
+          this.leaveSession();
         }
+        return;
       }
-      const secs = this.liveSecs || 0;
-      const el = document.getElementById('live-session-timer');
-      if (el) el.textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      const timerEl = document.getElementById('live-session-timer');
+      if (timerEl) timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+      this.liveSecs = Math.floor(elapsed / 1000);
       this.updateBillingDisplay();
     };
+
     tick();
     this.sessionTimerInterval = setInterval(tick, 1000);
-
-    this.fetchBillingSummary();
   },
 
-  async triggerBillingTick(requestId) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const res = await fetch(`${API_BASE_URL}/api/live/billing-tick`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        console.log('[Live] Billing tick:', data);
-      }
-    } catch (e) {
-      console.error('Billing tick error:', e);
+  async updateBillingDisplay() {
+    // TODO: Fetch billing summary from server
+    const billingEl = document.getElementById('live-session-billing');
+    if (billingEl) {
+      billingEl.textContent = this.sessionRole === 'host' ? 'Earning: G0.00' : 'Cost: G0.00';
     }
   },
 
-  async fetchBillingSummary() {
-    const requestId = this.activeSession?.id;
-    if (!requestId) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const res = await fetch(`${API_BASE_URL}/api/live/billing-summary/${requestId}`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-      });
-      if (res.ok) {
-        this.billingSummary = await res.json();
-      }
-    } catch (e) {
-      console.error('Billing summary error:', e);
-    }
-  },
-
-  updateBillingDisplay() {
-    const gpEl = document.getElementById('live-session-gp');
-    if (!gpEl) return;
-    const isHost = this.sessionRole === 'host';
-    const requestId = this.activeSession?.id;
-    const gp = (requestId && this.sessionGpByRequest[requestId]) || 0;
-
-    if (isHost) {
-      const hostEarned = this.billingSummary?.host_total_earned || 0;
-      const rate = this.billingSummary?.rate || 1;
-      const participants = this.billingSummary?.active_participants || 0;
-      gpEl.textContent = `+G${Number(hostEarned).toFixed(1)} | ${participants} gliim${participants !== 1 ? 's' : ''} @ G${rate}/min`;
-    } else {
-      const myGp = this.billingSummary?.my_gp_earned || gp;
-      const rate = this.billingSummary?.rate || 1;
-      gpEl.textContent = `+${myGp} GP | -G${rate}/min`;
-    }
-  },
+  // ============================================
+  // Realtime
+  // ============================================
 
   setupSessionRealtime(id) {
     if (this.sessionChannel) supabase.removeChannel(this.sessionChannel);
+    
     this.sessionChannel = supabase.channel('live-session-' + id)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'live_requests',
         filter: 'id=eq.' + id
-      }, (payload) => this.handleSessionRowUpdate(payload.new))
+      }, (payload) => {
+        // Handle session updates
+        console.log('Session updated:', payload.new);
+      })
       .subscribe();
   },
 
-  async handleSessionRowUpdate(row) {
-    if (!row || !this.activeSession || row.id !== this.activeSession.id) return;
-    this.activeSession = { ...this.activeSession, ...row };
-
-    if (row.hand_raises !== undefined) {
-      this.raisedHands = this.normalizeHandRaises(row.hand_raises);
-      this.updateHandsPanel();
-    }
-
-    if (this.sessionSettled) return;
-
-    if (row.status === 'completed') {
-      this.sessionSettled = true;
-      const gp = this.claimDueGp(row.id);
-      if (gp > 0) await this.recordOwnSessionTx(row, gp);
-      if (this.callObject) await this.callObject.leave();
-      this.finishSessionUI(gp);
-    } else if (row.status === 'cancelled') {
-      this.sessionSettled = true;
-      if (this.callObject) await this.callObject.leave();
-      this.cleanupSession();
-      alert('This session was cancelled.');
-    }
-  },
-
-  claimDueGp(requestId) {
-    const total = this.sessionGpByRequest[requestId] || 0;
-    const due = Math.max(0, total);
-    if (due > 0) this.sessionGpByRequest[requestId] = 0;
-    return due;
-  },
-
-  async recordOwnSessionTx(s, gp) {
-    if (!(gp > 0)) return;
-    const isHost = s.user_id === store.user.id;
-    if (isHost) return;
-
-    const key = 'gliimu_live_tx_' + s.id;
-    try {
-      if (localStorage.getItem(key)) return;
-      localStorage.setItem(key, '1');
-    } catch (e) {}
-
-    await supabase.from('transactions').insert({
-      user_id: store.user.id,
-      amount: 0,
-      points: gp,
-      type: 'live_session',
-      status: 'success',
-      description: `Live session attended: ${s.title} (+${gp} GP)`
-    });
-  },
-
-  finishSessionUI(gp) {
-    const isHost = this.sessionRole === 'host';
-    const lines = ['Session complete!'];
-    if (isHost) {
-      const hostEarned = this.billingSummary?.host_total_earned || 0;
-      if (hostEarned > 0) lines.push(`G${Number(hostEarned).toFixed(1)} earned.`);
-      else lines.push('No earnings this session.');
-    } else {
-      if (gp > 0) lines.push(`+${gp} GP earned.`);
-      else lines.push('No GP this time.');
-    }
-    this.cleanupSession();
-    alert(lines.join('\n'));
-  },
-
-  async endSession() {
-    const s = this.activeSession;
-    if (!s || this.sessionRole !== 'host') return;
-    const hostEarned = this.billingSummary?.host_total_earned || 0;
-    const msg = this.sessionConnected
-      ? `End this session for everyone?\n\nYou earned G${Number(hostEarned).toFixed(1)} so far.`
-      : 'End this session for everyone?';
-    const end = await appConfirm(msg, { okText: 'End session', danger: true });
-    if (!end) return;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${API_BASE_URL}/api/live/billing-finalize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: s.id })
-      });
-    } catch (e) {
-      console.error('Billing finalize error:', e);
-    }
-
-    await supabase
-      .from('live_requests')
-      .update({
-        status: 'completed',
-        completed_by: store.user.id,
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', s.id);
-
-    if (s.room_id) await this.deleteDailyRoom(s.room_id);
-
-    if (this.callObject) await this.callObject.leave();
-    this.finishSessionUI(0);
-  },
+  // ============================================
+  // Leave / End Session
+  // ============================================
 
   async leaveSession() {
-    const s = this.activeSession;
-    if (!s) return;
-    const gpSoFar = this.claimDueGp(s.id);
-    const leave = await appConfirm(
-      this.sessionConnected
-        ? `Leave this session?\nYou keep +${gpSoFar} GP earned so far.`
-        : 'Leave this session?',
-      { okText: 'Leave', danger: true }
-    );
-    if (!leave) return;
+    const confirm = await appConfirm('Leave this session?', { okText: 'Leave', danger: true });
+    if (!confirm) return;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      
       await fetch(`${API_BASE_URL}/api/live/leave-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ requestId: s.id })
+        body: JSON.stringify({ requestId: this.activeSession.id })
       });
-    } catch (e) {
-      console.error('Leave tracking error:', e);
+
+      await supabase.rpc('decrement_participant_count', { p_request_id: this.activeSession.id });
+
+      if (this.callObject) await this.callObject.leave();
+      this.cleanupSession();
+    } catch (error) {
+      console.error('Leave session error:', error);
     }
-
-    await supabase.rpc('decrement_participant_count', { p_request_id: s.id });
-
-    const gp = this.claimDueGp(s.id);
-    if (gp > 0) {
-      await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: gp });
-      await this.recordOwnSessionTx(s, gp);
-    }
-
-    if (this.callObject) await this.callObject.leave();
-    this.cleanupSession();
   },
 
-  async deleteDailyRoom(roomId) {
+  async endSession() {
+    const confirm = await appConfirm('End this session for everyone?', { okText: 'End', danger: true });
+    if (!confirm) return;
+
     try {
-      const request = this.activeSession;
-      if (!request) return;
       const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
+
+      await fetch(`${API_BASE_URL}/api/live/billing-finalize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ requestId: request.id })
+        body: JSON.stringify({ requestId: this.activeSession.id })
       });
+
+      await supabase
+        .from('live_requests')
+        .update({
+          status: 'completed',
+          completed_by: store.user.id,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', this.activeSession.id);
+
+      if (this.activeSession.room_id) {
+        await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ requestId: this.activeSession.id })
+        });
+      }
+
+      if (this.callObject) await this.callObject.leave();
+      this.cleanupSession();
     } catch (error) {
-      console.error('Failed to delete daily room', error);
+      console.error('End session error:', error);
+    }
+  },
+
+  async forceEndLive() {
+    if (!this.activeSession) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (this.sessionRole === 'host') {
+        await fetch(`${API_BASE_URL}/api/live/billing-finalize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ requestId: this.activeSession.id })
+        });
+
+        await supabase
+          .from('live_requests')
+          .update({
+            status: 'completed',
+            completed_by: store.user.id,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', this.activeSession.id);
+
+        if (this.activeSession.room_id) {
+          await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ requestId: this.activeSession.id })
+          });
+        }
+      } else {
+        await fetch(`${API_BASE_URL}/api/live/leave-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ requestId: this.activeSession.id })
+        });
+
+        await supabase.rpc('decrement_participant_count', { p_request_id: this.activeSession.id });
+      }
+
+      if (this.callObject) await this.callObject.leave();
+      this.cleanupSession();
+    } catch (error) {
+      console.error('Force end live error:', error);
+      this.cleanupSession();
     }
   },
 
   cleanupSession() {
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
+
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
@@ -1246,23 +907,17 @@ const liveView = {
       supabase.removeChannel(this.sessionChannel);
       this.sessionChannel = null;
     }
+
     this.participantTiles.clear();
     this.participantsMap.clear();
     this.chatMessages = [];
-    this.chatOpen = false;
-    this.raisedHands = {};
-    this.billingSummary = null;
-    document.getElementById('live-session-overlay')?.remove();
-
-    this.sessionConnected = false;
-    this.sessionSettled = false;
     this.activeSession = null;
     this.sessionRole = null;
-    this.liveSecs = 0;
-    this.creditedGp = 0;
-    this.sessionGpByRequest = {};
 
-    this.renderLanding();
+    document.getElementById('live-session-view').style.display = 'none';
+    document.getElementById('live-landing').style.display = 'block';
+    
+    this.loadPublicSessions();
   }
 };
 
