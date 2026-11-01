@@ -458,7 +458,13 @@ const liveView = {
     this.callObject
       .on('joined-meeting', () => {
         const local = this.callObject.participants().local;
-        if (local) this.addParticipantTile(local);
+        if (local) {
+          this.addParticipantTile(local);
+          // Explicitly attach local video track if available
+          if (local.tracks?.video?.persistentTrack) {
+            this.attachTrack(local.session_id, local.tracks.video.persistentTrack);
+          }
+        }
       })
       .on('participant-joined', (e) => {
         if (e.participant) this.addParticipantTile(e.participant);

@@ -1004,7 +1004,7 @@ app.get('/api/live/public-sessions', async (req, res) => {
     // Clean up stale sessions (older than 1 hour)
     await supabaseAdmin.rpc('end_stale_live_sessions');
 
-    // Fetch active public sessions (is_private = false or null, started within last hour)
+    // Fetch active public sessions (is_private = false, started within last hour, has participants)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: sessions, error: sessionsError } = await supabaseAdmin
       .from('live_requests')
@@ -1012,6 +1012,7 @@ app.get('/api/live/public-sessions', async (req, res) => {
       .eq('status', 'active')
       .eq('is_private', false)
       .gt('started_at', oneHourAgo)
+      .gte('participant_count', 1) // Only show sessions with at least 1 participant (the host)
       .order('started_at', { ascending: false });
 
     if (sessionsError) {
