@@ -550,14 +550,15 @@ const liveView = {
       .on('joined-meeting', async () => {
         this.sessionConnected = true;
         this.hideSessionStatus();
-        // Add local participant to the map (Daily.co doesn't fire participant-joined for local)
         const localParticipant = this.callObject.participants().local;
+        console.log('[Live] joined-meeting, local participant:', localParticipant);
         if (localParticipant) {
-          // Ensure user_name is set
           if (!localParticipant.user_name) {
             localParticipant.user_name = store.profile?.full_name || store.user?.full_name || 'You';
           }
           this.participants[localParticipant.session_id] = localParticipant;
+          this.participants.local = localParticipant;
+          console.log('[Live] Added local participant to map:', localParticipant.session_id);
         }
         this.updateParticipantGrid();
       })
@@ -577,7 +578,10 @@ const liveView = {
       })
       .on('track-started', (e) => {
         if (e.track && e.participant) {
-          const p = this.participants[e.participant.session_id];
+          let p = this.participants[e.participant.session_id];
+          if (!p && e.participant.local) {
+            p = this.participants.local;
+          }
           if (p) {
             if (!p.tracks) p.tracks = {};
             p.tracks[e.track.kind] = e.track;
@@ -658,9 +662,16 @@ const liveView = {
     // Attach video tracks
     parts.forEach(p => {
       const videoEl = document.getElementById(`video-${p.session_id}`);
+      console.log('[Live] Attaching video track for participant:', p.session_id, 'local:', p.local, 'hasVideo:', !!p.tracks?.video?.track, 'videoEl:', !!videoEl);
       if (videoEl && p.tracks?.video?.track) {
-        videoEl.srcObject = new MediaStream([p.tracks.video.track]);
-        videoEl.play?.().catch(() => {});
+        try {
+          const stream = new MediaStream([p.tracks.video.track]);
+          videoEl.srcObject = stream;
+          videoEl.play?.().catch(e => console.warn('[Live] Video play failed:', e));
+          console.log('[Live] Video track attached successfully');
+        } catch (err) {
+          console.error('[Live] Failed to attach video track:', err);
+        }
       }
     });
 
