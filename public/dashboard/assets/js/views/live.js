@@ -43,12 +43,14 @@ const liveView = {
   // Realtime
   sessionChannel: null,
 
-  // Timer / GP
+  // Timer / GP / Billing
   sessionTimerInterval: null,
+  billingInterval: null,
   liveSecs: 0,
   creditedGp: 0,
   sessionGpByRequest: {},
   sessionGpPaidByRequest: {},
+  billingSummary: null,
 
   // Hand raises (host view): { userId: { name, raisedAt } }
   raisedHands: {},
@@ -268,6 +270,16 @@ const liveView = {
         return alert('Could not join session.');
       }
 
+      // Track participant for billing
+      try {
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        await fetch(`${API_BASE_URL}/api/live/join-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authSession.access_token}` },
+          body: JSON.stringify({ requestId: s.id })
+        });
+      } catch (e) { console.error('Join tracking error:', e); }
+
       // Notify host
       await supabase.from('notifications').insert({
         user_id: s.user_id,
@@ -348,6 +360,15 @@ const liveView = {
         .update({ room_id: result.room_id, room_url: result.room_url, join_code: result.join_code, status: 'active' })
         .eq('id', request.id);
 
+      // Track host as participant for billing
+      try {
+        await fetch(`${API_BASE_URL}/api/live/join-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ requestId: request.id })
+        });
+      } catch (e) { console.error('Host join tracking error:', e); }
+
       this.activeSession = {
         id: request.id,
         user_id: store.user.id,
@@ -427,6 +448,8 @@ const liveView = {
     this.raisedHands = {};
     this.liveSecs = 0;
     this.creditedGp = 0;
+    this.billingSummary = null;
+    this.lastBillingTick = null;
 
     this.renderSessionUI();
     this.joinDailyCall(this.activeSession.room_url);
@@ -524,9 +547,18 @@ const liveView = {
     });
 
     this.callObject
-      .on('joined-meeting', () => {
+      .on('joined-meeting', async () => {
         this.sessionConnected = true;
         this.hideSessionStatus();
+        // Add local participant to the map (Daily.co doesn't fire participant-joined for local)
+        const localParticipant = this.callObject.participants().local;
+        if (localParticipant) {
+          // Ensure user_name is set
+          if (!localParticipant.user_name) {
+            localParticipant.user_name = store.profile?.full_name || store.user?.full_name || 'You';
+          }
+          this.participants[localParticipant.session_id] = localParticipant;
+        }
         this.updateParticipantGrid();
       })
       .on('participant-joined', (e) => {
@@ -857,23 +889,97 @@ const liveView = {
   startSessionTimer() {
     if (this.sessionTimerInterval) return;
     const requestId = this.activeSession?.id;
+    const isHost = this.sessionRole === 'host';
+    let billingMinute = 0;
+
     const tick = () => {
       if (this.sessionConnected) {
         this.liveSecs = (this.liveSecs || 0) + 1;
-        const earned = Math.floor(this.liveSecs / 60) * GP_PER_MINUTE;
-        if (earned > this.creditedGp) {
-          if (requestId) this.sessionGpByRequest[requestId] = (this.sessionGpByRequest[requestId] || 0) + (earned - this.creditedGp);
-          this.creditedGp = earned;
+        billingMinute++;
+
+        // GP only accrues when there are participants present (not host alone)
+        const participantCount = Object.keys(this.participants).length;
+        const hasOthers = isHost ? participantCount > 1 : participantCount > 0;
+
+        if (hasOthers) {
+          const earned = Math.floor(this.liveSecs / 60) * GP_PER_MINUTE;
+          if (earned > this.creditedGp) {
+            if (requestId) this.sessionGpByRequest[requestId] = (this.sessionGpByRequest[requestId] || 0) + (earned - this.creditedGp);
+            this.creditedGp = earned;
+          }
+        }
+
+        // Every 60 seconds, trigger billing tick (host only) and refresh summary
+        if (billingMinute >= 60) {
+          billingMinute = 0;
+          this.fetchBillingSummary();
+          if (isHost && requestId) {
+            this.triggerBillingTick(requestId);
+          }
         }
       }
       const secs = this.liveSecs || 0;
       const el = document.getElementById('live-session-timer');
       if (el) el.textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
-      const gpEl = document.getElementById('live-session-gp');
-      if (gpEl) gpEl.textContent = `+${(requestId && this.sessionGpByRequest[requestId]) || 0} GP`;
+      this.updateBillingDisplay();
     };
     tick();
     this.sessionTimerInterval = setInterval(tick, 1000);
+
+    // Fetch initial billing summary
+    this.fetchBillingSummary();
+  },
+
+  async triggerBillingTick(requestId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${API_BASE_URL}/api/live/billing-tick`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ requestId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.host_credit > 0) {
+          this.lastBillingTick = data;
+        }
+      }
+    } catch (e) { console.error('Billing tick error:', e); }
+  },
+
+  async fetchBillingSummary() {
+    const requestId = this.activeSession?.id;
+    if (!requestId) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${API_BASE_URL}/api/live/billing-summary/${requestId}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) {
+        this.billingSummary = await res.json();
+      }
+    } catch (e) { console.error('Billing summary error:', e); }
+  },
+
+  updateBillingDisplay() {
+    const gpEl = document.getElementById('live-session-gp');
+    if (!gpEl) return;
+    const isHost = this.sessionRole === 'host';
+    const requestId = this.activeSession?.id;
+    const gp = (requestId && this.sessionGpByRequest[requestId]) || 0;
+
+    if (isHost) {
+      const hostEarned = this.billingSummary?.host_total_earned || 0;
+      const rate = this.billingSummary?.rate || 1;
+      const participants = this.billingSummary?.active_participants || 0;
+      gpEl.textContent = `+G${Number(hostEarned).toFixed(1)} | ${participants} gliim${participants !== 1 ? 's' : ''} @ G${rate}/min`;
+    } else {
+      const myGp = this.billingSummary?.my_gp_earned || gp;
+      const rate = this.billingSummary?.rate || 1;
+      gpEl.textContent = `+${myGp} GP | -G${rate}/min`;
+    }
   },
 
   setupSessionRealtime(id) {
@@ -898,7 +1004,7 @@ const liveView = {
     if (row.status === 'completed') {
       this.sessionSettled = true;
       const gp = this.claimDueGp(row.id, this.sessionConnected);
-      if (gp > 0) await await this.recordOwnSessionTx(row, gp);
+      if (gp > 0) await this.recordOwnSessionTx(row, gp);
       if (this.callObject) await this.callObject.leave();
       this.finishSessionUI(gp);
 } else if (row.status === 'cancelled') {
@@ -925,27 +1031,36 @@ const liveView = {
 
   async recordOwnSessionTx(s, gp) {
     if (!(gp > 0)) return;
+    const isHost = s.user_id === store.user.id;
+    if (isHost) return; // Host earns Gliits via billing tick, not GP
+
     const key = 'gliimu_live_tx_' + s.id;
     try {
       if (localStorage.getItem(key)) return;
       localStorage.setItem(key, '1');
     } catch (e) { /* storage unavailable */ }
 
-    const isHost = s.user_id === store.user.id;
     await supabase.from('transactions').insert({
       user_id: store.user.id,
       amount: 0,
       points: gp,
       type: 'live_session',
       status: 'success',
-      description: isHost ? `Live session hosted: ${s.title} (+${gp} GP)` : `Live session joined: ${s.title} (+${gp} GP)`
+      description: `Live session attended: ${s.title} (+${gp} GP)`
     });
   },
 
   finishSessionUI(gp) {
+    const isHost = this.sessionRole === 'host';
     const lines = ['Session complete!'];
-    if (gp > 0) lines.push(`+${gp} GP earned.`);
-    else lines.push('No GP this time.');
+    if (isHost) {
+      const hostEarned = this.billingSummary?.host_total_earned || 0;
+      if (hostEarned > 0) lines.push(`G${Number(hostEarned).toFixed(1)} earned.`);
+      else lines.push('No earnings this session.');
+    } else {
+      if (gp > 0) lines.push(`+${gp} GP earned.`);
+      else lines.push('No GP this time.');
+    }
     this.cleanupSession();
     alert(lines.join('\n'));
   },
@@ -953,12 +1068,22 @@ const liveView = {
   async endSession() {
     const s = this.activeSession;
     if (!s || this.sessionRole !== 'host') return;
-    const gpSoFar = this.gpDueFor(s.id, this.sessionConnected);
+    const hostEarned = this.billingSummary?.host_total_earned || 0;
     const msg = this.sessionConnected
-      ? `End this session for everyone?\n\nYou'll keep +${gpSoFar} GP earned so far.`
+      ? `End this session for everyone?\n\nYou earned G${Number(hostEarned).toFixed(1)} so far.`
       : 'End this session for everyone?';
     const end = await appConfirm(msg, { okText: 'End session', danger: true });
     if (!end) return;
+
+    // Finalize billing
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(`${API_BASE_URL}/api/live/billing-finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ requestId: s.id })
+      });
+    } catch (e) { console.error('Billing finalize error:', e); }
 
     await supabase
       .from('live_requests')
@@ -967,14 +1092,8 @@ const liveView = {
 
     if (s.room_id) await this.deleteDailyRoom(s.room_id);
 
-    const gp = this.claimDueGp(s.id, this.sessionConnected);
-    if (gp > 0) {
-      await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: gp });
-      await this.recordOwnSessionTx(s, gp);
-    }
-
     if (this.callObject) await this.callObject.leave();
-    this.finishSessionUI(gp);
+    this.finishSessionUI(0);
   },
 
   async leaveSession() {
@@ -988,6 +1107,16 @@ const liveView = {
       { okText: 'Leave', danger: true }
     );
     if (!leave) return;
+
+    // Track leave for billing
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(`${API_BASE_URL}/api/live/leave-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ requestId: s.id })
+      });
+    } catch (e) { console.error('Leave tracking error:', e); }
 
     await supabase.rpc('decrement_participant_count', { p_request_id: s.id });
 
@@ -1020,6 +1149,7 @@ const liveView = {
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
     if (this.sessionTimerInterval) { clearInterval(this.sessionTimerInterval); this.sessionTimerInterval = null; }
+    if (this.billingInterval) { clearInterval(this.billingInterval); this.billingInterval = null; }
     if (this.chatPollInterval) { clearInterval(this.chatPollInterval); this.chatPollInterval = null; }
     if (this.callObject) { this.callObject.destroy(); this.callObject = null; }
     if (this.sessionChannel) { supabase.removeChannel(this.sessionChannel); this.sessionChannel = null; }
@@ -1027,6 +1157,8 @@ const liveView = {
     this.chatMessages = [];
     this.chatOpen = false;
     this.raisedHands = {};
+    this.billingSummary = null;
+    this.lastBillingTick = null;
     document.getElementById('live-session-overlay')?.remove();
 
     this.sessionModalOpen = false;

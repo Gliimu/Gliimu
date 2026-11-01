@@ -1104,6 +1104,192 @@ app.post('/api/daily/delete-room', async (req, res) => {
 });
 
 // ==========================================
+// LIVE BILLING — Per-minute billing tick + join/leave tracking
+// ==========================================
+
+// Track participant joining a session
+app.post('/api/live/join-session', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId } = req.body || {};
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    const userClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+      }
+    );
+
+    const { data, error } = await userClient.rpc('live_session_join', { p_request_id: requestId });
+    if (error) {
+      console.error('Join session tracking error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ ok: true, ...data });
+  } catch (error) {
+    console.error('Join session error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Track participant leaving a session
+app.post('/api/live/leave-session', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId } = req.body || {};
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    const userClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+      }
+    );
+
+    const { data, error } = await userClient.rpc('live_session_leave', { p_request_id: requestId });
+    if (error) {
+      console.error('Leave session tracking error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ ok: true, ...data });
+  } catch (error) {
+    console.error('Leave session error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Billing tick — called every minute by the client while session is active
+app.post('/api/live/billing-tick', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId } = req.body || {};
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    // Only host can trigger billing tick
+    const { data: session } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, user_id, status')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (!session) return res.status(404).json({ error: 'Session not found.' });
+    if (session.user_id !== authData.user.id) {
+      return res.status(403).json({ error: 'Only the host can trigger billing.' });
+    }
+    if (session.status !== 'active') {
+      return res.json({ ok: true, participants: 0, collected: 0, host_credit: 0 });
+    }
+
+    const { data, error } = await supabaseAdmin.rpc('live_billing_tick', { p_request_id: requestId });
+    if (error) {
+      console.error('Billing tick error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ ok: true, ...(data || {}) });
+  } catch (error) {
+    console.error('Billing tick error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Billing summary — get current billing stats for a session
+app.get('/api/live/billing-summary/:requestId', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId } = req.params;
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    const userClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { persistSession: false, autoRefreshToken: false }
+      }
+    );
+
+    const { data, error } = await userClient.rpc('live_billing_summary', { p_request_id: requestId });
+    if (error) {
+      console.error('Billing summary error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ ok: true, ...(data || {}) });
+  } catch (error) {
+    console.error('Billing summary error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Finalize billing when session ends
+app.post('/api/live/billing-finalize', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { requestId } = req.body || {};
+    if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    const { data, error } = await supabaseAdmin.rpc('live_session_finalize', { p_request_id: requestId });
+    if (error) {
+      console.error('Billing finalize error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json({ ok: true, ...(data || {}) });
+  } catch (error) {
+    console.error('Billing finalize error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// ==========================================
 // LIVE CHAT — In-session messaging
 // ==========================================
 // Send a chat message in a live room
