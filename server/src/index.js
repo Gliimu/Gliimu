@@ -1001,42 +1001,48 @@ app.get('/api/live/public-sessions', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    // Fetch active public sessions with host profile info
+    // Fetch active public sessions (is_private = false or null)
     const { data: sessions, error: sessionsError } = await supabaseAdmin
       .from('live_requests')
-      .select(`
-        id,
-        title,
-        description,
-        is_private,
-        participant_count,
-        started_at,
-        user_id,
-        profiles:user_id (
-          full_name,
-          verification_badge
-        )
-      `)
+      .select('id, title, description, is_private, participant_count, started_at, user_id')
       .eq('status', 'active')
-      .or('is_private.eq.false,is_private.is.null')
+      .eq('is_private', false)
       .order('started_at', { ascending: false });
 
     if (sessionsError) {
       console.error('Public sessions query error:', sessionsError);
-      return res.status(500).json({ error: 'Failed to fetch sessions.' });
+      return res.status(500).json({ error: 'Failed to fetch sessions: ' + sessionsError.message });
+    }
+
+    // Get host names for all sessions
+    const userIds = [...new Set((sessions || []).map(s => s.user_id))];
+    let profilesMap = {};
+    
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, verification_badge')
+        .in('id', userIds);
+      
+      if (profiles) {
+        profilesMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+      }
     }
 
     // Format response
-    const formattedSessions = (sessions || []).map(s => ({
-      id: s.id,
-      title: s.title,
-      description: s.description,
-      is_private: s.is_private || false,
-      participant_count: s.participant_count || 0,
-      started_at: s.started_at,
-      host_name: s.profiles?.full_name || 'Unknown',
-      host_verified: !!s.profiles?.verification_badge
-    }));
+    const formattedSessions = (sessions || []).map(s => {
+      const profile = profilesMap[s.user_id];
+      return {
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        is_private: s.is_private || false,
+        participant_count: s.participant_count || 0,
+        started_at: s.started_at,
+        host_name: profile?.full_name || 'Unknown',
+        host_verified: !!profile?.verification_badge
+      };
+    });
 
     res.json({ sessions: formattedSessions });
   } catch (error) {
