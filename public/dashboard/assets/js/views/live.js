@@ -147,6 +147,36 @@ const liveView = {
     await this.loadBoard();
   },
 
+  destroy() {
+    if (this.onPresenceChanged) {
+      window.removeEventListener('presence-changed', this.onPresenceChanged);
+      this.onPresenceChanged = null;
+    }
+    if (this.boardChannel) {
+      supabase.removeChannel(this.boardChannel);
+      this.boardChannel = null;
+    }
+    if (this.sessionChannel) {
+      supabase.removeChannel(this.sessionChannel);
+      this.sessionChannel = null;
+    }
+    if (this.sessionTimerInterval) {
+      clearInterval(this.sessionTimerInterval);
+      this.sessionTimerInterval = null;
+    }
+    if (this.chatPollInterval) {
+      clearInterval(this.chatPollInterval);
+      this.chatPollInterval = null;
+    }
+    if (this.callObject) {
+      this.callObject.destroy();
+      this.callObject = null;
+    }
+    document.getElementById('live-session-overlay')?.remove();
+    heartbeat.stop();
+    heartbeat.setCurrentPost(null);
+  },
+
   setupTopbar() {
     const topbarDynamic = document.getElementById('topbar-dynamic-content');
     const topbarRight = document.getElementById('topbar-right-actions');
@@ -401,7 +431,7 @@ const liveView = {
         description: description ? description.slice(0, 200) : null,
         status: 'open',
         sharing_mode: sharingMode,
-        invited_user_ids: sharingMode === 'users' && this.invitedUserIds.length ? JSON.stringify(this.invitedUserIds) : null,
+        invited_user_ids: sharingMode === 'users' ? [...this.invitedUserIds] : [],
         max_participants: 10,
         participant_count: 1
       })
@@ -484,15 +514,17 @@ const liveView = {
     const myGp = store.profile?.total_gp || 0;
     if (myGp < MIN_GP_FOR_LIVE) return alert(`You need at least ${MIN_GP_FOR_LIVE} GP to join live sessions.`);
 
-    const { error } = await supabase
-      .from('live_requests')
-      .update({ participant_count: count + 1 })
-      .eq('id', id)
-      .eq('status', 'open');
+    const { data: newCount, error } = await supabase
+      .rpc('increment_participant_count', { p_request_id: id });
 
     if (error) {
       console.error('Failed to join request', error);
       return alert('Could not join session.');
+    }
+
+    if (newCount > max) {
+      await supabase.rpc('decrement_participant_count', { p_request_id: id });
+      return alert('This session just became full. Please try another.');
     }
 
     await supabase.from('notifications').insert({
@@ -613,6 +645,8 @@ const liveView = {
   },
 
   renderSessionUI() {
+    document.getElementById('live-session-overlay')?.remove();
+
     const overlay = document.createElement('div');
     overlay.id = 'live-session-overlay';
     overlay.className = 'live-session-overlay';
@@ -809,7 +843,11 @@ const liveView = {
 
     request.is_locked = newLockState;
     this.renderBoard();
-    this.renderSessionUI();
+    const lockBtn = document.getElementById('live-share-btn');
+    if (lockBtn) {
+      lockBtn.title = newLockState ? 'Unlock room' : 'Lock room';
+      lockBtn.innerHTML = newLockState ? ICONS.unlock : ICONS.lock;
+    }
   },
 
   toggleMute(type) {
@@ -940,11 +978,7 @@ const liveView = {
     const wasConnected = this.sessionConnected;
     this.sessionSettled = true;
 
-    const count = s.participant_count || 1;
-    await supabase
-      .from('live_requests')
-      .update({ participant_count: Math.max(0, count - 1) })
-      .eq('id', s.id);
+    await supabase.rpc('decrement_participant_count', { p_request_id: s.id });
 
     if (award && wasConnected) {
       const gp = this.claimDueGp(s.id, true);
