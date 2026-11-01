@@ -39,6 +39,7 @@ const liveView = {
   chatOpen: false,
   chatMessages: [],
   chatPollInterval: null,
+  chatErrorCount: 0,
   participantsPanelOpen: false,
   
   // Session controls
@@ -97,10 +98,7 @@ const liveView = {
       supabase.removeChannel(this.sessionChannel);
       this.sessionChannel = null;
     }
-    if (this.chatPollInterval) {
-      clearInterval(this.chatPollInterval);
-      this.chatPollInterval = null;
-    }
+    this.stopChatPolling();
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
@@ -327,7 +325,7 @@ const liveView = {
       });
 
       this.activeSession = request;
-      this.sessionRole = 'participant';
+      this.sessionRole = (request.user_id === store.user.id) ? 'host' : 'participant';
       this.enterSession();
 
     } catch (error) {
@@ -676,19 +674,40 @@ const liveView = {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
 
-      if (!response.ok) return;
+      if (!response.ok) {
+        this.chatErrorCount++;
+        if (this.chatErrorCount >= 3) {
+          console.warn('Chat polling stopped after 3 consecutive errors');
+          this.stopChatPolling();
+        }
+        return;
+      }
 
+      this.chatErrorCount = 0;
       const result = await response.json();
       this.chatMessages = result.messages || [];
       this.renderChatMessages();
     } catch (error) {
       console.error('Load chat error:', error);
+      this.chatErrorCount++;
+      if (this.chatErrorCount >= 3) {
+        console.warn('Chat polling stopped after 3 consecutive errors');
+        this.stopChatPolling();
+      }
     }
   },
 
   startChatPolling(requestId) {
     if (this.chatPollInterval) clearInterval(this.chatPollInterval);
+    this.chatErrorCount = 0;
     this.chatPollInterval = setInterval(() => this.loadChatMessages(requestId), 3000);
+  },
+
+  stopChatPolling() {
+    if (this.chatPollInterval) {
+      clearInterval(this.chatPollInterval);
+      this.chatPollInterval = null;
+    }
   },
 
   renderChatMessages() {
@@ -921,10 +940,7 @@ const liveView = {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
     }
-    if (this.chatPollInterval) {
-      clearInterval(this.chatPollInterval);
-      this.chatPollInterval = null;
-    }
+    this.stopChatPolling();
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
