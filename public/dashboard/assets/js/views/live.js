@@ -30,6 +30,8 @@ const liveView = {
   sessionSettled: false,
 
   callObject: null,
+  participantTiles: new Map(),
+  participantsMap: new Map(),
 
   chatMessages: [],
   chatOpen: false,
@@ -158,6 +160,8 @@ const liveView = {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
     }
+    this.participantTiles.clear();
+    this.participantsMap.clear();
     document.getElementById('live-session-overlay')?.remove();
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
@@ -461,6 +465,8 @@ const liveView = {
     if (landing) landing.style.display = 'none';
     this.sessionSettled = false;
     this.sessionConnected = false;
+    this.participantsMap.clear();
+    this.participantTiles.clear();
     this.chatMessages = [];
     this.chatOpen = false;
     this.raisedHands = {};
@@ -492,7 +498,7 @@ const liveView = {
     overlay.innerHTML = `
       <div class="live-studio-container">
         <div class="live-video-main">
-          <div id="live-daily-iframe" style="width:100%;height:100%;"></div>
+          <div id="live-participant-grid" class="live-participant-grid"></div>
           <div class="live-session-info">
             <h3>${esc(s.title)}</h3>
             <div class="live-session-meta">
@@ -561,41 +567,45 @@ const liveView = {
       }
     } catch (e) {}
 
-    const container = document.getElementById('live-daily-iframe');
-    if (!container) {
-      console.error('[Live] iframe container not found');
-      this.showSessionStatus('Failed to initialize video.');
-      return;
-    }
-
-    this.callObject = window.DailyIframe.createFrame({
+    this.callObject = window.DailyIframe.createCallObject({
       url: roomUrl,
-      container,
-      showLeaveButton: false,
-      iframeStyle: {
-        width: '100%',
-        height: '100%',
-        border: '0'
-      }
+      userName: store.profile?.full_name || store.user?.full_name || 'Gliimait',
+      userData: { user_id: store.user.id }
     });
 
     this.callObject
       .on('joined-meeting', () => {
         this.sessionConnected = true;
         this.hideSessionStatus();
+        const local = this.callObject.participants().local;
+        if (local) {
+          this.addParticipantTile(local);
+        }
         console.log('[Live] Joined meeting successfully');
+      })
+      .on('participant-joined', (e) => {
+        if (e.participant) {
+          this.addParticipantTile(e.participant);
+        }
+      })
+      .on('participant-left', (e) => {
+        if (e.participant) {
+          this.removeParticipantTile(e.participant.session_id);
+        }
+      })
+      .on('track-started', (e) => {
+        if (e.track && e.participant) {
+          this.attachTrack(e.participant.session_id, e.track);
+        }
+      })
+      .on('track-stopped', (e) => {
+        if (e.track && e.participant) {
+          this.detachTrack(e.participant.session_id, e.track.kind);
+        }
       })
       .on('left-meeting', () => {
         console.log('[Live] Left meeting');
         this.cleanupSession();
-      })
-      .on('participant-joined', (e) => {
-        console.log('[Live] Participant joined:', e.participant?.user_name);
-        this.updateHandsPanel();
-      })
-      .on('participant-left', (e) => {
-        console.log('[Live] Participant left:', e.participant?.user_name);
-        this.updateHandsPanel();
       })
       .on('error', (e) => {
         console.error('[Live] Daily.co error:', e);
@@ -603,12 +613,120 @@ const liveView = {
       });
 
     try {
+      await this.callObject.startCamera();
       await this.callObject.join();
       console.log('[Live] Join call initiated');
     } catch (error) {
       console.error('[Live] Failed to join daily call:', error);
       this.showSessionStatus('Could not connect. Check camera/mic permissions.');
     }
+  },
+
+  addParticipantTile(p) {
+    const grid = document.getElementById('live-participant-grid');
+    if (!grid) return;
+
+    const sessionId = p.session_id;
+    if (this.participantTiles.has(sessionId)) return;
+
+    this.participantsMap.set(sessionId, p);
+
+    const tile = document.createElement('div');
+    tile.className = `live-participant-tile${p.local ? ' local' : ''}`;
+    tile.dataset.sessionId = sessionId;
+    if (p.user_data?.user_id) tile.dataset.userId = p.user_data.user_id;
+
+    const video = document.createElement('video');
+    video.id = `video-${sessionId}`;
+    video.autoplay = true;
+    video.playsInline = true;
+    if (p.local) video.muted = true;
+
+    const info = document.createElement('div');
+    info.className = 'live-participant-info';
+    info.innerHTML = `<span class="live-participant-name">${esc(p.user_name || 'Participant')}${p.local ? ' (You)' : ''}</span>`;
+
+    tile.appendChild(video);
+    tile.appendChild(info);
+    grid.appendChild(tile);
+
+    this.participantTiles.set(sessionId, { tile, video, info });
+    this.updateGridLayout();
+  },
+
+  removeParticipantTile(sessionId) {
+    const entry = this.participantTiles.get(sessionId);
+    if (entry) {
+      entry.tile.remove();
+      this.participantTiles.delete(sessionId);
+      this.participantsMap.delete(sessionId);
+      this.updateGridLayout();
+    }
+  },
+
+  attachTrack(sessionId, track) {
+    const entry = this.participantTiles.get(sessionId);
+    if (!entry) return;
+
+    const kind = track.kind;
+
+    if (kind === 'video') {
+      try {
+        const stream = new MediaStream([track]);
+        entry.video.srcObject = stream;
+        entry.video.play?.().catch(e => console.warn('[Live] Video play failed:', e));
+        console.log('[Live] Attached video track for', sessionId);
+      } catch (err) {
+        console.error('[Live] Failed to attach video track:', err);
+      }
+    } else if (kind === 'screenVideo') {
+      let screenVideo = entry.tile.querySelector('.live-screen-video');
+      if (!screenVideo) {
+        screenVideo = document.createElement('video');
+        screenVideo.className = 'live-screen-video';
+        screenVideo.autoplay = true;
+        screenVideo.playsInline = true;
+        entry.tile.insertBefore(screenVideo, entry.info);
+        entry.tile.classList.add('screen-sharing');
+      }
+      try {
+        const stream = new MediaStream([track]);
+        screenVideo.srcObject = stream;
+        screenVideo.play?.().catch(e => console.warn('[Live] Screen play failed:', e));
+        console.log('[Live] Attached screen track for', sessionId);
+      } catch (err) {
+        console.error('[Live] Failed to attach screen track:', err);
+      }
+    }
+  },
+
+  detachTrack(sessionId, kind) {
+    const entry = this.participantTiles.get(sessionId);
+    if (!entry) return;
+
+    if (kind === 'video') {
+      entry.video.srcObject = null;
+    } else if (kind === 'screenVideo') {
+      const screenVideo = entry.tile.querySelector('.live-screen-video');
+      if (screenVideo) {
+        screenVideo.srcObject = null;
+        screenVideo.remove();
+        entry.tile.classList.remove('screen-sharing');
+      }
+    }
+  },
+
+  updateGridLayout() {
+    const grid = document.getElementById('live-participant-grid');
+    if (!grid) return;
+
+    const count = this.participantTiles.size;
+    grid.className = 'live-participant-grid';
+    if (count === 1) grid.classList.add('grid-1');
+    else if (count === 2) grid.classList.add('grid-2');
+    else if (count <= 4) grid.classList.add('grid-4');
+    else if (count <= 6) grid.classList.add('grid-6');
+    else grid.classList.add('grid-9');
   },
 
   showSessionStatus(text) {
@@ -1128,6 +1246,8 @@ const liveView = {
       supabase.removeChannel(this.sessionChannel);
       this.sessionChannel = null;
     }
+    this.participantTiles.clear();
+    this.participantsMap.clear();
     this.chatMessages = [];
     this.chatOpen = false;
     this.raisedHands = {};
