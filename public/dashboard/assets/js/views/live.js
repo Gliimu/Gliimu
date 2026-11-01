@@ -28,6 +28,7 @@ const liveView = {
   activeSession: null,
   sessionRole: null, // 'host' | 'participant'
   publicSessions: [],
+  joiningSession: false, // Guard against rapid join attempts
   
   // Daily.co
   callObject: null,
@@ -219,11 +220,17 @@ const liveView = {
   },
 
   async createSession() {
+    if (this.joiningSession) return; // Prevent rapid clicks
+    this.joiningSession = true;
+    
     const title = document.getElementById('live-host-title')?.value?.trim();
     const description = document.getElementById('live-host-desc')?.value?.trim();
     const isPrivate = document.getElementById('live-host-private')?.checked || false;
 
-    if (!title) return alert('Please enter a session title.');
+    if (!title) {
+      this.joiningSession = false;
+      return alert('Please enter a session title.');
+    }
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -282,10 +289,15 @@ const liveView = {
     } catch (error) {
       console.error('Create session error:', error);
       alert('Failed to create session: ' + error.message);
+    } finally {
+      this.joiningSession = false;
     }
   },
 
   async joinSession(sessionId) {
+    if (this.joiningSession) return; // Prevent rapid clicks
+    this.joiningSession = true;
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -296,7 +308,10 @@ const liveView = {
         .eq('status', 'active')
         .single();
 
-      if (error || !request) return alert('Session not found or no longer active.');
+      if (error || !request) {
+        alert('Session not found or no longer active.');
+        return;
+      }
 
       // Increment participant count
       await supabase.rpc('increment_participant_count', { p_request_id: request.id });
@@ -318,6 +333,8 @@ const liveView = {
     } catch (error) {
       console.error('Join session error:', error);
       alert('Failed to join session.');
+    } finally {
+      this.joiningSession = false;
     }
   },
 

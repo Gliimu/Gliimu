@@ -1001,12 +1001,14 @@ app.get('/api/live/public-sessions', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    // Fetch active public sessions (is_private = false or null)
+    // Fetch active public sessions (is_private = false or null, started within last hour)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: sessions, error: sessionsError } = await supabaseAdmin
       .from('live_requests')
       .select('id, title, description, is_private, participant_count, started_at, user_id')
       .eq('status', 'active')
       .eq('is_private', false)
+      .gt('started_at', oneHourAgo)
       .order('started_at', { ascending: false });
 
     if (sessionsError) {
