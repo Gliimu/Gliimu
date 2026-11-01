@@ -1029,9 +1029,7 @@ const liveView = {
   gpDueFor(requestId, connected) {
     const total = this.sessionGpByRequest[requestId] || 0;
     const paid = this.sessionGpPaidByRequest[requestId] || 0;
-    let due = Math.max(0, total - paid);
-    if (due === 0 && connected && paid === 0 && total === 0) due = MIN_CONNECTED_GP;
-    return due;
+    return Math.max(0, total - paid);
   },
 
   claimDueGp(requestId, connected) {
