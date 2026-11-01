@@ -18,7 +18,9 @@ const ICONS = {
   record: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>',
   close: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
   plus: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
-  lock: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>'
+  lock: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>',
+  share: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
+  copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -82,11 +84,19 @@ const liveView = {
       grantScreenShare: (userId) => this.grantScreenShare(userId),
       revokeScreenShare: (userId) => this.revokeScreenShare(userId),
       toggleRecording: () => this.toggleRecording(),
+      toggleScreenShare: () => this.toggleScreenShare(),
+      sharePrivateLink: () => this.sharePrivateLink(),
       isLiveActive: () => !!this.activeSession,
       endLive: () => this.forceEndLive()
     };
 
     await this.loadPublicSessions();
+
+    const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const joinId = params.get('join');
+    if (joinId) {
+      await this.joinSession(joinId);
+    }
   },
 
   destroy() {
@@ -378,13 +388,14 @@ const liveView = {
 
     const isHost = this.sessionRole === 'host';
     const s = this.activeSession;
+    const isPrivate = s.is_private;
 
     sessionView.innerHTML = `
       <div class="live-studio-container">
         <div class="live-video-area">
           <div id="live-participant-grid" class="live-participant-grid"></div>
           <div class="live-session-header">
-            <h3>${esc(s.title)}</h3>
+            <h3>${esc(s.title)} ${isPrivate ? '<span class="live-private-badge">' + ICONS.lock + ' Private</span>' : ''}</h3>
             <div class="live-session-meta">
               <span id="live-session-timer">60:00</span>
               <span id="live-session-billing">Loading...</span>
@@ -396,8 +407,10 @@ const liveView = {
         <div class="live-controls-bar">
           <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
           <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
+          ${isHost ? `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>` : ''}
           ${!isHost ? `<button class="live-ctrl-btn" id="live-hand-btn" title="Raise hand">${ICONS.hand}</button>` : ''}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
+          ${isHost && isPrivate ? `<button class="live-ctrl-btn" id="live-share-btn" title="Copy invite link">${ICONS.share}</button>` : ''}
           ${isHost ? `<button class="live-ctrl-btn" id="live-participants-btn" title="Participants">${ICONS.users}</button>` : ''}
           ${isHost ? `<button class="live-ctrl-btn" id="live-record-btn" title="Toggle recording">${ICONS.record}</button>` : ''}
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -430,8 +443,10 @@ const liveView = {
     // Attach event listeners
     document.getElementById('live-camera-btn')?.addEventListener('click', () => this.toggleCamera());
     document.getElementById('live-mic-btn')?.addEventListener('click', () => this.toggleMic());
+    document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
     document.getElementById('live-hand-btn')?.addEventListener('click', () => this.toggleHandRaise());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
+    document.getElementById('live-share-btn')?.addEventListener('click', () => this.sharePrivateLink());
     document.getElementById('live-participants-btn')?.addEventListener('click', () => this.toggleParticipantsPanel());
     document.getElementById('live-record-btn')?.addEventListener('click', () => this.toggleRecording());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
@@ -634,6 +649,47 @@ const liveView = {
     alert('Recording feature coming soon.');
   },
 
+  async toggleScreenShare() {
+    if (!this.callObject) return;
+    
+    const isSharing = this.callObject.localScreen();
+    if (isSharing) {
+      this.callObject.stopScreenShare();
+      const btn = document.getElementById('live-screen-btn');
+      if (btn) btn.classList.remove('active');
+    } else {
+      try {
+        await this.callObject.startScreenShare();
+        const btn = document.getElementById('live-screen-btn');
+        if (btn) btn.classList.add('active');
+      } catch (error) {
+        console.error('Screen share error:', error);
+      }
+    }
+  },
+
+  sharePrivateLink() {
+    if (!this.activeSession) return;
+    
+    const joinUrl = `${window.location.origin}${window.location.pathname}#/live?join=${this.activeSession.id}`;
+    
+    navigator.clipboard.writeText(joinUrl).then(() => {
+      const btn = document.getElementById('live-share-btn');
+      if (btn) {
+        const originalTitle = btn.title;
+        btn.title = 'Link copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.title = originalTitle;
+          btn.classList.remove('copied');
+        }, 2000);
+      }
+    }).catch(err => {
+      console.error('Copy failed:', err);
+      prompt('Copy this link to share:', joinUrl);
+    });
+  },
+
   // ============================================
   // Chat
   // ============================================
@@ -834,8 +890,17 @@ const liveView = {
   },
 
   async endSession() {
+    if (!this.activeSession) {
+      console.warn('No active session to end');
+      this.cleanupSession();
+      return;
+    }
+
     const confirm = await appConfirm('End this session for everyone?', { okText: 'End', danger: true });
     if (!confirm) return;
+
+    const sessionId = this.activeSession.id;
+    const roomId = this.activeSession.room_id;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -846,7 +911,7 @@ const liveView = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ requestId: this.activeSession.id })
+        body: JSON.stringify({ requestId: sessionId })
       });
 
       await supabase
@@ -856,17 +921,17 @@ const liveView = {
           completed_by: store.user.id,
           completed_at: new Date().toISOString()
         })
-        .eq('id', this.activeSession.id);
+        .eq('id', sessionId);
 
-      if (this.activeSession.room_id) {
+      if (roomId) {
         await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`
           },
-          body: JSON.stringify({ requestId: this.activeSession.id })
-        });
+          body: JSON.stringify({ requestId: sessionId })
+        }).catch(err => console.warn('Delete room failed (non-critical):', err));
       }
 
       if (this.callObject) await this.callObject.leave();
