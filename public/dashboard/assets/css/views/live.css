@@ -263,6 +263,13 @@ body.live-studio-active .view-container {
 .live-participant-tile.focused.speaking {
   border-color: #22c55e;
 }
+.live-participant-tile.host {
+  border: 2px solid #fbbf24;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+}
+.live-participant-tile.host.focused {
+  border-color: #fbbf24;
+}
 
 .live-participant-info {
   position: absolute;
@@ -287,21 +294,22 @@ body.live-studio-active .view-container {
 
 .live-host-badge {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 8px;
+  left: 8px;
   display: flex;
   align-items: center;
-  gap: 3px;
-  background: var(--brand-primary, #6c5ce7);
-  color: #fff;
-  font-size: 10px;
+  gap: 4px;
+  background: #fbbf24;
+  color: #000;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
   pointer-events: none;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   z-index: 2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .live-host-badge svg {
   flex-shrink: 0;

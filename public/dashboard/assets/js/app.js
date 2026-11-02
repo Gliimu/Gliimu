@@ -3,7 +3,7 @@ import { router } from './router.js?v=156';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
-import { previewText } from './media.js?v=2';
+import { previewText } from './media.js?v=3';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER

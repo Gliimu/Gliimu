@@ -1,7 +1,7 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
-import { uploadAttachment } from '../media.js?v=2';
+import { uploadAttachment } from '../media.js?v=3';
 
 const MIN_GP_TO_HOST = 1500;
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
@@ -85,8 +85,8 @@ const liveView = {
       sendChatMessage: () => this.sendChatMessage(),
       handleChatFile: (ev) => this.handleChatFile(ev),
       clearAttachmentPreview: () => this.clearAttachmentPreview(),
-      muteParticipantAudio: (sessionId) => this.muteParticipantAudio(sessionId),
-      muteParticipantVideo: (sessionId) => this.muteParticipantVideo(sessionId),
+      muteParticipant: (sessionId) => this.muteParticipant(sessionId),
+      kickParticipant: (sessionId) => this.kickParticipant(sessionId),
       reportLiveSession: () => this.reportLiveSession(),
       grantScreenShare: (userId) => this.grantScreenShare(userId),
       revokeScreenShare: (userId) => this.revokeScreenShare(userId),
@@ -102,6 +102,44 @@ const liveView = {
     const joinId = params.get('join');
     if (joinId) {
       await this.joinSession(joinId);
+    } else {
+      // Attempt to recover session after refresh/network issue (only if not joining via link)
+      this._recoverSession();
+    }
+  },
+
+  async _recoverSession() {
+    try {
+      const saved = sessionStorage.getItem('liveSession');
+      if (!saved) return;
+
+      const { sessionId, role, timestamp } = JSON.parse(saved);
+      // Only recover if saved within last 2 hours (session max is 1 hour)
+      if (Date.now() - timestamp > 2 * 60 * 60 * 1000) {
+        sessionStorage.removeItem('liveSession');
+        return;
+      }
+
+      // Fetch session details
+      const { data: session, error } = await supabase
+        .from('live_requests')
+        .select('*')
+        .eq('id', sessionId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (error || !session) {
+        sessionStorage.removeItem('liveSession');
+        return;
+      }
+
+      // Rejoin the session
+      this.activeSession = session;
+      this.sessionRole = role;
+      this.enterSession();
+    } catch (e) {
+      console.warn('Session recovery failed:', e);
+      sessionStorage.removeItem('liveSession');
     }
   },
 
@@ -414,6 +452,15 @@ const liveView = {
   enterSession() {
     if (!this.activeSession) return;
 
+    // Persist session for recovery on refresh/network issues
+    try {
+      sessionStorage.setItem('liveSession', JSON.stringify({
+        sessionId: this.activeSession.id,
+        role: this.sessionRole,
+        timestamp: Date.now()
+      }));
+    } catch (e) { console.warn('Failed to save session to storage:', e); }
+
     document.getElementById('live-landing').style.display = 'none';
     const sessionView = document.getElementById('live-session-view');
     sessionView.style.display = 'block';
@@ -452,7 +499,6 @@ const liveView = {
           <h3>${esc(s.title)} ${isPrivate ? '<span class="live-private-badge">' + ICONS.lock + ' Private</span>' : ''}</h3>
           <div class="live-session-meta">
             <span id="live-session-timer">60:00</span>
-            <span id="live-session-billing">Loading...</span>
           </div>
         </div>
 
@@ -764,6 +810,12 @@ const liveView = {
 
   toggleCamera() {
     if (!this.callObject) return;
+    // Check if host has muted this participant
+    const localEntry = Array.from(this.participantTiles.values()).find(e => e.local);
+    if (localEntry?._hostMuted) {
+      alert('The host has muted your camera. You cannot unmute yourself.');
+      return;
+    }
     const current = this.callObject.localVideo();
     this.callObject.setLocalVideo(!current);
     const btn = document.getElementById('live-camera-btn');
@@ -775,6 +827,12 @@ const liveView = {
 
   toggleMic() {
     if (!this.callObject) return;
+    // Check if host has muted this participant
+    const localEntry = Array.from(this.participantTiles.values()).find(e => e.local);
+    if (localEntry?._hostMuted) {
+      alert('The host has muted your microphone. You cannot unmute yourself.');
+      return;
+    }
     const current = this.callObject.localAudio();
     this.callObject.setLocalAudio(!current);
     const btn = document.getElementById('live-mic-btn');
@@ -790,21 +848,23 @@ const liveView = {
     if (panel) panel.style.display = this.chatOpen ? 'flex' : 'none';
   },
 
-  muteParticipantAudio(sessionId) {
+  muteParticipant(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { setAudio: false });
+      this.callObject.updateParticipant(sessionId, { setAudio: false, setVideo: false });
+      const entry = this.participantTiles.get(sessionId);
+      if (entry) entry._hostMuted = true;
     } catch (error) {
-      console.error('Mute audio failed:', error);
+      console.error('Mute participant failed:', error);
     }
   },
 
-  muteParticipantVideo(sessionId) {
+  kickParticipant(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { setVideo: false });
+      this.callObject.updateParticipant(sessionId, { eject: true });
     } catch (error) {
-      console.error('Mute video failed:', error);
+      console.error('Kick participant failed:', error);
     }
   },
 
@@ -828,13 +888,13 @@ const liveView = {
     if (isHost && !entry.local) {
       items.push({
         icon: ICONS.micOff,
-        label: 'Mute audio',
-        action: () => { this.muteParticipantAudio(sessionId); overlay.remove(); }
+        label: 'Mute',
+        action: () => { this.muteParticipant(sessionId); overlay.remove(); }
       });
       items.push({
         icon: ICONS.videoOff,
-        label: 'Disable video',
-        action: () => { this.muteParticipantVideo(sessionId); overlay.remove(); }
+        label: 'Kick out',
+        action: () => { this.kickParticipant(sessionId); overlay.remove(); }
       });
     }
     items.push({
@@ -1269,11 +1329,7 @@ const liveView = {
   },
 
   async updateBillingDisplay() {
-    // TODO: Fetch billing summary from server
-    const billingEl = document.getElementById('live-session-billing');
-    if (billingEl) {
-      billingEl.textContent = this.sessionRole === 'host' ? 'Earning: G0.00' : 'Cost: G0.00';
-    }
+    // Billing display removed per user request
   },
 
   // ============================================
@@ -1447,6 +1503,9 @@ const liveView = {
   },
 
   cleanupSession() {
+    // Clear persisted session
+    try { sessionStorage.removeItem('liveSession'); } catch (e) {}
+
     document.body.classList.remove('live-studio-active');
     document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
     heartbeat.stop();

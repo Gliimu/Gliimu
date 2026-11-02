@@ -80,7 +80,7 @@ export function attachmentHtml(m, instanceName) {
   if (m.attachment_type === 'video') return `<video controls src="${m.attachment_url}" class="ping-attachment video"></video>`;
   if (m.attachment_type === 'live_invite') {
     const title = m.content || 'Join Live Session';
-    return `<div class="ping-attachment live-invite-card"><div class="live-invite-header"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg><span>Live Session</span></div><p class="live-invite-title">${title.replace(/</g, '&lt;')}</p><a href="${m.attachment_url}" target="_blank" class="live-invite-btn">Join Live</a></div>`;
+    return `<div class="ping-attachment live-invite-card"><div class="live-invite-header"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg><span>Live Session</span></div><p class="live-invite-title">${title.replace(/</g, '&lt;')}</p><a href="${m.attachment_url}" target="_blank" class="live-invite-btn">Join Session</a></div>`;
   }
   return `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg> Download File</a>`;
 }
