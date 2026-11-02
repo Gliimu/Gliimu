@@ -1,13 +1,6 @@
 /* ============================================
    LIVE PAGE — LANDING
    ============================================ */
-/* While a session studio is open, cancel the dashboard viewer padding so the
-   studio fills the page edge-to-edge with no vertical scroll. The landing list
-   keeps the normal padding because this class is only present during a session. */
-body.live-studio-active .view-container {
-  padding: 0 !important;
-}
-
 .live-header {
   display: flex;
   align-items: center;
@@ -602,6 +595,63 @@ body.live-studio-active .view-container {
   background: #F59E0B !important;
   border-color: #F59E0B !important;
   color: #1a1a1a !important;
+}
+
+.live-hand-raise-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 24px;
+  line-height: 1;
+  z-index: 10;
+  animation: live-hand-pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Host controls on participant tiles */
+.live-tile-host-controls {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 10;
+}
+
+.live-participant-tile:hover .live-tile-host-controls {
+  opacity: 1;
+}
+
+.live-tile-host-btn {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.live-tile-host-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.live-tile-host-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.live-tile-host-btn.danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
 }
 
 /* ============================================

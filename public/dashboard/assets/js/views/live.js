@@ -21,9 +21,7 @@ const ICONS = {
   lock: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>',
   share: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
   copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
-  minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 3 8 9 2 9"></polyline><polyline points="16 21 16 15 22 15"></polyline><line x1="2" y1="3" x2="9" y2="10"></line><line x1="22" y1="21" x2="15" y2="14"></line></svg>',
-  expand: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
-  flip: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>'
+  userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -46,10 +44,6 @@ const liveView = {
   chatMessages: [],
   chatPollInterval: null,
   chatErrorCount: 0,
-
-  // Minimizer
-  minimized: false,
-  miniPlayerEl: null,
 
   // Session controls
   isRecording: false,
@@ -87,26 +81,16 @@ const liveView = {
       toggleChat: () => this.toggleChat(),
       toggleHandRaise: () => this.toggleHandRaise(),
       sendChatMessage: () => this.sendChatMessage(),
-      muteParticipant: (sessionId) => this.muteParticipant(sessionId),
+      muteParticipantAudio: (sessionId) => this.muteParticipantAudio(sessionId),
+      muteParticipantVideo: (sessionId) => this.muteParticipantVideo(sessionId),
       removeParticipant: (sessionId) => this.removeParticipant(sessionId),
       grantScreenShare: (userId) => this.grantScreenShare(userId),
       revokeScreenShare: (userId) => this.revokeScreenShare(userId),
       toggleScreenShare: () => this.toggleScreenShare(),
-      flipCamera: () => this.flipCamera(),
       sharePrivateLink: () => this.sharePrivateLink(),
-      minimizeSession: () => this.minimizeSession(),
-      expandFromMini: () => this.expandFromMini(),
       isLiveActive: () => !!this.activeSession,
-      isMinimized: () => this.minimized,
       endLive: () => this.forceEndLive()
     };
-
-    // Returning to the Live page while a minimized session is still connected:
-    // rebuild the studio from the live call object instead of showing the landing.
-    if (this.activeSession && this.callObject) {
-      this.restoreStudio();
-      return;
-    }
 
     await this.loadPublicSessions();
 
@@ -117,15 +101,7 @@ const liveView = {
     }
   },
 
-  isMobileView() {
-    return window.matchMedia('(max-width: 768px)').matches;
-  },
-
   destroy() {
-    // Minimized: keep the call, timers, chat polling and mini-player alive so the
-    // session survives navigation away from the Live page.
-    if (this.minimized && this.activeSession) return;
-
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
@@ -141,8 +117,6 @@ const liveView = {
     }
     this.participantTiles.clear();
     this.participantsMap.clear();
-    this.removeMiniPlayer();
-    document.body.classList.remove('live-studio-active');
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
   },
@@ -391,7 +365,6 @@ const liveView = {
     document.getElementById('live-landing').style.display = 'none';
     const sessionView = document.getElementById('live-session-view');
     sessionView.style.display = 'block';
-    document.body.classList.add('live-studio-active');
 
     this.sessionStartTime = Date.now();
     this.liveSecs = 0;
@@ -399,8 +372,6 @@ const liveView = {
     this.chatOpen = false;
     this.focusedSessionId = null;
     this.isRecording = false;
-    this.minimized = false;
-    this.removeMiniPlayer();
     this.screenSharePermissionGranted.clear();
 
     this.renderSessionUI();
@@ -420,7 +391,6 @@ const liveView = {
     const isHost = this.sessionRole === 'host';
     const s = this.activeSession;
     const isPrivate = s.is_private;
-    const mobile = this.isMobileView();
 
     sessionView.innerHTML = `
       <div class="live-studio-container">
@@ -444,12 +414,10 @@ const liveView = {
         <div class="live-controls-bar">
           <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
           <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
-          ${(!mobile && isHost) ? `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>` : ''}
-          ${mobile ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>` : ''}
+          <button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>
           ${!isHost ? `<button class="live-ctrl-btn" id="live-hand-btn" title="Raise hand">${ICONS.hand}</button>` : ''}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
           ${isHost && isPrivate ? `<button class="live-ctrl-btn" id="live-share-btn" title="Copy invite link">${ICONS.share}</button>` : ''}
-          <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
         </div>
 
@@ -471,11 +439,9 @@ const liveView = {
     document.getElementById('live-camera-btn')?.addEventListener('click', () => this.toggleCamera());
     document.getElementById('live-mic-btn')?.addEventListener('click', () => this.toggleMic());
     document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
-    document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
     document.getElementById('live-hand-btn')?.addEventListener('click', () => this.toggleHandRaise());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.sharePrivateLink());
-    document.getElementById('live-minimize-btn')?.addEventListener('click', () => this.minimizeSession());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
   },
 
@@ -511,6 +477,9 @@ const liveView = {
       })
       .on('participant-left', (e) => {
         if (e.participant) this.removeParticipantTile(e.participant.session_id);
+      })
+      .on('participant-updated', (e) => {
+        if (e.participant) this.handleParticipantUpdated(e.participant);
       })
       .on('track-started', (e) => {
         if (e.track && e.participant) this.attachTrack(e.participant.session_id, e.track);
@@ -579,24 +548,31 @@ const liveView = {
     tile.appendChild(audio);
     tile.appendChild(info);
 
-    // Host controls on every remote tile (mute / remove).
+    // Host controls on every remote tile (mute audio / mute video / remove).
     if (this.sessionRole === 'host' && !p.local) {
       const controls = document.createElement('div');
       controls.className = 'live-tile-host-controls';
 
-      const muteBtn = document.createElement('button');
-      muteBtn.className = 'live-tile-host-btn';
-      muteBtn.title = 'Mute participant';
-      muteBtn.innerHTML = ICONS.micOff;
-      muteBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipant(sessionId); });
+      const muteAudioBtn = document.createElement('button');
+      muteAudioBtn.className = 'live-tile-host-btn';
+      muteAudioBtn.title = 'Mute audio';
+      muteAudioBtn.innerHTML = ICONS.micOff;
+      muteAudioBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantAudio(sessionId); });
+
+      const muteVideoBtn = document.createElement('button');
+      muteVideoBtn.className = 'live-tile-host-btn';
+      muteVideoBtn.title = 'Mute video';
+      muteVideoBtn.innerHTML = ICONS.videoOff;
+      muteVideoBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantVideo(sessionId); });
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'live-tile-host-btn danger';
       removeBtn.title = 'Remove participant';
-      removeBtn.innerHTML = ICONS.close;
+      removeBtn.innerHTML = ICONS.userX;
       removeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.removeParticipant(sessionId); });
 
-      controls.appendChild(muteBtn);
+      controls.appendChild(muteAudioBtn);
+      controls.appendChild(muteVideoBtn);
       controls.appendChild(removeBtn);
       tile.appendChild(controls);
     }
@@ -760,20 +736,65 @@ const liveView = {
   },
 
   async toggleHandRaise() {
-    // TODO: Implement hand raise
-    alert('Hand raise feature coming soon.');
+    if (!this.callObject) return;
+    const local = this.callObject.participants()?.local;
+    if (!local) return;
+
+    const current = local.user_data || {};
+    const raised = !current.handRaised;
+
+    try {
+      this.callObject.updateParticipant(local.session_id, {
+        userData: { ...current, handRaised: raised }
+      });
+
+      const btn = document.getElementById('live-hand-btn');
+      if (btn) btn.classList.toggle('raised', raised);
+
+      const tile = this.participantTiles.get(local.session_id);
+      if (tile) this.updateHandIndicator(tile, raised);
+    } catch (error) {
+      console.error('Hand raise failed:', error);
+    }
   },
 
-  muteParticipant(sessionId) {
+  handleParticipantUpdated(p) {
+    const sessionId = p.session_id;
+    const tile = this.participantTiles.get(sessionId);
+    if (!tile) return;
+
+    const raised = !!(p.user_data?.handRaised);
+    this.updateHandIndicator(tile, raised);
+    tile.tile.classList.toggle('raised', raised);
+  },
+
+  updateHandIndicator(tileEntry, raised) {
+    let indicator = tileEntry.tile.querySelector('.live-hand-raise-badge');
+    if (raised && !indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'live-hand-raise-badge';
+      indicator.textContent = '\u{1F590}\u{FE0F}';
+      tileEntry.tile.appendChild(indicator);
+    } else if (!raised && indicator) {
+      indicator.remove();
+    }
+  },
+
+  muteParticipantAudio(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      // Stop the participant from publishing audio/video (Daily host control).
-      this.callObject.updateParticipant(sessionId, { canPublish: false });
-      const entry = this.participantTiles.get(sessionId);
-      if (entry) entry.tile.classList.add('muted');
+      this.callObject.updateParticipant(sessionId, { audio: false });
     } catch (error) {
-      console.error('Mute participant failed:', error);
-      alert('Could not mute this participant.');
+      console.error('Mute audio failed:', error);
+    }
+  },
+
+  muteParticipantVideo(sessionId) {
+    if (this.sessionRole !== 'host' || !this.callObject) return;
+try {
+      this.callObject.updateParticipant(sessionId, { video: false });
+    } catch (error) {
+      console.error('Mute video failed:', error);
     }
   },
 
@@ -799,18 +820,6 @@ const liveView = {
   async revokeScreenShare(userId) {
     // TODO: Implement revoke screen share
     alert('Revoke screen share feature coming soon.');
-  },
-
-  flipCamera() {
-    if (!this.callObject) return;
-    // Mobile browsers expose front/back cameras as separate devices; cycleCamera()
-    // swaps between them. Screen sharing is not available on mobile.
-    try {
-      const result = this.callObject.cycleCamera();
-      if (result && result.catch) result.catch((err) => console.warn('Camera swap failed:', err));
-    } catch (error) {
-      console.warn('Camera swap failed:', error);
-    }
   },
 
   async toggleScreenShare() {
@@ -854,106 +863,6 @@ const liveView = {
       console.error('Copy failed:', err);
       prompt('Copy this link to share:', joinUrl);
     });
-  },
-
-  // ============================================
-  // Minimizer
-  // ============================================
-
-  minimizeSession() {
-    if (!this.activeSession || this.minimized) return;
-    this.minimized = true;
-    document.body.classList.remove('live-studio-active');
-
-    const sessionView = document.getElementById('live-session-view');
-    if (sessionView) sessionView.style.display = 'none';
-    const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'block';
-
-    this.createMiniPlayer();
-  },
-
-  createMiniPlayer() {
-    this.removeMiniPlayer();
-    const el = document.createElement('div');
-    el.className = 'live-mini-player';
-    el.id = 'live-mini-player';
-    el.innerHTML = `
-      <button class="live-mini-expand" id="live-mini-expand" title="Return to session">${ICONS.expand}</button>
-      <div class="live-mini-info">
-        <span class="live-mini-dot"></span>
-        <span class="live-mini-title">${esc(this.activeSession.title || 'Live session')}</span>
-        <span class="live-mini-timer" id="live-mini-timer">60:00</span>
-      </div>
-      <button class="live-mini-leave" id="live-mini-leave" title="${this.sessionRole === 'host' ? 'End session' : 'Leave'}">${ICONS.close}</button>
-    `;
-    document.body.appendChild(el);
-    this.miniPlayerEl = el;
-
-    document.getElementById('live-mini-expand')?.addEventListener('click', () => this.expandFromMini());
-    document.getElementById('live-mini-leave')?.addEventListener('click', () => {
-      if (this.sessionRole === 'host') this.endSession();
-      else this.leaveSession();
-    });
-  },
-
-  removeMiniPlayer() {
-    if (this.miniPlayerEl) {
-      this.miniPlayerEl.remove();
-      this.miniPlayerEl = null;
-    }
-    document.getElementById('live-mini-player')?.remove();
-  },
-
-  expandFromMini() {
-    if (!this.activeSession) return;
-    // Still on the Live page: the studio DOM is intact, just show it again.
-    if (document.getElementById('live-session-view')) {
-      this.minimized = false;
-      this.removeMiniPlayer();
-      document.body.classList.add('live-studio-active');
-      const landing = document.getElementById('live-landing');
-      if (landing) landing.style.display = 'none';
-      const sessionView = document.getElementById('live-session-view');
-      if (sessionView) sessionView.style.display = 'block';
-      return;
-    }
-    // Navigated away: route back to Live; init() will rebuild the studio.
-    window.location.hash = '#/live';
-  },
-
-  // Rebuild the studio + tiles from the still-connected call object after
-  // returning to the Live page from a minimized state.
-  restoreStudio() {
-    if (!this.activeSession || !this.callObject) return;
-    this.minimized = false;
-    this.removeMiniPlayer();
-    document.body.classList.add('live-studio-active');
-
-    const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'none';
-    const sessionView = document.getElementById('live-session-view');
-    if (sessionView) sessionView.style.display = 'block';
-
-    this.participantTiles.clear();
-    this.participantsMap.clear();
-    this.focusedSessionId = null;
-
-    this.renderSessionUI();
-    this.rebuildTilesFromCall();
-
-    if (!this.sessionTimerInterval) this.startSessionTimer();
-  },
-
-  rebuildTilesFromCall() {
-    if (!this.callObject) return;
-    const participants = this.callObject.participants() || {};
-    for (const key in participants) {
-      const p = participants[key];
-      this.addParticipantTile(p);
-      if (p.tracks?.video?.persistentTrack) this.attachTrack(p.session_id, p.tracks.video.persistentTrack);
-      if (p.tracks?.audio?.persistentTrack) this.attachTrack(p.session_id, p.tracks.audio.persistentTrack);
-    }
   },
 
   // ============================================
@@ -1082,8 +991,6 @@ const liveView = {
       const label = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
       const timerEl = document.getElementById('live-session-timer');
       if (timerEl) timerEl.textContent = label;
-      const miniTimerEl = document.getElementById('live-mini-timer');
-      if (miniTimerEl) miniTimerEl.textContent = label;
 
       this.liveSecs = Math.floor(elapsed / 1000);
       this.updateBillingDisplay();
@@ -1296,9 +1203,6 @@ const liveView = {
     this.sessionRole = null;
     this.screenSharing = false;
     this.focusedSessionId = null;
-    this.minimized = false;
-    this.removeMiniPlayer();
-    document.body.classList.remove('live-studio-active');
 
     const sessionView = document.getElementById('live-session-view');
     if (sessionView) sessionView.style.display = 'none';
