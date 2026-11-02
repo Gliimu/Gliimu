@@ -7,7 +7,7 @@ const routes = {
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=5').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
-  '/live': () => import('./views/live-page.js?v=40').then(m => m.default),
+  '/live': () => import('./views/live-page.js?v=41').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=6').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=72').then(m => m.default),
@@ -34,7 +34,8 @@ export async function router() {
   const topbarRightActions = document.getElementById('topbar-right-actions');
 
   // 1. Intercept Navigation if Live Session is Active
-  if (window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
+  // Navigating to /live never prompts — the session continues on that page.
+  if (path !== '/live' && window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
     // If minimized, allow navigation without ending the session
     if (window.liveInstance.isMinimized && window.liveInstance.isMinimized()) {
       // Fall through — let navigation happen normally

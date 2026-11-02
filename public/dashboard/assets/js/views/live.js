@@ -26,7 +26,7 @@ const ICONS = {
   more: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
   message: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
   minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
-  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+  bolt: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
   globe: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
   checkSquare: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>'
 };
@@ -502,6 +502,15 @@ const liveView = {
     this.isRecording = false;
     this.screenSharePermissionGranted.clear();
 
+    if (this.minimized) {
+      const staleTile = document.getElementById('live-minimized-tile');
+      if (staleTile) {
+        staleTile._dragCleanup?.();
+        staleTile.remove();
+      }
+      this.minimized = false;
+    }
+
     document.body.classList.add('live-studio-active');
     this.renderSessionUI();
     this.joinDailyCall(this.activeSession.room_url);
@@ -546,7 +555,7 @@ const liveView = {
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-          <button class="live-ctrl-btn" id="live-support-btn" title="Support">${ICONS.heart}</button>
+          ${isHost ? '' : `<button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>`}
           ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -555,7 +564,7 @@ const liveView = {
         <div id="live-chat-panel" class="live-chat-panel" style="display:none;">
           <div class="live-chat-header">
             <h4>Chat</h4>
-            <button onclick="liveInstance.toggleChat()">${ICONS.close}</button>
+            <button class="live-chat-close" onclick="liveInstance.toggleChat()" title="Close chat" aria-label="Close chat">${ICONS.close}</button>
           </div>
           <div id="live-chat-messages" class="live-chat-messages"></div>
           <div class="live-chat-input">
@@ -564,7 +573,7 @@ const liveView = {
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
             </button>
             <input type="text" id="live-chat-input" placeholder="Type a message..." maxlength="500" onkeypress="if(event.key==='Enter')liveInstance.sendChatMessage()">
-            <button onclick="liveInstance.sendChatMessage()">Send</button>
+            <button id="live-chat-send" onclick="liveInstance.sendChatMessage()">Send</button>
           </div>
         </div>
       </div>
@@ -996,6 +1005,15 @@ const liveView = {
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = 'none';
 
+    // Show the Live landing behind the floating tile so the page is never blank
+    const sessionView = document.getElementById('live-session-view');
+    if (sessionView) sessionView.style.display = 'none';
+    const landing = document.getElementById('live-landing');
+    if (landing) {
+      landing.style.display = 'block';
+      this.loadPublicSessions();
+    }
+
     const tile = document.createElement('div');
     tile.className = 'live-minimized-tile';
     tile.id = 'live-minimized-tile';
@@ -1123,6 +1141,10 @@ const liveView = {
     }
 
     document.body.classList.add('live-studio-active');
+    const landing = document.getElementById('live-landing');
+    if (landing) landing.style.display = 'none';
+    const sessionView = document.getElementById('live-session-view');
+    if (sessionView) sessionView.style.display = 'block';
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = '';
 
@@ -1275,7 +1297,70 @@ const liveView = {
   },
 
   showSupportDialog() {
-    appAlert('Support is coming soon. You will be able to send G100 to show your appreciation.');
+    if (!this.activeSession || this.sessionRole === 'host') return;
+
+    const COST = 100;
+    const HOST_SHARE = 70;
+    const balance = Number(store.profile?.wallet_balance || 0);
+    const short = balance < COST;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 400px;">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" aria-label="Close">${ICONS.close}</button>
+        <div class="live-support-mark">${ICONS.bolt}</div>
+        <h2 style="margin-bottom: 6px;">Support this session</h2>
+        <p class="text-muted" style="margin-bottom: 16px; font-size: 14px;">
+          G${COST} is taken from your wallet. The host receives G${HOST_SHARE}.
+        </p>
+        <div class="live-support-balance">
+          <span>Your wallet</span>
+          <strong>G${balance}</strong>
+        </div>
+        <button class="btn-primary" id="live-support-send" style="width:100%;margin-top:16px;" ${short ? 'disabled' : ''}>
+          Send G${COST}
+        </button>
+        ${short ? `<p class="live-support-short">You need G${COST} in your wallet. Top up from the Wallet page.</p>` : ''}
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('live-support-send')?.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      const { data, error } = await supabase.rpc('support_live_session', { p_request: this.activeSession.id });
+
+      if (error) {
+        const msg = String(error.message || '');
+        if (msg.includes('INSUFFICIENT_FUNDS')) appAlert(`You need G${COST} in your wallet to support this session.`);
+        else if (msg.includes('SESSION_NOT_ACTIVE')) appAlert('This session is no longer live.');
+        else if (msg.includes('SESSION_NOT_FOUND')) appAlert('This session could not be found.');
+        else if (msg.includes('NOT_AUTHENTICATED')) appAlert('Please sign in again.');
+        else if (msg.includes('CANNOT_SUPPORT_SELF')) appAlert('You cannot support your own session.');
+        else appAlert('Support failed: ' + (msg || 'unknown error'));
+        btn.disabled = false;
+        btn.textContent = `Send G${COST}`;
+        return;
+      }
+
+      const spent = Number(data?.cost || COST);
+      if (store.profile) store.profile.wallet_balance = Number(store.profile.wallet_balance || 0) - spent;
+      overlay.remove();
+      this._flashSupport(spent);
+    });
+  },
+
+  _flashSupport(amount) {
+    const stage = document.querySelector('.live-video-area') || document.querySelector('.live-studio-container');
+    if (!stage) return;
+    const fly = document.createElement('div');
+    fly.className = 'live-support-fly';
+    fly.innerHTML = `${ICONS.bolt}<span>G${amount}</span>`;
+    stage.appendChild(fly);
+    setTimeout(() => fly.remove(), 1500);
   },
 
   shareSession() {
@@ -1499,9 +1584,12 @@ const liveView = {
     if (!input) return;
     const content = input.value.trim();
     if ((!content && !this._pendingAttachment) || !this.activeSession) return;
+    if (this._sendingChat) return;
 
     const attachment = this._pendingAttachment;
-    this._pendingAttachment = null;
+    this._sendingChat = true;
+    const sendBtn = document.getElementById('live-chat-send');
+    if (sendBtn) sendBtn.disabled = true;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1521,14 +1609,21 @@ const liveView = {
         body: JSON.stringify(body)
       });
 
-      const result = await response.json();
-      if (result.ok) {
-        input.value = '';
-        this.clearAttachmentPreview();
-        await this.loadChatMessages(this.activeSession.id);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `Server rejected the message (${response.status})`);
       }
+
+      input.value = '';
+      this._pendingAttachment = null;
+      this.clearAttachmentPreview();
+      await this.loadChatMessages(this.activeSession.id);
     } catch (error) {
       console.error('Send chat error:', error);
+      appAlert('Message not sent: ' + (error?.message || 'unknown error'));
+    } finally {
+      this._sendingChat = false;
+      if (sendBtn) sendBtn.disabled = false;
     }
   },
 

@@ -477,6 +477,7 @@ body.live-studio-active .topbar {
 }
 
 .live-chat-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -504,6 +505,28 @@ body.live-studio-active .topbar {
 .live-chat-header button:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
+}
+
+/* Chat close — centred in the header so it cannot be missed */
+.live-chat-header button.live-chat-close {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+.live-chat-header button.live-chat-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+.live-chat-header button.live-chat-close svg {
+  width: 16px;
+  height: 16px;
 }
 
 .live-chat-messages {
@@ -1215,11 +1238,83 @@ body.live-studio-active .topbar {
   animation: live-recording-pulse 1.2s ease-in-out infinite;
 }
 
-/* Support button in controls bar */
+/* Support button in controls bar — same gold as the reader engagement support icon */
 .live-ctrl-btn#live-support-btn {
-  color: #f87171;
+  color: var(--gold, #fbbf24);
 }
 .live-ctrl-btn#live-support-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+/* Support modal */
+.live-support-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  color: var(--gold, #fbbf24);
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+.live-support-mark svg {
+  width: 24px;
+  height: 24px;
+}
+.live-support-balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+}
+.live-support-balance span {
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+}
+.live-support-balance strong {
+  font-variant-numeric: tabular-nums;
+}
+.live-support-short {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #f87171;
+}
+
+/* Floating confirmation bolt over the video stage */
+.live-support-fly {
+  position: absolute;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gold, #fbbf24);
+  background: rgba(10, 10, 10, 0.78);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+  z-index: 20;
+  animation: live-support-rise 1.5s ease-out forwards;
+}
+.live-support-fly svg {
+  width: 16px;
+  height: 16px;
+}
+@keyframes live-support-rise {
+  0% { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.9); }
+  18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(1.04); }
 }
