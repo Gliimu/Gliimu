@@ -3,9 +3,7 @@ import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
 import { uploadAttachment } from '../media.js?v=3';
 
-const MIN_GP_TO_HOST = 1500;
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
-const GP_PER_MINUTE = 1;
 
 const ICONS = {
   video: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>',
@@ -28,10 +26,26 @@ const ICONS = {
   more: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
   message: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
   minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
-  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
+  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+  globe: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
+  checkSquare: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function initialsAvatar(name) {
+  const n = String(name || '?').trim();
+  const parts = n.split(/\s+/);
+  const initials = parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : n.slice(0, 2).toUpperCase();
+  const colors = ['#8b5cf6','#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899'];
+  const idx = n.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length;
+  const bg = colors[idx];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="${bg}"/><text x="32" y="32" text-anchor="middle" dominant-baseline="central" fill="white" font-family="system-ui,sans-serif" font-size="22" font-weight="600">${initials}</text></svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+window._initialsAvatar = initialsAvatar;
 
 const liveView = {
   // State
@@ -58,11 +72,10 @@ const liveView = {
   screenSharing: false,
   screenSharePermissionGranted: new Set(),
   
-  // Billing
+  // Session timer
   sessionTimerInterval: null,
   sessionStartTime: null,
   liveSecs: 0,
-  billingSummary: null,
   
   // Realtime
   sessionChannel: null,
@@ -96,11 +109,19 @@ const liveView = {
       revokeScreenShare: (userId) => this.revokeScreenShare(userId),
       toggleScreenShare: () => this.toggleScreenShare(),
       shareSession: () => this.shareSession(),
+      showSupportDialog: () => this.showSupportDialog(),
       minimizeStudio: () => this.minimizeStudio(),
       restoreStudio: () => this.restoreStudio(),
       isLiveActive: () => !!this.activeSession,
+      isMinimized: () => this.minimized,
       endLive: () => this.forceEndLive()
     };
+
+    // If returning to Live page with an active minimized session, restore directly
+    if (this.activeSession && this.minimized) {
+      this._restoreFromNavigation();
+      return;
+    }
 
     await this.loadPublicSessions();
 
@@ -150,6 +171,13 @@ const liveView = {
   },
 
   destroy() {
+    // If minimized, preserve the session — only clean up DOM artifacts
+    if (this.minimized) {
+      document.body.classList.remove('live-studio-active');
+      document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
+      return;
+    }
+
     document.body.classList.remove('live-studio-active');
     document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
     if (this.callObject) {
@@ -210,7 +238,7 @@ const liveView = {
     const landing = document.getElementById('live-landing');
     if (!landing) return;
 
-    const canHost = (store.profile?.total_gp || 0) >= MIN_GP_TO_HOST && store.profile?.verification_badge;
+    const canHost = (store.profile?.total_gp || 0) >= 1500 && store.profile?.verification_badge;
 
     let html = `
       <div class="live-header">
@@ -411,16 +439,6 @@ const liveView = {
       // Increment participant count
       await supabase.rpc('increment_participant_count', { p_request_id: request.id });
 
-      // Track for billing (full join, not check-only)
-      await fetch(`${API_BASE_URL}/api/live/join-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: request.id })
-      });
-
       this.activeSession = request;
       this.sessionRole = (request.user_id === store.user.id) ? 'host' : 'participant';
 
@@ -528,6 +546,7 @@ const liveView = {
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
+          <button class="live-ctrl-btn" id="live-support-btn" title="Support">${ICONS.heart}</button>
           ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -557,6 +576,7 @@ const liveView = {
     document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
     document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
+    document.getElementById('live-support-btn')?.addEventListener('click', () => this.showSupportDialog());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.shareSession());
     document.getElementById('live-minimize-btn')?.addEventListener('click', () => this.minimizeStudio());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
@@ -590,7 +610,13 @@ const liveView = {
         }
       })
       .on('participant-joined', (e) => {
-        if (e.participant) this.addParticipantTile(e.participant);
+        if (e.participant) {
+          this.addParticipantTile(e.participant);
+          if (this.sessionRole === 'host' && !e.participant.local) {
+            const name = e.participant.user_name || 'Someone';
+            this._showJoinToast(name);
+          }
+        }
       })
       .on('participant-left', (e) => {
         if (e.participant) this.removeParticipantTile(e.participant.session_id);
@@ -966,6 +992,7 @@ const liveView = {
     if (!this.activeSession || this.minimized) return;
     this.minimized = true;
 
+    document.body.classList.remove('live-studio-active');
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = 'none';
 
@@ -1003,10 +1030,24 @@ const liveView = {
     // Drag support
     this._initMiniDrag(tile);
 
-    // Click to restore (but not on close button)
+    // Click to restore (but not on close button or after drag)
     tile.addEventListener('click', (ev) => {
       if (ev.target.closest('.live-minimized-close')) return;
-      this.restoreStudio();
+      if (tile._wasDragged && tile._wasDragged()) return;
+      const currentHash = window.location.hash.split('?')[0];
+      if (currentHash !== '#/live') {
+        window.location.hash = '/live';
+        const waitForRestore = () => {
+          if (document.querySelector('.live-studio-container')) {
+            this.restoreStudio();
+          } else {
+            requestAnimationFrame(waitForRestore);
+          }
+        };
+        waitForRestore();
+      } else {
+        this.restoreStudio();
+      }
     });
 
     // Close button = leave session
@@ -1020,17 +1061,19 @@ const liveView = {
 
   _initMiniDrag(tile) {
     let dragging = false;
+    let moved = false;
     let startX, startY, origX, origY;
+    const DRAG_THRESHOLD = 8;
 
     const onDown = (ev) => {
       if (ev.target.closest('.live-minimized-close')) return;
-      dragging = true;
       const touch = ev.touches ? ev.touches[0] : ev;
       startX = touch.clientX;
       startY = touch.clientY;
       origX = tile.offsetLeft;
       origY = tile.offsetTop;
-      ev.preventDefault();
+      dragging = true;
+      moved = false;
     };
 
     const onMove = (ev) => {
@@ -1038,6 +1081,9 @@ const liveView = {
       const touch = ev.touches ? ev.touches[0] : ev;
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
+      if (!moved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      moved = true;
+      ev.preventDefault();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       let newX = origX + dx;
@@ -1051,12 +1097,13 @@ const liveView = {
     const onUp = () => { dragging = false; };
 
     tile.addEventListener('mousedown', onDown);
-    tile.addEventListener('touchstart', onDown, { passive: false });
+    tile.addEventListener('touchstart', onDown, { passive: true });
     document.addEventListener('mousemove', onMove);
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('mouseup', onUp);
     document.addEventListener('touchend', onUp);
 
+    tile._wasDragged = () => moved;
     tile._dragCleanup = () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('touchmove', onMove);
@@ -1075,6 +1122,7 @@ const liveView = {
       tile.remove();
     }
 
+    document.body.classList.add('live-studio-active');
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = '';
 
@@ -1085,6 +1133,62 @@ const liveView = {
       stageVideo.srcObject = miniVideo.srcObject;
       stageVideo.play().catch(() => {});
     }
+  },
+
+  _restoreFromNavigation() {
+    this.minimized = false;
+
+    const tile = document.getElementById('live-minimized-tile');
+    if (tile) {
+      if (tile._dragCleanup) tile._dragCleanup();
+      tile.remove();
+    }
+
+    const landing = document.getElementById('live-landing');
+    if (landing) landing.style.display = 'none';
+    const sessionView = document.getElementById('live-session-view');
+    if (sessionView) sessionView.style.display = 'block';
+
+    document.body.classList.add('live-studio-active');
+    this.renderSessionUI();
+
+    // Re-attach the video stream from the existing callObject to the new stage element
+    if (this.callObject) {
+      const stageVideo = document.getElementById('live-stage-video');
+      if (stageVideo) {
+        const participants = this.callObject.participants();
+        const local = participants?.local;
+        if (local) {
+          const camTrack = local.tracks?.camera;
+          if (camTrack && camTrack.track && stageVideo) {
+            const stream = new MediaStream([camTrack.track]);
+            stageVideo.srcObject = stream;
+            stageVideo.play().catch(() => {});
+          }
+        }
+      }
+    }
+
+    this.startChatPolling(this.activeSession.id);
+    heartbeat.setCurrentPost(null);
+    heartbeat.start();
+  },
+
+  _showJoinToast(name) {
+    const existing = document.getElementById('live-join-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'live-join-toast';
+    toast.className = 'live-join-toast';
+    toast.innerHTML = `<span class="live-toast-dot"></span><span>${esc(name)} joined</span>`;
+    const studio = document.querySelector('.live-studio-container');
+    if (studio) studio.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
   },
 
   reportLiveSession() {
@@ -1170,6 +1274,10 @@ const liveView = {
     }
   },
 
+  showSupportDialog() {
+    appAlert('Support is coming soon. You will be able to send G100 to show your appreciation.');
+  },
+
   shareSession() {
     if (!this.activeSession) return;
 
@@ -1187,12 +1295,29 @@ const liveView = {
     overlay.innerHTML = `
       <div class="modal-content" style="max-width: 420px; max-height: 80vh; display: flex; flex-direction: column;">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
-        <h2 style="margin-bottom: 4px;">Share to Chat</h2>
-        <p class="text-muted" style="margin-bottom: 12px; font-size: 13px;">Link copied. Select chats to send the invite.</p>
+        <h2 style="margin-bottom: 4px;">Share Session</h2>
+        <p class="text-muted" style="margin-bottom: 12px; font-size: 13px;">Link copied. Choose where to share.</p>
+
+        <div id="share-everybody-row" class="share-chat-item" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 8px;">
+          <input type="checkbox" id="share-everybody-cb" style="width:16px;height:16px;accent-color:var(--brand-primary);cursor:pointer;flex-shrink:0;">
+          <span style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+            <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);flex-shrink:0;color:var(--brand-primary);">${ICONS.globe}</span>
+            <span style="display:flex;flex-direction:column;min-width:0;">
+              <span class="share-chat-name">Everybody</span>
+              <span style="font-size:11px;color:var(--text-muted);">Post to XpLoRe feed</span>
+            </span>
+          </span>
+        </div>
+
+        <div id="share-select-all-row" style="display:flex;align-items:center;gap:10px;padding:6px 12px;margin-bottom:4px;">
+          <input type="checkbox" id="share-select-all-cb" style="width:16px;height:16px;accent-color:var(--brand-primary);cursor:pointer;flex-shrink:0;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;" id="share-select-all-label">Select all chats</span>
+        </div>
+
         <div id="share-chat-list" style="flex: 1; overflow-y: auto; min-height: 0;">
           <p class="text-muted" style="text-align: center; padding: 20px;">Loading chats...</p>
         </div>
-        <button class="btn-primary" id="share-done-btn" style="width: 100%; margin-top: 12px; flex-shrink: 0;" disabled>Send to selected</button>
+        <button class="btn-primary" id="share-done-btn" style="width: 100%; margin-top: 12px; flex-shrink: 0;" disabled>Share</button>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -1201,37 +1326,78 @@ const liveView = {
 
     const listEl = overlay.querySelector('#share-chat-list');
     const doneBtn = overlay.querySelector('#share-done-btn');
+    const everybodyCb = overlay.querySelector('#share-everybody-cb');
+    const everybodyRow = overlay.querySelector('#share-everybody-row');
+    const selectAllCb = overlay.querySelector('#share-select-all-cb');
+    const selectAllLabel = overlay.querySelector('#share-select-all-label');
+
+    everybodyRow.addEventListener('click', (ev) => {
+      if (ev.target === everybodyCb) return;
+      everybodyCb.checked = !everybodyCb.checked;
+      updateBtn();
+    });
+
+    const toggleAll = () => {
+      selectAllCb.checked = !selectAllCb.checked;
+      listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = selectAllCb.checked; });
+      updateBtn();
+    };
+    selectAllCb.addEventListener('change', () => {
+      listEl.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = selectAllCb.checked; });
+      updateBtn();
+    });
+    selectAllLabel.addEventListener('click', toggleAll);
 
     try {
       const contacts = await this._fetchChatContacts();
       if (contacts.length === 0) {
         listEl.innerHTML = '<p class="text-muted" style="text-align: center; padding: 20px;">No chats yet. Start a conversation in Ping first.</p>';
-        return;
+      } else {
+        listEl.innerHTML = contacts.map(c => `
+          <label class="share-chat-item" data-contact-id="${c.id}">
+            <input type="checkbox" value="${c.id}">
+            <img src="${c.avatar_url ? esc(c.avatar_url) : initialsAvatar(c.full_name)}" alt="" class="share-chat-avatar" onerror="this.src=window._initialsAvatar('${esc(c.full_name).replace(/'/g, "\\'")}')">
+            <span class="share-chat-name">${esc(c.full_name)}</span>
+          </label>
+        `).join('');
       }
 
-      listEl.innerHTML = contacts.map(c => `
-        <label class="share-chat-item" data-contact-id="${c.id}">
-          <input type="checkbox" value="${c.id}">
-          <img src="${esc(c.avatar_url || '/icons/icon.png')}" alt="" class="share-chat-avatar" onerror="this.src='/icons/icon.png'">
-          <span class="share-chat-name">${esc(c.full_name)}</span>
-        </label>
-      `).join('');
-
       const updateBtn = () => {
-        const checked = listEl.querySelectorAll('input:checked');
-        doneBtn.disabled = checked.length === 0;
-        doneBtn.textContent = checked.length > 0 ? `Send to ${checked.length} chat${checked.length > 1 ? 's' : ''}` : 'Send to selected';
+        const chatChecked = listEl.querySelectorAll('input:checked').length;
+        const everybody = everybodyCb.checked;
+        const total = chatChecked + (everybody ? 1 : 0);
+        doneBtn.disabled = total === 0;
+        if (total === 0) {
+          doneBtn.textContent = 'Share';
+        } else {
+          const parts = [];
+          if (everybody) parts.push('Everybody');
+          if (chatChecked > 0) parts.push(`${chatChecked} chat${chatChecked > 1 ? 's' : ''}`);
+          doneBtn.textContent = `Share to ${parts.join(' + ')}`;
+        }
       };
 
       listEl.addEventListener('change', updateBtn);
+      everybodyCb.addEventListener('change', updateBtn);
       updateBtn();
 
       doneBtn.addEventListener('click', async () => {
         const selectedIds = [...listEl.querySelectorAll('input:checked')].map(cb => cb.value);
-        if (selectedIds.length === 0) return;
+        const postToEverybody = everybodyCb.checked;
 
         doneBtn.disabled = true;
-        doneBtn.textContent = 'Sending...';
+        doneBtn.textContent = 'Sharing...';
+
+        let sentCount = 0;
+
+        if (postToEverybody) {
+          try {
+            await this._postToEverybody(sessionTitle, joinUrl);
+            sentCount++;
+          } catch (err) {
+            console.error('Failed to post to XpLoRe:', err);
+          }
+        }
 
         for (const contactId of selectedIds) {
           await supabase.from('messages').insert({
@@ -1242,15 +1408,58 @@ const liveView = {
             attachment_type: 'live_invite',
             is_ai: false
           });
+          sentCount++;
         }
 
         overlay.remove();
-        appAlert(`Invite sent to ${selectedIds.length} chat${selectedIds.length > 1 ? 's' : ''}.`);
+        if (sentCount > 0) {
+          const parts = [];
+          if (postToEverybody) parts.push('XpLoRe feed');
+          if (selectedIds.length > 0) parts.push(`${selectedIds.length} chat${selectedIds.length > 1 ? 's' : ''}`);
+          appAlert(`Shared to ${parts.join(' and ')}.`);
+        }
       });
 
     } catch (err) {
       console.error('Failed to load chats:', err);
       listEl.innerHTML = '<p class="text-muted" style="text-align: center; padding: 20px;">Could not load chats.</p>';
+    }
+  },
+
+  async _postToEverybody(sessionTitle, joinUrl) {
+    const coverUrl = this._captureVideoScreenshot();
+    const postId = crypto.randomUUID();
+
+    const { error } = await supabase.from('feed_gliims').insert({
+      id: postId,
+      user_id: store.user.id,
+      title: sessionTitle,
+      description: `Join my live session on Gliimu! ${joinUrl}`,
+      cover_url: coverUrl,
+      category: 'live',
+      status: 'approved'
+    });
+
+    if (error) throw error;
+
+    await supabase.from('feed_gliim_contents').insert({
+      post_id: postId,
+      blocks: [{ type: 'paragraph', content: `Join my live session!\n\n${joinUrl}` }]
+    });
+  },
+
+  _captureVideoScreenshot() {
+    try {
+      const video = document.getElementById('live-stage-video') || document.getElementById('live-mini-video');
+      if (!video || !video.videoWidth) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      return canvas.toDataURL('image/jpeg', 0.8);
+    } catch (e) {
+      return null;
     }
   },
 
@@ -1334,7 +1543,12 @@ const liveView = {
       this.showAttachmentPreview(uploaded, file.name);
     } catch (err) {
       console.error('File upload failed:', err);
-      appAlert('Upload failed. Please try again.');
+      const msg = err?.message || '';
+      if (msg.includes('session') || msg.includes('sign in')) {
+        appAlert('Your session has expired. Please refresh the page and sign in again.');
+      } else {
+        appAlert('Upload failed: ' + msg);
+      }
     }
   },
 
@@ -1454,7 +1668,7 @@ const liveView = {
   },
 
   // ============================================
-  // Session Timer & Billing
+  // Session Timer
   // ============================================
 
   startSessionTimer() {
@@ -1483,15 +1697,10 @@ const liveView = {
       if (timerEl) timerEl.textContent = label;
 
       this.liveSecs = Math.floor(elapsed / 1000);
-      this.updateBillingDisplay();
     };
 
     tick();
     this.sessionTimerInterval = setInterval(tick, 1000);
-  },
-
-  async updateBillingDisplay() {
-    // Billing display removed per user request
   },
 
   // ============================================
@@ -1536,17 +1745,6 @@ const liveView = {
     if (!confirm) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      await fetch(`${API_BASE_URL}/api/live/leave-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: this.activeSession.id })
-      });
-
       await supabase.rpc('decrement_participant_count', { p_request_id: this.activeSession.id });
 
       if (this.callObject) await this.callObject.leave();
@@ -1571,15 +1769,6 @@ const liveView = {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-
-      await fetch(`${API_BASE_URL}/api/live/billing-finalize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: sessionId })
-      });
 
       await supabase
         .from('live_requests')
@@ -1615,15 +1804,6 @@ const liveView = {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (this.sessionRole === 'host') {
-        await fetch(`${API_BASE_URL}/api/live/billing-finalize`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ requestId: this.activeSession.id })
-        });
-
         await supabase
           .from('live_requests')
           .update({
@@ -1644,15 +1824,6 @@ const liveView = {
           });
         }
       } else {
-        await fetch(`${API_BASE_URL}/api/live/leave-session`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ requestId: this.activeSession.id })
-        });
-
         await supabase.rpc('decrement_participant_count', { p_request_id: this.activeSession.id });
       }
 
