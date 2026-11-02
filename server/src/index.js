@@ -1234,8 +1234,25 @@ app.post('/api/live/join-session', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    const { requestId } = req.body || {};
+    const { requestId, checkOnly } = req.body || {};
     if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
+
+    // Check if user has been kicked from this session
+    const { data: kicked } = await supabaseAdmin
+      .from('live_kicked_users')
+      .select('id')
+      .eq('session_id', requestId)
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+
+    if (kicked) {
+      return res.status(403).json({ error: 'You were kicked out of this session.', kicked: true });
+    }
+
+    // If check-only, return success without tracking the join
+    if (checkOnly) {
+      return res.json({ ok: true, checkOnly: true });
+    }
 
     const userClient = createClient(
       process.env.SUPABASE_URL,
@@ -1292,6 +1309,44 @@ app.post('/api/live/leave-session', async (req, res) => {
     res.json({ ok: true, ...data });
   } catch (error) {
     console.error('Leave session error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
+// Record a kicked user (host-only, prevents rejoin)
+app.post('/api/live/kick', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { sessionId, targetUserId } = req.body || {};
+    if (!sessionId || !targetUserId) return res.status(400).json({ error: 'Missing sessionId or targetUserId.' });
+
+    // Verify caller is the host
+    const { data: session } = await supabaseAdmin
+      .from('live_requests')
+      .select('user_id, status')
+      .eq('id', sessionId)
+      .maybeSingle();
+
+    if (!session || session.user_id !== authData.user.id) {
+      return res.status(403).json({ error: 'Only the host can kick participants.' });
+    }
+
+    // Insert kick record (ignore if already exists)
+    await supabaseAdmin
+      .from('live_kicked_users')
+      .upsert({ session_id: sessionId, user_id: targetUserId }, { onConflict: 'session_id,user_id' });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Kick error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });
   }
 });

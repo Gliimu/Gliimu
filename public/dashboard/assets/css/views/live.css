@@ -132,18 +132,34 @@ body.live-studio-active {
   height: 100vh;
 }
 
+body.live-studio-active .sidebar {
+  display: none;
+}
+
+body.live-studio-active .main-content {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+
 body.live-studio-active .view-container {
   padding: 0;
+  max-width: 100%;
 }
+
+body.live-studio-active .topbar {
+  display: none;
+}
+
 .live-studio-container {
-  position: relative;
+  position: fixed;
+  inset: 0;
   width: 100%;
-  height: calc(100vh - 64px);
+  height: 100vh;
   background: #0a0a0a;
-  border-radius: 16px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  z-index: 1000;
 }
 
 .live-video-area {
@@ -739,14 +755,48 @@ body.live-studio-active .view-container {
   pointer-events: none;
 }
 
-/* Context menu overlay (right-click / long-press) */
-.live-ctx-overlay {
+/* '...' button on participant tiles */
+.live-tile-menu-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  z-index: 5;
+  padding: 0;
+}
+
+.live-participant-tile:hover .live-tile-menu-btn {
+  opacity: 1;
+}
+
+.live-tile-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.live-tile-menu-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Tile menu popup */
+.live-tile-menu-overlay {
   position: fixed;
   inset: 0;
   z-index: 9999;
 }
 
-.live-ctx-menu {
+.live-tile-menu {
   position: fixed;
   background: rgba(20, 20, 20, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -755,15 +805,15 @@ body.live-studio-active .view-container {
   min-width: 160px;
   backdrop-filter: blur(14px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  animation: live-ctx-in 0.15s ease-out;
+  animation: live-tile-menu-in 0.15s ease-out;
 }
 
-@keyframes live-ctx-in {
+@keyframes live-tile-menu-in {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
 
-.live-ctx-item {
+.live-tile-menu-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -779,25 +829,25 @@ body.live-studio-active .view-container {
   transition: background 0.12s ease;
 }
 
-.live-ctx-item:hover {
+.live-tile-menu-item:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.live-ctx-item svg {
+.live-tile-menu-item svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
 }
 
-.live-ctx-item.danger {
+.live-tile-menu-item.danger {
   color: #ef4444;
 }
 
-.live-ctx-item.danger:hover {
+.live-tile-menu-item.danger:hover {
   background: rgba(239, 68, 68, 0.15);
 }
 
-.live-ctx-item + .live-ctx-item {
+.live-tile-menu-item + .live-tile-menu-item {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -868,7 +918,6 @@ body.live-studio-active .view-container {
   }
 
   .live-studio-container {
-    height: calc(100vh - 64px);
     border-radius: 0;
   }
 
@@ -1008,4 +1057,114 @@ body.live-studio-active .view-container {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ============================================
+   MINIMIZED FLOATING TILE
+   ============================================ */
+.live-minimized-tile {
+  position: fixed;
+  z-index: 1100;
+  width: 200px;
+  background: #111;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.live-minimized-tile:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(139, 92, 246, 0.4);
+}
+
+.live-minimized-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #000;
+  overflow: hidden;
+}
+
+.live-minimized-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.live-mini-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 8px;
+  pointer-events: none;
+}
+
+.live-mini-live {
+  display: inline-block;
+  background: #ef4444;
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  animation: live-recording-pulse 1.5s ease-in-out infinite;
+}
+
+.live-minimized-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.live-minimized-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.live-minimized-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.live-minimized-close:hover {
+  color: #ef4444;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.live-minimized-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 768px) {
+  .live-minimized-tile {
+    width: 160px;
+  }
+  .live-minimized-video {
+    aspect-ratio: 16 / 12;
+  }
 }

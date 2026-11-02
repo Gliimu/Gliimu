@@ -24,7 +24,11 @@ const ICONS = {
   copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
   flip: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
   userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>',
-  flag: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>'
+  flag: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>',
+  more: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  message: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+  minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
+  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -44,6 +48,7 @@ const liveView = {
   
   // UI state
   chatOpen: false,
+  minimized: false,
   chatMessages: [],
   chatPollInterval: null,
   chatErrorCount: 0,
@@ -76,7 +81,6 @@ const liveView = {
       closeHostModal: () => this.closeHostModal(),
       createSession: () => this.createSession(),
       joinSession: (id) => this.joinSession(id),
-      joinPrivateSession: () => this.joinPrivateSession(),
       leaveSession: () => this.leaveSession(),
       endSession: () => this.endSession(),
       toggleCamera: () => this.toggleCamera(),
@@ -91,7 +95,9 @@ const liveView = {
       grantScreenShare: (userId) => this.grantScreenShare(userId),
       revokeScreenShare: (userId) => this.revokeScreenShare(userId),
       toggleScreenShare: () => this.toggleScreenShare(),
-      sharePrivateLink: () => this.sharePrivateLink(),
+      shareSession: () => this.shareSession(),
+      minimizeStudio: () => this.minimizeStudio(),
+      restoreStudio: () => this.restoreStudio(),
       isLiveActive: () => !!this.activeSession,
       endLive: () => this.forceEndLive()
     };
@@ -145,7 +151,7 @@ const liveView = {
 
   destroy() {
     document.body.classList.remove('live-studio-active');
-    document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
+    document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
@@ -222,7 +228,6 @@ const liveView = {
           <div class="live-session-card">
             <div class="live-session-card-header">
               <h3>${esc(session.title)}</h3>
-              ${session.is_private ? ICONS.lock : ''}
             </div>
             ${session.description ? `<p class="live-session-card-desc">${esc(session.description)}</p>` : ''}
             <div class="live-session-card-meta">
@@ -257,12 +262,6 @@ const liveView = {
           <label>Description (optional)</label>
           <textarea id="live-host-desc" class="input" rows="3" maxlength="200" placeholder="What will you cover?"></textarea>
         </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="live-host-private">
-            <span>Private session (hidden from public list, auto-records)</span>
-          </label>
-        </div>
         <button class="btn-primary" style="width:100%;" onclick="liveInstance.createSession()">Create Session</button>
       </div>
     `;
@@ -279,7 +278,6 @@ const liveView = {
     
     const title = document.getElementById('live-host-title')?.value?.trim();
     const description = document.getElementById('live-host-desc')?.value?.trim();
-    const isPrivate = document.getElementById('live-host-private')?.checked || false;
 
     if (!title) {
       this.joiningSession = false;
@@ -297,7 +295,7 @@ const liveView = {
           description: description ? description.slice(0, 200) : null,
           status: 'active',
           sharing_mode: 'general',
-          is_private: isPrivate,
+          is_private: false,
           participant_count: 1,
           started_at: new Date().toISOString(),
           hand_raises: {},
@@ -315,7 +313,7 @@ const liveView = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ requestId: request.id, isPrivate })
+        body: JSON.stringify({ requestId: request.id, isPrivate: false })
       });
 
       const result = await response.json();
@@ -372,12 +370,31 @@ const liveView = {
   },
 
   async joinSession(sessionId) {
-    if (this.joiningSession) return; // Prevent rapid clicks
+    if (this.joiningSession) return;
     this.joiningSession = true;
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
+      // Check kick status first via server
+      const kickCheck = await fetch(`${API_BASE_URL}/api/live/join-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ requestId: sessionId, checkOnly: true })
+      });
+
+      if (kickCheck.status === 403) {
+        const errData = await kickCheck.json().catch(() => ({}));
+        if (errData.kicked) {
+          alert('You were kicked out of this session.');
+          this.joiningSession = false;
+          return;
+        }
+      }
+
       const { data: request, error } = await supabase
         .from('live_requests')
         .select('*')
@@ -387,13 +404,14 @@ const liveView = {
 
       if (error || !request) {
         alert('Session not found or no longer active.');
+        this.joiningSession = false;
         return;
       }
 
       // Increment participant count
       await supabase.rpc('increment_participant_count', { p_request_id: request.id });
 
-      // Track for billing
+      // Track for billing (full join, not check-only)
       await fetch(`${API_BASE_URL}/api/live/join-session`, {
         method: 'POST',
         headers: {
@@ -436,13 +454,6 @@ const liveView = {
     } finally {
       this.joiningSession = false;
     }
-  },
-
-  async joinPrivateSession() {
-    const code = prompt('Enter private session link or code:');
-    if (!code) return;
-    // TODO: Implement private session join via link/code
-    alert('Private session join not yet implemented.');
   },
 
   // ============================================
@@ -490,13 +501,12 @@ const liveView = {
 
     const isHost = this.sessionRole === 'host';
     const s = this.activeSession;
-    const isPrivate = s.is_private;
     const mobile = window.innerWidth <= 768;
 
     sessionView.innerHTML = `
       <div class="live-studio-container">
         <div class="live-session-header">
-          <h3>${esc(s.title)} ${isPrivate ? '<span class="live-private-badge">' + ICONS.lock + ' Private</span>' : ''}</h3>
+          <h3>${esc(s.title)}</h3>
           <div class="live-session-meta">
             <span id="live-session-timer">60:00</span>
           </div>
@@ -518,7 +528,8 @@ const liveView = {
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-          ${isHost && isPrivate ? `<button class="live-ctrl-btn" id="live-share-btn" title="Copy invite link">${ICONS.share}</button>` : ''}
+          ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
+          <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
         </div>
 
@@ -546,7 +557,8 @@ const liveView = {
     document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
     document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
-    document.getElementById('live-share-btn')?.addEventListener('click', () => this.sharePrivateLink());
+    document.getElementById('live-share-btn')?.addEventListener('click', () => this.shareSession());
+    document.getElementById('live-minimize-btn')?.addEventListener('click', () => this.minimizeStudio());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
   },
 
@@ -658,24 +670,17 @@ const liveView = {
       tile.appendChild(badge);
     }
 
-    // Right-click (desktop) / long-press (mobile) context menu on remote tiles
+    // '...' button on remote tiles for menu actions
     if (!p.local) {
-      tile.addEventListener('contextmenu', (ev) => {
-        ev.preventDefault();
+      const menuBtn = document.createElement('button');
+      menuBtn.className = 'live-tile-menu-btn';
+      menuBtn.innerHTML = ICONS.more;
+      menuBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        this.showTileContextMenu(sessionId, ev.clientX, ev.clientY);
+        const rect = menuBtn.getBoundingClientRect();
+        this.showTileMenu(sessionId, rect.right - 160, rect.bottom + 4);
       });
-
-      let lpTimer = null;
-      tile.addEventListener('touchstart', (ev) => {
-        const t = ev.touches[0];
-        lpTimer = setTimeout(() => {
-          lpTimer = null;
-          this.showTileContextMenu(sessionId, t.clientX, t.clientY);
-        }, 500);
-      }, { passive: true });
-      tile.addEventListener('touchend', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
-      tile.addEventListener('touchmove', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }, { passive: true });
+      tile.appendChild(menuBtn);
     }
 
     rail.appendChild(tile);
@@ -859,8 +864,25 @@ const liveView = {
     }
   },
 
-  kickParticipant(sessionId) {
+  async kickParticipant(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
+    const entry = this.participantTiles.get(sessionId);
+    const targetUserId = entry?.tile?.dataset?.userId;
+
+    // Record kick on server to prevent rejoin
+    if (targetUserId && this.activeSession) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch(`${API_BASE_URL}/api/live/kick`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            body: JSON.stringify({ sessionId: this.activeSession.id, targetUserId })
+          });
+        }
+      } catch (e) { console.warn('Failed to record kick:', e); }
+    }
+
     try {
       this.callObject.updateParticipant(sessionId, { eject: true });
     } catch (error) {
@@ -868,33 +890,41 @@ const liveView = {
     }
   },
 
-  showTileContextMenu(sessionId, x, y) {
+  showTileMenu(sessionId, x, y) {
     const entry = this.participantTiles.get(sessionId);
     if (!entry) return;
-    const isHost = this.sessionRole === 'host';
-    const name = entry.name || 'this participant';
+    const viewerIsHost = this.sessionRole === 'host';
+    const tileIsHost = entry.isHost;
 
-    document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
+    document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
 
     const overlay = document.createElement('div');
-    overlay.className = 'live-ctx-overlay';
+    overlay.className = 'live-tile-menu-overlay';
     overlay.addEventListener('click', () => overlay.remove());
 
     const menu = document.createElement('div');
-    menu.className = 'live-ctx-menu';
+    menu.className = 'live-tile-menu';
     menu.addEventListener('click', (ev) => ev.stopPropagation());
 
     const items = [];
-    if (isHost && !entry.local) {
+    if (viewerIsHost && !entry.local) {
       items.push({
         icon: ICONS.micOff,
         label: 'Mute',
         action: () => { this.muteParticipant(sessionId); overlay.remove(); }
       });
       items.push({
-        icon: ICONS.videoOff,
+        icon: ICONS.userX,
         label: 'Kick out',
+        danger: true,
         action: () => { this.kickParticipant(sessionId); overlay.remove(); }
+      });
+    }
+    if (!viewerIsHost && tileIsHost) {
+      items.push({
+        icon: ICONS.message,
+        label: 'Chat me up',
+        action: () => { overlay.remove(); this.chatMeUp(); }
       });
     }
     items.push({
@@ -905,7 +935,7 @@ const liveView = {
 
     for (const item of items) {
       const btn = document.createElement('button');
-      btn.className = 'live-ctx-item' + (item.danger ? ' danger' : '');
+      btn.className = 'live-tile-menu-item' + (item.danger ? ' danger' : '');
       btn.innerHTML = `${item.icon} <span>${item.label}</span>`;
       btn.addEventListener('click', item.action);
       menu.appendChild(btn);
@@ -923,6 +953,138 @@ const liveView = {
     top = Math.max(12, top);
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
+  },
+
+  chatMeUp() {
+    if (!this.activeSession) return;
+    const hostId = this.activeSession.user_id;
+    if (!hostId) return;
+    window.location.hash = `/ping?u=${hostId}`;
+  },
+
+  minimizeStudio() {
+    if (!this.activeSession || this.minimized) return;
+    this.minimized = true;
+
+    const studio = document.querySelector('.live-studio-container');
+    if (studio) studio.style.display = 'none';
+
+    const tile = document.createElement('div');
+    tile.className = 'live-minimized-tile';
+    tile.id = 'live-minimized-tile';
+    tile.innerHTML = `
+      <div class="live-minimized-video">
+        <video id="live-mini-video" autoplay playsinline muted></video>
+        <div class="live-mini-overlay">
+          <span class="live-mini-live">LIVE</span>
+        </div>
+      </div>
+      <div class="live-minimized-info">
+        <span class="live-minimized-title">${esc(this.activeSession.title)}</span>
+        <button class="live-minimized-close" title="Close">${ICONS.close}</button>
+      </div>
+    `;
+    document.body.appendChild(tile);
+
+    // Try to clone the stage video into the mini tile
+    const stageVideo = document.getElementById('live-stage-video');
+    const miniVideo = document.getElementById('live-mini-video');
+    if (stageVideo && stageVideo.srcObject && miniVideo) {
+      miniVideo.srcObject = stageVideo.srcObject;
+      miniVideo.play().catch(() => {});
+    }
+
+    // Position at bottom-right
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    tile.style.left = (vw - 220) + 'px';
+    tile.style.top = (vh - 180) + 'px';
+
+    // Drag support
+    this._initMiniDrag(tile);
+
+    // Click to restore (but not on close button)
+    tile.addEventListener('click', (ev) => {
+      if (ev.target.closest('.live-minimized-close')) return;
+      this.restoreStudio();
+    });
+
+    // Close button = leave session
+    tile.querySelector('.live-minimized-close')?.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const isHost = this.sessionRole === 'host';
+      if (isHost) this.endSession();
+      else this.leaveSession();
+    });
+  },
+
+  _initMiniDrag(tile) {
+    let dragging = false;
+    let startX, startY, origX, origY;
+
+    const onDown = (ev) => {
+      if (ev.target.closest('.live-minimized-close')) return;
+      dragging = true;
+      const touch = ev.touches ? ev.touches[0] : ev;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      origX = tile.offsetLeft;
+      origY = tile.offsetTop;
+      ev.preventDefault();
+    };
+
+    const onMove = (ev) => {
+      if (!dragging) return;
+      const touch = ev.touches ? ev.touches[0] : ev;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let newX = origX + dx;
+      let newY = origY + dy;
+      newX = Math.max(0, Math.min(newX, vw - tile.offsetWidth));
+      newY = Math.max(0, Math.min(newY, vh - tile.offsetHeight));
+      tile.style.left = newX + 'px';
+      tile.style.top = newY + 'px';
+    };
+
+    const onUp = () => { dragging = false; };
+
+    tile.addEventListener('mousedown', onDown);
+    tile.addEventListener('touchstart', onDown, { passive: false });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+
+    tile._dragCleanup = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchend', onUp);
+    };
+  },
+
+  restoreStudio() {
+    if (!this.minimized) return;
+    this.minimized = false;
+
+    const tile = document.getElementById('live-minimized-tile');
+    if (tile) {
+      if (tile._dragCleanup) tile._dragCleanup();
+      tile.remove();
+    }
+
+    const studio = document.querySelector('.live-studio-container');
+    if (studio) studio.style.display = '';
+
+    // Re-attach the video stream back to the stage
+    const stageVideo = document.getElementById('live-stage-video');
+    const miniVideo = document.getElementById('live-mini-video');
+    if (stageVideo && miniVideo && miniVideo.srcObject) {
+      stageVideo.srcObject = miniVideo.srcObject;
+      stageVideo.play().catch(() => {});
+    }
   },
 
   reportLiveSession() {
@@ -1008,7 +1170,7 @@ const liveView = {
     }
   },
 
-  sharePrivateLink() {
+  shareSession() {
     if (!this.activeSession) return;
 
     const joinUrl = `${window.location.origin}${window.location.pathname}#/live?join=${this.activeSession.id}`;
@@ -1507,7 +1669,13 @@ const liveView = {
     try { sessionStorage.removeItem('liveSession'); } catch (e) {}
 
     document.body.classList.remove('live-studio-active');
-    document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
+    document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
+    const miniTile = document.getElementById('live-minimized-tile');
+    if (miniTile) {
+      if (miniTile._dragCleanup) miniTile._dragCleanup();
+      miniTile.remove();
+    }
+    this.minimized = false;
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
 
