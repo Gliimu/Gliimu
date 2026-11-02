@@ -33,8 +33,9 @@ export async function router() {
   const topbarDynamic = document.getElementById('topbar-dynamic-content');
   const topbarRightActions = document.getElementById('topbar-right-actions');
 
-  // 1. Intercept Navigation if Live Session is Active
-  if (window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
+  // 1. Intercept Navigation if Live Session is Active (but not minimized)
+  if (window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()
+      && !(window.liveInstance.isMinimized && window.liveInstance.isMinimized())) {
     if (!await appConfirm("Do you want to leave the live session?", { okText: 'Leave', danger: true })) {
       history.replaceState(null, '', previousHash);
       return;

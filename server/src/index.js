@@ -896,13 +896,13 @@ app.post('/api/daily/create-room', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    const { requestId } = req.body || {};
+    const { requestId, isPrivate } = req.body || {};
     if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
 
     // Verify user owns this request
     const { data: request, error: reqError } = await supabaseAdmin
       .from('live_requests')
-      .select('id, user_id, room_id, join_code')
+      .select('id, user_id, room_id, join_code, is_private')
       .eq('id', requestId)
       .eq('user_id', authData.user.id)
       .maybeSingle();
@@ -962,7 +962,9 @@ app.post('/api/daily/create-room', async (req, res) => {
         enable_screenshare: true,
         enable_prejoin_ui: false,
         start_video_off: false,
-        start_audio_off: false
+        start_audio_off: false,
+        // Private sessions auto-record; public sessions do not.
+        enable_recording: !!request.is_private
       }
     });
 

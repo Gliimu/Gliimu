@@ -75,6 +75,9 @@ CREATE POLICY live_chat_insert ON public.live_chat_messages
   );
 
 GRANT SELECT, INSERT ON public.live_chat_messages TO authenticated;
+-- The Express server reads/writes chat via the service_role key, so it needs
+-- table privileges too (RLS is bypassed for service_role, but GRANTs are not).
+GRANT ALL PRIVILEGES ON public.live_chat_messages TO service_role;
 
 CREATE INDEX IF NOT EXISTS idx_live_chat_messages_room_id
   ON public.live_chat_messages(room_id);
@@ -195,6 +198,8 @@ FROM (
   SELECT 'Chat grants installed',
     has_table_privilege('authenticated', 'public.live_chat_messages', 'SELECT')
     AND has_table_privilege('authenticated', 'public.live_chat_messages', 'INSERT')
+    AND has_table_privilege('service_role', 'public.live_chat_messages', 'SELECT')
+    AND has_table_privilege('service_role', 'public.live_chat_messages', 'INSERT')
   UNION ALL
   SELECT 'Participant RPCs installed without bypassing RLS',
     (SELECT count(*) = 2 FROM pg_proc

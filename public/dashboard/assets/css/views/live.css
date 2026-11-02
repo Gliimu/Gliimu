@@ -1,17 +1,11 @@
 /* ============================================
    LIVE PAGE — LANDING
    ============================================ */
-.live-layout {
-  min-height: calc(100vh - 64px - var(--space-8) - var(--space-8));
-  background: var(--surface);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+/* While a session studio is open, cancel the dashboard viewer padding so the
+   studio fills the page edge-to-edge with no vertical scroll. The landing list
+   keeps the normal padding because this class is only present during a session. */
+body.live-studio-active .view-container {
+  padding: 0 !important;
 }
 
 .live-header {
