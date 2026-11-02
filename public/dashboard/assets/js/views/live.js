@@ -21,6 +21,7 @@ const ICONS = {
   lock: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>',
   share: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
   copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
+  flip: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
   userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>'
 };
 
@@ -79,7 +80,6 @@ const liveView = {
       toggleCamera: () => this.toggleCamera(),
       toggleMic: () => this.toggleMic(),
       toggleChat: () => this.toggleChat(),
-      toggleHandRaise: () => this.toggleHandRaise(),
       sendChatMessage: () => this.sendChatMessage(),
       muteParticipantAudio: (sessionId) => this.muteParticipantAudio(sessionId),
       muteParticipantVideo: (sessionId) => this.muteParticipantVideo(sessionId),
@@ -102,6 +102,7 @@ const liveView = {
   },
 
   destroy() {
+    document.body.classList.remove('live-studio-active');
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
@@ -287,6 +288,29 @@ const liveView = {
 
       this.closeHostModal();
       
+      // Fetch owner meeting token so host can control participants
+      this.hostMeetingToken = null;
+      if (result.room_id) {
+        try {
+          const tokenRes = await fetch(`${API_BASE_URL}/api/daily/meeting-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ roomId: result.room_id })
+          });
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            this.hostMeetingToken = tokenData.token;
+          } else {
+            console.warn('Failed to get host meeting token:', await tokenRes.text());
+          }
+        } catch (tokenError) {
+          console.warn('Error fetching host token:', tokenError);
+        }
+      }
+
       // Enter as host
       this.activeSession = {
         ...request,
@@ -338,6 +362,29 @@ const liveView = {
 
       this.activeSession = request;
       this.sessionRole = (request.user_id === store.user.id) ? 'host' : 'participant';
+
+      // Host needs owner token to control participants
+      if (this.sessionRole === 'host' && request.room_id) {
+        try {
+          const tokenRes = await fetch(`${API_BASE_URL}/api/daily/meeting-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ roomId: request.room_id })
+          });
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            this.hostMeetingToken = tokenData.token;
+          } else {
+            console.warn('Failed to get host meeting token:', await tokenRes.text());
+          }
+        } catch (tokenError) {
+          console.warn('Error fetching host token:', tokenError);
+        }
+      }
+
       this.enterSession();
 
     } catch (error) {
@@ -374,6 +421,7 @@ const liveView = {
     this.isRecording = false;
     this.screenSharePermissionGranted.clear();
 
+    document.body.classList.add('live-studio-active');
     this.renderSessionUI();
     this.joinDailyCall(this.activeSession.room_url);
     this.startChatPolling(this.activeSession.id);
@@ -391,6 +439,7 @@ const liveView = {
     const isHost = this.sessionRole === 'host';
     const s = this.activeSession;
     const isPrivate = s.is_private;
+    const mobile = window.innerWidth <= 768;
 
     sessionView.innerHTML = `
       <div class="live-studio-container">
@@ -414,8 +463,9 @@ const liveView = {
         <div class="live-controls-bar">
           <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
           <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
-          <button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>
-          ${!isHost ? `<button class="live-ctrl-btn" id="live-hand-btn" title="Raise hand">${ICONS.hand}</button>` : ''}
+          ${mobile
+            ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
+            : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
           ${isHost && isPrivate ? `<button class="live-ctrl-btn" id="live-share-btn" title="Copy invite link">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -439,7 +489,6 @@ const liveView = {
     document.getElementById('live-camera-btn')?.addEventListener('click', () => this.toggleCamera());
     document.getElementById('live-mic-btn')?.addEventListener('click', () => this.toggleMic());
     document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
-    document.getElementById('live-hand-btn')?.addEventListener('click', () => this.toggleHandRaise());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.sharePrivateLink());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
@@ -478,9 +527,6 @@ const liveView = {
       .on('participant-left', (e) => {
         if (e.participant) this.removeParticipantTile(e.participant.session_id);
       })
-      .on('participant-updated', (e) => {
-        if (e.participant) this.handleParticipantUpdated(e.participant);
-      })
       .on('track-started', (e) => {
         if (e.track && e.participant) this.attachTrack(e.participant.session_id, e.track);
       })
@@ -500,7 +546,8 @@ const liveView = {
 
     try {
       await this.callObject.startCamera();
-      await this.callObject.join();
+      const joinOptions = this.hostMeetingToken ? { token: this.hostMeetingToken } : {};
+      await this.callObject.join(joinOptions);
     } catch (error) {
       console.error('Failed to join call:', error);
       alert('Could not connect. Check camera/mic permissions.');
@@ -735,55 +782,10 @@ const liveView = {
     if (panel) panel.style.display = this.chatOpen ? 'flex' : 'none';
   },
 
-  async toggleHandRaise() {
-    if (!this.callObject) return;
-    const local = this.callObject.participants()?.local;
-    if (!local) return;
-
-    const current = local.user_data || {};
-    const raised = !current.handRaised;
-
-    try {
-      this.callObject.updateParticipant(local.session_id, {
-        userData: { ...current, handRaised: raised }
-      });
-
-      const btn = document.getElementById('live-hand-btn');
-      if (btn) btn.classList.toggle('raised', raised);
-
-      const tile = this.participantTiles.get(local.session_id);
-      if (tile) this.updateHandIndicator(tile, raised);
-    } catch (error) {
-      console.error('Hand raise failed:', error);
-    }
-  },
-
-  handleParticipantUpdated(p) {
-    const sessionId = p.session_id;
-    const tile = this.participantTiles.get(sessionId);
-    if (!tile) return;
-
-    const raised = !!(p.user_data?.handRaised);
-    this.updateHandIndicator(tile, raised);
-    tile.tile.classList.toggle('raised', raised);
-  },
-
-  updateHandIndicator(tileEntry, raised) {
-    let indicator = tileEntry.tile.querySelector('.live-hand-raise-badge');
-    if (raised && !indicator) {
-      indicator = document.createElement('div');
-      indicator.className = 'live-hand-raise-badge';
-      indicator.textContent = '\u{1F590}\u{FE0F}';
-      tileEntry.tile.appendChild(indicator);
-    } else if (!raised && indicator) {
-      indicator.remove();
-    }
-  },
-
   muteParticipantAudio(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { audio: false });
+      this.callObject.updateParticipant(sessionId, { setAudio: false });
     } catch (error) {
       console.error('Mute audio failed:', error);
     }
@@ -791,8 +793,8 @@ const liveView = {
 
   muteParticipantVideo(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
-try {
-      this.callObject.updateParticipant(sessionId, { video: false });
+    try {
+      this.callObject.updateParticipant(sessionId, { setVideo: false });
     } catch (error) {
       console.error('Mute video failed:', error);
     }
@@ -840,6 +842,16 @@ try {
       } catch (error) {
         console.error('Screen share error:', error);
       }
+    }
+  },
+
+  flipCamera() {
+    if (!this.callObject) return;
+    try {
+      const result = this.callObject.cycleCamera();
+      if (result && result.catch) result.catch((err) => console.warn('Camera swap failed:', err));
+    } catch (error) {
+      console.warn('Camera swap failed:', error);
     }
   },
 
@@ -1179,6 +1191,7 @@ try {
   },
 
   cleanupSession() {
+    document.body.classList.remove('live-studio-active');
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
 
@@ -1201,6 +1214,7 @@ try {
     this.chatMessages = [];
     this.activeSession = null;
     this.sessionRole = null;
+    this.hostMeetingToken = null;
     this.screenSharing = false;
     this.focusedSessionId = null;
 

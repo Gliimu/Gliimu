@@ -991,6 +991,46 @@ app.post('/api/daily/create-room', async (req, res) => {
   }
 });
 
+// Generate a Daily.co meeting token for the host (owner privileges)
+app.post('/api/daily/meeting-token', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+
+    const { roomId } = req.body || {};
+    if (!roomId) return res.status(400).json({ error: 'Missing roomId.' });
+
+    // Verify user owns this room's session
+    const { data: request } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, user_id, room_id')
+      .eq('room_id', roomId)
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+
+    if (!request) {
+      return res.status(403).json({ error: 'Only the host can get an owner token.' });
+    }
+
+    // Create owner meeting token via Daily.co API
+    const meetingToken = await dailyRequest('POST', '/meeting-tokens', {
+      room_id: roomId,
+      is_owner: true
+    });
+
+    res.json({ token: meetingToken.token });
+  } catch (error) {
+    console.error('Meeting token error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
 // Get list of active public sessions
 app.get('/api/live/public-sessions', async (req, res) => {
   try {

@@ -127,10 +127,13 @@
 /* ============================================
    LIVE SESSION — STUDIO CONTAINER
    ============================================ */
+body.live-studio-active .view-container {
+  padding: 0;
+}
 .live-studio-container {
   position: relative;
   width: 100%;
-  height: calc(100vh - 64px - var(--space-8) - var(--space-8));
+  height: calc(100vh - 64px);
   background: #0a0a0a;
   border-radius: 16px;
   overflow: hidden;
@@ -721,8 +724,8 @@
   }
 
   .live-studio-container {
-    height: calc(100vh - 64px - 32px);
-    border-radius: 12px;
+    height: calc(100vh - 64px);
+    border-radius: 0;
   }
 
   /* Stack: stage on top, horizontal rail at the bottom */
