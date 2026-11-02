@@ -955,17 +955,20 @@ app.post('/api/daily/create-room', async (req, res) => {
     }
 
     // Create room via daily.co API
+    const roomProps = {
+      enable_chat: true,
+      enable_screenshare: true,
+      enable_prejoin_ui: false,
+      start_video_off: false,
+      start_audio_off: false
+    };
+    // Private sessions auto-record; public sessions do not.
+    if (request.is_private) {
+      roomProps.enable_recording = 'cloud';
+    }
     const room = await dailyRequest('POST', '/rooms', {
       name: `gliimu-${requestId}`,
-      properties: {
-        enable_chat: true,
-        enable_screenshare: true,
-        enable_prejoin_ui: false,
-        start_video_off: false,
-        start_audio_off: false,
-        // Private sessions auto-record; public sessions do not.
-        enable_recording: !!request.is_private
-      }
+      properties: roomProps
     });
 
     // Store room info + join code in database
@@ -1020,8 +1023,10 @@ app.post('/api/daily/meeting-token', async (req, res) => {
 
     // Create owner meeting token via Daily.co API
     const meetingToken = await dailyRequest('POST', '/meeting-tokens', {
-      room_id: roomId,
-      is_owner: true
+      properties: {
+        room_name: `gliimu-${request.id}`,
+        is_owner: true
+      }
     });
 
     res.json({ token: meetingToken.token });

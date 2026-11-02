@@ -23,7 +23,7 @@ const ICONS = {
   copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
   flip: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
   userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>',
-  more: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>'
+  flag: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -84,7 +84,7 @@ const liveView = {
       sendChatMessage: () => this.sendChatMessage(),
       muteParticipantAudio: (sessionId) => this.muteParticipantAudio(sessionId),
       muteParticipantVideo: (sessionId) => this.muteParticipantVideo(sessionId),
-      removeParticipant: (sessionId) => this.removeParticipant(sessionId),
+      reportLiveSession: () => this.reportLiveSession(),
       grantScreenShare: (userId) => this.grantScreenShare(userId),
       revokeScreenShare: (userId) => this.revokeScreenShare(userId),
       toggleScreenShare: () => this.toggleScreenShare(),
@@ -104,6 +104,7 @@ const liveView = {
 
   destroy() {
     document.body.classList.remove('live-studio-active');
+    document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
@@ -423,8 +424,6 @@ const liveView = {
     this.screenSharePermissionGranted.clear();
 
     document.body.classList.add('live-studio-active');
-    this._closeTileMenus = () => document.querySelectorAll('.live-tile-menu-dropdown').forEach(d => d.style.display = 'none');
-    document.addEventListener('click', this._closeTileMenus);
     this.renderSessionUI();
     this.joinDailyCall(this.activeSession.room_url);
     this.startChatPolling(this.activeSession.id);
@@ -599,47 +598,24 @@ const liveView = {
     tile.appendChild(audio);
     tile.appendChild(info);
 
-    // Host controls on every remote tile: '...' menu at top-right with mute/remove options.
-    if (this.sessionRole === 'host' && !p.local) {
-      const menuWrap = document.createElement('div');
-      menuWrap.className = 'live-tile-menu-wrap';
-
-      const menuBtn = document.createElement('button');
-      menuBtn.className = 'live-tile-menu-btn';
-      menuBtn.innerHTML = ICONS.more;
-      menuBtn.addEventListener('click', (ev) => {
+    // Right-click (desktop) / long-press (mobile) context menu on remote tiles
+    if (!p.local) {
+      tile.addEventListener('contextmenu', (ev) => {
+        ev.preventDefault();
         ev.stopPropagation();
-        const dropdown = menuWrap.querySelector('.live-tile-menu-dropdown');
-        const isOpen = dropdown.style.display === 'block';
-        document.querySelectorAll('.live-tile-menu-dropdown').forEach(d => d.style.display = 'none');
-        dropdown.style.display = isOpen ? 'none' : 'block';
+        this.showTileContextMenu(sessionId, ev.clientX, ev.clientY);
       });
 
-      const dropdown = document.createElement('div');
-      dropdown.className = 'live-tile-menu-dropdown';
-      dropdown.style.display = 'none';
-
-      const muteAudioItem = document.createElement('button');
-      muteAudioItem.className = 'live-tile-menu-item';
-      muteAudioItem.innerHTML = `${ICONS.micOff} <span>Mute audio</span>`;
-      muteAudioItem.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantAudio(sessionId); dropdown.style.display = 'none'; });
-
-      const muteVideoItem = document.createElement('button');
-      muteVideoItem.className = 'live-tile-menu-item';
-      muteVideoItem.innerHTML = `${ICONS.videoOff} <span>Mute video</span>`;
-      muteVideoItem.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantVideo(sessionId); dropdown.style.display = 'none'; });
-
-      const removeItem = document.createElement('button');
-      removeItem.className = 'live-tile-menu-item danger';
-      removeItem.innerHTML = `${ICONS.userX} <span>Remove</span>`;
-      removeItem.addEventListener('click', (ev) => { ev.stopPropagation(); this.removeParticipant(sessionId); dropdown.style.display = 'none'; });
-
-      dropdown.appendChild(muteAudioItem);
-      dropdown.appendChild(muteVideoItem);
-      dropdown.appendChild(removeItem);
-      menuWrap.appendChild(menuBtn);
-      menuWrap.appendChild(dropdown);
-      tile.appendChild(menuWrap);
+      let lpTimer = null;
+      tile.addEventListener('touchstart', (ev) => {
+        const t = ev.touches[0];
+        lpTimer = setTimeout(() => {
+          lpTimer = null;
+          this.showTileContextMenu(sessionId, t.clientX, t.clientY);
+        }, 500);
+      }, { passive: true });
+      tile.addEventListener('touchend', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } });
+      tile.addEventListener('touchmove', () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }, { passive: true });
     }
 
     rail.appendChild(tile);
@@ -803,7 +779,7 @@ const liveView = {
   muteParticipantAudio(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { setAudioMuted: true });
+      this.callObject.updateParticipant(sessionId, { setAudio: false });
     } catch (error) {
       console.error('Mute audio failed:', error);
     }
@@ -812,24 +788,110 @@ const liveView = {
   muteParticipantVideo(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { setVideoMuted: true });
+      this.callObject.updateParticipant(sessionId, { setVideo: false });
     } catch (error) {
       console.error('Mute video failed:', error);
     }
   },
 
-  async removeParticipant(sessionId) {
-    if (this.sessionRole !== 'host' || !this.callObject) return;
+  showTileContextMenu(sessionId, x, y) {
     const entry = this.participantTiles.get(sessionId);
-    const name = entry?.name || 'this participant';
-    const confirm = await appConfirm(`Remove ${name} from the session?`, { okText: 'Remove', danger: true });
-    if (!confirm) return;
-    try {
-      this.callObject.updateParticipant(sessionId, { eject: true });
-    } catch (error) {
-      console.error('Remove participant failed:', error);
-      alert('Could not remove this participant.');
+    if (!entry) return;
+    const isHost = this.sessionRole === 'host';
+    const name = entry.name || 'this participant';
+
+    document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
+
+    const overlay = document.createElement('div');
+    overlay.className = 'live-ctx-overlay';
+    overlay.addEventListener('click', () => overlay.remove());
+
+    const menu = document.createElement('div');
+    menu.className = 'live-ctx-menu';
+    menu.addEventListener('click', (ev) => ev.stopPropagation());
+
+    const items = [];
+    if (isHost && !entry.local) {
+      items.push({
+        icon: ICONS.micOff,
+        label: 'Mute audio',
+        action: () => { this.muteParticipantAudio(sessionId); overlay.remove(); }
+      });
+      items.push({
+        icon: ICONS.videoOff,
+        label: 'Disable video',
+        action: () => { this.muteParticipantVideo(sessionId); overlay.remove(); }
+      });
     }
+    items.push({
+      icon: ICONS.flag,
+      label: 'Report',
+      danger: true,
+      action: () => { overlay.remove(); this.reportLiveSession(); }
+    });
+
+    for (const item of items) {
+      const btn = document.createElement('button');
+      btn.className = 'live-ctx-item' + (item.danger ? ' danger' : '');
+      btn.innerHTML = `${item.icon} <span>${item.label}</span>`;
+      btn.addEventListener('click', item.action);
+      menu.appendChild(btn);
+    }
+
+    overlay.appendChild(menu);
+    document.body.appendChild(overlay);
+
+    const rect = menu.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = Math.min(x, vw - rect.width - 12);
+    let top = Math.min(y, vh - rect.height - 12);
+    left = Math.max(12, left);
+    top = Math.max(12, top);
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  },
+
+  reportLiveSession() {
+    if (!this.activeSession) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 440px;">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        <h2 style="margin-bottom: 8px;">Report Session</h2>
+        <p class="text-muted" style="margin-bottom: 16px;">State your reason for reporting this live session. It will be reviewed by the team.</p>
+        <textarea id="live-report-reason" class="input" rows="4" placeholder="Reason for reporting..." style="width:100%;box-sizing:border-box;"></textarea>
+        <button class="btn-primary" id="live-report-submit" style="width:100%;margin-top:16px;">Submit Report</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('live-report-submit').addEventListener('click', async () => {
+      const reason = document.getElementById('live-report-reason').value.trim();
+      if (reason.length < 5) return appAlert('Please state a reason (at least 5 characters).');
+
+      const btn = document.getElementById('live-report-submit');
+      btn.disabled = true;
+      btn.innerText = 'Submitting...';
+
+      const { error } = await supabase.from('reports').insert({
+        reporter_id: store.user.id,
+        target_type: 'live_session',
+        target_id: this.activeSession.id,
+        reason
+      });
+
+      if (error) {
+        btn.disabled = false;
+        btn.innerText = 'Submit Report';
+        return appAlert('Report failed: ' + error.message);
+      }
+
+      overlay.remove();
+      appAlert('Thank you. Your report has been submitted for review.');
+    });
   },
 
   async grantScreenShare(userId) {
@@ -1210,13 +1272,9 @@ const liveView = {
 
   cleanupSession() {
     document.body.classList.remove('live-studio-active');
+    document.querySelectorAll('.live-ctx-overlay').forEach(o => o.remove());
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
-
-    if (this._closeTileMenus) {
-      document.removeEventListener('click', this._closeTileMenus);
-      this._closeTileMenus = null;
-    }
 
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);

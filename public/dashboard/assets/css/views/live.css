@@ -616,93 +616,65 @@ body.live-studio-active .view-container {
   pointer-events: none;
 }
 
-/* Host controls on participant tiles */
-.live-tile-menu-wrap {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+/* Context menu overlay (right-click / long-press) */
+.live-ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
 }
 
-.live-participant-tile:hover .live-tile-menu-wrap {
-  opacity: 1;
-}
-
-.live-tile-menu-btn {
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  padding: 0;
-}
-
-.live-tile-menu-btn:hover {
-  background: rgba(0, 0, 0, 0.9);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.live-tile-menu-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.live-tile-menu-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 4px;
-  background: rgba(20, 20, 20, 0.95);
+.live-ctx-menu {
+  position: fixed;
+  background: rgba(20, 20, 20, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  min-width: 140px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  min-width: 160px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: live-ctx-in 0.15s ease-out;
 }
 
-.live-tile-menu-item {
+@keyframes live-ctx-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.live-ctx-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.88);
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s ease;
+  transition: background 0.12s ease;
 }
 
-.live-tile-menu-item:hover {
+.live-ctx-item:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.live-tile-menu-item svg {
-  width: 14px;
-  height: 14px;
+.live-ctx-item svg {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
 }
 
-.live-tile-menu-item.danger {
+.live-ctx-item.danger {
   color: #ef4444;
 }
 
-.live-tile-menu-item.danger:hover {
+.live-ctx-item.danger:hover {
   background: rgba(239, 68, 68, 0.15);
 }
 
-.live-tile-menu-item + .live-tile-menu-item {
+.live-ctx-item + .live-ctx-item {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
