@@ -127,6 +127,11 @@
 /* ============================================
    LIVE SESSION — STUDIO CONTAINER
    ============================================ */
+body.live-studio-active {
+  overflow: hidden;
+  height: 100vh;
+}
+
 body.live-studio-active .view-container {
   padding: 0;
 }
@@ -612,22 +617,20 @@ body.live-studio-active .view-container {
 }
 
 /* Host controls on participant tiles */
-.live-tile-host-controls {
+.live-tile-menu-wrap {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  gap: 4px;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
   opacity: 0;
   transition: opacity 0.2s ease;
-  z-index: 10;
 }
 
-.live-participant-tile:hover .live-tile-host-controls {
+.live-participant-tile:hover .live-tile-menu-wrap {
   opacity: 1;
 }
 
-.live-tile-host-btn {
+.live-tile-menu-btn {
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
@@ -642,19 +645,65 @@ body.live-studio-active .view-container {
   padding: 0;
 }
 
-.live-tile-host-btn:hover {
+.live-tile-menu-btn:hover {
   background: rgba(0, 0, 0, 0.9);
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-.live-tile-host-btn svg {
+.live-tile-menu-btn svg {
   width: 14px;
   height: 14px;
 }
 
-.live-tile-host-btn.danger:hover {
-  background: #dc2626;
-  border-color: #dc2626;
+.live-tile-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 140px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.live-tile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.live-tile-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.live-tile-menu-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.live-tile-menu-item.danger {
+  color: #ef4444;
+}
+
+.live-tile-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.live-tile-menu-item + .live-tile-menu-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ============================================

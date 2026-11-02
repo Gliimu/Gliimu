@@ -22,7 +22,8 @@ const ICONS = {
   share: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
   copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
   flip: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
-  userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>'
+  userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>',
+  more: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>'
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -422,6 +423,8 @@ const liveView = {
     this.screenSharePermissionGranted.clear();
 
     document.body.classList.add('live-studio-active');
+    this._closeTileMenus = () => document.querySelectorAll('.live-tile-menu-dropdown').forEach(d => d.style.display = 'none');
+    document.addEventListener('click', this._closeTileMenus);
     this.renderSessionUI();
     this.joinDailyCall(this.activeSession.room_url);
     this.startChatPolling(this.activeSession.id);
@@ -489,6 +492,7 @@ const liveView = {
     document.getElementById('live-camera-btn')?.addEventListener('click', () => this.toggleCamera());
     document.getElementById('live-mic-btn')?.addEventListener('click', () => this.toggleMic());
     document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
+    document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.sharePrivateLink());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
@@ -595,33 +599,47 @@ const liveView = {
     tile.appendChild(audio);
     tile.appendChild(info);
 
-    // Host controls on every remote tile (mute audio / mute video / remove).
+    // Host controls on every remote tile: '...' menu at top-right with mute/remove options.
     if (this.sessionRole === 'host' && !p.local) {
-      const controls = document.createElement('div');
-      controls.className = 'live-tile-host-controls';
+      const menuWrap = document.createElement('div');
+      menuWrap.className = 'live-tile-menu-wrap';
 
-      const muteAudioBtn = document.createElement('button');
-      muteAudioBtn.className = 'live-tile-host-btn';
-      muteAudioBtn.title = 'Mute audio';
-      muteAudioBtn.innerHTML = ICONS.micOff;
-      muteAudioBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantAudio(sessionId); });
+      const menuBtn = document.createElement('button');
+      menuBtn.className = 'live-tile-menu-btn';
+      menuBtn.innerHTML = ICONS.more;
+      menuBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const dropdown = menuWrap.querySelector('.live-tile-menu-dropdown');
+        const isOpen = dropdown.style.display === 'block';
+        document.querySelectorAll('.live-tile-menu-dropdown').forEach(d => d.style.display = 'none');
+        dropdown.style.display = isOpen ? 'none' : 'block';
+      });
 
-      const muteVideoBtn = document.createElement('button');
-      muteVideoBtn.className = 'live-tile-host-btn';
-      muteVideoBtn.title = 'Mute video';
-      muteVideoBtn.innerHTML = ICONS.videoOff;
-      muteVideoBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantVideo(sessionId); });
+      const dropdown = document.createElement('div');
+      dropdown.className = 'live-tile-menu-dropdown';
+      dropdown.style.display = 'none';
 
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'live-tile-host-btn danger';
-      removeBtn.title = 'Remove participant';
-      removeBtn.innerHTML = ICONS.userX;
-      removeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.removeParticipant(sessionId); });
+      const muteAudioItem = document.createElement('button');
+      muteAudioItem.className = 'live-tile-menu-item';
+      muteAudioItem.innerHTML = `${ICONS.micOff} <span>Mute audio</span>`;
+      muteAudioItem.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantAudio(sessionId); dropdown.style.display = 'none'; });
 
-      controls.appendChild(muteAudioBtn);
-      controls.appendChild(muteVideoBtn);
-      controls.appendChild(removeBtn);
-      tile.appendChild(controls);
+      const muteVideoItem = document.createElement('button');
+      muteVideoItem.className = 'live-tile-menu-item';
+      muteVideoItem.innerHTML = `${ICONS.videoOff} <span>Mute video</span>`;
+      muteVideoItem.addEventListener('click', (ev) => { ev.stopPropagation(); this.muteParticipantVideo(sessionId); dropdown.style.display = 'none'; });
+
+      const removeItem = document.createElement('button');
+      removeItem.className = 'live-tile-menu-item danger';
+      removeItem.innerHTML = `${ICONS.userX} <span>Remove</span>`;
+      removeItem.addEventListener('click', (ev) => { ev.stopPropagation(); this.removeParticipant(sessionId); dropdown.style.display = 'none'; });
+
+      dropdown.appendChild(muteAudioItem);
+      dropdown.appendChild(muteVideoItem);
+      dropdown.appendChild(removeItem);
+      menuWrap.appendChild(menuBtn);
+      menuWrap.appendChild(dropdown);
+      tile.appendChild(menuWrap);
     }
 
     rail.appendChild(tile);
@@ -761,7 +779,7 @@ const liveView = {
     const btn = document.getElementById('live-camera-btn');
     if (btn) {
       btn.innerHTML = !current ? ICONS.video : ICONS.videoOff;
-      btn.classList.toggle('active', !current);
+      btn.classList.toggle('active', current);
     }
   },
 
@@ -772,7 +790,7 @@ const liveView = {
     const btn = document.getElementById('live-mic-btn');
     if (btn) {
       btn.innerHTML = !current ? ICONS.mic : ICONS.micOff;
-      btn.classList.toggle('active', !current);
+      btn.classList.toggle('active', current);
     }
   },
 
@@ -785,7 +803,7 @@ const liveView = {
   muteParticipantAudio(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { setAudio: false });
+      this.callObject.updateParticipant(sessionId, { setAudioMuted: true });
     } catch (error) {
       console.error('Mute audio failed:', error);
     }
@@ -794,7 +812,7 @@ const liveView = {
   muteParticipantVideo(sessionId) {
     if (this.sessionRole !== 'host' || !this.callObject) return;
     try {
-      this.callObject.updateParticipant(sessionId, { setVideo: false });
+      this.callObject.updateParticipant(sessionId, { setVideoMuted: true });
     } catch (error) {
       console.error('Mute video failed:', error);
     }
@@ -1194,6 +1212,11 @@ const liveView = {
     document.body.classList.remove('live-studio-active');
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
+
+    if (this._closeTileMenus) {
+      document.removeEventListener('click', this._closeTileMenus);
+      this._closeTileMenus = null;
+    }
 
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
