@@ -1419,8 +1419,8 @@ app.post('/api/live/chat', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    const { roomId, content } = req.body || {};
-    if (!roomId || !content) return res.status(400).json({ error: 'Missing roomId or content.' });
+    const { roomId, content, attachment_url, attachment_type } = req.body || {};
+    if (!roomId || (!content && !attachment_url)) return res.status(400).json({ error: 'Missing roomId or content/attachment.' });
 
     // Verify room exists and is active
     const { data: room, error: roomError } = await supabaseAdmin
@@ -1434,13 +1434,16 @@ app.post('/api/live/chat', async (req, res) => {
     }
 
     // Insert message
+    const insertRow = {
+      room_id: roomId,
+      user_id: authData.user.id,
+      content: content ? content.slice(0, 1000) : null,
+      attachment_url: attachment_url || null,
+      attachment_type: attachment_type || null
+    };
     const { data: message, error: insertError } = await supabaseAdmin
       .from('live_chat_messages')
-      .insert({
-        room_id: roomId,
-        user_id: authData.user.id,
-        content: content.slice(0, 1000)
-      })
+      .insert(insertRow)
       .select()
       .single();
 

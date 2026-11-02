@@ -1,6 +1,7 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
+import { uploadAttachment } from '../media.js?v=2';
 
 const MIN_GP_TO_HOST = 1500;
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
@@ -82,6 +83,8 @@ const liveView = {
       toggleMic: () => this.toggleMic(),
       toggleChat: () => this.toggleChat(),
       sendChatMessage: () => this.sendChatMessage(),
+      handleChatFile: (ev) => this.handleChatFile(ev),
+      clearAttachmentPreview: () => this.clearAttachmentPreview(),
       muteParticipantAudio: (sessionId) => this.muteParticipantAudio(sessionId),
       muteParticipantVideo: (sessionId) => this.muteParticipantVideo(sessionId),
       reportLiveSession: () => this.reportLiveSession(),
@@ -480,6 +483,10 @@ const liveView = {
           </div>
           <div id="live-chat-messages" class="live-chat-messages"></div>
           <div class="live-chat-input">
+            <input type="file" id="live-chat-file" style="display:none" accept="image/*,.pdf,.epub,.doc,.docx" onchange="liveInstance.handleChatFile(event)">
+            <button class="live-chat-attach-btn" onclick="document.getElementById('live-chat-file').click()" title="Attach file">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+            </button>
             <input type="text" id="live-chat-input" placeholder="Type a message..." maxlength="500" onkeypress="if(event.key==='Enter')liveInstance.sendChatMessage()">
             <button onclick="liveInstance.sendChatMessage()">Send</button>
           </div>
@@ -592,11 +599,18 @@ const liveView = {
 
     const info = document.createElement('div');
     info.className = 'live-participant-info';
-    info.innerHTML = `<span>${esc(name)}${p.local ? ' (You)' : ''}${isHost ? ' · Host' : ''}</span>`;
+    info.innerHTML = `<span>${esc(name)}${p.local ? ' (You)' : ''}</span>`;
 
     tile.appendChild(video);
     tile.appendChild(audio);
     tile.appendChild(info);
+
+    if (isHost) {
+      const badge = document.createElement('div');
+      badge.className = 'live-host-badge';
+      badge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><span>Host</span>';
+      tile.appendChild(badge);
+    }
 
     // Right-click (desktop) / long-press (mobile) context menu on remote tiles
     if (!p.local) {
@@ -826,7 +840,6 @@ const liveView = {
     items.push({
       icon: ICONS.flag,
       label: 'Report',
-      danger: true,
       action: () => { overlay.remove(); this.reportLiveSession(); }
     });
 
@@ -937,24 +950,113 @@ const liveView = {
 
   sharePrivateLink() {
     if (!this.activeSession) return;
-    
+
     const joinUrl = `${window.location.origin}${window.location.pathname}#/live?join=${this.activeSession.id}`;
-    
-    navigator.clipboard.writeText(joinUrl).then(() => {
-      const btn = document.getElementById('live-share-btn');
-      if (btn) {
-        const originalTitle = btn.title;
-        btn.title = 'Link copied!';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.title = originalTitle;
-          btn.classList.remove('copied');
-        }, 2000);
+    const sessionTitle = this.activeSession.title || 'Live Session';
+
+    navigator.clipboard.writeText(joinUrl).catch(() => {});
+
+    this._openShareChatPicker(sessionTitle, joinUrl);
+  },
+
+  async _openShareChatPicker(sessionTitle, joinUrl) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content" style="max-width: 420px; max-height: 80vh; display: flex; flex-direction: column;">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+        <h2 style="margin-bottom: 4px;">Share to Chat</h2>
+        <p class="text-muted" style="margin-bottom: 12px; font-size: 13px;">Link copied. Select chats to send the invite.</p>
+        <div id="share-chat-list" style="flex: 1; overflow-y: auto; min-height: 0;">
+          <p class="text-muted" style="text-align: center; padding: 20px;">Loading chats...</p>
+        </div>
+        <button class="btn-primary" id="share-done-btn" style="width: 100%; margin-top: 12px; flex-shrink: 0;" disabled>Send to selected</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+
+    const listEl = overlay.querySelector('#share-chat-list');
+    const doneBtn = overlay.querySelector('#share-done-btn');
+
+    try {
+      const contacts = await this._fetchChatContacts();
+      if (contacts.length === 0) {
+        listEl.innerHTML = '<p class="text-muted" style="text-align: center; padding: 20px;">No chats yet. Start a conversation in Ping first.</p>';
+        return;
       }
-    }).catch(err => {
-      console.error('Copy failed:', err);
-      prompt('Copy this link to share:', joinUrl);
-    });
+
+      listEl.innerHTML = contacts.map(c => `
+        <label class="share-chat-item" data-contact-id="${c.id}">
+          <input type="checkbox" value="${c.id}">
+          <img src="${esc(c.avatar_url || '/icons/icon.png')}" alt="" class="share-chat-avatar" onerror="this.src='/icons/icon.png'">
+          <span class="share-chat-name">${esc(c.full_name)}</span>
+        </label>
+      `).join('');
+
+      const updateBtn = () => {
+        const checked = listEl.querySelectorAll('input:checked');
+        doneBtn.disabled = checked.length === 0;
+        doneBtn.textContent = checked.length > 0 ? `Send to ${checked.length} chat${checked.length > 1 ? 's' : ''}` : 'Send to selected';
+      };
+
+      listEl.addEventListener('change', updateBtn);
+      updateBtn();
+
+      doneBtn.addEventListener('click', async () => {
+        const selectedIds = [...listEl.querySelectorAll('input:checked')].map(cb => cb.value);
+        if (selectedIds.length === 0) return;
+
+        doneBtn.disabled = true;
+        doneBtn.textContent = 'Sending...';
+
+        for (const contactId of selectedIds) {
+          await supabase.from('messages').insert({
+            sender_id: store.user.id,
+            receiver_id: contactId,
+            content: sessionTitle,
+            attachment_url: joinUrl,
+            attachment_type: 'live_invite',
+            is_ai: false
+          });
+        }
+
+        overlay.remove();
+        appAlert(`Invite sent to ${selectedIds.length} chat${selectedIds.length > 1 ? 's' : ''}.`);
+      });
+
+    } catch (err) {
+      console.error('Failed to load chats:', err);
+      listEl.innerHTML = '<p class="text-muted" style="text-align: center; padding: 20px;">Could not load chats.</p>';
+    }
+  },
+
+  async _fetchChatContacts() {
+    const { data: received } = await supabase
+      .from('messages')
+      .select('sender_id, receiver_id')
+      .or(`sender_id.eq.${store.user.id},receiver_id.eq.${store.user.id}`)
+      .is('room', null)
+      .is('is_ai', false)
+      .is('is_admin', false);
+
+    if (!received || received.length === 0) return [];
+
+    const contactIds = new Set();
+    for (const m of received) {
+      const other = m.sender_id === store.user.id ? m.receiver_id : m.sender_id;
+      if (other && other !== store.user.id) contactIds.add(other);
+    }
+
+    if (contactIds.size === 0) return [];
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', [...contactIds]);
+
+    return profiles || [];
   },
 
   // ============================================
@@ -965,27 +1067,87 @@ const liveView = {
     const input = document.getElementById('live-chat-input');
     if (!input) return;
     const content = input.value.trim();
-    if (!content || !this.activeSession) return;
+    if ((!content && !this._pendingAttachment) || !this.activeSession) return;
+
+    const attachment = this._pendingAttachment;
+    this._pendingAttachment = null;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const body = { roomId: this.activeSession.id };
+      if (content) body.content = content.slice(0, 1000);
+      if (attachment) {
+        body.attachment_url = attachment.url;
+        body.attachment_type = attachment.type;
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/live/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ roomId: this.activeSession.id, content: content.slice(0, 1000) })
+        body: JSON.stringify(body)
       });
 
       const result = await response.json();
       if (result.ok) {
         input.value = '';
+        this.clearAttachmentPreview();
         await this.loadChatMessages(this.activeSession.id);
       }
     } catch (error) {
       console.error('Send chat error:', error);
     }
+  },
+
+  async handleChatFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    event.target.value = '';
+
+    try {
+      const uploaded = await uploadAttachment(file);
+      this._pendingAttachment = uploaded;
+      this.showAttachmentPreview(uploaded, file.name);
+    } catch (err) {
+      console.error('File upload failed:', err);
+      appAlert('Upload failed. Please try again.');
+    }
+  },
+
+  showAttachmentPreview(attachment, fileName) {
+    this.clearAttachmentPreview();
+    const inputRow = document.querySelector('.live-chat-input');
+    if (!inputRow) return;
+
+    const preview = document.createElement('div');
+    preview.className = 'live-chat-attachment-preview';
+    preview.id = 'live-attach-preview';
+
+    const isImage = attachment.type === 'image';
+    if (isImage) {
+      preview.innerHTML = `
+        <img src="${esc(attachment.url)}" alt="">
+        <span>${esc(fileName)}</span>
+        <button class="live-attach-remove" onclick="liveInstance.clearAttachmentPreview()">&times;</button>
+      `;
+    } else {
+      const ext = fileName.split('.').pop().toUpperCase();
+      preview.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+        <span>${esc(fileName)} (${ext})</span>
+        <button class="live-attach-remove" onclick="liveInstance.clearAttachmentPreview()">&times;</button>
+      `;
+    }
+
+    inputRow.parentNode.insertBefore(preview, inputRow);
+  },
+
+  clearAttachmentPreview() {
+    this._pendingAttachment = null;
+    const el = document.getElementById('live-attach-preview');
+    if (el) el.remove();
   },
 
   async loadChatMessages(requestId) {
@@ -1041,13 +1203,27 @@ const liveView = {
       const isOwn = msg.user_id === store.user.id;
       const name = msg.profiles?.full_name || 'Participant';
       const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      let attachmentHtml = '';
+      if (msg.attachment_url) {
+        if (msg.attachment_type === 'image') {
+          attachmentHtml = `<div class="live-chat-attachment"><img src="${esc(msg.attachment_url)}" alt="Shared image" loading="lazy"></div>`;
+        } else {
+          const label = msg.content || 'Download file';
+          attachmentHtml = `<div class="live-chat-attachment"><a href="${esc(msg.attachment_url)}" target="_blank" class="live-chat-file-link"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>${esc(label)}</a></div>`;
+        }
+      }
+
+      const contentHtml = msg.content ? `<div class="live-chat-message-content">${esc(msg.content)}</div>` : '';
+
       return `
         <div class="live-chat-message ${isOwn ? 'own' : ''}">
           <div class="live-chat-message-header">
             <strong>${esc(name)}</strong>
             <span class="live-chat-message-time">${time}</span>
           </div>
-          <div class="live-chat-message-content">${esc(msg.content)}</div>
+          ${contentHtml}
+          ${attachmentHtml}
         </div>
       `;
     }).join('');

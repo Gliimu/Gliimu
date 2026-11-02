@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js';
+import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=2';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
 import supportView from './support.js?v=39';
 

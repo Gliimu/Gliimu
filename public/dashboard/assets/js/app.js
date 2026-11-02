@@ -1,9 +1,9 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=155';
+import { router } from './router.js?v=156';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
-import { previewText } from './media.js';
+import { previewText } from './media.js?v=2';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
