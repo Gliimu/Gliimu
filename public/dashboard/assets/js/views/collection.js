@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=105';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=106';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

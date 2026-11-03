@@ -21,6 +21,31 @@ function parseHashtags(text) {
   );
 }
 
+// The composer's Live block is edited as a plain title + description and
+// carried in the hidden .block-content-input as JSON. Publishing mints the
+// live session from it, so the composer never needs a session to exist yet.
+function readLiveDraft(raw) {
+  let data = null;
+  try { data = JSON.parse(raw); } catch { data = null; }
+  const title = String((data && data.title) || '').trim();
+  if (!title) return null;
+  return { title, description: String((data && data.description) || '').trim() };
+}
+
+function hydrateLiveBlock(blockDiv, raw) {
+  const draft = readLiveDraft(raw);
+  const titleInput = blockDiv.querySelector('.live-session-title');
+  if (titleInput) titleInput.value = draft ? draft.title : '';
+  const descInput = blockDiv.querySelector('.live-session-description');
+  if (descInput) descInput.value = draft ? draft.description : '';
+}
+
+// live.js carries the session shell helpers; loaded lazily so the feed does not
+// pay for the studio module up front. Bump the query string with live.js.
+function loadLiveModule() {
+  return import('./live.js?v=45').then(mod => mod.default);
+}
+
 // Client mirror of the gliim_kind classifier (sql/unify_feed.sql): live wins
 // over everything else because a live gliim can also carry body blocks; then
 // video → bundle; audio (no video) → audiolite; document (no video/audio) →
@@ -692,11 +717,15 @@ const hubView = {
         }
       }
 
+      // A live block without a title would publish as an ordinary gliim with
+      // no session behind it, so it is refused here rather than dropped.
+      if (!this.checkLiveBlocks()) return;
+
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const { blocks: finalBlocks, coverUrl, liveSessionId } = this.collectBlocksFromComposer();
+      const { blocks: finalBlocks, coverUrl, liveDraft } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
@@ -706,10 +735,13 @@ const hubView = {
 
       // A live gliim is minted by the RPC so it skips the review queue and
       // records the session link; everything else is a plain insert.
+      let liveSessionId = null;
       let newId = crypto.randomUUID();
       try {
-        if (liveSessionId) {
-          newId = await this.publishLiveGliim(liveSessionId, title, finalBlocks);
+        if (liveDraft) {
+          const minted = await this.mintLiveSession(liveDraft, finalBlocks);
+          liveSessionId = minted.sessionId;
+          newId = await this.publishLiveGliim(liveSessionId, title, minted.blocks);
         } else {
           const payload = {
             id: newId,
@@ -733,6 +765,7 @@ const hubView = {
           }
         }
       } catch (err) {
+        await this.abandonLiveSession(liveSessionId);
         alert(err.message.startsWith('Failed') ? err.message : 'Failed: ' + err.message);
         btn.innerText = "Publish";
         btn.disabled = false;
@@ -867,6 +900,7 @@ const hubView = {
         if (block.type === 'text' && block.style) {
           blockDiv.querySelector('.block-style-select').value = block.style;
         }
+        if (block.type === 'live') hydrateLiveBlock(blockDiv, block.content);
         if (block.type === 'image') {
           const capEl = blockDiv.querySelector('.block-caption-input');
           if (capEl && block.caption) capEl.value = block.caption;
@@ -962,11 +996,13 @@ const hubView = {
 
       if (!title) return alert("Title is required.");
 
+      if (!this.checkLiveBlocks()) return;
+
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const { blocks: finalBlocks, coverUrl, liveSessionId } = this.collectBlocksFromComposer();
+      const { blocks: finalBlocks, coverUrl, liveDraft } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
@@ -979,10 +1015,13 @@ const hubView = {
       // A live draft is published by the RPC (instant approval + session link),
       // which mints its own gliim — the draft row is then dropped so the feed
       // never shows the same session twice.
+      let liveSessionId = null;
       let postId;
       try {
-        if (liveSessionId) {
-          postId = await this.publishLiveGliim(liveSessionId, title, finalBlocks);
+        if (liveDraft) {
+          const minted = await this.mintLiveSession(liveDraft, finalBlocks);
+          liveSessionId = minted.sessionId;
+          postId = await this.publishLiveGliim(liveSessionId, title, minted.blocks);
           const { error: dropError } = await supabase.from('feed_gliims').delete().eq('id', draftId);
           if (dropError) console.warn('Could not drop the published draft:', dropError.message);
         } else {
@@ -1006,6 +1045,7 @@ const hubView = {
           postId = draftId;
         }
       } catch (err) {
+        await this.abandonLiveSession(liveSessionId);
         alert(err.message);
         btn.innerText = "Publish Draft";
         btn.disabled = false;
@@ -1133,12 +1173,9 @@ const hubView = {
       `;
     } else if (type === 'live') {
       inputHtml = `
-        <select class="input live-session-select" style="margin-bottom: 8px;">
-          <option value="">Loading your live sessions…</option>
-        </select>
-        <div class="upload-status live-session-status" style="font-size: 12px;"></div>
-        <input type="text" class="input live-new-title" placeholder="New session title" maxlength="60" style="margin-top: 8px; display: none;">
-        <button type="button" class="btn-secondary live-new-toggle" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">Start a new session</button>
+        <input type="text" class="input live-session-title" placeholder="Live session title" maxlength="60" style="margin-bottom: 8px;">
+        <textarea class="input live-session-description" placeholder="What is this session about?" rows="3" maxlength="500"></textarea>
+        <div class="upload-status live-session-hint" style="font-size: 12px; margin-top: 8px;">Publishing starts this session. Open your card in the feed to go on air.</div>
         <input type="hidden" class="block-content-input">
       `;
     } else if (type === 'document') {
@@ -1552,84 +1589,41 @@ const hubView = {
     }
   },
 
-  // The Live block links the gliim to one of the host's own live sessions:
-  // the hidden input holds the session id and publish_live_gliim() owns the
-  // card (instant approval, auto-retire when the session ends).
+  // The Live block is title + description only; the session it points at is
+  // created at publish time (see mintLiveSession), so nothing is fetched here.
   setupLiveBlock(blockDiv) {
     const hiddenInput = blockDiv.querySelector('.block-content-input');
-    const select = blockDiv.querySelector('.live-session-select');
-    const statusEl = blockDiv.querySelector('.live-session-status');
-    const toggleBtn = blockDiv.querySelector('.live-new-toggle');
-    const titleInput = blockDiv.querySelector('.live-new-title');
+    const titleInput = blockDiv.querySelector('.live-session-title');
+    const descInput = blockDiv.querySelector('.live-session-description');
 
-    const paintStatus = () => {
-      const label = select.value ? (select.options[select.selectedIndex]?.text || '').trim() : '';
-      statusEl.textContent = label ? `Linked to your live session "${label}". Viewers open this gliim to watch it.` : '';
-    };
-
-    const fillOptions = (rows) => {
-      select.innerHTML = rows.length
-        ? `<option value="">Choose a live session</option>` + rows.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml((r.title || '').trim())}</option>`).join('')
-        : '<option value="">No live sessions yet — start one below</option>';
-      const want = hiddenInput.value;
-      if (want && Array.from(select.options).some(o => o.value === want)) select.value = want;
-      else hiddenInput.value = '';
-      paintStatus();
-    };
-
-    const load = async () => {
-      const { data } = await supabase
-        .from('live_requests')
-        .select('id, title, created_at')
-        .eq('user_id', store.user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      fillOptions(data || []);
-    };
-    load();
-
-    select.addEventListener('change', () => {
-      hiddenInput.value = select.value;
-      paintStatus();
-      this.saveComposerState();
-    });
-
-    toggleBtn.addEventListener('click', async () => {
-      if (titleInput.style.display === 'none') {
-        titleInput.style.display = '';
-        titleInput.focus();
-        return;
-      }
+    const sync = () => {
       const title = titleInput.value.trim();
-      if (!title) { titleInput.focus(); return; }
-      toggleBtn.disabled = true;
-      toggleBtn.textContent = 'Creating…';
-      try {
-        const liveModule = await import('./live.js?v=44');
-        const row = await liveModule.default.createSessionShell(title);
-        select.appendChild(Object.assign(document.createElement('option'), { value: row.id, textContent: row.title }));
-        select.value = row.id;
-        hiddenInput.value = row.id;
-        titleInput.value = '';
-        titleInput.style.display = 'none';
-        paintStatus();
-        this.saveComposerState();
-      } catch (err) {
-        statusEl.textContent = err.message || 'Could not start the session.';
-      } finally {
-        toggleBtn.disabled = false;
-        toggleBtn.textContent = 'Start a new session';
+      hiddenInput.value = title
+        ? JSON.stringify({ title, description: descInput.value.trim() })
+        : '';
+    };
+
+    [titleInput, descInput].forEach(el => el.addEventListener('input', sync));
+  },
+
+  // A live block without a title has no session to mint, so the gliim would
+  // publish as an ordinary post with the live material silently gone.
+  checkLiveBlocks() {
+    for (const lb of document.querySelectorAll('.builder-block[data-type="live"]')) {
+      if (!readLiveDraft(lb.querySelector('.block-content-input').value)) {
+        alert("Your live block needs a session title.");
+        return false;
       }
-    });
+    }
+    return true;
   },
 
   // Serialize the composer's blocks for storage. Also returns the card cover
-  // and the linked session id when the gliim carries a live block.
+  // and the live session draft when the gliim carries a live block.
   collectBlocksFromComposer() {
     const blocks = [];
     let coverUrl = null;
-    let liveSessionId = null;
+    let liveDraft = null;
 
     document.querySelectorAll('.builder-block').forEach(b => {
       const type = b.dataset.type;
@@ -1656,14 +1650,37 @@ const hubView = {
         blockData.options = poll.options;
         delete blockData.content;
       }
-      if (type === 'live') liveSessionId = content;
+      if (type === 'live') {
+        liveDraft = readLiveDraft(content);
+        if (!liveDraft) return;
+      }
       blocks.push(blockData);
 
       if (!coverUrl && (type === 'image' || type === 'video')) coverUrl = content;
       if (!coverUrl && type === 'document') coverUrl = blockData.cover_url || null;
     });
 
-    return { blocks, coverUrl, liveSessionId };
+    return { blocks, coverUrl, liveDraft };
+  },
+
+  // Publishing is what brings a live gliim into existence: the block's title
+  // and description become a real session (and its Daily room), the block is
+  // rewritten to point at that session id, and publish_live_gliim() then owns
+  // the card — instant approval, auto-retire when the session ends.
+  async mintLiveSession(liveDraft, blocks) {
+    const liveModule = await loadLiveModule();
+    const row = await liveModule.createSessionShell(liveDraft.title, liveDraft.description);
+    return {
+      sessionId: row.id,
+      blocks: blocks.map(b => (b.type === 'live' ? { type: 'live', session_id: row.id } : b))
+    };
+  },
+
+  // A session that never made it onto the feed must not sit in the public
+  // session list or hold a Daily room open.
+  async abandonLiveSession(sessionId) {
+    if (!sessionId) return;
+    await (await loadLiveModule()).endSessionShell(sessionId);
   },
 
   // A gliim with a live block is created by the RPC (it writes the session
@@ -1791,6 +1808,7 @@ const hubView = {
               if (block.price) blockDiv.querySelector('.doc-price-input').value = block.price;
               if (block.isPdf) blockDiv.querySelector('.doc-is-pdf').value = '1';
             }
+            if (block.type === 'live') hydrateLiveBlock(blockDiv, block.content);
             if (block.type === 'table' && block.content) {
               let data = null;
               try { data = JSON.parse(block.content); } catch { data = null; }

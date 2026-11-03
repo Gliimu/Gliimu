@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=105';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=106';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -160,7 +160,7 @@ export default {
     // The reader needs the live module before render: the chat panel is the
     // comment feature for a live gliim.
     if (this.liveSessionId) {
-      const { default: liveView } = await import('./live.js?v=44');
+      const { default: liveView } = await import('./live.js?v=45');
       this.liveView = liveView;
     }
 

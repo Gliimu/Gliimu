@@ -423,12 +423,13 @@ const liveView = {
   // Used by the Publish composer's Live block: make the session and its Daily
   // room without entering the studio, so the host can publish a gliim first and
   // go on air from their own card afterwards.
-  async createSessionShell(title) {
+  async createSessionShell(title, description) {
     const { data: request, error } = await supabase
       .from('live_requests')
       .insert({
         user_id: store.user.id,
         title: String(title || '').slice(0, 60),
+        description: String(description || '').slice(0, 500) || null,
         status: 'active',
         sharing_mode: 'general',
         is_private: false,
@@ -461,6 +462,34 @@ const liveView = {
       .eq('id', request.id);
 
     return { ...request, room_id: result.room_id, room_url: result.room_url };
+  },
+
+  // Undo a createSessionShell() whose gliim never got published: the session
+  // must not linger in the public list, and its room must not stay open.
+  async endSessionShell(sessionId) {
+    if (!sessionId) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase
+        .from('live_requests')
+        .update({
+          status: 'completed',
+          completed_by: store.user.id,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+
+      await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ requestId: sessionId })
+      }).catch(err => console.warn('Delete room failed (non-critical):', err));
+    } catch (err) {
+      console.warn('Could not clean up the unpublished session:', err.message);
+    }
   },
 
   async joinSession(sessionId) {
