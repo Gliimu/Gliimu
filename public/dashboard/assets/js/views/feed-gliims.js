@@ -21,18 +21,61 @@ function parseHashtags(text) {
   );
 }
 
-// Client mirror of the gliim_kind classifier (sql/unify_feed.sql): video →
-// bundle; audio (no video) → audiolite; document (no video/audio) → book;
-// image-only (no video/audio/document/pdf) → image-only.
+// Client mirror of the gliim_kind classifier (sql/unify_feed.sql): live wins
+// over everything else because a live gliim can also carry body blocks; then
+// video → bundle; audio (no video) → audiolite; document (no video/audio) →
+// book; image-only (no video/audio/document/pdf) → image-only.
 // Cards use it to style audiolites/books/image-only, without ever loading the body.
 export function gliimKindOf(blocks) {
-  const types = new Set((blocks || []).map(b => b && b.type).filter(Boolean));
+  const list = (blocks || []).filter(b => b && b.type);
+  const types = new Set(list.map(b => b.type));
+  if (types.has('live')) return 'live';
   if (types.has('video')) return 'bundle';
   if (types.has('audio')) return 'audiolite';
+  if (list.some(b => b.type === 'document' && isPdfSource(b.content))) return 'bundle';
   if (types.has('document')) return 'book';
   if (types.has('pdf')) return 'bundle';
   if (types.has('image') && types.size === 1) return 'image-only';
   return null;
+}
+
+// A document block whose file is a PDF renders through the PDF tile path.
+export function isPdfSource(value) {
+  return /\.pdf(?:$|[?#])/i.test(String(value || ''));
+}
+
+export function isPdfBlock(b) {
+  if (!b) return false;
+  if (b.type === 'pdf') return true;
+  return b.type === 'document' && (b.is_pdf === true || isPdfSource(b.content));
+}
+
+// Shared tile markup for every PDF-shaped block (legacy 'pdf' blocks and
+// document blocks that hold a .pdf file).
+export function pdfTilesHtml(post, items) {
+  const pdfTileIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+  const tiles = (items || []).filter(it => it && it.pdf_url).map((it, idx) => {
+    const price = Number(it.price || 0);
+    const cover = it.cover_url
+      ? `<img class="pdf-tile-cover" src="${escapeHtml(it.cover_url)}" alt="" loading="lazy">`
+      : `<div class="pdf-tile-cover pdf-tile-blank">${pdfTileIcon}</div>`;
+    return `<div class="pdf-tile" data-pdf="${escapeHtml(it.pdf_url)}" data-price="${price}" data-post="${post.id}" data-idx="${idx}" data-creator="${post.user_id || ''}" onclick="hubInstance.openPdfTile(this)">${cover}<span class="pdf-tile-price">${price > 0 ? '₦' + price.toLocaleString() : 'Free'}</span></div>`;
+  }).join('');
+  if (!tiles) return '';
+  return `<div class="pdf-block-row">${tiles}</div>`;
+}
+
+// Turn any PDF-shaped block into the tile item shape.
+export function pdfItemsOf(b) {
+  if (!b) return [];
+  if (b.type === 'pdf') {
+    try {
+      const parsed = JSON.parse(b.content);
+      if (Array.isArray(parsed && parsed.items)) return parsed.items;
+    } catch { /* single-file block written before the items shape existed */ }
+    return [{ pdf_url: b.content, cover_url: '', price: Number(b.price || 0) }];
+  }
+  return [{ pdf_url: b.content, cover_url: b.cover_url || '', price: Number(b.price || 0) }];
 }
 
 // Format seconds as M:SS or H:MM:SS for audiolite timestamp badges.
@@ -578,7 +621,7 @@ const hubView = {
             <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
-            <div onclick="hubInstance.addBlock('pdf')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> PDF</div>
+            <div onclick="hubInstance.addBlock('live')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49"></path><path d="M7.76 16.24a6 6 0 0 1 0-8.49"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg> Live</div>
             <div onclick="hubInstance.addBlock('poll')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Poll</div>
             <div onclick="hubInstance.addBlock('table')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg> Table</div>
             <div onclick="hubInstance.addBlock('slide')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v16"></path><path d="M14 4v16"></path></svg> Slide</div>
@@ -653,33 +696,7 @@ const hubView = {
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const finalBlocks = [];
-      let coverUrl = null;
-
-      document.querySelectorAll('.builder-block').forEach(b => {
-        const type = b.dataset.type;
-        const content = b.querySelector('.block-content-input').value.trim();
-        if (content) {
-          const blockData = { type, content };
-          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image' || type === 'audio' || type === 'document') {
-            const capEl = b.querySelector('.block-caption-input');
-            const cap = capEl ? capEl.value.trim() : '';
-            if (cap) blockData.caption = cap;
-          }
-          if (type === 'poll') {
-            const poll = JSON.parse(content);
-            blockData.question = poll.question;
-            blockData.options = poll.options;
-            delete blockData.content;
-          }
-          finalBlocks.push(blockData);
-
-          if (!coverUrl && (type === 'image' || type === 'video')) {
-            coverUrl = content;
-          }
-        }
-      });
+      const { blocks: finalBlocks, coverUrl, liveSessionId } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
@@ -687,43 +704,46 @@ const hubView = {
       btn.innerText = "Publishing...";
       btn.disabled = true;
 
-      const newId = crypto.randomUUID();
-      const payload = {
-        id: newId,
-        title, category, description,
-        cover_url: coverUrl,
-        user_id: store.user.id
-      };
-      const premiumToggle = document.getElementById('post-premium-toggle');
-      if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
+      // A live gliim is minted by the RPC so it skips the review queue and
+      // records the session link; everything else is a plain insert.
+      let newId = crypto.randomUUID();
+      try {
+        if (liveSessionId) {
+          newId = await this.publishLiveGliim(liveSessionId, title, finalBlocks);
+        } else {
+          const payload = {
+            id: newId,
+            title, category, description,
+            cover_url: coverUrl,
+            user_id: store.user.id
+          };
+          const premiumToggle = document.getElementById('post-premium-toggle');
+          if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
-      // The id is generated client-side so the body write and tag pings can
-      // reference it without a RETURNING round-trip.
-      const { error } = await supabase.from('feed_gliims').insert(payload);
+          const { error } = await supabase.from('feed_gliims').insert(payload);
+          if (error) throw new Error(error.message);
 
-      if (error) {
-        alert("Failed: " + error.message);
-        btn.innerText = "Publish";
-        btn.disabled = false;
-        return;
-      }
-
-      // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
-      // If that write fails, remove the shell so no empty gliim lingers.
-      const { error: bodyError } = await supabase
-        .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
-      if (bodyError) {
-        await supabase.from('feed_gliims').delete().eq('id', newId);
-        alert("Failed to save your content: " + bodyError.message);
+          // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
+          // If that write fails, remove the shell so no empty gliim lingers.
+          const { error: bodyError } = await supabase
+            .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
+          if (bodyError) {
+            await supabase.from('feed_gliims').delete().eq('id', newId);
+            throw new Error('Failed to save your content: ' + bodyError.message);
+          }
+        }
+      } catch (err) {
+        alert(err.message.startsWith('Failed') ? err.message : 'Failed: ' + err.message);
         btn.innerText = "Publish";
         btn.disabled = false;
         return;
       }
 
       // Pen-badge members and staff publish instantly; everyone else lands
-      // in the review queue. Tag notifications only go out once the post is
-      // live — otherwise the tags are queued and fan out on CRM approval.
-      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
+      // in the review queue. Live gliims are always instant. Tag notifications
+      // only go out once the post is live — otherwise the tags are queued and
+      // fan out on CRM approval.
+      const willBeLive = !!liveSessionId || store.profile.verification_badge === 'pen' || store.profile.is_admin;
       if (willBeLive) {
         for (const u of this.taggedUsers) {
           await supabase.from('notifications').insert({
@@ -761,27 +781,7 @@ const hubView = {
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const finalBlocks = [];
-      let coverUrl = null;
-
-      document.querySelectorAll('.builder-block').forEach(b => {
-        const type = b.dataset.type;
-        const content = b.querySelector('.block-content-input').value.trim();
-        if (content) {
-          const blockData = { type, content };
-          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image' || type === 'audio' || type === 'document') {
-            const capEl = b.querySelector('.block-caption-input');
-            const cap = capEl ? capEl.value.trim() : '';
-            if (cap) blockData.caption = cap;
-          }
-          finalBlocks.push(blockData);
-
-          if (!coverUrl && (type === 'image' || type === 'video')) {
-            coverUrl = content;
-          }
-        }
-      });
+      const { blocks: finalBlocks, coverUrl } = this.collectBlocksFromComposer();
 
       const btn = document.getElementById('save-draft-btn');
       btn.innerText = "Saving...";
@@ -902,29 +902,24 @@ const hubView = {
           blockDiv.querySelector('.block-file-name').innerText = 'Loaded document';
           blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
           blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
+          if (block.cover_url) {
+            blockDiv.querySelector('.doc-cover-url').value = block.cover_url;
+            blockDiv.querySelector('.doc-cover-name').textContent = 'Cover loaded';
+            blockDiv.querySelector('.doc-cover-status').textContent = 'Upload complete!';
+            blockDiv.querySelector('.doc-cover-status').style.color = 'var(--success)';
+            blockDiv.querySelector('.doc-cover-preview').innerHTML = `<img src="${escapeHtml(block.cover_url)}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+          }
+          if (block.price) blockDiv.querySelector('.doc-price-input').value = block.price;
+          if (block.is_pdf || isPdfSource(block.content)) blockDiv.querySelector('.doc-is-pdf').value = '1';
         }
         if (block.type === 'pdf') {
-          let items = [];
-          try {
-            const parsed = JSON.parse(block.content || '');
-            if (Array.isArray(parsed && parsed.items)) items = parsed.items;
-          } catch { if (block.content) items = [{ pdf_url: block.content, cover_url: '', price: Number(block.price || 0) }]; }
-          items.forEach((it, i) => {
-            const slot = blockDiv.querySelectorAll('.pdf-slot')[i];
-            if (!slot || !it || !it.pdf_url) return;
-            slot.querySelector('.pdf-file-url').value = it.pdf_url;
-            slot.querySelector('.pdf-file-name').textContent = 'PDF loaded';
-            slot.querySelector('.pdf-file-status').textContent = 'Upload complete!';
-            slot.querySelector('.pdf-file-status').style.color = 'var(--success)';
-            if (it.cover_url) {
-              slot.querySelector('.pdf-cover-url').value = it.cover_url;
-              slot.querySelector('.pdf-cover-name').textContent = 'Cover loaded';
-              slot.querySelector('.pdf-cover-status').textContent = 'Upload complete!';
-              slot.querySelector('.pdf-cover-status').style.color = 'var(--success)';
-              slot.querySelector('.pdf-cover-preview').innerHTML = `<img src="${escapeHtml(it.cover_url)}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
-            }
-            if (it.price) slot.querySelector('.pdf-price-input').value = it.price;
-          });
+          // Legacy PDF blocks survive in old drafts; the composer no longer
+          // offers them, so keep the raw JSON in place for a faithful re-save.
+          const legacy = document.createElement('div');
+          legacy.className = 'upload-status';
+          legacy.style.cssText = 'font-size:12px;color:var(--text-muted);margin-top:8px;';
+          legacy.textContent = 'This draft carries an older PDF block. It will be published as it is.';
+          blockDiv.appendChild(legacy);
         }
         if (block.type === 'table') {
           let data = null;
@@ -971,27 +966,7 @@ const hubView = {
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const finalBlocks = [];
-      let coverUrl = null;
-
-      document.querySelectorAll('.builder-block').forEach(b => {
-        const type = b.dataset.type;
-        const content = b.querySelector('.block-content-input').value.trim();
-        if (content) {
-          const blockData = { type, content };
-          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image' || type === 'audio' || type === 'document') {
-            const capEl = b.querySelector('.block-caption-input');
-            const cap = capEl ? capEl.value.trim() : '';
-            if (cap) blockData.caption = cap;
-          }
-          finalBlocks.push(blockData);
-
-          if (!coverUrl && (type === 'image' || type === 'video')) {
-            coverUrl = content;
-          }
-        }
-      });
+      const { blocks: finalBlocks, coverUrl, liveSessionId } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
@@ -999,32 +974,39 @@ const hubView = {
       btn.innerText = "Publishing...";
       btn.disabled = true;
 
-      const payload = {
-        title, category, description,
-        cover_url: coverUrl,
-        status: 'approved'
-      };
-      const premiumToggle = document.getElementById('post-premium-toggle');
-      if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
+      const draftId = this.editingDraftId;
 
-      // Update the existing draft
-      const { error } = await supabase.from('feed_gliims').update(payload).eq('id', this.editingDraftId);
+      // A live draft is published by the RPC (instant approval + session link),
+      // which mints its own gliim — the draft row is then dropped so the feed
+      // never shows the same session twice.
+      let postId;
+      try {
+        if (liveSessionId) {
+          postId = await this.publishLiveGliim(liveSessionId, title, finalBlocks);
+          const { error: dropError } = await supabase.from('feed_gliims').delete().eq('id', draftId);
+          if (dropError) console.warn('Could not drop the published draft:', dropError.message);
+        } else {
+          const payload = {
+            title, category, description,
+            cover_url: coverUrl,
+            status: 'approved'
+          };
+          const premiumToggle = document.getElementById('post-premium-toggle');
+          if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
-      if (error) {
-        alert("Failed: " + error.message);
-        btn.innerText = "Publish Draft";
-        btn.disabled = false;
-        return;
-      }
+          const { error } = await supabase.from('feed_gliims').update(payload).eq('id', draftId);
+          if (error) throw new Error(error.message);
 
-      // Update the content blocks
-      const { error: bodyError } = await supabase
-        .from('feed_gliim_contents')
-        .update({ blocks: finalBlocks })
-        .eq('post_id', this.editingDraftId);
-      
-      if (bodyError) {
-        alert("Failed to save content: " + bodyError.message);
+          // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
+          const { error: bodyError } = await supabase
+            .from('feed_gliim_contents')
+            .update({ blocks: finalBlocks })
+            .eq('post_id', draftId);
+          if (bodyError) throw new Error('Failed to save content: ' + bodyError.message);
+          postId = draftId;
+        }
+      } catch (err) {
+        alert(err.message);
         btn.innerText = "Publish Draft";
         btn.disabled = false;
         return;
@@ -1032,7 +1014,7 @@ const hubView = {
 
       // Same gate as a fresh publish: notify now when live, queue the tags
       // for the approval fan-out otherwise.
-      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
+      const willBeLive = !!liveSessionId || store.profile.verification_badge === 'pen' || store.profile.is_admin;
       if (willBeLive) {
         for (const u of this.taggedUsers) {
           await supabase.from('notifications').insert({
@@ -1040,14 +1022,14 @@ const hubView = {
             actor_id: store.user.id,
             kind: 'tag',
             title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
-            link_post: this.editingDraftId
+            link_post: postId
           });
         }
         notify.toast('Published');
       } else {
         if (this.taggedUsers.length) {
           await supabase.from('feed_gliim_mentions').upsert(
-            this.taggedUsers.map(u => ({ post_id: this.editingDraftId, user_id: u.id, mentioned_by: store.user.id, kind: 'tag' })),
+            this.taggedUsers.map(u => ({ post_id: postId, user_id: u.id, mentioned_by: store.user.id, kind: 'tag' })),
             { onConflict: 'post_id,user_id', ignoreDuplicates: true }
           );
         }
@@ -1076,27 +1058,7 @@ const hubView = {
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const finalBlocks = [];
-      let coverUrl = null;
-
-      document.querySelectorAll('.builder-block').forEach(b => {
-        const type = b.dataset.type;
-        const content = b.querySelector('.block-content-input').value.trim();
-        if (content) {
-          const blockData = { type, content };
-          if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-          if (type === 'image' || type === 'audio' || type === 'document') {
-            const capEl = b.querySelector('.block-caption-input');
-            const cap = capEl ? capEl.value.trim() : '';
-            if (cap) blockData.caption = cap;
-          }
-          finalBlocks.push(blockData);
-
-          if (!coverUrl && (type === 'image' || type === 'video')) {
-            coverUrl = content;
-          }
-        }
-      });
+      const { blocks: finalBlocks, coverUrl } = this.collectBlocksFromComposer();
 
       const btn = newSaveDraftBtn;
       btn.innerText = "Saving...";
@@ -1152,7 +1114,7 @@ const hubView = {
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
     if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
-    if (type === 'pdf') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+    if (type === 'live') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49"></path><path d="M7.76 16.24a6 6 0 0 1 0-8.49"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>';
     if (type === 'poll') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
     if (type === 'table') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
     if (type === 'slide') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v16"></path><path d="M14 4v16"></path></svg>';
@@ -1169,28 +1131,38 @@ const hubView = {
         <button type="button" class="btn-secondary poll-add-option" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">+ Add Option</button>
         <input type="hidden" class="block-content-input">
       `;
-    } else if (type === 'pdf') {
-      const pdfSlot = (i) => `
-        <div class="pdf-slot" data-slot="${i}">
-          <div class="pdf-slot-title">PDF ${i + 1}</div>
-          <label class="custom-file-upload">
-            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-            <span class="pdf-cover-name">Choose cover image</span>
-            <input type="file" class="pdf-cover-input" accept="image/*" hidden>
-          </label>
-          <div class="upload-status pdf-cover-status"></div>
-          <div class="pdf-cover-preview"></div>
-          <label class="custom-file-upload">
-            <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-            <span class="pdf-file-name">Choose PDF file</span>
-            <input type="file" class="pdf-file-input" accept="application/pdf" hidden>
-          </label>
-          <div class="upload-status pdf-file-status"></div>
-          <input type="number" class="input pdf-price-input" min="0" step="1" placeholder="Price in ₦ (0 = free)">
-          <input type="hidden" class="pdf-cover-url">
-          <input type="hidden" class="pdf-file-url">
-        </div>`;
-      inputHtml = `<div class="pdf-slot-row">${pdfSlot(0)}${pdfSlot(1)}</div><input type="hidden" class="block-content-input">`;
+    } else if (type === 'live') {
+      inputHtml = `
+        <select class="input live-session-select" style="margin-bottom: 8px;">
+          <option value="">Loading your live sessions…</option>
+        </select>
+        <div class="upload-status live-session-status" style="font-size: 12px;"></div>
+        <input type="text" class="input live-new-title" placeholder="New session title" maxlength="60" style="margin-top: 8px; display: none;">
+        <button type="button" class="btn-secondary live-new-toggle" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">Start a new session</button>
+        <input type="hidden" class="block-content-input">
+      `;
+    } else if (type === 'document') {
+      inputHtml = `
+        <label class="custom-file-upload">
+          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+          <span class="block-file-name">Choose document</span>
+          <input type="file" class="block-file-input" accept=".pdf,.doc,.docx,.epub" hidden>
+        </label>
+        <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
+        <div class="block-preview"></div>
+        <input type="text" class="input block-caption-input" placeholder="Document title (optional)" style="margin-top: 8px;">
+        <label class="custom-file-upload" style="margin-top: 8px;">
+          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
+          <span class="doc-cover-name">Choose cover image (optional)</span>
+          <input type="file" class="doc-cover-input" accept="image/*" hidden>
+        </label>
+        <div class="upload-status doc-cover-status" style="font-size: 12px; margin-top: 8px;"></div>
+        <div class="doc-cover-preview"></div>
+        <input type="number" class="input doc-price-input" min="0" step="1" placeholder="Price in ₦ (0 = free)" style="margin-top: 8px;">
+        <input type="hidden" class="doc-cover-url">
+        <input type="hidden" class="doc-is-pdf">
+        <input type="hidden" class="block-content-input">
+      `;
     } else if (type === 'table') {
       inputHtml = `
         <div class="table-config" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
@@ -1212,7 +1184,7 @@ const hubView = {
         <input type="hidden" class="block-content-input">
       `;
     } else {
-      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : type === 'document' ? '.pdf,.doc,.docx,.epub' : '*/*';
+      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*';
       inputHtml = `
         <label class="custom-file-upload">
           <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
@@ -1221,7 +1193,7 @@ const hubView = {
         </label>
         <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
         <div class="block-preview"></div>
-        ${['image', 'audio', 'document'].includes(type) ? `<input type="text" class="input block-caption-input" placeholder="${type === 'image' ? 'Caption (optional)' : type === 'audio' ? 'Chapter title (optional)' : 'Document title (optional)'}" style="margin-top: 8px;">` : ''}
+        ${['image', 'audio'].includes(type) ? `<input type="text" class="input block-caption-input" placeholder="${type === 'image' ? 'Caption (optional)' : 'Chapter title (optional)'}" style="margin-top: 8px;">` : ''}
         <input type="hidden" class="block-content-input">
       `;
     }
@@ -1549,41 +1521,8 @@ const hubView = {
       }
     };
 
-    if (type === 'pdf') {
-      const hiddenInput = blockDiv.querySelector('.block-content-input');
-      const syncPdfBlock = () => {
-        const items = [];
-        blockDiv.querySelectorAll('.pdf-slot').forEach(slot => {
-          const pdfUrl = slot.querySelector('.pdf-file-url').value;
-          if (!pdfUrl) return;
-          items.push({
-            cover_url: slot.querySelector('.pdf-cover-url').value || '',
-            pdf_url: pdfUrl,
-            price: Math.max(0, Math.round(Number(slot.querySelector('.pdf-price-input').value) || 0))
-          });
-        });
-        hiddenInput.value = items.length ? JSON.stringify({ items }) : '';
-      };
-      blockDiv.querySelectorAll('.pdf-slot').forEach(slot => {
-        const coverInput = slot.querySelector('.pdf-cover-input');
-        coverInput.addEventListener('change', () => {
-          const file = coverInput.files[0];
-          if (!file) return;
-          slot.querySelector('.pdf-cover-name').textContent = file.name;
-          runUpload(file, 'media', slot.querySelector('.pdf-cover-status'), slot.querySelector('.pdf-cover-url'), coverInput, (url) => {
-            slot.querySelector('.pdf-cover-preview').innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
-            syncPdfBlock();
-          });
-        });
-        const fileInput = slot.querySelector('.pdf-file-input');
-        fileInput.addEventListener('change', () => {
-          const file = fileInput.files[0];
-          if (!file) return;
-          slot.querySelector('.pdf-file-name').textContent = file.name;
-          runUpload(file, 'library', slot.querySelector('.pdf-file-status'), slot.querySelector('.pdf-file-url'), fileInput, syncPdfBlock);
-        });
-        slot.querySelector('.pdf-price-input').addEventListener('input', syncPdfBlock);
-      });
+    if (type === 'live') {
+      this.setupLiveBlock(blockDiv);
     } else if (type !== 'text') {
       blockDiv.querySelector('.block-file-input').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -1592,11 +1531,162 @@ const hubView = {
         // EPUB/DOCX/PDF masters ride the 'library' kind — the 'media' presign
         // only accepts images, audio and video.
         runUpload(file, type === 'document' ? 'library' : 'media', blockDiv.querySelector('.upload-status'), blockDiv.querySelector('.block-content-input'), e.target, (fileUrl) => {
+          if (type === 'document') {
+            blockDiv.querySelector('.doc-is-pdf').value = (isPdfSource(file.name) || isPdfSource(fileUrl)) ? '1' : '';
+          }
           const preview = blockDiv.querySelector('.block-preview');
           preview.innerHTML = type === 'image' ? `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
         });
       });
+      if (type === 'document') {
+        const coverInput = blockDiv.querySelector('.doc-cover-input');
+        coverInput.addEventListener('change', () => {
+          const file = coverInput.files[0];
+          if (!file) return;
+          blockDiv.querySelector('.doc-cover-name').textContent = file.name;
+          runUpload(file, 'media', blockDiv.querySelector('.doc-cover-status'), blockDiv.querySelector('.doc-cover-url'), coverInput, (url) => {
+            blockDiv.querySelector('.doc-cover-preview').innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+          });
+        });
+      }
     }
+  },
+
+  // The Live block links the gliim to one of the host's own live sessions:
+  // the hidden input holds the session id and publish_live_gliim() owns the
+  // card (instant approval, auto-retire when the session ends).
+  setupLiveBlock(blockDiv) {
+    const hiddenInput = blockDiv.querySelector('.block-content-input');
+    const select = blockDiv.querySelector('.live-session-select');
+    const statusEl = blockDiv.querySelector('.live-session-status');
+    const toggleBtn = blockDiv.querySelector('.live-new-toggle');
+    const titleInput = blockDiv.querySelector('.live-new-title');
+
+    const paintStatus = () => {
+      const label = select.value ? (select.options[select.selectedIndex]?.text || '').trim() : '';
+      statusEl.textContent = label ? `Linked to your live session "${label}". Viewers open this gliim to watch it.` : '';
+    };
+
+    const fillOptions = (rows) => {
+      select.innerHTML = rows.length
+        ? `<option value="">Choose a live session</option>` + rows.map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml((r.title || '').trim())}</option>`).join('')
+        : '<option value="">No live sessions yet — start one below</option>';
+      const want = hiddenInput.value;
+      if (want && Array.from(select.options).some(o => o.value === want)) select.value = want;
+      else hiddenInput.value = '';
+      paintStatus();
+    };
+
+    const load = async () => {
+      const { data } = await supabase
+        .from('live_requests')
+        .select('id, title, created_at')
+        .eq('user_id', store.user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      fillOptions(data || []);
+    };
+    load();
+
+    select.addEventListener('change', () => {
+      hiddenInput.value = select.value;
+      paintStatus();
+      this.saveComposerState();
+    });
+
+    toggleBtn.addEventListener('click', async () => {
+      if (titleInput.style.display === 'none') {
+        titleInput.style.display = '';
+        titleInput.focus();
+        return;
+      }
+      const title = titleInput.value.trim();
+      if (!title) { titleInput.focus(); return; }
+      toggleBtn.disabled = true;
+      toggleBtn.textContent = 'Creating…';
+      try {
+        const liveModule = await import('./live.js?v=44');
+        const row = await liveModule.default.createSessionShell(title);
+        select.appendChild(Object.assign(document.createElement('option'), { value: row.id, textContent: row.title }));
+        select.value = row.id;
+        hiddenInput.value = row.id;
+        titleInput.value = '';
+        titleInput.style.display = 'none';
+        paintStatus();
+        this.saveComposerState();
+      } catch (err) {
+        statusEl.textContent = err.message || 'Could not start the session.';
+      } finally {
+        toggleBtn.disabled = false;
+        toggleBtn.textContent = 'Start a new session';
+      }
+    });
+  },
+
+  // Serialize the composer's blocks for storage. Also returns the card cover
+  // and the linked session id when the gliim carries a live block.
+  collectBlocksFromComposer() {
+    const blocks = [];
+    let coverUrl = null;
+    let liveSessionId = null;
+
+    document.querySelectorAll('.builder-block').forEach(b => {
+      const type = b.dataset.type;
+      const content = b.querySelector('.block-content-input').value.trim();
+      if (!content) return;
+
+      const blockData = { type, content };
+      if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
+      if (type === 'image' || type === 'audio' || type === 'document') {
+        const capEl = b.querySelector('.block-caption-input');
+        const cap = capEl ? capEl.value.trim() : '';
+        if (cap) blockData.caption = cap;
+      }
+      if (type === 'document') {
+        const cover = b.querySelector('.doc-cover-url')?.value || '';
+        if (cover) blockData.cover_url = cover;
+        const price = Math.max(0, Math.round(Number(b.querySelector('.doc-price-input')?.value) || 0));
+        if (price) blockData.price = price;
+        if (b.querySelector('.doc-is-pdf')?.value === '1' || isPdfSource(content)) blockData.is_pdf = true;
+      }
+      if (type === 'poll') {
+        const poll = JSON.parse(content);
+        blockData.question = poll.question;
+        blockData.options = poll.options;
+        delete blockData.content;
+      }
+      if (type === 'live') liveSessionId = content;
+      blocks.push(blockData);
+
+      if (!coverUrl && (type === 'image' || type === 'video')) coverUrl = content;
+      if (!coverUrl && type === 'document') coverUrl = blockData.cover_url || null;
+    });
+
+    return { blocks, coverUrl, liveSessionId };
+  },
+
+  // A gliim with a live block is created by the RPC (it writes the session
+  // link, forces category 'live' and approves instantly), then the composer's
+  // own blocks replace the single live block the RPC seeded.
+  async publishLiveGliim(sessionId, title, finalBlocks) {
+    const { data, error } = await supabase.rpc('publish_live_gliim', {
+      p_session_id: sessionId,
+      p_title: title,
+    });
+    if (error) throw new Error(error.message);
+    const postId = data && data.post_id;
+    if (!postId) throw new Error('The session could not be published.');
+
+    const { error: bodyError } = await supabase
+      .from('feed_gliim_contents')
+      .update({ blocks: finalBlocks })
+      .eq('post_id', postId);
+    if (bodyError) {
+      await supabase.rpc('remove_live_gliim', { p_session_id: sessionId });
+      throw new Error('Failed to save your content: ' + bodyError.message);
+    }
+    return postId;
   },
 
   // Autosave: serialize composer state to localStorage so a refresh doesn't
@@ -1610,7 +1700,13 @@ const hubView = {
       const content = block.querySelector('.block-content-input')?.value || '';
       const style = block.querySelector('.block-style-select')?.value || '';
       const caption = block.querySelector('.block-caption-input')?.value || '';
-      blocks.push({ type, content, style, caption });
+      const saved = { type, content, style, caption };
+      if (type === 'document') {
+        saved.cover = block.querySelector('.doc-cover-url')?.value || '';
+        saved.price = block.querySelector('.doc-price-input')?.value || '';
+        saved.isPdf = block.querySelector('.doc-is-pdf')?.value || '';
+      }
+      blocks.push(saved);
     });
     const state = {
       title: document.getElementById('post-title')?.value || '',
@@ -1685,6 +1781,15 @@ const hubView = {
             if (block.caption) {
               const captionInput = blockDiv.querySelector('.block-caption-input');
               if (captionInput) captionInput.value = block.caption;
+            }
+            if (block.type === 'document') {
+              if (block.cover) {
+                blockDiv.querySelector('.doc-cover-url').value = block.cover;
+                blockDiv.querySelector('.doc-cover-name').textContent = 'Cover loaded';
+                blockDiv.querySelector('.doc-cover-preview').innerHTML = `<img src="${escapeHtml(block.cover)}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+              }
+              if (block.price) blockDiv.querySelector('.doc-price-input').value = block.price;
+              if (block.isPdf) blockDiv.querySelector('.doc-is-pdf').value = '1';
             }
             if (block.type === 'table' && block.content) {
               let data = null;
@@ -1801,8 +1906,23 @@ const hubView = {
       }
     } catch { /* cards keep the default style */ }
 
+    // On a live gliim the comments ARE the session chat, and clients can't read
+    // live_chat_messages, so the badge count comes from the server-side RPC.
+    await this.populateLiveChatCounts(this.cardKinds);
+
     this.feedLoaded = true;
     this.renderPosts(this.currentPosts);
+  },
+
+  async populateLiveChatCounts(kindMap) {
+    this.liveChatCounts = {};
+    try {
+      const liveIds = Object.keys(kindMap || {}).filter(id => kindMap[id] === 'live');
+      if (!liveIds.length) return this.liveChatCounts;
+      const { data: chatCounts } = await supabase.rpc('live_chat_counts', { p_post_ids: liveIds });
+      for (const row of chatCounts || []) this.liveChatCounts[row.post_id] = Number(row.chat_count) || 0;
+    } catch { /* cards show no chats */ }
+    return this.liveChatCounts;
   },
 
   // Gliim cards live inside the merged Library feed, so filtering and card
@@ -1867,6 +1987,20 @@ const hubView = {
       : '';
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+
+    // Live sessions: same square artwork as a bundle, with the host's avatar
+    // standing in when no snapshot was captured.
+    if (this.cardKinds && this.cardKinds[post.id] === 'live') {
+      const chatCount = (this.liveChatCounts || {})[post.id] || 0;
+      const liveSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49"></path><path d="M7.76 16.24a6 6 0 0 1 0-8.49"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>';
+      const art = post.cover_url || post.profiles?.avatar_url || '';
+      const cardStyle = art ? ` style="background-image: url('${escapeHtml(art)}');"` : '';
+      return `<article class="audiolite-card bundle-card live-card" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
+        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${liveSvg}Live</span><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
+        <h2 class="audiolite-title">${escapeHtml(post.title || 'Untitled Gliim')}</h2>
+        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${chatCount}</span></div></div>
+      </article>`;
+    }
 
     if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
       const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';

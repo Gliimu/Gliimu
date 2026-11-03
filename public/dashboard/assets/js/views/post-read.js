@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=104';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=105';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -15,6 +15,7 @@ function escapeHtml(value) {
 let scrollHandler = null;
 let keydownHandler = null;
 let clickOutsideHandler = null;
+let liveEndedHandler = null;
 
 export default {
   template: `
@@ -37,6 +38,28 @@ export default {
       document.removeEventListener('click', clickOutsideHandler);
       clickOutsideHandler = null;
     }
+    if (liveEndedHandler) {
+      window.removeEventListener('live:embed-ended', liveEndedHandler);
+      liveEndedHandler = null;
+    }
+    // A minimized embed keeps broadcasting; anything else is torn down.
+    if (this._liveCountTimer) {
+      clearInterval(this._liveCountTimer);
+      this._liveCountTimer = null;
+    }
+    if (this._chatTargetTimer) {
+      clearInterval(this._chatTargetTimer);
+      this._chatTargetTimer = null;
+    }
+    if (this._liveBodyTimer) {
+      clearInterval(this._liveBodyTimer);
+      this._liveBodyTimer = null;
+    }
+    if (this.liveView) {
+      this.liveView.releaseEmbed();
+      this.liveView = null;
+    }
+    this.liveSessionId = null;
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
     sessionStorage.removeItem('openReadViewId');
@@ -61,24 +84,8 @@ export default {
       return;
     }
 
-    // Gate: block content access if wallet is G0 and no active plan
-    const { data: balanceData } = await supabase.rpc('gliits_get_balance');
-    if (balanceData) {
-      const balance = Number(balanceData.balance || 0);
-      const plan = balanceData.plan;
-      const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
-      if (balance < 3 && !planActive) {
-        window.location.hash = '#/xplore';
-        setTimeout(() => {
-          if (typeof appAlert === 'function') {
-            appAlert('Your balance is below G3. Top up or activate a plan to continue reading.');
-          }
-        }, 100);
-        return;
-      }
-    }
-
     this.postId = postId;
+    this.liveSessionId = null;
 
     // Block Ctrl+S (save) and Ctrl+P (print) on the reader page
     keydownHandler = (e) => {
@@ -107,6 +114,36 @@ export default {
       .eq('post_id', postId).maybeSingle();
     post.blocks = contentRow?.blocks || null;
 
+    if (gliimKindOf(post.blocks) === 'live') {
+      const liveBlock = (post.blocks || []).find(b => b.type === 'live');
+      this.liveSessionId = liveBlock?.session_id || null;
+    }
+
+    // Your own live card is the studio door, not a reader.
+    if (this.liveSessionId && post.user_id === store.user.id) {
+      window.location.hash = '#/live';
+      return;
+    }
+
+    // Watching a live session is free, so the reading gate does not apply.
+    if (!this.liveSessionId) {
+      const { data: balanceData } = await supabase.rpc('gliits_get_balance');
+      if (balanceData) {
+        const balance = Number(balanceData.balance || 0);
+        const plan = balanceData.plan;
+        const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
+        if (balance < 3 && !planActive) {
+          window.location.hash = '#/xplore';
+          setTimeout(() => {
+            if (typeof appAlert === 'function') {
+              appAlert('Your balance is below G3. Top up or activate a plan to continue reading.');
+            }
+          }, 100);
+          return;
+        }
+      }
+    }
+
     const viewedKey = `gliimu_viewed_${postId}`;
     if (!sessionStorage.getItem(viewedKey)) {
       sessionStorage.setItem(viewedKey, '1');
@@ -119,12 +156,128 @@ export default {
     const relatedPosts = await this.fetchRelatedPosts(post);
     await this.populateCardKinds(relatedPosts);
     await this.checkFollowStatus(post.user_id);
+
+    // The reader needs the live module before render: the chat panel is the
+    // comment feature for a live gliim.
+    if (this.liveSessionId) {
+      const { default: liveView } = await import('./live.js?v=44');
+      this.liveView = liveView;
+    }
+
     this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
 
-    // Billing only runs while a post is actually open in the reader.
-    heartbeat.setCurrentPost(postId);
-    heartbeat.start();
+    if (this.liveSessionId) {
+      await this.mountLiveEmbed();
+      this.scrollToChatTarget();
+      this.startLiveBodyPolling();
+    } else {
+      // Billing only runs while a post is actually open in the reader.
+      heartbeat.setCurrentPost(postId);
+      heartbeat.start();
+    }
+  },
+
+  // The live card opens the broadcast itself: watch-only video, chat and
+  // support, with a "Join with camera" door into the full studio.
+  async mountLiveEmbed() {
+    const mount = document.getElementById('read-live-mount');
+    const liveView = this.liveView;
+    if (!mount || !liveView) return;
+
+    liveEndedHandler = () => {
+      if (liveView.minimized) return;
+      const path = window.location.hash.split('?')[0];
+      if (path === '#/post' || path === '#/read') {
+        window.location.hash = '#/xplore';
+      }
+    };
+    window.addEventListener('live:embed-ended', liveEndedHandler);
+
+    const ok = await liveView.openEmbed(mount, this.liveSessionId, this.postId);
+    if (!ok && !mount.innerHTML.trim()) {
+      mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
+    }
+    this.syncLiveCommentCount();
+  },
+
+  // For a live gliim the comment count is the chat count.
+  syncLiveCommentCount() {
+    const liveView = this.liveView;
+    if (!this.liveSessionId || !liveView) return;
+    const apply = () => {
+      const el = document.getElementById('read-comment-count');
+      if (el) el.textContent = String(liveView.chatMessages?.length || 0);
+    };
+    apply();
+    if (!this._liveCountTimer) {
+      this._liveCountTimer = setInterval(apply, 3000);
+    }
+  },
+
+  // The host can push new blocks onto the live gliim mid-broadcast. Viewers
+  // who already have the page open get them appended — never a full re-render,
+  // which would tear the video embed down.
+  startLiveBodyPolling() {
+    if (this._liveBodyTimer) return;
+    this._liveBodyTimer = setInterval(() => this.checkLiveBodyUpdates(), 10000);
+  },
+
+  async checkLiveBodyUpdates() {
+    if (!this.liveSessionId || !this.currentPost) return;
+    const { data: row } = await supabase
+      .from('feed_gliim_contents').select('blocks')
+      .eq('post_id', this.postId).maybeSingle();
+    const blocks = (row && row.blocks) || [];
+    const seen = (this.currentPost.blocks || []).length;
+    if (blocks.length <= seen) return;
+
+    const fresh = blocks.slice(seen).filter(b => b && b.type !== 'live');
+    this.currentPost.blocks = blocks;
+    const holder = document.getElementById('read-blocks');
+    if (!fresh.length || !holder) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'read-live-additions';
+    wrap.innerHTML = this.renderBlocks({ ...this.currentPost, blocks: fresh }, this.isOwnerView);
+    holder.appendChild(wrap);
+
+    hubView.setupMediaBlocks(wrap);
+    hubView.hydratePolls(wrap);
+    wrap.querySelectorAll('.rdr-inline-file[data-file-src]').forEach(el => {
+      const src = el.getAttribute('data-file-src');
+      if (src) renderFileInto(src, el);
+    });
+  },
+
+  // A mention alert carries the exact comment. On a live gliim the comments
+  // are chat messages, so open the chat modal and highlight that message once
+  // the 3-second poll has delivered it.
+  scrollToChatTarget() {
+    const commentId = sessionStorage.getItem('openCommentId');
+    if (!commentId) return;
+    sessionStorage.removeItem('openCommentId');
+
+    const modal = document.getElementById('comments-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    const reveal = () => {
+      const el = document.getElementById(`chat-msg-${commentId}`);
+      if (!el) return false;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('chat-highlight');
+      setTimeout(() => el.classList.remove('chat-highlight'), 3000);
+      return true;
+    };
+
+    if (reveal()) return;
+    let tries = 0;
+    this._chatTargetTimer = setInterval(() => {
+      if (reveal() || ++tries > 20) clearInterval(this._chatTargetTimer);
+    }, 500);
   },
 
   async fetchPost(postId) {
@@ -241,10 +394,12 @@ export default {
         hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
       }
     } catch { /* cards keep the default style */ }
+    await hubView.populateLiveChatCounts(hubView.cardKinds);
   },
 
   render(post, interactions, relatedPosts) {
     const isOwner = post.user_id === store.user.id;
+    const isLive = !!this.liveSessionId;
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url
       ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
@@ -252,7 +407,7 @@ export default {
     const followBtnHtml = !isOwner ? `<button class="reader-follow-avatar-btn ${this._isFollowing ? 'following' : ''}" id="reader-follow-btn" onclick="event.stopPropagation(); hubInstance.toggleFollow()" title="${this._isFollowing ? 'Following' : 'Follow'}">${this._isFollowing ? '✓' : '+'}</button>` : '';
 
     const likes = interactions.filter(i => i.interaction_type === 'like').length;
-    const comments = interactions.filter(i => i.interaction_type === 'comment').length;
+    const comments = isLive ? 0 : interactions.filter(i => i.interaction_type === 'comment').length;
     const shares = interactions.filter(i => i.interaction_type === 'share').length;
     const supports = interactions.filter(i => i.interaction_type === 'support').length;
     const hasLiked = interactions.some(i => i.user_id === store.user.id && i.interaction_type === 'like');
@@ -284,6 +439,8 @@ export default {
     }
 
     const blocksHtml = this.renderBlocks(post, isOwner);
+    this.currentPost = post;
+    this.isOwnerView = isOwner;
 
     const backIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
     const closeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
@@ -331,9 +488,8 @@ export default {
             </div>
           </div>
 
-          ${blocksHtml}
+          <div class="read-blocks" id="read-blocks">${blocksHtml}</div>
         </div>
-
         <div class="post-read-bottom">
           <div class="post-read-bottom-inner">
             <button class="action-btn like-btn ${hasLiked ? 'liked' : ''}" onclick="hubInstance.toggleLike('${post.id}')">
@@ -342,13 +498,13 @@ export default {
             </button>
             <button class="action-btn" onclick="hubInstance.openCommentsModal('${post.id}')">
               <img src="/icons/comment.svg" class="action-icon-img" alt="Comment" loading="eager" decoding="async">
-              <span>${comments}</span>
+              <span id="read-comment-count">${comments}</span>
             </button>
             <button class="action-btn" onclick="hubInstance.sharePost('${post.id}', '${escapeHtml(post.title)}')" title="Earn 5 GP">
               <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
               <span>${shares}</span>
             </button>
-            ${(post.profiles?.total_gp || 0) >= 500 ? `
+            ${(!isLive && (post.profiles?.total_gp || 0) >= 500) ? `
             <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
               <span>${supports}</span>
@@ -409,6 +565,21 @@ export default {
 
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
 
+    // A live gliim's comments ARE its chat: same panel, same polling, same
+    // attachments, so viewers and the host all see one conversation.
+    const bodyHtml = this.liveSessionId
+      ? this.liveView.chatPanelHtml(false, 'live-chat-in-modal', false)
+      : `
+          <div class="comment-input-wrapper">
+            <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
+            <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
+              ${commentSvg}
+            </button>
+          </div>
+          <div class="comment-list" id="comment-list-${post.id}">
+            ${commentsHtml}
+          </div>`;
+
     modal.innerHTML = `
       <div class="comments-modal-content" onclick="event.stopPropagation()">
         <div class="comments-modal-header">
@@ -418,23 +589,19 @@ export default {
           </button>
         </div>
         <div class="comments-modal-body">
-          <div class="comment-input-wrapper">
-            <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
-            <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
-              ${commentSvg}
-            </button>
-          </div>
-          <div class="comment-list" id="comment-list-${post.id}">
-            ${commentsHtml}
-          </div>
+          ${bodyHtml}
         </div>
       </div>
     `;
 
     modal.onclick = () => hubInstance.closeCommentsModal();
 
-    hubView.setupMentionPicker(post.id);
-    hubView.setupAudioliteTimestampHint(post.id);
+    if (this.liveSessionId) {
+      this.liveView.renderChatMessages?.();
+    } else {
+      hubView.setupMentionPicker(post.id);
+      hubView.setupAudioliteTimestampHint(post.id);
+    }
   },
 
   openCommentsModal(postId) {
@@ -456,6 +623,7 @@ export default {
   renderBlocks(post, isOwner) {
     if (post.blocks && post.blocks.length > 0) {
       return post.blocks.map(b => {
+        if (b.type === 'live') return '<div class="read-live-mount" id="read-live-mount"></div>';
         if (b.type === 'text') {
           if (b.style === 'title') return `<h2 class="read-block-title">${escapeHtml(b.content)}</h2>`;
           if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${escapeHtml(b.content)}</h3>`;
@@ -476,26 +644,12 @@ export default {
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
           return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata" crossorigin="anonymous"></audio></div>`;
         }
+        if (isPdfBlock(b)) return pdfTilesHtml(post, pdfItemsOf(b));
         if (b.type === 'document') {
+          // Reflowable book file (docx/epub) — hydrated in-page below via
+          // renderFileInto, never a new browser tab.
           const cap = b.caption ? `<h3 class="read-block-subtitle">${escapeHtml(b.caption)}</h3>` : '';
           return `${cap}<div class="rdr-inline-file" data-file-src="${escapeHtml(b.content)}"></div>`;
-        }
-        if (b.type === 'pdf') {
-          let items = [];
-          try {
-            const parsed = JSON.parse(b.content);
-            if (Array.isArray(parsed && parsed.items)) items = parsed.items;
-          } catch { items = [{ pdf_url: b.content, cover_url: '', price: Number(b.price || 0) }]; }
-          const pdfTileIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
-          const tiles = items.filter(it => it && it.pdf_url).map((it, idx) => {
-            const price = Number(it.price || 0);
-            const cover = it.cover_url
-              ? `<img class="pdf-tile-cover" src="${escapeHtml(it.cover_url)}" alt="" loading="lazy">`
-              : `<div class="pdf-tile-cover pdf-tile-blank">${pdfTileIcon}</div>`;
-            return `<div class="pdf-tile" data-pdf="${escapeHtml(it.pdf_url)}" data-price="${price}" data-post="${post.id}" data-idx="${idx}" data-creator="${post.user_id || ''}" onclick="hubInstance.openPdfTile(this)">${cover}<span class="pdf-tile-price">${price > 0 ? '₦' + price.toLocaleString() : 'Free'}</span></div>`;
-          }).join('');
-          if (!tiles) return '';
-          return `<div class="pdf-block-row">${tiles}</div>`;
         }
         if (b.type === 'poll') {
           let question = b.question || '';

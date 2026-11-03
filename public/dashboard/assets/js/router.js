@@ -7,17 +7,18 @@ const routes = {
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=5').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
-  '/live': () => import('./views/live-page.js?v=41').then(m => m.default),
+  '/live': () => import('./views/live-page.js?v=42').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=6').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=72').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=73').then(m => m.default),
   '/feature': () => import('./views/feature.js?v=3').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=41').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=16').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=42').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=42').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=17').then(m => m.default),
 };
 
 // Routes with no sidebar entry borrow another tab's highlight
-const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/collection': '/xplore', '/feature': '/profile' };
+const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore', '/feature': '/profile' };
 
 let previousHash = window.location.hash;
 let currentView = null;
@@ -36,8 +37,11 @@ export async function router() {
   // 1. Intercept Navigation if Live Session is Active
   // Navigating to /live never prompts — the session continues on that page.
   if (path !== '/live' && window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
-    // If minimized, allow navigation without ending the session
-    if (window.liveInstance.isMinimized && window.liveInstance.isMinimized()) {
+    // A watch-only embed is free to walk away from: the reader tears it down.
+    if (window.liveInstance.isWatchOnly && window.liveInstance.isWatchOnly()) {
+      // Fall through — let navigation happen normally
+    } else if (window.liveInstance.isMinimized && window.liveInstance.isMinimized()) {
+      // If minimized, allow navigation without ending the session
       // Fall through — let navigation happen normally
     } else {
       if (!await appConfirm("Do you want to leave the live session?", { okText: 'Leave', danger: true })) {

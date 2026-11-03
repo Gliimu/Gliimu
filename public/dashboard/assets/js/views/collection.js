@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import hubView from './feed-gliims.js?v=104';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=105';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -8,16 +8,6 @@ function escapeHtml(value) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-function gliimKindOf(blocks) {
-  if (!blocks || !blocks.length) return 'bundle';
-  const has = t => blocks.some(b => b.type === t);
-  if (has('video')) return 'audiolite';
-  if (has('audio')) return 'audiolite';
-  if (has('document')) return 'book';
-  if (has('image') && blocks.length === 1) return 'image-only';
-  return 'bundle';
 }
 
 export default {
@@ -84,7 +74,7 @@ export default {
         .select('post_id, blocks')
         .in('post_id', postIds);
       this.cardKinds = {};
-      for (const row of kindRows || []) this.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+      for (const row of kindRows || []) this.cardKinds[row.post_id] = gliimKindOf(row.blocks) || 'bundle';
     } else {
       this.interactions = [];
       this.cardKinds = {};
@@ -92,6 +82,7 @@ export default {
 
     hubView.allInteractions = this.interactions;
     hubView.cardKinds = this.cardKinds;
+    await hubView.populateLiveChatCounts(this.cardKinds);
 
     const contributors = {};
     for (const p of this.posts) {

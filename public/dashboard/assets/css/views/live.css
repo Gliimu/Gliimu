@@ -1318,3 +1318,133 @@ body.live-studio-active .topbar {
   75% { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(1.04); }
 }
+
+/* ============================================
+   WATCH-ONLY EMBED (live card inside the reader)
+   Same studio markup, but inline in the article instead of full-bleed.
+   ============================================ */
+.read-live-mount {
+  margin: 0 0 28px;
+}
+
+.live-studio-container.live-embed {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  z-index: 1;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.live-embed .live-session-header {
+  padding: 12px 16px;
+}
+
+.live-embed .live-video-area {
+  flex: 0 0 auto;
+  height: clamp(240px, 46vw, 460px);
+  padding: 0 12px 12px;
+}
+
+.live-embed .live-participant-rail {
+  flex: 0 0 104px;
+}
+
+.live-embed-bar {
+  gap: 8px;
+}
+
+.live-embed-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.live-embed-join svg {
+  width: 16px;
+  height: 16px;
+}
+
+.live-embed-spacer {
+  flex: 1;
+}
+
+.live-embed-ended {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-secondary, #111);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+/* The reader's comments modal hosts the same chat panel, but inline. */
+.live-chat-panel.live-chat-in-modal {
+  position: static;
+  width: 100%;
+  height: 60vh;
+  border-left: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  z-index: 1;
+}
+.live-chat-in-modal .live-chat-messages {
+  background: transparent;
+}
+.live-chat-in-modal .live-chat-input input {
+  color: var(--text-primary);
+}
+
+/* A mention alert deep-links into the chat and flashes the target message,
+   the same way a hub comment highlight does. */
+.live-chat-message.chat-highlight {
+  background: var(--brand-primary-light);
+  box-shadow: 0 0 0 1px var(--brand-primary);
+  transition: background 0.3s ease;
+}
+
+/* Host's "add to the page" dialog: three kinds, one submit. */
+.live-add-kinds {
+  display: flex;
+  gap: 8px;
+}
+.live-add-kind {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.live-add-kind.active {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+
+@media (max-width: 768px) {
+  .live-embed .live-video-area {
+    height: 220px;
+  }
+  .live-embed .live-participant-rail {
+    flex: 0 0 84px;
+  }
+  .live-embed-join {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
