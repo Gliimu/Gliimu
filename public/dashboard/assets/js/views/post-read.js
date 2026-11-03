@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=106';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=107';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -57,9 +57,11 @@ export default {
     }
     if (this.liveView) {
       this.liveView.releaseEmbed();
+      this.liveView.closeChatOnly();
       this.liveView = null;
     }
     this.liveSessionId = null;
+    this.isLiveHostCard = false;
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
     sessionStorage.removeItem('openReadViewId');
@@ -86,6 +88,7 @@ export default {
 
     this.postId = postId;
     this.liveSessionId = null;
+    this.isLiveHostCard = false;
 
     // Block Ctrl+S (save) and Ctrl+P (print) on the reader page
     keydownHandler = (e) => {
@@ -119,11 +122,9 @@ export default {
       this.liveSessionId = liveBlock?.session_id || null;
     }
 
-    // Your own live card is the studio door, not a reader.
-    if (this.liveSessionId && post.user_id === store.user.id) {
-      window.location.hash = '#/live';
-      return;
-    }
+    // The host's own card is the studio door: same page, but the mount holds
+    // the way in instead of a player of their own broadcast.
+    this.isLiveHostCard = !!this.liveSessionId && post.user_id === store.user.id;
 
     // Watching a live session is free, so the reading gate does not apply.
     if (!this.liveSessionId) {
@@ -160,7 +161,7 @@ export default {
     // The reader needs the live module before render: the chat panel is the
     // comment feature for a live gliim.
     if (this.liveSessionId) {
-      const { default: liveView } = await import('./live.js?v=45');
+      const { default: liveView } = await import('./live.js?v=46');
       this.liveView = liveView;
     }
 
@@ -194,11 +195,50 @@ export default {
     };
     window.addEventListener('live:embed-ended', liveEndedHandler);
 
+    if (this.isLiveHostCard) {
+      await this.renderHostLiveControl(mount);
+      this.syncLiveCommentCount();
+      return;
+    }
+
     const ok = await liveView.openEmbed(mount, this.liveSessionId, this.postId);
     if (!ok && !mount.innerHTML.trim()) {
       mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
     }
     this.syncLiveCommentCount();
+  },
+
+  // The host does not watch their own broadcast: the card carries the door
+  // into the studio, and the chat below still works as the comments.
+  async renderHostLiveControl(mount) {
+    const liveView = this.liveView;
+    const { data: request } = await supabase
+      .from('live_requests')
+      .select('id, status')
+      .eq('id', this.liveSessionId)
+      .maybeSingle();
+
+    if (!request || request.status === 'completed' || request.status === 'cancelled') {
+      mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
+      return;
+    }
+
+    const onAir = request.status === 'active';
+    mount.innerHTML = `
+      <div class="read-live-host">
+        <span class="read-live-host-state">${onAir ? 'You are on air.' : 'Announced. Nothing is broadcasting yet.'}</span>
+        <button class="read-live-host-btn" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>
+          ${onAir ? 'Back to your studio' : 'Go on air'}
+        </button>
+      </div>`;
+
+    mount.querySelector('.read-live-host-btn')?.addEventListener('click', () => {
+      if (onAir) window.location.hash = `/live?join=${this.liveSessionId}`;
+      else liveView.goOnAir(this.liveSessionId);
+    });
+
+    await liveView.openChatOnly(this.liveSessionId, this.postId);
   },
 
   // For a live gliim the comment count is the chat count.

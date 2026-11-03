@@ -896,13 +896,13 @@ app.post('/api/daily/create-room', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    const { requestId, isPrivate } = req.body || {};
+    const { requestId } = req.body || {};
     if (!requestId) return res.status(400).json({ error: 'Missing requestId.' });
 
     // Verify user owns this request
     const { data: request, error: reqError } = await supabaseAdmin
       .from('live_requests')
-      .select('id, user_id, room_id, join_code, is_private')
+      .select('id, user_id, room_id, room_url')
       .eq('id', requestId)
       .eq('user_id', authData.user.id)
       .maybeSingle();
@@ -911,47 +911,13 @@ app.post('/api/daily/create-room', async (req, res) => {
       return res.status(404).json({ error: 'Request not found or access denied.' });
     }
 
-    // Host must be verified to create a live session
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('verification_badge')
-      .eq('id', authData.user.id)
-      .maybeSingle();
-
-    if (!profile || !profile.verification_badge) {
-      return res.status(403).json({ error: 'Only verified users can host live sessions.' });
-    }
-
-    // If room already exists, return existing URL + code
-    if (request.room_id && request.join_code) {
-      const { data: existing } = await supabaseAdmin
-        .from('live_requests')
-        .select('room_url, join_code')
-        .eq('id', requestId)
-        .maybeSingle();
+    // A session can ask to go on air more than once; never mint a second room.
+    if (request.room_id && request.room_url) {
       return res.json({
-        room_url: existing?.room_url,
+        room_url: request.room_url,
         room_id: request.room_id,
-        join_code: existing?.join_code,
         created: false
       });
-    }
-
-    // Generate unique 6-char join code (A-Z0-9)
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // drop I/O/0/1 for readability
-    let joinCode = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
-      const { data: clash } = await supabaseAdmin
-        .from('live_requests')
-        .select('id')
-        .eq('join_code', candidate)
-        .in('status', ['open', 'active'])
-        .limit(1);
-      if (!clash || clash.length === 0) { joinCode = candidate; break; }
-    }
-    if (!joinCode) {
-      return res.status(500).json({ error: 'Could not generate unique join code.' });
     }
 
     // Create room via daily.co API
@@ -962,22 +928,17 @@ app.post('/api/daily/create-room', async (req, res) => {
       start_video_off: false,
       start_audio_off: false
     };
-    // Private sessions auto-record; public sessions do not.
-    if (request.is_private) {
-      roomProps.enable_recording = 'cloud';
-    }
     const room = await dailyRequest('POST', '/rooms', {
       name: `gliimu-${requestId}`,
       properties: roomProps
     });
 
-    // Store room info + join code in database
+    // Store room info in database
     const { error: updateError } = await supabaseAdmin
       .from('live_requests')
       .update({
         room_id: room.id,
-        room_url: room.url,
-        join_code: joinCode
+        room_url: room.url
       })
       .eq('id', requestId);
 
@@ -987,7 +948,7 @@ app.post('/api/daily/create-room', async (req, res) => {
       return res.status(500).json({ error: 'Failed to store room info.' });
     }
 
-    res.json({ room_url: room.url, room_id: room.id, join_code: joinCode, created: true });
+    res.json({ room_url: room.url, room_id: room.id, created: true });
   } catch (error) {
     console.error('Create room error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });
@@ -1032,145 +993,6 @@ app.post('/api/daily/meeting-token', async (req, res) => {
     res.json({ token: meetingToken.token });
   } catch (error) {
     console.error('Meeting token error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error.' });
-  }
-});
-
-// Get list of active public sessions
-app.get('/api/live/public-sessions', async (req, res) => {
-  try {
-    const authHeader = String(req.headers.authorization || '');
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: 'Missing access token.' });
-
-    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !authData || !authData.user) {
-      return res.status(401).json({ error: 'Invalid or expired session.' });
-    }
-
-    // Clean up stale sessions (older than 1 hour)
-    await supabaseAdmin.rpc('end_stale_live_sessions');
-
-    // Fetch active public sessions (is_private = false, started within last hour, has participants)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: sessions, error: sessionsError } = await supabaseAdmin
-      .from('live_requests')
-      .select('id, title, description, is_private, participant_count, started_at, user_id')
-      .eq('status', 'active')
-      .eq('is_private', false)
-      .gt('started_at', oneHourAgo)
-      .gte('participant_count', 1) // Only show sessions with at least 1 participant (the host)
-      .order('started_at', { ascending: false });
-
-    if (sessionsError) {
-      console.error('Public sessions query error:', sessionsError);
-      return res.status(500).json({ error: 'Failed to fetch sessions: ' + sessionsError.message });
-    }
-
-    // Get host names for all sessions
-    const userIds = [...new Set((sessions || []).map(s => s.user_id))];
-    let profilesMap = {};
-    
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabaseAdmin
-        .from('profiles')
-        .select('id, full_name, verification_badge')
-        .in('id', userIds);
-      
-      if (profiles) {
-        profilesMap = Object.fromEntries(profiles.map(p => [p.id, p]));
-      }
-    }
-
-    // Format response
-    const formattedSessions = (sessions || []).map(s => {
-      const profile = profilesMap[s.user_id];
-      return {
-        id: s.id,
-        title: s.title,
-        description: s.description,
-        is_private: s.is_private || false,
-        participant_count: s.participant_count || 0,
-        started_at: s.started_at,
-        host_name: profile?.full_name || 'Unknown',
-        host_verified: !!profile?.verification_badge
-      };
-    });
-
-    res.json({ sessions: formattedSessions });
-  } catch (error) {
-    console.error('Public sessions error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error.' });
-  }
-});
-
-// Resolve a join code to an active session (caller must be authenticated)
-app.post('/api/live/resolve-code', async (req, res) => {
-  try {
-    const authHeader = String(req.headers.authorization || '');
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: 'Missing access token.' });
-
-    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !authData || !authData.user) {
-      return res.status(401).json({ error: 'Invalid or expired session.' });
-    }
-
-    const { code } = req.body || {};
-    if (!code || typeof code !== 'string') {
-      return res.status(400).json({ error: 'Missing code.' });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .rpc('live_resolve_join_code', { p_code: code.trim().toUpperCase() });
-
-    if (error) {
-      console.error('Resolve code error:', error);
-      return res.status(500).json({ error: 'Failed to resolve code.' });
-    }
-
-    const session = (data && data[0]) || null;
-    if (!session) return res.status(404).json({ error: 'No active session matches that code.' });
-
-    res.json({ ok: true, session });
-  } catch (error) {
-    console.error('Resolve code error:', error);
-    res.status(500).json({ error: error.message || 'Internal server error.' });
-  }
-});
-
-// Toggle hand raise. Body: { requestId, raised: bool, targetUserId?: uuid }
-app.post('/api/live/hand-raise', async (req, res) => {
-  try {
-    const authHeader = String(req.headers.authorization || '');
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    if (!token) return res.status(401).json({ error: 'Missing access token.' });
-
-    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !authData || !authData.user) {
-      return res.status(401).json({ error: 'Invalid or expired session.' });
-    }
-
-    const { requestId, raised, targetUserId } = req.body || {};
-    if (!requestId || typeof raised !== 'boolean') {
-      return res.status(400).json({ error: 'Missing requestId or raised flag.' });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .rpc('live_toggle_hand_raise', {
-        p_request_id: requestId,
-        p_raised: raised,
-        p_target_user_id: targetUserId || null
-      });
-
-    if (error) {
-      console.error('Hand raise error:', error);
-      return res.status(400).json({ error: error.message });
-    }
-
-    res.json({ ok: true, hand_raises: data });
-  } catch (error) {
-    console.error('Hand raise error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });
   }
 });
@@ -1312,15 +1134,15 @@ app.post('/api/live/chat', async (req, res) => {
     const { roomId, content, attachment_url, attachment_type } = req.body || {};
     if (!roomId || (!content && !attachment_url)) return res.status(400).json({ error: 'Missing roomId or content/attachment.' });
 
-    // Verify room exists and is active
+    // Verify room exists and is open for conversation (announced or on air)
     const { data: room, error: roomError } = await supabaseAdmin
       .from('live_requests')
       .select('id, status')
       .eq('id', roomId)
       .maybeSingle();
 
-    if (roomError || !room || room.status !== 'active') {
-      return res.status(404).json({ error: 'Room not found or not active.' });
+    if (roomError || !room || (room.status !== 'active' && room.status !== 'open')) {
+      return res.status(404).json({ error: 'Room not found or not open for chat.' });
     }
 
     // Insert message

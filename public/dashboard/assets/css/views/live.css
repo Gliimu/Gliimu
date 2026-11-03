@@ -1,127 +1,28 @@
 /* ============================================
-   LIVE PAGE — LANDING
+   LIVE — IDLE STATE (no session running)
    ============================================ */
-.live-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.live-header h2 {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
-}
-.live-header .btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.live-header .btn-primary svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* Session cards grid */
-.live-sessions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-}
-
-.live-session-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
+.live-idle {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.live-session-card:hover {
-  border-color: var(--brand-primary);
-  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.08);
-}
-
-.live-session-card-header {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
+  min-height: 45vh;
+  padding: 48px 24px;
+  text-align: center;
 }
-.live-session-card-header h3 {
-  font-size: 16px;
+.live-idle h3 {
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
 }
-.live-session-card-header svg {
+.live-idle-hint {
+  font-size: 14px;
   color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.live-session-card-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
   margin: 0;
+  max-width: 420px;
   line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.live-session-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.live-session-card-host {
-  font-weight: 500;
-}
-.live-session-card-participants {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.live-session-card-participants svg {
-  width: 14px;
-  height: 14px;
-}
-
-.live-session-card-join {
-  margin-top: auto;
-  width: 100%;
-  justify-content: center;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* States */
-.live-loading,
-.live-empty,
-.live-error {
-  text-align: center;
-  padding: 48px 24px;
-  font-size: 14px;
-  color: var(--text-muted);
-  margin: auto;
-}
-.live-error {
-  color: var(--error);
 }
 
 /* ============================================
@@ -366,41 +267,6 @@ body.live-studio-active .topbar {
   color: rgba(255, 255, 255, 0.85);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-.live-recording-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(239, 68, 68, 0.25) !important;
-  color: #fca5a5 !important;
-  animation: live-recording-pulse 1.5s ease-in-out infinite;
-}
-.live-recording-indicator svg {
-  width: 10px;
-  height: 10px;
-}
-@keyframes live-recording-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.live-private-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 6px;
-  vertical-align: middle;
-  margin-left: 8px;
-}
-.live-private-badge svg {
-  width: 12px;
-  height: 12px;
 }
 
 /* ============================================
@@ -707,79 +573,6 @@ body.live-studio-active .topbar {
   flex-shrink: 0;
 }
 
-/* ============================================
-   HOST MODAL
-   ============================================ */
-#live-host-modal .modal-content {
-  max-width: 440px;
-}
-#live-host-modal h3 {
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 20px;
-  color: var(--text-primary);
-}
-#live-host-modal .form-group {
-  margin-bottom: 16px;
-}
-#live-host-modal label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-#live-host-modal .checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-#live-host-modal .checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand-primary);
-}
-
-/* ============================================
-   HAND RAISE INDICATOR
-   ============================================ */
-.live-participant-tile.raised {
-  border: 2px solid #F59E0B;
-}
-.live-raise-indicator {
-  display: inline-flex;
-  color: #F59E0B;
-  animation: live-hand-pulse 1.2s ease-in-out infinite;
-}
-.live-raise-indicator svg {
-  width: 14px;
-  height: 14px;
-}
-@keyframes live-hand-pulse {
-  0%, 100% { transform: rotate(-8deg); }
-  50% { transform: rotate(8deg); }
-}
-
-.live-ctrl-btn.raised {
-  background: #F59E0B !important;
-  border-color: #F59E0B !important;
-  color: #1a1a1a !important;
-}
-
-.live-hand-raise-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 24px;
-  line-height: 1;
-  z-index: 10;
-  animation: live-hand-pulse 1.2s ease-in-out infinite;
-  pointer-events: none;
-}
-
 /* '...' button on participant tiles */
 .live-tile-menu-btn {
   position: absolute;
@@ -877,71 +670,9 @@ body.live-studio-active .topbar {
 }
 
 /* ============================================
-   SCREEN SHARE
-   ============================================ */
-.live-screen-share {
-  flex: 1;
-  position: relative;
-  background: #000;
-  border-radius: 12px;
-  overflow: hidden;
-  min-height: 0;
-}
-.live-screen-share video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-.live-screen-label {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.live-ctrl-btn.sharing {
-  background: #10B981 !important;
-  border-color: #10B981 !important;
-  color: white !important;
-}
-
-/* ============================================
    MOBILE RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {
-  .live-layout {
-    padding: 16px;
-    border-radius: 12px;
-  }
-
-  .live-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  .live-header h2 {
-    font-size: 18px;
-  }
-  .live-header .btn-primary {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .live-sessions-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .live-session-card {
-    padding: 16px;
-  }
-
   .live-studio-container {
     border-radius: 0;
   }
@@ -1019,20 +750,6 @@ body.live-studio-active .topbar {
 }
 
 @media (max-width: 480px) {
-  .live-layout {
-    padding: 12px;
-  }
-
-  .live-session-card {
-    padding: 14px;
-  }
-  .live-session-card-header h3 {
-    font-size: 15px;
-  }
-  .live-session-card-desc {
-    font-size: 12px;
-  }
-
   .live-video-area {
     gap: 6px;
     padding: 6px;
@@ -1382,6 +1099,57 @@ body.live-studio-active .topbar {
   border: 1px solid var(--border);
   border-radius: 16px;
   font-size: 14px;
+}
+
+/* Announced but not on air: the card is live, the broadcast is not yet. */
+.live-embed-waiting {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+/* ============================================
+   HOST'S OWN LIVE CARD — the door to the studio
+   ============================================ */
+.read-live-host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 44px 20px;
+  text-align: center;
+  background: var(--bg-secondary, #111);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.read-live-host-state {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.read-live-host-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.read-live-host-btn:hover {
+  filter: brightness(1.08);
+}
+.read-live-host-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* The reader's comments modal hosts the same chat panel, but inline. */

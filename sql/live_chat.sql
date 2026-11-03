@@ -72,7 +72,8 @@ create policy live_chat_read
     )
   );
 
--- Talking additionally needs the session to be running.
+-- Talking needs the session announced ('open') or on air ('active').
+-- See live_on_air.sql — the chat works before the host goes on air.
 drop policy if exists live_chat_insert on public.live_chat_messages;
 create policy live_chat_insert
   on public.live_chat_messages for insert
@@ -82,7 +83,7 @@ create policy live_chat_insert
     and exists (
       select 1 from public.live_requests r
       where r.id = live_chat_messages.room_id
-        and r.status = 'active'
+        and r.status in ('open', 'active')
         and (
           r.user_id = (select auth.uid())
           or r.sharing_mode = 'general'
@@ -161,11 +162,11 @@ select item, result from (
          and pg_get_expr(p.polqual, p.polrelid) like '%sharing_mode%'
     ) then 'ok' else 'WRONG' end
   union all
-  select 9, 'insert needs live session',
+  select 9, 'insert needs an announced or live session',
     case when exists (
       select 1 from pg_policy p join pg_class c on c.oid = p.polrelid
        where c.relname = 'live_chat_messages' and p.polname = 'live_chat_insert'
-         and pg_get_expr(p.polwithcheck, p.polrelid) like '%active%'
+         and pg_get_expr(p.polwithcheck, p.polrelid) like '%open%'
     ) then 'ok' else 'WRONG' end
   union all
   select 10, 'delete is own messages only',

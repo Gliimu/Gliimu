@@ -465,9 +465,6 @@ export default {
             const hubPost = parts ? parts[1] : '';
             const hubComment = parts && parts[2] ? parts[2] : '';
             contentHtml = `<p>${readable}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="pingInstance.openHubMention('${hubPost}', '${hubComment}')">Check it out</button>`;
-          } else if (m.content.startsWith('🎥 Session accepted:')) {
-            const formattedText = escapeHtml(m.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
-            contentHtml = `<p>${formattedText}</p><button class="btn-primary btn-sm" style="margin-top:4px;" onclick="window.location.hash='#/live'">Open Live</button>`;
           } else {
             const formattedText = escapeHtml(m.content).replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: inherit; text-decoration: underline;">$1</a>');
             contentHtml = `<p>${formattedText}</p>`;

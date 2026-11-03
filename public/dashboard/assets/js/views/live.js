@@ -11,16 +11,10 @@ const ICONS = {
   videoOff: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
   mic: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
   micOff: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>',
-  users: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
   chat: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
-  hand: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v1M14 7V4a2 2 0 0 0-4 0v6M10 10V3a2 2 0 0 0-4 0v11M18 11a2 2 0 0 1 4 0v3a8 8 0 0 1-8 8h-2c-2.5 0-4.5-1-6.2-2.8L3 15.2a2 2 0 0 1 2.8-2.8L6 13V6"></path></svg>',
   screen: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>',
-  record: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"></circle></svg>',
   close: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-  plus: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
-  lock: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>',
   share: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>',
-  copy: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
   flip: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>',
   userX: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>',
   flag: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>',
@@ -57,8 +51,8 @@ const liveView = {
   // State
   activeSession: null,
   sessionRole: null, // 'host' | 'participant'
-  publicSessions: [],
   joiningSession: false, // Guard against rapid join attempts
+  goingOnAir: false,    // Guard against double-tapping "Go on air"
   
   // Daily.co
   callObject: null,
@@ -70,6 +64,10 @@ const liveView = {
   watchOnly: false,
   embedHash: null,
   embedMount: null,
+
+  // Chat without a call: the host's own card and a session that is announced
+  // but not on air yet still need the comment feature.
+  chatOnlySession: null,
 
   // XpLoRe gliim card this session is published as (null when not shared
   // to everybody). Chat @mentions alert against this post.
@@ -84,9 +82,7 @@ const liveView = {
   chatErrorCount: 0,
 
   // Session controls
-  isRecording: false,
   screenSharing: false,
-  screenSharePermissionGranted: new Set(),
   
   // Session timer
   sessionTimerInterval: null,
@@ -98,7 +94,6 @@ const liveView = {
 
   template: `
     <div id="live-container">
-      <div id="live-landing"></div>
       <div id="live-session-view" style="display:none;"></div>
     </div>
   `,
@@ -107,10 +102,6 @@ const liveView = {
   // to exist even when the session was opened from a card, not the Live page.
   _exposeInstance() {
     window.liveInstance = {
-      loadPublicSessions: () => this.loadPublicSessions(),
-      openHostModal: () => this.openHostModal(),
-      closeHostModal: () => this.closeHostModal(),
-      createSession: () => this.createSession(),
       joinSession: (id) => this.joinSession(id),
       leaveSession: () => this.leaveSession(),
       endSession: () => this.endSession(),
@@ -123,8 +114,6 @@ const liveView = {
       muteParticipant: (sessionId) => this.muteParticipant(sessionId),
       kickParticipant: (sessionId) => this.kickParticipant(sessionId),
       reportLiveSession: () => this.reportLiveSession(),
-      grantScreenShare: (userId) => this.grantScreenShare(userId),
-      revokeScreenShare: (userId) => this.revokeScreenShare(userId),
       toggleScreenShare: () => this.toggleScreenShare(),
       shareSession: () => this.shareSession(),
       showSupportDialog: () => this.showSupportDialog(),
@@ -146,28 +135,61 @@ const liveView = {
       return;
     }
 
-    await this.loadPublicSessions();
-
     const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
     const joinId = params.get('join');
     if (joinId) {
       await this.joinSession(joinId);
-    } else {
-      // Attempt to recover session after refresh/network issue (only if not joining via link)
-      this._recoverSession();
+      return;
     }
+
+    // Attempt to recover session after refresh/network issue (only if not joining via link)
+    if (!(await this._recoverSession())) this.showIdle();
+  },
+
+  // The studio has no browse page any more: a session is reached from its card
+  // or from a Ping invite, so landing here with nothing to open says so. It
+  // also stands in behind the minimized tile so the page is never blank.
+  showIdle(minimized) {
+    const container = document.getElementById('live-container');
+    if (!container) return;
+
+    const sessionView = document.getElementById('live-session-view');
+    if (sessionView) sessionView.style.display = 'none';
+
+    let idle = document.getElementById('live-idle');
+    if (!idle) {
+      idle = document.createElement('div');
+      idle.id = 'live-idle';
+      idle.className = 'live-idle';
+      container.appendChild(idle);
+    }
+
+    const title = this.activeSession && this.activeSession.title;
+    idle.innerHTML = `
+      ${title ? `<h3>${esc(title)}</h3>` : ''}
+      <p class="live-idle-hint">${minimized
+        ? 'Your session is still running in the corner — tap it to come back.'
+        : 'Open a live session from its card, or from a Ping invite.'}</p>
+    `;
+    idle.style.display = 'block';
+  },
+
+  hideIdle() {
+    const sessionView = document.getElementById('live-session-view');
+    if (sessionView) sessionView.style.display = 'block';
+    document.getElementById('live-idle')?.remove();
   },
 
   async _recoverSession() {
     try {
       const saved = sessionStorage.getItem('liveSession');
-      if (!saved) return;
+      if (!saved) return false;
 
       const { sessionId, role, timestamp } = JSON.parse(saved);
       // Only recover if saved within last 2 hours (session max is 1 hour)
       if (Date.now() - timestamp > 2 * 60 * 60 * 1000) {
         sessionStorage.removeItem('liveSession');
-        return;
+        return false;
       }
 
       // Fetch session details
@@ -180,16 +202,18 @@ const liveView = {
 
       if (error || !session) {
         sessionStorage.removeItem('liveSession');
-        return;
+        return false;
       }
 
       // Rejoin the session
       this.activeSession = session;
       this.sessionRole = role;
       this.enterSession();
+      return true;
     } catch (e) {
       console.warn('Session recovery failed:', e);
       sessionStorage.removeItem('liveSession');
+      return false;
     }
   },
 
@@ -223,206 +247,12 @@ const liveView = {
   },
 
   // ============================================
-  // LANDING PAGE - Public Sessions List
+  // SESSION SHELLS (minted by the composer's Live block)
   // ============================================
-  
-  async loadPublicSessions() {
-    const landing = document.getElementById('live-landing');
-    if (!landing) return;
 
-    landing.innerHTML = '<div class="live-loading">Loading sessions...</div>';
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        landing.innerHTML = '<div class="live-empty">Please sign in to view live sessions.</div>';
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/live/public-sessions`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || 'Failed to load sessions');
-      }
-
-      const result = await response.json();
-      this.publicSessions = result.sessions || [];
-      this.renderLanding();
-    } catch (error) {
-      console.error('Load sessions error:', error);
-      landing.innerHTML = `<div class="live-error">Failed to load sessions: ${error.message}</div>`;
-    }
-  },
-
-  renderLanding() {
-    const landing = document.getElementById('live-landing');
-    if (!landing) return;
-
-    const canHost = (store.profile?.total_gp || 0) >= 1500 && store.profile?.verification_badge;
-
-    let html = `
-      <div class="live-header">
-        <h2>Live Sessions</h2>
-        ${canHost ? `<button class="btn-primary" onclick="liveInstance.openHostModal()">${ICONS.plus} Host Session</button>` : ''}
-      </div>
-    `;
-
-    if (this.publicSessions.length === 0) {
-      html += '<div class="live-empty">No active sessions. Be the first to host!</div>';
-    } else {
-      html += '<div class="live-sessions-grid">';
-      for (const session of this.publicSessions) {
-        html += `
-          <div class="live-session-card">
-            <div class="live-session-card-header">
-              <h3>${esc(session.title)}</h3>
-            </div>
-            ${session.description ? `<p class="live-session-card-desc">${esc(session.description)}</p>` : ''}
-            <div class="live-session-card-meta">
-              <span class="live-session-card-host">Host: ${esc(session.host_name || 'Unknown')}</span>
-              <span class="live-session-card-participants">${ICONS.users} ${session.participant_count || 0}</span>
-            </div>
-            <button class="btn-primary live-session-card-join" onclick="liveInstance.joinSession('${session.id}')">
-              Join Session
-            </button>
-          </div>
-        `;
-      }
-      html += '</div>';
-    }
-
-    landing.innerHTML = html;
-  },
-
-  openHostModal() {
-    const modal = document.createElement('div');
-    modal.id = 'live-host-modal';
-    modal.className = 'modal-overlay';
-    modal.innerHTML = `
-      <div class="modal-content">
-        <button class="modal-close" onclick="liveInstance.closeHostModal()">${ICONS.close}</button>
-        <h3>Host a Live Session</h3>
-        <div class="form-group">
-          <label>Session Title</label>
-          <input type="text" id="live-host-title" class="input" maxlength="60" placeholder="e.g. UI Design Workshop" required>
-        </div>
-        <div class="form-group">
-          <label>Description (optional)</label>
-          <textarea id="live-host-desc" class="input" rows="3" maxlength="200" placeholder="What will you cover?"></textarea>
-        </div>
-        <button class="btn-primary" style="width:100%;" onclick="liveInstance.createSession()">Create Session</button>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  },
-
-  closeHostModal() {
-    document.getElementById('live-host-modal')?.remove();
-  },
-
-  async createSession() {
-    if (this.joiningSession) return; // Prevent rapid clicks
-    this.joiningSession = true;
-    
-    const title = document.getElementById('live-host-title')?.value?.trim();
-    const description = document.getElementById('live-host-desc')?.value?.trim();
-
-    if (!title) {
-      this.joiningSession = false;
-      return alert('Please enter a session title.');
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data: request, error } = await supabase
-        .from('live_requests')
-        .insert({
-          user_id: store.user.id,
-          title: title.slice(0, 60),
-          description: description ? description.slice(0, 200) : null,
-          status: 'active',
-          sharing_mode: 'general',
-          is_private: false,
-          participant_count: 1,
-          started_at: new Date().toISOString(),
-          hand_raises: {},
-          screen_share_permissions: {}
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Create Daily.co room
-      const response = await fetch(`${API_BASE_URL}/api/daily/create-room`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: request.id, isPrivate: false })
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to create room');
-
-      await supabase
-        .from('live_requests')
-        .update({
-          room_id: result.room_id,
-          room_url: result.room_url
-        })
-        .eq('id', request.id);
-
-      this.closeHostModal();
-      
-      // Fetch owner meeting token so host can control participants
-      this.hostMeetingToken = null;
-      if (result.room_id) {
-        try {
-          const tokenRes = await fetch(`${API_BASE_URL}/api/daily/meeting-token`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ roomId: result.room_id })
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            this.hostMeetingToken = tokenData.token;
-          } else {
-            console.warn('Failed to get host meeting token:', await tokenRes.text());
-          }
-        } catch (tokenError) {
-          console.warn('Error fetching host token:', tokenError);
-        }
-      }
-
-      // Enter as host
-      this.activeSession = {
-        ...request,
-        room_url: result.room_url,
-        room_id: result.room_id
-      };
-      this.sessionRole = 'host';
-      this.enterSession();
-
-    } catch (error) {
-      console.error('Create session error:', error);
-      alert('Failed to create session: ' + error.message);
-    } finally {
-      this.joiningSession = false;
-    }
-  },
-
-  // Used by the Publish composer's Live block: make the session and its Daily
-  // room without entering the studio, so the host can publish a gliim first and
-  // go on air from their own card afterwards.
+  // Used by the Publish composer's Live block: announce the session so the card
+  // can be minted. No Daily room and no started_at yet — the clock and the room
+  // only exist once the host goes on air from their own card.
   async createSessionShell(title, description) {
     const { data: request, error } = await supabase
       .from('live_requests')
@@ -430,19 +260,38 @@ const liveView = {
         user_id: store.user.id,
         title: String(title || '').slice(0, 60),
         description: String(description || '').slice(0, 500) || null,
-        status: 'active',
-        sharing_mode: 'general',
-        is_private: false,
-        participant_count: 0,
-        started_at: new Date().toISOString(),
-        hand_raises: {},
-        screen_share_permissions: {}
+        status: 'open'
       })
       .select()
       .single();
 
     if (error) throw error;
+    return request;
+  },
 
+  // Undo a createSessionShell() whose gliim never got published. There is no
+  // room to tear down yet, so this is only a status flip.
+  async endSessionShell(sessionId) {
+    if (!sessionId) return;
+    try {
+      const now = new Date().toISOString();
+      await supabase
+        .from('live_requests')
+        .update({
+          status: 'cancelled',
+          completed_by: store.user.id,
+          completed_at: now,
+          ended_at: now
+        })
+        .eq('id', sessionId);
+    } catch (err) {
+      console.warn('Could not clean up the unpublished session:', err.message);
+    }
+  },
+
+  // create-room is idempotent server-side: it returns the existing room when
+  // the session already has one, so re-going-on-air never leaks a second room.
+  async ensureSessionRoom(sessionId) {
     const { data: { session } } = await supabase.auth.getSession();
     const response = await fetch(`${API_BASE_URL}/api/daily/create-room`, {
       method: 'POST',
@@ -450,45 +299,38 @@ const liveView = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ requestId: request.id, isPrivate: false })
+      body: JSON.stringify({ requestId: sessionId })
     });
 
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || 'Failed to create room');
-
-    await supabase
-      .from('live_requests')
-      .update({ room_id: result.room_id, room_url: result.room_url })
-      .eq('id', request.id);
-
-    return { ...request, room_id: result.room_id, room_url: result.room_url };
+    if (!response.ok) throw new Error(result.error || 'The studio room could not be opened.');
+    return result;
   },
 
-  // Undo a createSessionShell() whose gliim never got published: the session
-  // must not linger in the public list, and its room must not stay open.
-  async endSessionShell(sessionId) {
-    if (!sessionId) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await supabase
-        .from('live_requests')
-        .update({
-          status: 'completed',
-          completed_by: store.user.id,
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
+  // "Go on air", driven from the host's own live card: stamp the broadcast
+  // clock, open the room, then let the studio join it like anybody else.
+  async goOnAir(sessionId) {
+    if (!sessionId || this.goingOnAir) return false;
+    this.goingOnAir = true;
 
-      await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: sessionId })
-      }).catch(err => console.warn('Delete room failed (non-critical):', err));
+    try {
+      const { error } = await supabase.rpc('start_live_session', { p_session_id: sessionId });
+      if (error) throw new Error(error.message);
+
+      await this.ensureSessionRoom(sessionId);
+
+      if (window.location.hash.split('?')[0] === '#/live') {
+        await this.joinSession(sessionId);
+      } else {
+        window.location.hash = `/live?join=${sessionId}`;
+      }
+      return true;
     } catch (err) {
-      console.warn('Could not clean up the unpublished session:', err.message);
+      console.error('Go on air failed:', err);
+      appAlert(err.message || 'Your session could not start.');
+      return false;
+    } finally {
+      this.goingOnAir = false;
     }
   },
 
@@ -575,6 +417,7 @@ const liveView = {
 
   enterSession() {
     if (!this.activeSession) return;
+    this.chatOnlySession = null;
 
     // Persist session for recovery on refresh/network issues
     try {
@@ -585,17 +428,13 @@ const liveView = {
       }));
     } catch (e) { console.warn('Failed to save session to storage:', e); }
 
-    document.getElementById('live-landing').style.display = 'none';
-    const sessionView = document.getElementById('live-session-view');
-    sessionView.style.display = 'block';
+    this.hideIdle();
 
     this.sessionStartTime = Date.now();
     this.liveSecs = 0;
     this.chatMessages = [];
     this.chatOpen = false;
     this.focusedSessionId = null;
-    this.isRecording = false;
-    this.screenSharePermissionGranted.clear();
 
     if (this.minimized) {
       const staleTile = document.getElementById('live-minimized-tile');
@@ -737,6 +576,52 @@ const liveView = {
   },
 
   // ============================================
+  // CHAT WITHOUT A CALL (comments on a live gliim)
+  // ============================================
+
+  // The session the chat panel belongs to: the call when there is one, the
+  // chat-only row when the reader only shows comments.
+  _chatSession() {
+    return this.activeSession || this.chatOnlySession;
+  },
+
+  // The reader mounts this when there is nothing to watch: the viewer is the
+  // host (their card is the studio, not a player) or the session has not gone
+  // on air yet. Polling and sending both work — the message only needs a
+  // session that is announced or live.
+  async openChatOnly(sessionId, postId) {
+    if (!sessionId) return false;
+    this._exposeInstance();
+    if (postId && !this.gliimPostId) this.gliimPostId = postId;
+    if (this.activeSession) return true;
+    if (this.chatOnlySession?.id === sessionId) {
+      this.startChatPolling(sessionId);
+      return true;
+    }
+
+    const { data: request } = await supabase
+      .from('live_requests')
+      .select('*')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (!request || (request.status !== 'open' && request.status !== 'active')) return false;
+
+    this.chatOnlySession = request;
+    this.chatMessages = [];
+    await this.loadChatMessages(sessionId);
+    this.startChatPolling(sessionId);
+    return true;
+  },
+
+  closeChatOnly() {
+    if (!this.chatOnlySession) return;
+    this.stopChatPolling();
+    this.chatMessages = [];
+    this.chatOnlySession = null;
+    if (!this.activeSession) this.gliimPostId = null;
+  },
+
+  // ============================================
   // WATCH-ONLY EMBED (the live card on the reader page)
   // ============================================
 
@@ -781,11 +666,18 @@ const liveView = {
         .from('live_requests')
         .select('*')
         .eq('id', sessionId)
-        .eq('status', 'active')
         .maybeSingle();
 
       if (error || !request) {
         mountEl.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
+        return false;
+      }
+
+      // Announced but not on air: there is nothing to watch yet, but the
+      // chat — the comment feature of this gliim — is already open.
+      if (request.status !== 'active') {
+        await this.openChatOnly(sessionId);
+        mountEl.innerHTML = '<div class="live-embed-waiting">The host has not gone on air yet.</div>';
         return false;
       }
 
@@ -1356,14 +1248,8 @@ const liveView = {
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = 'none';
 
-    // Show the Live landing behind the floating tile so the page is never blank
-    const sessionView = document.getElementById('live-session-view');
-    if (sessionView) sessionView.style.display = 'none';
-    const landing = document.getElementById('live-landing');
-    if (landing) {
-      landing.style.display = 'block';
-      this.loadPublicSessions();
-    }
+    // The idle note stands in behind the floating tile so the page is not blank
+    this.showIdle(true);
 
     const tile = document.createElement('div');
     tile.className = 'live-minimized-tile';
@@ -1504,10 +1390,7 @@ const liveView = {
     }
 
     document.body.classList.add('live-studio-active');
-    const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'none';
-    const sessionView = document.getElementById('live-session-view');
-    if (sessionView) sessionView.style.display = 'block';
+    this.hideIdle();
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = '';
 
@@ -1529,10 +1412,7 @@ const liveView = {
       tile.remove();
     }
 
-    const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'none';
-    const sessionView = document.getElementById('live-session-view');
-    if (sessionView) sessionView.style.display = 'block';
+    this.hideIdle();
 
     document.body.classList.add('live-studio-active');
     this.renderSessionUI();
@@ -1616,16 +1496,6 @@ const liveView = {
       overlay.remove();
       appAlert('Thank you. Your report has been submitted for review.');
     });
-  },
-
-  async grantScreenShare(userId) {
-    // TODO: Implement screen share permission
-    alert('Grant screen share feature coming soon.');
-  },
-
-  async revokeScreenShare(userId) {
-    // TODO: Implement revoke screen share
-    alert('Revoke screen share feature coming soon.');
   },
 
   async toggleScreenShare() {
@@ -2111,8 +1981,9 @@ const liveView = {
   async sendChatMessage() {
     const input = document.getElementById('live-chat-input');
     if (!input) return;
+    const chatSession = this._chatSession();
     const content = input.value.trim();
-    if ((!content && !this._pendingAttachment) || !this.activeSession) return;
+    if ((!content && !this._pendingAttachment) || !chatSession) return;
     if (this._sendingChat) return;
 
     const attachment = this._pendingAttachment;
@@ -2122,7 +1993,7 @@ const liveView = {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const body = { roomId: this.activeSession.id };
+      const body = { roomId: chatSession.id };
       if (content) body.content = content.slice(0, 1000);
       if (attachment) {
         body.attachment_url = attachment.url;
@@ -2146,7 +2017,7 @@ const liveView = {
       input.value = '';
       this._pendingAttachment = null;
       this.clearAttachmentPreview();
-      await this.loadChatMessages(this.activeSession.id);
+      await this.loadChatMessages(chatSession.id);
       this.notifyChatMentions(content, result.message?.id);
     } catch (error) {
       console.error('Send chat error:', error);
@@ -2170,7 +2041,7 @@ const liveView = {
 
       const lower = content.toLowerCase();
       const myName = (store.profile?.full_name || '').trim().toLowerCase();
-      const sessionTitle = String(this.activeSession?.title || 'a live session').slice(0, 60);
+      const sessionTitle = String(this._chatSession()?.title || 'a live session').slice(0, 60);
       const notified = new Set();
 
       for (const p of this._mentionProfiles) {
@@ -2196,10 +2067,11 @@ const liveView = {
   // through the author's own approved rows — RLS already limits what comes back.
   async _resolveGliimPostId() {
     if (this.gliimPostId) return this.gliimPostId;
-    const sessionId = this.activeSession?.id;
+    const chatSession = this._chatSession();
+    const sessionId = chatSession?.id;
     if (!sessionId) return null;
     try {
-      const owner = this.activeSession.user_id || store.user?.id;
+      const owner = chatSession.user_id || store.user?.id;
       if (!owner) return null;
       const { data: posts } = await supabase
         .from('feed_gliims').select('id')
@@ -2368,7 +2240,12 @@ const liveView = {
     const tick = () => {
       if (!this.sessionStartTime) return;
 
-      const elapsed = Date.now() - this.sessionStartTime;
+      // The hour runs from go-on-air, not from this viewer's arrival, so a late
+      // joiner and a refresh see the same clock the sweep uses.
+      const broadcast = this.activeSession && this.activeSession.started_at
+        ? new Date(this.activeSession.started_at).getTime()
+        : this.sessionStartTime;
+      const elapsed = Date.now() - broadcast;
       const remaining = MAX_SESSION_DURATION - elapsed;
 
       if (remaining <= 0) {
@@ -2571,13 +2448,8 @@ const liveView = {
     this.embedHash = null;
     this.gliimPostId = null;
 
-    const sessionView = document.getElementById('live-session-view');
-    if (sessionView) sessionView.style.display = 'none';
-    const landing = document.getElementById('live-landing');
-    if (landing) landing.style.display = 'block';
-
-    // Only refresh the landing list if we're actually on the Live page.
-    if (landing) this.loadPublicSessions();
+    // Back on the Live page with no session left: show the idle note again.
+    if (document.getElementById('live-container')) this.showIdle();
 
     // The reader hosts the embed, so tell it the session is gone.
     if (wasEmbed) {

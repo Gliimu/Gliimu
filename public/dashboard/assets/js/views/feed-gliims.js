@@ -43,7 +43,7 @@ function hydrateLiveBlock(blockDiv, raw) {
 // live.js carries the session shell helpers; loaded lazily so the feed does not
 // pay for the studio module up front. Bump the query string with live.js.
 function loadLiveModule() {
-  return import('./live.js?v=45').then(mod => mod.default);
+  return import('./live.js?v=46').then(mod => mod.default);
 }
 
 // Client mirror of the gliim_kind classifier (sql/unify_feed.sql): live wins
@@ -1664,7 +1664,7 @@ const hubView = {
   },
 
   // Publishing is what brings a live gliim into existence: the block's title
-  // and description become a real session (and its Daily room), the block is
+  // and description become a session in its waiting state, the block is
   // rewritten to point at that session id, and publish_live_gliim() then owns
   // the card — instant approval, auto-retire when the session ends.
   async mintLiveSession(liveDraft, blocks) {
@@ -1676,8 +1676,8 @@ const hubView = {
     };
   },
 
-  // A session that never made it onto the feed must not sit in the public
-  // session list or hold a Daily room open.
+  // A session that never made it onto the feed is cancelled so the sweeper
+  // can forget it. Nothing was broadcasting, so there is nothing to tear down.
   async abandonLiveSession(sessionId) {
     if (!sessionId) return;
     await (await loadLiveModule()).endSessionShell(sessionId);
