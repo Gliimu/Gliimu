@@ -1,8 +1,8 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
-  '/search': () => import('./views/search.js?v=13').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=91').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=91').then(m => m.default),
+  '/search': () => { window.location.hash = '#/xplore'; return Promise.resolve({ title: 'XpLoRe', template: '', init() {}, destroy() {} }); },
+  '/xplore': () => import('./views/feed.js?v=92').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=92').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=63').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=5').then(m => m.default),
@@ -18,7 +18,7 @@ const routes = {
 };
 
 // Routes with no sidebar entry borrow another tab's highlight
-const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore', '/feature': '/profile' };
+const NAV_ALIAS = { '/search': '/xplore', '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore', '/feature': '/profile' };
 
 let previousHash = window.location.hash;
 let currentView = null;
