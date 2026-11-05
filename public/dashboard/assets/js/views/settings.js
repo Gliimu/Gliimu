@@ -64,6 +64,16 @@ export default {
       <!-- Profile Settings -->
       <div class="card settings-card">
         <h2>Profile</h2>
+        <div class="setting-row">
+          <div>
+            <span class="setting-title">Feature my profile</span>
+            <span class="setting-desc">Allow this week's creator slots on XpLoRe to show your page. Free, and you can switch it off any time.</span>
+          </div>
+          <div class="toggle-options" id="spotlight-optin">
+            <button type="button" class="toggle-opt" data-optin="off">Off</button>
+            <button type="button" class="toggle-opt" data-optin="on">On</button>
+          </div>
+        </div>
         <div class="banner-upload-section">
           <div class="banner-preview" id="banner-preview"></div>
           <input type="file" id="banner-input" accept="image/*" style="display: none;">
@@ -144,7 +154,7 @@ export default {
       <!-- Session -->
       <div class="card settings-card">
         <h2>Session</h2>
-        <button type="button" id="logout-btn" class="btn-secondary">Log Out</button>
+        <button type="button" id="logout-btn" class="btn-secondary">Sign out</button>
       </div>
 
       <!-- Danger Zone -->
@@ -201,7 +211,13 @@ export default {
     // Fetch Profile Data. Explicit columns (never select('*')) because the
     // profiles.username column is revoked from authenticated; username is
     // shown from the JWT-sourced store.profile.username instead.
-    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url, banner_url, social_link').eq('id', store.user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url, banner_url, social_link, feature_my_profile').eq('id', store.user.id).single();
+    this._optIn = Boolean(profile?.feature_my_profile);
+    this.setOptIn();
+    document.getElementById('spotlight-optin').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.toggle-opt');
+      if (btn) await this.saveOptIn(btn.dataset.optin === 'on');
+    });
     if (profile) {
       document.getElementById('settings-name').value = profile.full_name || '';
       document.getElementById('settings-username').value = store.profile?.username || '';
@@ -418,6 +434,28 @@ export default {
     document.querySelectorAll('#sound-options .sound-opt').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.sound === current);
     });
+  },
+
+  setOptIn() {
+    document.querySelectorAll('#spotlight-optin .toggle-opt').forEach(btn => {
+      btn.classList.toggle('active', (btn.dataset.optin === 'on') === this._optIn);
+      btn.disabled = false;
+    });
+  },
+
+  // Consent to appear in the weekly creator slots of the XpLoRe spotlight.
+  async saveOptIn(on) {
+    if (on === this._optIn) return;
+    const buttons = [...document.querySelectorAll('#spotlight-optin .toggle-opt')];
+    buttons.forEach(btn => { btn.disabled = true; });
+    const { error } = await supabase.from('profiles').update({ feature_my_profile: on }).eq('id', store.user.id);
+    if (error) {
+      appAlert('Could not save that choice. Please try again.');
+      this.setOptIn();
+      return;
+    }
+    this._optIn = on;
+    this.setOptIn();
   },
 
   async loadDeletionState() {

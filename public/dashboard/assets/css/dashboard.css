@@ -6,6 +6,23 @@
 .desktop-only { display: none; }
 .mobile-only { display: none; }
 
+/* Height reserved for the fixed bottom bar (0 whenever the rail is used).
+   The container padding lives in variables because the page header cancels it
+   with negative margins, and both sides must agree on the same numbers. */
+:root {
+  --bottom-bar-h: 0px;
+  --page-header-h: 52px;
+  --pad-x: var(--space-8);
+  --pad-top: var(--space-8);
+}
+@media (max-width: 768px) {
+  :root {
+    --bottom-bar-h: calc(64px + env(safe-area-inset-bottom));
+    --pad-x: 8px;
+    --pad-top: 16px;
+  }
+}
+
 /* Main Layout - Uses bg-tertiary (swapped) */
 .dashboard-layout {
   display: flex;
@@ -30,25 +47,18 @@
   flex-shrink: 0;
 }
 
-/* Sidebar - Uses bg-secondary (swapped) */
-/* Sidebar - overlay mode on all screen sizes */
+/* Sidebar — a fixed rail on wide screens, removed entirely under 769px */
 .sidebar {
   position: fixed;
   top: 0;
   left: 0;
   height: 100vh;
-  width: 170px;
+  width: 64px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 10000;
-  transform: translateX(-100%);
-  transition: transform 0.3s ease;
-}
-
-body.sidebar-open .sidebar {
-  transform: translateX(0);
 }
 
 .main-content {
@@ -56,58 +66,6 @@ body.sidebar-open .sidebar {
   width: 100%;
   flex: 1;
 }
-
-/* Backdrop for all screen sizes */
-.sidebar-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9998;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-
-body.sidebar-open .sidebar-backdrop {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Floating draggable menu toggle — visible on all screens */
-.floating-menu-btn {
-  position: fixed;
-  bottom: 35%;
-  right: 24px;
-  left: auto;
-  /* Above the sidebar (10000) so dragging it over the rail never buries it */
-  z-index: 10001;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--brand-primary);
-  border: none;
-  cursor: grab;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  padding: 0;
-  transition: box-shadow 0.2s;
-}
-.floating-menu-btn:active { cursor: grabbing; }
-.floating-menu-btn:hover {
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
-}
-.floating-menu-btn img {
-  width: 24px;
-  height: 24px;
-  filter: brightness(0) invert(1);
-  pointer-events: none;
-}
-.floating-menu-btn.dragging { cursor: grabbing; }
 
 .sidebar-header {
   padding: var(--space-6);
@@ -183,68 +141,189 @@ body.sidebar-open .sidebar-backdrop {
   flex-shrink: 0;
 }
 
-/* Sidebar Footer */
-.sidebar-footer {
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--bg-secondary);
+/* Rail people — the avatars of everyone you follow (wide screens only) */
+.rail-people {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2);
+  margin-top: auto;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-shrink: 1;
+  min-height: 0;
+}
+.rail-people::-webkit-scrollbar { display: none; }
+.rail-people:empty { display: none; }
+
+.rail-people-heading {
+  display: none;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-widest);
+  padding: 0 var(--space-2) var(--space-2);
 }
 
-.user-card {
+.rail-person {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2);
-  width: 100%;
-  margin-bottom: 4px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast);
 }
+.rail-person:hover { background: var(--surface-hover); color: var(--text-primary); }
 
-.user-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  width: 100%;
-}
-.user-avatar {
-  width: 40px;
-  height: 40px;
+.rail-person-avatar {
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-full);
-  background: var(--gradient-primary);
-  color: var(--text-inverse);
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rail-person-name {
+  display: none;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Rail toggle — pinned to the bottom of the sidebar */
+.rail-toggle {
+  flex-shrink: 0;
+  width: 100%;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: var(--fw-bold);
-  font-size: var(--fs-sm);
-  object-fit: cover;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
-.user-avatar:hover {
-  transform: scale(1.05);
+.rail-toggle:hover { background: var(--surface-hover); color: var(--text-primary); }
+.rail-toggle svg { flex-shrink: 0; }
+/* The word only fits once the rail is wide enough to hold it */
+.rail-toggle-label { display: none; }
+
+/* Unread indicator (alerts live on the XpLoRe tab and the mobile bell) */
+.unread-dot {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--error);
+  border: 2px solid var(--bg-secondary);
+  z-index: 2;
+  pointer-events: none;
+}
+.unread-dot[hidden] { display: none; }
+
+/* Avatar in the mobile bottom bar */
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  display: block;
 }
 
-.user-info {
+/* ============================================
+   BOTTOM BAR — the whole navigation under 769px
+   ============================================ */
+.bottom-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9000;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
+}
+
+.bottom-item {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.user-name {
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
+.bottom-item:active { background: var(--surface-hover); }
+.bottom-item.active { color: var(--brand-primary); }
+
+/* Unread dots sit over the icon in the bottom bar */
+.bottom-item .unread-dot { top: 3px; right: calc(50% - 16px); }
+
+/* ============================================
+   ACCOUNT MENU — opened from the avatar on narrow screens
+   ============================================ */
+.account-menu {
+  position: fixed;
+  z-index: 10050;
+  min-width: 196px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
 }
-.user-role { font-size: var(--fs-xs); color: var(--text-muted); }
+.account-menu-item:hover { background: var(--surface-hover); }
+.account-menu-item svg { color: var(--text-muted); flex-shrink: 0; }
+
+.account-menu-item--danger,
+.account-menu-item--danger svg { color: var(--error); }
+.account-menu-item--danger:hover { background: var(--error-light); }
 
 /* Main Content */
 .main-content {
@@ -297,7 +376,52 @@ body.sidebar-open .sidebar-backdrop {
   flex-shrink: 0;
 }
 
-.view-container { padding: var(--space-8); flex: 1; min-width: 0; box-sizing: border-box; }
+.view-container {
+  padding: var(--pad-top) var(--pad-x) var(--space-8);
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Page header — the router renders this above any page that has no rail tab,
+   so each one carries its own title and a single way back to XpLoRe. The
+   negative margins only cancel the container's own padding, so the bar lands
+   flush with the viewport edges and the arrow stays vertically centred. */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--page-header-h);
+  margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 16px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.page-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color .2s ease, background .2s ease;
+}
+.page-back:hover { color: var(--brand-primary); background: var(--surface-hover); }
+.page-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Full-bleed pages pull themselves up to the viewport edge; with a header
+   above them that negative margin would slide the page under it. */
+.page-header + .profile-layout { margin-top: 0; }
 
 /* Mobile-only hint shown in the bottom bar on pages with no search/actions */
 .mobile-bar-hint { display: none; }
@@ -449,32 +573,16 @@ body.sidebar-open .sidebar-backdrop {
 }
 
 /* ============================================
-   UNIFIED SIDEBAR OVERLAY LOGIC
-   Sidebar slides over content on all screen sizes.
+   RESPONSIVE SHELL
    ============================================ */
 
-/* Backdrop for all screen sizes */
-.sidebar-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9998;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-
-body.sidebar-open .sidebar-backdrop {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* Desktop (769px and up) — icon rail by default, full overlay when open */
+/* Desktop (769px and up) — icon rail, widened only by the menu button */
 @media (min-width: 769px) {
-  /* Default state: icon rail (narrow sidebar visible, content starts after it) */
+  .bottom-bar { display: none !important; }
+
   .sidebar {
-    transform: translateX(0);
     width: 64px;
+    transition: width 0.25s ease;
   }
 
   .main-content {
@@ -489,27 +597,37 @@ body.sidebar-open .sidebar-backdrop {
   .nav-label, .nav-text { display: none; }
   .nav-item { justify-content: center; padding: var(--space-3) 0; }
   .nav-item svg { margin-right: 0; }
-  .user-card { justify-content: center; padding: var(--space-2) 0; }
-  .user-info { display: none; }
 
-  /* When sidebar-open: full width overlay */
+  .rail-person { justify-content: center; padding: var(--space-1) 0; }
+  .rail-person-avatar { width: 34px; height: 34px; }
+
+  /* Expanded: pinned open by the menu button (body.sidebar-open). Hovering the
+     rail used to preview this and it fought with everything on screen. */
   body.sidebar-open .sidebar {
-    width: 170px;
+    width: 190px;
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
   }
 
   body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: flex-start; }
   body.sidebar-open .brand-logo-rect { display: block; }
   body.sidebar-open .brand-logo-square { display: none; }
   body.sidebar-open .sidebar-nav { padding: var(--space-4); }
+
   body.sidebar-open .nav-label,
   body.sidebar-open .nav-text { display: inline; }
+
   body.sidebar-open .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
   body.sidebar-open .nav-item svg { margin-right: 12px; }
-  body.sidebar-open .user-card { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
-  body.sidebar-open .user-info { display: flex; }
+
+  body.sidebar-open .rail-people-heading { display: block; }
+  body.sidebar-open .rail-person { justify-content: flex-start; padding: var(--space-1) var(--space-2); }
+  body.sidebar-open .rail-person-name { display: block; }
+
+  body.sidebar-open .rail-toggle { justify-content: flex-start; gap: 10px; padding: 0 var(--space-4); }
+  body.sidebar-open .rail-toggle-label { display: inline; }
 }
 
-/* Mobile (768px and down) */
+/* Mobile (768px and down) — no sidebar at all, the bottom bar is the navigation */
 @media (max-width: 768px) {
   .mobile-only { display: flex !important; }
 
@@ -519,104 +637,22 @@ body.sidebar-open .sidebar-backdrop {
   /* Hide topbar (moved to bottom) */
   .topbar { display: none !important; }
 
-  /* Natural order: logo on top, nav in middle, profile at bottom */
-  .sidebar-footer {
-    order: 3;
-    border-top: 1px solid var(--border);
-    border-bottom: none;
-  }
-  .sidebar-header {
-    order: 1;
-    border-bottom: 1px solid var(--border);
-    border-top: none;
-  }
+  /* The rail and its toggle have no job here — the bottom bar replaces them */
+  .sidebar,
+  body.sidebar-open .sidebar { display: none; }
+  .sidebar-backdrop { display: none; }
 
-  /* Nav sections */
-  .sidebar-nav {
-    order: 2;
-    display: flex;
-    flex-direction: column;
-  }
-  .sidebar-nav .nav-section:first-child {
-    order: 1;
-  }
-  .sidebar-nav .nav-section-bottom {
-    order: 2;
-  }
+  .bottom-bar { display: flex; align-items: stretch; gap: 2px; }
 
-  /* Half-size avatar with username visible beside it */
-  .user-card {
-    justify-content: flex-start;
-    padding: var(--space-2) var(--space-4);
-  }
-  .user-avatar {
-    width: 40px;
-    height: 40px;
-    font-size: 14px;
-  }
-  .user-info {
-    display: flex;
-  }
+  /* Keep scrolling content clear of the fixed bar */
+  body { padding-bottom: var(--bottom-bar-h); }
 }
 
 /* ============================================
-   NAV BADGES
+   NAV UNREAD DOTS
    ============================================ */
 .nav-item {
   position: relative;
-}
-
-.nav-badge {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  background: var(--brand-primary);
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 5px;
-  min-width: 18px;
-  text-align: center;
-  line-height: 16px;
-  border: 2px solid var(--bg-secondary);
-  z-index: 2;
-}
-.nav-badge.wallet-badge {
-  background: var(--warning);
-}
-.nav-badge.settings-badge {
-  background: var(--success);
-}
-
-/* ============================================
-   NAV BADGES
-   ============================================ */
-.nav-item {
-  position: relative;
-}
-
-.nav-badge {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  background: var(--brand-primary);
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 5px;
-  min-width: 18px;
-  text-align: center;
-  line-height: 16px;
-  border: 2px solid var(--bg-secondary);
-  z-index: 2;
-}
-.nav-badge.wallet-badge {
-  background: var(--warning);
-}
-.nav-badge.settings-badge {
-  background: var(--success);
 }
 
 /* Hub Category Tabs - Scrollable */

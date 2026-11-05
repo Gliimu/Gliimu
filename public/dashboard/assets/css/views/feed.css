@@ -1,15 +1,70 @@
 /* Library Styles */
 
 /* ============================================
-   XPLORE — one page: search box, people strip,
-   featured hero, sticky tabs, feed (or results).
+   XPLORE — one page: account cluster, search box,
+   spotlight, sticky tabs, feed (or results).
    ============================================ */
+
+/* Publish, alerts, the ▾ menu and the avatar — this page stands in for the
+   tabs that left the sidebar. Phones get the same jobs from the bottom bar. */
+.xplore-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 14px 18px 0;
+}
+.xplore-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.xplore-action:hover { color: var(--brand-primary); border-color: var(--brand-primary); }
+.xplore-action[aria-expanded="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
+.xplore-action .unread-dot { top: 5px; right: 5px; border-color: var(--surface); }
+.xplore-avatar-link { display: block; line-height: 0; }
+.xplore-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* Narrow screens carry no sidebar, so the brand sits over the search box for
+   identity and the avatar becomes the one door to everything else. */
+.xplore-brand { display: none; height: 26px; width: auto; margin-bottom: 4px; }
+
 .xplore-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
   padding: clamp(20px, 6vh, 56px) 20px 20px;
+}
+
+/* Phones: the avatar keeps its top-right seat and opens everything the wide
+   cluster shows as icons; the logo is a fixed-colour bitmap, so the theme swap
+   has to be a filter. */
+@media (max-width: 768px) {
+  .xplore-actions { padding: 10px 12px 0; }
+  .xplore-actions .xplore-action { display: none; }
+  .xplore-brand { display: block; }
+  .xplore-hero { padding-top: 6px; }
+  [data-theme="light"] .xplore-brand { filter: brightness(0); }
+  [data-theme="dark"] .xplore-brand { filter: brightness(0) invert(1); }
 }
 
 .xplore-search-box {
@@ -23,9 +78,8 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   box-shadow: var(--shadow-sm);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.xplore-search-box:focus-within { border-color: var(--brand-primary); box-shadow: var(--shadow-lg); }
+/* Focusing stays idle: the box looks the same resting and typing. */
 .xplore-search-box > svg { width: 20px; height: 20px; color: var(--text-muted); flex-shrink: 0; }
 .xplore-search-input {
   flex: 1;
@@ -39,22 +93,8 @@
   color: var(--text-primary);
 }
 .xplore-search-input::placeholder { color: var(--text-muted); }
-/* The box owns its own clear button, so the browser's is noise. */
-.xplore-search-input::-webkit-search-cancel-button { display: none; }
-.xplore-search-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.xplore-search-clear:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-.xplore-search-clear svg { width: 16px; height: 16px; }
+/* WebKit draws its own clear button inside type="search"; Enter is the only exit. */
+.xplore-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
 
 /* Recent searches */
 .xplore-chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; max-width: 620px; }
@@ -104,10 +144,8 @@
 }
 .xplore-chip-clear:hover { color: var(--brand-primary); }
 
-/* People: the following strip under the box, the creators shelf in the feed,
-   and the people slice in results all share this one component. */
-.xplore-strip { display: flex; justify-content: center; padding: 0 20px 8px; }
-.xplore-strip[hidden] { display: none; }
+/* People: the creators shelf in the feed and the people slice in results
+   share this one component. */
 .xplore-people { width: 100%; max-width: 1120px; min-width: 0; }
 .xplore-people-heading {
   display: flex;
@@ -143,7 +181,7 @@
   color: var(--text-primary);
   text-decoration: none;
 }
-.xplore-person-id:focus-visible, .xplore-chip-text:focus-visible, .xplore-search-input:focus-visible {
+.xplore-person-id:focus-visible, .xplore-chip-text:focus-visible {
   outline: 2px solid var(--brand-primary);
   outline-offset: 2px;
 }
@@ -231,7 +269,6 @@
   .xplore-hero { padding: 16px 12px 12px; gap: 10px; }
   .xplore-search-box { padding-left: 14px; }
   .xplore-search-input { font-size: 15px; }
-  .xplore-strip { padding: 0 12px 4px; }
   .xplore-person { width: 88px; }
   .xplore-person-avatar { width: 44px; height: 44px; }
   .xplore-row > * { flex-basis: 78vw; }
@@ -274,8 +311,8 @@
    Wide screens: multi-column grid of cards. Mobile: single-column list.
    ============================================ */
 .libmerge.hub-layout { max-width: 1500px; padding-top: 16px; }
-/* XpLoRe shell cancels .view-container's 2rem padding so the featured hero
-   sits flush with the viewport top and the content edges; the .hub-layout
+/* XpLoRe shell cancels .view-container's 2rem padding so the search hero sits
+   flush with the viewport top and the content edges; the .hub-layout
    child re-applies the inner padding for tabs and feed. */
 .xplore-page { margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0; }
 @media (max-width: 768px) {
@@ -819,313 +856,151 @@
   }
 }
 
-/* Feature your content button */
-.feature-content-btn {
+/* Spotlight: three slots under the search box. Paid featured content fills them
+   first, this week's opted-in creators fill what is left, and one free ask tile
+   appears when nobody has opted in yet. `+ Feature content` sits under the band
+   while fewer than three paid slots are live. */
+.xplore-spotlight {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--brand-primary);
-  color: white;
-  border: none;
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
-  font-family: var(--font-sans);
-  white-space: nowrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 4px 20px 10px;
 }
-.feature-content-btn:hover {
-  background: var(--brand-primary-hover);
+.xplore-spotlight[hidden] { display: none; }
+.spotlight-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.spotlight-slot {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  height: 134px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.spotlight-slot:hover {
+  border-color: var(--brand-primary);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
-.feature-content-btn svg {
-  flex-shrink: 0;
-}
-
-/* Featured carousel — hero banner fills .xplore-page, which already spans
-   the main content area edge-to-edge (see .xplore-page above). */
-.featured-carousel {
-  position: relative;
-  width: 100%;
-}
-.featured-slide {
-  position: relative;
-  border-radius: 0;
-  overflow: hidden;
-  height: 280px;
-  cursor: pointer;
-}
-.featured-slide-img {
-  width: 100%;
+.spotlight-photo {
+  flex: 0 0 46%;
+  width: 46%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.featured-slide-img-empty {
-  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary, #7C3AED));
+.spotlight-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
 }
-.featured-slide-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.1) 100%);
-}
-.featured-slide-content {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px;
-  color: white;
-}
-.featured-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: inline-block;
-  background: rgba(255,255,255,0.18);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  color: rgba(255,255,255,0.85);
+.spotlight-kicker {
   font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: .6px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  z-index: 2;
+  color: var(--brand-primary);
 }
-.featured-slide-title {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0 0 8px;
-  line-height: 1.2;
-}
-.featured-slide-desc {
+.spotlight-title {
+  margin: 0;
   font-size: 14px;
-  margin: 0 0 14px;
-  opacity: 0.9;
-  line-height: 1.5;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.featured-slide-link {
-  display: inline-block;
-  background: white;
-  color: var(--brand-primary);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 8px 20px;
-  border-radius: 20px;
-  text-decoration: none;
-  transition: transform 0.15s, box-shadow 0.15s;
+.spotlight-title svg {
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
 }
-.featured-slide-link:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-.featured-dots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
-}
-.featured-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--border);
-  cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
-}
-.featured-dot.active {
-  background: var(--brand-primary);
-  transform: scale(1.3);
-}
-
-/* Feature modal */
-.feature-modal-content {
-  max-width: 520px;
-  padding: 32px;
-}
-.feature-modal-content h2 {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0 0 6px;
-  color: var(--text-primary);
-}
-.feature-modal-subtitle {
-  font-size: 14px;
+.spotlight-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
   color: var(--text-muted);
-  margin: 0 0 24px;
-}
-.feature-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.feature-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 2px;
-}
-.feature-required {
-  color: var(--error, #ef4444);
-}
-.feature-input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 14px;
-  font-family: var(--font-sans);
-  color: var(--text-primary);
-  background: var(--surface);
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-.feature-input:focus {
-  outline: none;
-  border-color: var(--brand-primary);
-}
-.feature-textarea {
-  min-height: 80px;
-  resize: vertical;
-}
-.feature-upload-area {
-  border: 2px dashed var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.feature-upload-area:hover {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-light, rgba(99, 102, 241, 0.05));
-}
-#feature-upload-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-#feature-image-preview {
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-.feature-duration-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.feature-duration-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 14px 8px;
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: var(--font-sans);
-  position: relative;
-}
-.feature-duration-btn:hover {
-  border-color: var(--brand-primary);
-}
-.feature-duration-btn.active {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-light, rgba(99, 102, 241, 0.08));
-}
-.feature-duration-period {
-  font-size: 14px;
+.spotlight-gp {
+  margin-top: auto;
+  font-size: 11.5px;
   font-weight: 700;
-  color: var(--text-primary);
-}
-.feature-duration-price {
-  font-size: 16px;
-  font-weight: 800;
   color: var(--brand-primary);
 }
-.feature-duration-save {
-  font-size: 10px;
-  font-weight: 600;
-  color: white;
-  background: #10B981;
-  padding: 2px 6px;
-  border-radius: 8px;
+.spotlight-slot--ask {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
 }
-.feature-submit-btn {
-  width: 100%;
-  padding: 14px;
-  background: var(--brand-primary);
-  color: white;
+.spotlight-slot--ask a { color: var(--brand-primary); }
+/* With no featured content and no opted-in creators, the ask owns the band. */
+.spotlight-track--solo .spotlight-slot {
+  grid-column: 1 / -1;
+}
+.spotlight-slot--ask .spotlight-title {
+  font-size: 13.5px;
+}
+
+/* The plus sits under the band as a line of plain text, no card and no border. */
+.spotlight-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.15s;
-  font-family: var(--font-sans);
-  margin-top: 6px;
-}
-.feature-submit-btn:hover:not(:disabled) {
-  background: var(--brand-primary-hover);
-  transform: translateY(-1px);
-}
-.feature-submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.feature-modal-note {
-  font-size: 12px;
+  background: none;
   color: var(--text-muted);
-  text-align: center;
-  margin: 4px 0 0;
-  line-height: 1.5;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.spotlight-add:hover { color: var(--text-primary); }
+.spotlight-add svg { width: 14px; height: 14px; }
+
+@media (max-width: 1024px) {
+  .spotlight-photo { flex-basis: 40%; width: 40%; }
+  /* Content slots are short on width next to their photo, so one line. The ask
+     slot is all text and must keep both lines — its copy carries the Settings link. */
+  .spotlight-slot:not(.spotlight-slot--ask) .spotlight-text { -webkit-line-clamp: 1; }
 }
 
 @media (max-width: 768px) {
-  .feature-content-btn span {
-    display: none;
+  /* One slot per swipe on phones; the scroller is the track itself, so the
+     ask line below never rides off screen with it. */
+  .xplore-spotlight { padding: 4px 12px 8px; gap: 8px; }
+  .spotlight-track {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .feature-content-btn {
-    padding: 8px 12px;
-  }
-  .featured-slide {
-    height: 220px;
-  }
-  .featured-slide-title {
-    font-size: 18px;
-  }
-  .featured-slide-desc {
-    font-size: 13px;
-    -webkit-line-clamp: 2;
-  }
-  .featured-slide-content {
-    padding: 16px;
-  }
-  .feature-modal-content {
-    padding: 24px 20px;
-    margin: 16px;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-  .feature-duration-options {
-    grid-template-columns: 1fr;
-  }
+  .spotlight-track::-webkit-scrollbar { display: none; }
+  .spotlight-slot { flex: 0 0 72vw; max-width: 320px; height: 124px; }
+  .spotlight-slot--ask { height: auto; min-height: 124px; }
 }
 
 /* ============================================
@@ -1162,26 +1037,82 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* The magnifier rides the right edge of the sticky row while the tabs scroll
-   under it; clicking it jumps back up to the hero box. */
-.hub-tabs-search {
-  position: sticky;
-  right: 0;
-  flex: 0 0 auto;
-  margin-left: auto;
-  z-index: 2;
+/* --------------------------------- xploring ring ---------------------------
+   The followed creators, laid out as a second tab row of faces. Same geometry
+   as .hub-category-tab so the two rows read as one family. */
+.xplore-ring {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px 16px -16px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.xplore-ring::-webkit-scrollbar { display: none; }
+.xplore-ring[hidden] { display: none; }
+
+.xplore-ring-person {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 5px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease;
+}
+.xplore-ring-person:hover { background: var(--bg-tertiary); }
+.xplore-ring-person.is-active {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+.xplore-ring-face { position: relative; flex-shrink: 0; }
+.xplore-ring-avatar {
+  display: block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+}
+.xplore-ring-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Count of gliims from this creator that I have not opened yet. Same red as
+   the alert dot, but it carries the number so the row can be triaged. */
+.xplore-ring-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--text-secondary);
-  cursor: pointer;
+  background: var(--error);
+  border: 2px solid var(--bg-secondary);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
 }
-.hub-tabs-search[hidden] { display: none; }
-.hub-tabs-search svg { width: 16px; height: 16px; }
-.hub-tabs-search:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.xplore-ring-person.is-active .xplore-ring-count { border-color: var(--brand-primary); }
 

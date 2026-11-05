@@ -168,7 +168,7 @@
 /* Engagement bar — sticky at bottom, edge-to-edge within .view-container */
 .post-read-bottom {
   position: sticky;
-  bottom: 0;
+  bottom: var(--bottom-bar-h);
   background: var(--bg-primary);
   border-top: 1px solid var(--border);
   z-index: 50;

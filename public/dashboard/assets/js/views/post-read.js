@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=107';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=108';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -148,8 +148,9 @@ export default {
     const viewedKey = `gliimu_viewed_${postId}`;
     if (!sessionStorage.getItem(viewedKey)) {
       sessionStorage.setItem(viewedKey, '1');
-      supabase.rpc('bump_post_views', { p_post: postId }).then(({ data }) => {
+      supabase.rpc('bump_post_views', { p_post: postId }).then(({ data, error }) => {
         if (typeof data === 'number') post.views = data;
+        if (!error) window.dispatchEvent(new CustomEvent('gliimu-post-viewed', { detail: { postId } }));
       });
     }
 

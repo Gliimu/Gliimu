@@ -1,14 +1,12 @@
-import hubView from './feed-gliims.js?v=107';
+import hubView from './feed-gliims.js?v=108';
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
 
 const SEARCH_HISTORY_KEY = 'gliimu_search_history';
 const MAX_HISTORY = 8;
-const FRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
-const TRENDING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-const SHELF_LIMIT = 8;
-const CREATOR_LIMIT = 8;
+const CHIP_COUNT = 3;
+const SLOT_COUNT = 3;
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -21,40 +19,54 @@ function escapeHtml(value) {
 
 const SEARCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"/></svg>';
 const CLOSE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>';
+const PEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+const BELL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>';
+const GEAR_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
+const PLUS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+const BLANK_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E";
 
 // XpLoRe is the single home of every published work and of search itself.
-// The resting state is browse (search box, people you follow, featured hero,
+// The resting state is browse (account cluster, search box, spotlight,
 // category tabs, then the feed); typing swaps the feed for results in place.
 // Data, cards and the composer still belong to hubView.
 export default {
   title: 'XpLoRe',
   template: `
     <div class="xplore-page">
+      <div class="xplore-actions">
+        <a class="xplore-action" href="#/publish" title="Publish" aria-label="Publish">${PEN_ICON}</a>
+        <a class="xplore-action" href="#/alerts" title="Alerts" aria-label="Alerts">${BELL_ICON}<span class="unread-dot" data-dot="alerts" hidden></span></a>
+        <a class="xplore-action" href="#/settings" title="Settings" aria-label="Settings">${GEAR_ICON}</a>
+        <a class="xplore-avatar-link" href="#/profile" data-account-trigger aria-haspopup="menu" aria-expanded="false" title="Profile" aria-label="Your profile">
+          <img class="xplore-avatar" data-user-avatar src="${BLANK_AVATAR}" alt="Your profile">
+        </a>
+      </div>
+
       <div class="xplore-hero" id="xplore-hero">
+        <img class="xplore-brand" src="/icons/logo.png" alt="Gliimu">
         <div class="xplore-search-box">
           ${SEARCH_ICON}
           <input type="search" id="xplore-search-input" class="xplore-search-input" placeholder="Search gliims, collections, people" aria-label="Search gliims, collections and people" autocomplete="off">
-          <button type="button" id="xplore-search-clear" class="xplore-search-clear" aria-label="Clear search" hidden>${CLOSE_ICON}</button>
         </div>
         <div class="xplore-chips" id="xplore-chips"></div>
       </div>
 
-      <div class="xplore-strip" id="xplore-follow" hidden></div>
-
-      <div class="featured-carousel" id="featured-carousel" style="display:none;"></div>
+      <div class="xplore-spotlight" id="xplore-spotlight" hidden></div>
 
       <div class="libmerge hub-layout" id="library-container">
         <div class="hub-category-tabs" id="hub-category-tabs">
           <button class="hub-category-tab active" data-category="all">For You</button>
           <button class="hub-category-tab" data-category="xploring">Xploring</button>
+          <button class="hub-category-tab" data-category="live">Live</button>
           <button class="hub-category-tab" data-category="collections">Collections</button>
           <button class="hub-category-tab" data-category="Media">Media</button>
           <button class="hub-category-tab" data-category="Tech">Tech</button>
           <button class="hub-category-tab" data-category="Business">Business</button>
           <button class="hub-category-tab" data-category="Personal">Personal</button>
           <button class="hub-category-tab" data-category="Education">Education</button>
-          <button type="button" class="hub-tabs-search" id="hub-tabs-search" aria-label="Search" hidden>${SEARCH_ICON}</button>
         </div>
+
+        <div class="xplore-ring" id="xplore-ring" hidden></div>
 
         <div class="libmerge-feed" id="library-feed">
           <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
@@ -69,10 +81,13 @@ export default {
     this.requestId = (this.requestId || 0) + 1;
     this.disposed = false;
     this._collections = null;
+    this._ringCreator = null;
+    // Re-read which gliims I have opened, so views made elsewhere count here too.
+    this._viewedIds = null;
 
     this.setupCategoryTabs();
     this.setupSearch();
-    this.watchStickyTabs();
+    this.setupRing();
     this.bindFollowButtons();
 
     hubView.onFeedChange = () => this.renderFeed();
@@ -87,46 +102,53 @@ export default {
 
     hubView.init();
     window.feedInstance = this;
-    this.loadFeaturedPosts();
-    this.loadFollowing();
+    this.refreshDots();
+    this.applySelfAvatar();
+    this.loadSpotlight();
+  },
+
+  // app.js paints [data-user-avatar] once at boot, before this view exists,
+  // so the cluster avatar has to take the profile picture itself.
+  applySelfAvatar() {
+    const img = document.querySelector('.xplore-avatar');
+    if (img && store.profile?.avatar_url) img.src = store.profile.avatar_url;
+  },
+
+  // The cluster and rail dots live inside this view, so a re-render starts
+  // with them hidden until the counts are pushed back onto them.
+  refreshDots() {
+    const manager = window.NotificationManager;
+    if (!manager) return;
+    ['ping', 'alerts'].forEach(name => manager.updateBadge(name, manager.counts?.[name] || 0));
   },
 
   destroy() {
     this.disposed = true;
     this.requestId++;
-    clearTimeout(this.searchTimer);
-    clearInterval(this._featuredTimer);
-    this._featuredTimer = null;
     document.removeEventListener('click', this._followClick);
-    this._observer?.disconnect();
-    this._observer = null;
+    document.removeEventListener('click', this._navReset);
+    window.removeEventListener('gliimu-post-viewed', this._viewedListener);
   },
 
   /* ---------------------------------- search --------------------------------- */
 
   setupSearch() {
     const input = document.getElementById('xplore-search-input');
-    const clear = document.getElementById('xplore-search-clear');
-    input.addEventListener('input', () => this.onQueryChange(input.value));
+    // Typing costs nothing on screen: Enter (or the keyboard's Go) commits a
+    // search, and the results then hold their place until a tab takes the page
+    // back to browse.
+    input.addEventListener('input', () => this.renderChips(true));
     input.addEventListener('keydown', event => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
-      const term = input.value.trim();
-      if (term.length < 2) return;
-      this.addToHistory(term);
-      this.renderChips(false);
+      this.submitSearch(input.value);
     });
     input.addEventListener('focus', () => this.renderChips(true));
-    clear.addEventListener('click', () => this.clearQuery());
-    document.getElementById('hub-tabs-search').addEventListener('click', () => {
-      document.getElementById('xplore-hero').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      input.focus({ preventScroll: true });
-    });
     document.getElementById('xplore-chips').addEventListener('click', event => {
       const chip = event.target.closest('[data-chip-term]');
       if (chip) {
         input.value = chip.dataset.chipTerm;
-        this.onQueryChange(chip.dataset.chipTerm);
+        this.submitSearch(chip.dataset.chipTerm);
         return;
       }
       const remove = event.target.closest('[data-chip-remove]');
@@ -140,34 +162,43 @@ export default {
         this.renderChips(true);
       }
     });
+    // Tapping the XpLoRe tab while already on it changes no hash, so the router
+    // never re-inits this view. Clearing the search here is the one door back.
+    this._navReset = (event) => {
+      if (!event.target.closest('.nav-item[href="#/xplore"], .bottom-item[href="#/xplore"]')) return;
+      this.clearSearch();
+      this.renderFeed();
+    };
+    document.addEventListener('click', this._navReset);
     this.renderChips(false);
   },
 
-  onQueryChange(value) {
+  submitSearch(value) {
     const term = (value || '').trim();
-    this.searchQuery = term;
-    clearTimeout(this.searchTimer);
-    // Bumping the id is what retires any search already in flight.
+    if (term.length < 2) return;
     const requestId = ++this.requestId;
-    document.getElementById('xplore-search-clear').hidden = !term;
+    this.searchQuery = term;
+    this.addToHistory(term);
+    this.renderChips(false);
     // Browse furniture has no business on screen while results are wanted.
-    document.getElementById('xplore-follow').hidden = term.length >= 2;
-    document.getElementById('featured-carousel').style.display = term.length >= 2 ? 'none' : '';
-    if (term.length < 2) {
-      this.renderChips(document.getElementById('xplore-search-input') === document.activeElement);
-      this.renderFeed();
-      return;
-    }
+    this.setSpotlightVisible(false);
+    this.renderRing();
     const container = document.getElementById('library-feed');
     if (container) container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Searching…</p>';
-    this.searchTimer = setTimeout(() => this.performSearch(term, requestId), 200);
+    this.performSearch(term, requestId);
   },
 
-  clearQuery() {
+  clearSearch() {
+    if (!this.searchQuery) return;
+    this.searchQuery = '';
+    // A search still in flight must not land on the browse page it was asked to
+    // leave, so its request id is retired here.
+    this.requestId++;
     const input = document.getElementById('xplore-search-input');
-    input.value = '';
-    this.onQueryChange('');
-    input.focus();
+    if (input) input.value = '';
+    this.setSpotlightVisible(true);
+    this.renderRing();
+    this.renderChips(document.activeElement === input);
   },
 
   getHistory() {
@@ -196,7 +227,7 @@ export default {
   renderChips(visible) {
     const el = document.getElementById('xplore-chips');
     if (!el) return;
-    const history = this.getHistory();
+    const history = this.getHistory().slice(0, CHIP_COUNT);
     if (!history.length || this.searchQuery || !visible) {
       el.innerHTML = '';
       return;
@@ -271,7 +302,10 @@ export default {
       : '';
     container.innerHTML = `<div class="xplore-results-head">${total} result${total === 1 ? '' : 's'} for “${escapeHtml(this.searchQuery)}”
       <button type="button" class="xplore-results-clear" data-clear-search>Clear</button></div>${people}${groups}${gliims}`;
-    container.querySelector('[data-clear-search]').addEventListener('click', () => this.clearQuery());
+    container.querySelector('[data-clear-search]').addEventListener('click', () => {
+      this.clearSearch();
+      this.renderFeed();
+    });
     this.layoutMasonry();
   },
 
@@ -337,46 +371,202 @@ export default {
     return this._followedPromise;
   },
 
-  // One strip, two jobs: the people you follow, and — when that is empty,
-  // which is where almost everyone starts — the creators worth following.
-  async loadFollowing() {
-    const strip = document.getElementById('xplore-follow');
-    if (!strip || !store.user?.id) return;
-    try {
-      await this.loadFollowedIds();
-      const ids = this._followedOrder.slice(0, 12);
-      if (ids.length) {
-        const { data: people, error } = await supabase.from('profiles')
-          .select('id, full_name, avatar_url, total_gp, verification_badge').in('id', ids);
-        if (error) throw error;
-        const byId = new Map((people || []).map(person => [person.id, person]));
-        const ordered = ids.map(id => byId.get(id)).filter(Boolean);
-        if (!ordered.length) return;
-        strip.hidden = this.searchQuery.length >= 2;
-        strip.innerHTML = this.peopleBlock('Following', '', ordered, true);
-        return;
+  /* -------------------------------- xploring ------------------------------- */
+  // Xploring opens with the faces it is about: one pill per followed creator
+  // who has published, each badged with the number of their gliims this member
+  // has never opened. Tapping a face narrows the list below to that creator
+  // while the row stays put; tapping it again lets everyone back in.
+
+  setupRing() {
+    const el = document.getElementById('xplore-ring');
+    if (!el) return;
+    this._ringClick = event => {
+      const face = event.target.closest('[data-ring]');
+      if (!face) return;
+      const creator = face.dataset.ring;
+      this._ringCreator = this._ringCreator === creator ? null : creator;
+      this.renderRing();
+      this.renderFeed();
+    };
+    el.addEventListener('click', this._ringClick);
+
+    window.removeEventListener('gliimu-post-viewed', this._viewedListener);
+    this._viewedListener = event => {
+      const postId = event.detail?.postId;
+      // Only clear a badge once the read history is already in memory; otherwise
+      // the next render fetches the truth from the database anyway.
+      if (postId && this._viewedIds) {
+        this._viewedIds.add(postId);
+        if (this.currentTab === 'xploring') this.renderRing();
       }
-      const creators = await this.topCreators();
-      if (!creators.length) return;
-      strip.hidden = this.searchQuery.length >= 2;
-      strip.innerHTML = this.peopleBlock('People worth following', '', creators, true);
-    } catch (error) {
-      console.error('Following could not load:', error);
-    }
+    };
+    window.addEventListener('gliimu-post-viewed', this._viewedListener);
   },
 
-  async topCreators() {
-    if (!this._creatorsPromise) {
-      this._creatorsPromise = supabase.from('profiles')
-        .select('id, full_name, avatar_url, total_gp, verification_badge')
-        .neq('id', store.user?.id).is('deletion_scheduled_at', null)
-        .order('total_gp', { ascending: false, nullsFirst: false }).order('id').limit(CREATOR_LIMIT)
-        .then(({ data, error }) => {
-          if (error) { this._creatorsPromise = null; throw error; }
-          return data || [];
-        });
+  async loadViewedIds() {
+    if (this._viewedIds) return this._viewedIds;
+    if (!store.user?.id) {
+      this._viewedIds = new Set();
+      return this._viewedIds;
     }
-    return this._creatorsPromise;
+    const { data, error } = await supabase.from('post_views').select('post_id');
+    if (error) {
+      console.warn('Read history could not be read, so every gliim counts as new:', error.message);
+      this._viewedIds = new Set();
+      return this._viewedIds;
+    }
+    this._viewedIds = new Set((data || []).map(row => row.post_id));
+    return this._viewedIds;
+  },
+
+  async renderRing() {
+    const el = document.getElementById('xplore-ring');
+    if (!el) return;
+    if (this.currentTab !== 'xploring' || this.searchQuery.length >= 2) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+
+    const [followed, viewed] = await Promise.all([
+      this.loadFollowedIds().catch(() => new Set()),
+      this.loadViewedIds()
+    ]);
+    if (el.isConnected === false || this.currentTab !== 'xploring') return;
+
+    const creators = new Map();
+    for (const post of hubView.currentPosts || []) {
+      if (post.status === 'draft' || !followed.has(post.user_id)) continue;
+      const entry = creators.get(post.user_id) || {
+        name: post.profiles?.full_name || '',
+        avatar: post.profiles?.avatar_url || '',
+        badge: post.profiles?.verification_badge || null,
+        latest: 0,
+        unread: 0
+      };
+      entry.latest = Math.max(entry.latest, Date.parse(post.created_at) || 0);
+      if (!viewed.has(post.id)) entry.unread++;
+      creators.set(post.user_id, entry);
+    }
+
+    const list = [...creators.entries()]
+      .map(([id, creator]) => ({ id, ...creator }))
+      .sort((a, b) => b.latest - a.latest);
+
+    if (!list.length) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+
+    el.hidden = false;
+    el.innerHTML = list.map(creator => `
+      <button type="button" class="xplore-ring-person${creator.id === this._ringCreator ? ' is-active' : ''}"
+              data-ring="${escapeHtml(creator.id)}" aria-pressed="${creator.id === this._ringCreator}">
+        <span class="xplore-ring-face">
+          ${creator.avatar
+            ? `<img class="xplore-ring-avatar" src="${escapeHtml(creator.avatar)}" alt="" loading="lazy">`
+            : '<span class="xplore-ring-avatar"></span>'}
+          ${creator.unread ? `<span class="xplore-ring-count">${creator.unread > 9 ? '9+' : creator.unread}</span>` : ''}
+        </span>
+        <span class="xplore-ring-name">${escapeHtml(creator.name)}${creator.badge ? badgeIcon(creator.badge) : ''}</span>
+      </button>`).join('');
+  },
+
+  /* -------------------------------- spotlight -------------------------------- */
+  // Three slots on the XpLoRe stage, filled by priority: approved featured
+  // content first, then the creators who opted in and earned GP this week, and
+  // finally one ask to be featured. '+' offers the paid slot while any of the
+  // three are still held by something other than featured content.
+  async loadSpotlight() {
+    const request = (this._spotRequest = (this._spotRequest || 0) + 1);
+    const now = new Date().toISOString();
+
+    const [featured, spotlight, own] = await Promise.all([
+      supabase.from('featured_posts')
+        .select('id, title, description, image_url, link_url, link_label')
+        .eq('status', 'approved').lte('starts_at', now).gte('ends_at', now)
+        .order('created_at', { ascending: false }).limit(SLOT_COUNT),
+      supabase.rpc('xplore_spotlight', { p_days: 7, p_limit: SLOT_COUNT }),
+      store.user?.id
+        ? supabase.from('profiles').select('feature_my_profile').eq('id', store.user.id).maybeSingle()
+        : Promise.resolve({ data: null })
+    ]);
+
+    if (request !== this._spotRequest) return;
+    if (featured.error) console.warn('Featured content could not load:', featured.error.message);
+    if (spotlight.error) console.warn('Spotlight creators could not load:', spotlight.error.message);
+
+    this._featuredSlots = featured.data || [];
+    this._creatorSlots = spotlight.data || [];
+    this._profileOptedIn = Boolean(own.data?.feature_my_profile);
+    this.renderSpotlight();
+    this.setSpotlightVisible(this.searchQuery.length < 2);
+  },
+
+  setSpotlightVisible(show) {
+    const el = document.getElementById('xplore-spotlight');
+    if (el) el.hidden = !show || !el.innerHTML.trim();
+  },
+
+  renderSpotlight() {
+    const el = document.getElementById('xplore-spotlight');
+    if (!el) return;
+    const slots = this._featuredSlots.slice(0, SLOT_COUNT).map(post => this.featuredSlot(post));
+    (this._creatorSlots || []).forEach(person => {
+      if (slots.length < SLOT_COUNT) slots.push(this.creatorSlot(person));
+    });
+    if (slots.length < SLOT_COUNT && !this._profileOptedIn) slots.push(this.askSlot());
+
+    // The plus line is offered while any paid slot is still free, and it is the
+    // only door to the feature page when there is nothing to show at all.
+    const canAdd = this._featuredSlots.length < SLOT_COUNT;
+    const add = canAdd ? `<a class="spotlight-add" href="#/feature">${PLUS_ICON}<span>Feature content</span></a>` : '';
+    if (!slots.length) {
+      el.innerHTML = add;
+      el.hidden = !add;
+      return;
+    }
+    // With one lone ask slot it reads better across the whole band than in a
+    // third of it, so that case is not laid out as a carousel.
+    const solo = slots.length === 1 && !this._featuredSlots.length && !this._creatorSlots.length;
+    el.innerHTML = `<div class="spotlight-track${solo ? ' spotlight-track--solo' : ''}">${slots.join('')}</div>` + add;
+  },
+
+  featuredSlot(post) {
+    const body = `<span class="spotlight-kicker">Featured</span>
+      <h3 class="spotlight-title">${escapeHtml(post.title || '')}</h3>
+      ${post.description ? `<p class="spotlight-text">${escapeHtml(post.description)}</p>` : ''}`;
+    const media = post.image_url
+      ? `<img class="spotlight-photo" src="${escapeHtml(post.image_url)}" alt="">` : '';
+    if (!post.link_url) {
+      return `<div class="spotlight-slot spotlight-slot--featured">${media}<div class="spotlight-body">${body}</div></div>`;
+    }
+    return `<a class="spotlight-slot spotlight-slot--featured" href="${escapeHtml(post.link_url)}" target="_blank" rel="noopener noreferrer">${media}<div class="spotlight-body">${body}</div></a>`;
+  },
+
+  // Half the tile is the creator's own photograph, the other half is what they
+  // earned this week — so nobody holds a slot on the strength of old GP.
+  creatorSlot(person) {
+    const gp = Number(person.gp_window || 0);
+    return `<a class="spotlight-slot spotlight-slot--creator" href="${this.profileHref(person.user_id)}" title="View profile">
+      ${person.avatar_url ? `<img class="spotlight-photo" src="${escapeHtml(person.avatar_url)}" alt="">` : ''}
+      <div class="spotlight-body">
+        <h3 class="spotlight-title">${escapeHtml(person.full_name || '')}${person.verification_badge ? badgeIcon(person.verification_badge) : ''}</h3>
+        ${person.bio ? `<p class="spotlight-text">${escapeHtml(person.bio)}</p>` : ''}
+        <span class="spotlight-gp">G${gp.toLocaleString()} this week</span>
+      </div>
+    </a>`;
+  },
+
+  askSlot() {
+    return `<div class="spotlight-slot spotlight-slot--ask">
+      <div class="spotlight-body">
+        <span class="spotlight-kicker">Spotlight</span>
+        <h3 class="spotlight-title">Feature your profile</h3>
+        <p class="spotlight-text">Set your profile to be featured for free in <a href="#/settings">Settings</a> as you earn more GP.</p>
+      </div>
+    </div>`;
   },
 
   async toggleFollow(userId, button) {
@@ -401,14 +591,16 @@ export default {
       button.classList.toggle('is-following', !following);
       button.textContent = following ? 'Follow' : 'Following';
       button.title = following ? '' : 'Unfollow';
-      this.loadFollowing();
+      // The avatar rail in the sidebar listens for this so faces appear and
+      // leave the moment the follow list changes.
+      window.dispatchEvent(new CustomEvent('gliimu-follow-changed'));
     } catch (error) {
       console.error('Follow failed:', error);
       button.disabled = false;
     }
   },
 
-  /* --------------------------------- shelves -------------------------------- */
+  /* ---------------------------------- live ----------------------------------- */
 
   // live_gliim_links is service-only, so the session id comes from the card's
   // own live block and its on-air state from live_requests.
@@ -440,34 +632,22 @@ export default {
     }
   },
 
-  // One shelf, three reasons to be on it: on air now, new in the last 24
-  // hours, then the most-read of the week. Each post appears once.
-  async buildNowShelf(posts) {
-    const now = Date.now();
-    const live = await this.liveNowIds(posts);
-    const picked = [];
-    const seen = new Set();
-    const add = post => {
-      if (!post || seen.has(post.id) || picked.length >= SHELF_LIMIT) return;
-      seen.add(post.id);
-      picked.push(post);
-    };
-    posts.filter(post => live.has(post.id)).forEach(add);
-    posts.filter(post => now - (Date.parse(post.created_at) || 0) <= FRESH_WINDOW_MS)
-      .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0))
-      .forEach(add);
-    posts.filter(post => now - (Date.parse(post.created_at) || 0) <= TRENDING_WINDOW_MS && (post.views || 0) > 0)
-      .sort((a, b) => (b.views || 0) - (a.views || 0))
-      .forEach(add);
-    return picked;
-  },
+  // The Live tab is a snapshot of the air, not an archive: a gliim shows while
+  // its session is active and drops off the moment the host ends it.
+  async renderLive() {
+    const container = document.getElementById('library-feed');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Checking who is on air…</p>';
 
-  renderShelf(title, note, posts) {
-    if (!posts.length) return '';
-    return `<section class="xplore-slice">
-      <h2 class="xplore-slice-title">${title} <span>${note}</span></h2>
-      <div class="xplore-row">${posts.map(post => hubView.renderPostCard(post)).join('')}</div>
-    </section>`;
+    const posts = (hubView.currentPosts || []).filter(post => !post.status || post.status === 'approved');
+    const live = await this.liveNowIds(posts);
+    if (!container.isConnected || this.currentTab !== 'live') return;
+
+    const onAir = posts.filter(post => live.has(post.id));
+    container.innerHTML = onAir.length
+      ? `<div class="library-feed feed-grid">${onAir.map(post => this.wrapItem(hubView.renderPostCard(post), 'gliim')).join('')}</div>`
+      : '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Nobody is on air right now.</p>';
+    this.layoutMasonry();
   },
 
   /* ------------------------------- the feed -------------------------------- */
@@ -479,15 +659,16 @@ export default {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         this.currentTab = tab.dataset.category;
+        // Re-tapping Xploring drops a creator filter without a second control.
+        if (tab.dataset.category === 'xploring') this._ringCreator = null;
         // Tabs browse, they do not refine a search.
-        if (this.searchQuery) {
-          this.searchQuery = '';
-          const input = document.getElementById('xplore-search-input');
-          if (input) input.value = '';
-          this.onQueryChange('');
-        }
+        this.clearSearch();
+        this.renderRing();
         if (tab.dataset.category === 'collections') {
           this.renderCollections();
+        } else if (tab.dataset.category === 'live') {
+          hubView.currentFilter = 'all';
+          this.renderLive();
         } else {
           hubView.currentFilter = tab.dataset.category;
           hubView.renderPosts(hubView.currentPosts);
@@ -495,21 +676,6 @@ export default {
         }
       });
     });
-  },
-
-  // The tabs row is already sticky; the sentinel tells us when the search box
-  // has scrolled away, which is when the icon earns its place.
-  watchStickyTabs() {
-    const hero = document.getElementById('xplore-hero');
-    const icon = document.getElementById('hub-tabs-search');
-    if (!hero || !icon || typeof IntersectionObserver !== 'function') {
-      if (icon) icon.hidden = false;
-      return;
-    }
-    this._observer = new IntersectionObserver(entries => {
-      icon.hidden = entries[0].isIntersecting;
-    }, { threshold: 0 });
-    this._observer.observe(hero);
   },
 
   async renderCollections() {
@@ -533,51 +699,35 @@ export default {
   async renderFeed() {
     const container = document.getElementById('library-feed');
     if (!container || this.currentTab === 'collections') return;
+    this.renderRing();
+    if (this.currentTab === 'live') return this.renderLive();
     if (this.searchQuery.length >= 2) {
       await this.performSearch(this.searchQuery, this.requestId);
       return;
     }
 
     const filtered = await hubView.filterPosts();
-    if (!container.isConnected || this.currentTab === 'collections') return;
+    if (!container.isConnected || this.currentTab === 'collections' || this.currentTab === 'live') return;
 
-    const shelvesHtml = this.currentTab === 'all'
-      ? await this.renderHeadShelves(filtered)
-      : '';
+    const shown = this.currentTab === 'xploring' && this._ringCreator
+      ? filtered.filter(post => post.user_id === this._ringCreator)
+      : filtered;
 
-    const gliimCards = filtered.map(post => ({
+    const cards = shown
+      .map(post => ({
         at: Date.parse(post.created_at) || 0,
         html: this.wrapItem(hubView.renderPostCard(post), 'gliim')
-      }));
-
-    const cards = gliimCards
+      }))
       .sort((a, b) => b.at - a.at)
       .map(c => c.html);
 
-    if (!cards.length && !shelvesHtml) {
-      const msg = 'Nothing here yet.';
-      container.innerHTML = `<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">${msg}</p>`;
+    if (!cards.length) {
+      container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>';
       return;
     }
 
-    container.innerHTML = `${shelvesHtml}<div class="library-feed feed-grid">${cards.join('')}</div>`;
+    container.innerHTML = `<div class="library-feed feed-grid">${cards.join('')}</div>`;
     this.layoutMasonry();
-  },
-
-  // Both head shelves read from the already-loaded feed, so they cost no extra
-  // queries beyond the live-session check.
-  async renderHeadShelves(posts) {
-    const visible = posts.filter(post => !post.status || post.status === 'approved');
-    // Follow state must be known before any creator tile is drawn, otherwise
-    // the buttons would promise the wrong action.
-    const [now, creators] = await Promise.all([
-      this.buildNowShelf(visible),
-      this.loadFollowedIds().then(() => this.topCreators())
-    ]);
-    const slices = [this.renderShelf('Now on Gliimu', 'Live, new and most-read', now)];
-    if (creators.length)
-      slices.push(`<section class="xplore-slice">${this.peopleBlock('Top creators', 'All-time GP', creators, true)}</section>`);
-    return slices.join('');
   },
 
   wrapItem(html, kind) {
@@ -601,77 +751,5 @@ export default {
       const height = inner.getBoundingClientRect().height;
       item.style.gridRowEnd = `span ${Math.max(1, Math.ceil((height + GAP) / ROW))}`;
     });
-  },
-
-  /* ------------------------------ featured hero ----------------------------- */
-
-  async loadFeaturedPosts() {
-    const now = new Date().toISOString();
-    const { data: posts } = await supabase
-      .from('featured_posts')
-      .select('id, title, description, image_url, link_url, link_label')
-      .eq('status', 'approved')
-      .lte('starts_at', now)
-      .gte('ends_at', now)
-      .order('created_at', { ascending: false })
-      .limit(3);
-
-    this._featuredPosts = posts || [];
-    this._featuredIndex = 0;
-    this.renderFeaturedCarousel();
-    if (this._featuredPosts.length > 1) this.startFeaturedRotation();
-  },
-
-  renderFeaturedCarousel() {
-    const el = document.getElementById('featured-carousel');
-    if (!el) return;
-    if (!this._featuredPosts || !this._featuredPosts.length) {
-      el.style.display = 'none';
-      return;
-    }
-    if (this.searchQuery.length >= 2) return;
-    el.style.display = '';
-    el.onmouseenter = () => {
-      if (this._featuredTimer) { clearInterval(this._featuredTimer); this._featuredTimer = null; }
-    };
-    el.onmouseleave = () => {
-      if (this._featuredPosts.length > 1 && !this._featuredTimer) this.startFeaturedRotation();
-    };
-    this.updateFeaturedSlide();
-  },
-
-  updateFeaturedSlide() {
-    const el = document.getElementById('featured-carousel');
-    if (!el || !this._featuredPosts || !this._featuredPosts.length) return;
-    const post = this._featuredPosts[this._featuredIndex];
-    const dots = this._featuredPosts.length > 1
-      ? `<div class="featured-dots">${this._featuredPosts.map((_, i) => `<span class="featured-dot${i === this._featuredIndex ? ' active' : ''}" onclick="feedInstance.goToFeaturedSlide(${i})"></span>`).join('')}</div>`
-      : '';
-    el.innerHTML = `
-      <div class="featured-slide">
-        ${post.image_url ? `<img src="${post.image_url}" alt="" class="featured-slide-img">` : '<div class="featured-slide-img featured-slide-img-empty"></div>'}
-        <div class="featured-slide-overlay"></div>
-        <span class="featured-badge">Featured</span>
-        <div class="featured-slide-content">
-          <h3 class="featured-slide-title">${escapeHtml(post.title)}</h3>
-          <p class="featured-slide-desc">${escapeHtml(post.description || '')}</p>
-          ${post.link_url ? `<a href="${post.link_url}" target="_blank" rel="noopener" class="featured-slide-link" onclick="event.stopPropagation()">${escapeHtml(post.link_label || 'Learn more')}</a>` : ''}
-        </div>
-      </div>
-      ${dots}
-    `;
-  },
-
-  goToFeaturedSlide(index) {
-    this._featuredIndex = index;
-    this.updateFeaturedSlide();
-  },
-
-  startFeaturedRotation() {
-    if (this._featuredTimer) clearInterval(this._featuredTimer);
-    this._featuredTimer = setInterval(() => {
-      this._featuredIndex = (this._featuredIndex + 1) % this._featuredPosts.length;
-      this.updateFeaturedSlide();
-    }, 7000);
   }
 };

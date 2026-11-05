@@ -1,24 +1,45 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
   '/search': () => { window.location.hash = '#/xplore'; return Promise.resolve({ title: 'XpLoRe', template: '', init() {}, destroy() {} }); },
-  '/xplore': () => import('./views/feed.js?v=92').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=92').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=101').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=101').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=63').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
-  '/settings': () => import('./views/settings.js?v=5').then(m => m.default),
+  '/settings': () => import('./views/settings.js?v=7').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=44').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=8').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=9').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=75').then(m => m.default),
-  '/feature': () => import('./views/feature.js?v=3').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=44').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=44').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=19').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=81').then(m => m.default),
+  '/feature': () => import('./views/feature.js?v=4').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=45').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=45').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=20').then(m => m.default),
 };
 
-// Routes with no sidebar entry borrow another tab's highlight
-const NAV_ALIAS = { '/search': '/xplore', '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore', '/feature': '/profile' };
+// Routes with no tab of their own borrow another tab's highlight
+const NAV_ALIAS = { '/search': '/xplore', '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
+
+// The rail only carries XpLoRe, Ping and Billing now, so every other page opens
+// with its own title and one arrow back to the hub. The old topbar is hidden at
+// both breakpoints, which is why this lives in the router instead. The reader and
+// the collection page are excluded: they already render their own bar.
+const PAGE_TITLES = {
+  '/ping': 'Ping',
+  '/wallet': 'Billing',
+  '/alerts': 'Alerts',
+  '/publish': 'Publish',
+  '/profile': 'Profile',
+  '/settings': 'Settings',
+  '/feature': 'Feature Your Content',
+  '/terms': 'Terms and Policy'
+};
+
+const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
+
+function pageHeader(title) {
+  return `<div class="page-header"><a class="page-back" href="#/xplore" aria-label="Back to XpLoRe" title="Back to XpLoRe">${BACK_ICON}</a><span class="page-title">${title}</span></div>`;
+}
 
 let previousHash = window.location.hash;
 let currentView = null;
@@ -70,19 +91,19 @@ export async function router() {
   if (topbarRightActions) topbarRightActions.innerHTML = '';
   window.scrollTo(0, 0);
 
-  const navPath = NAV_ALIAS[path] || path;
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.remove('active');
-    if (item.getAttribute('href') === `#${navPath}`) {
-      item.classList.add('active');
-    }
+  const navPath = (NAV_ALIAS[path] || path).slice(1);
+  document.querySelectorAll('.nav-item, .bottom-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.route === navPath);
   });
 
   if (routeHandler) {
     const view = await routeHandler();
     if (request !== navigationRequest) return;
     currentView = view;
-    app.innerHTML = view.template;
+    // A per-route class lets a page that fills the viewport (Ping) cancel the
+    // header gap and the container's bottom padding instead of overflowing.
+    app.className = `view-container view-${path.slice(1).replace(/[^a-z0-9-]/g, '')}`;
+    app.innerHTML = (PAGE_TITLES[path] ? pageHeader(PAGE_TITLES[path]) : '') + view.template;
     if (view.init) {
       view.init();
     }

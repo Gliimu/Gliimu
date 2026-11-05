@@ -8,7 +8,10 @@
 }
 
 .settings-card {
-  padding: 32px;
+  /* One knob for the card gutter. .danger-zone-header bleeds to the card edge
+     with the negative of this value, so the two must never drift apart. */
+  --settings-pad: 32px;
+  padding: var(--settings-pad);
 }
 
 .settings-card h2 {
@@ -24,7 +27,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   padding: 12px 0;
+}
+
+/* The copy column must be allowed to shrink to the real gutter, otherwise the
+   control on its right squeezes it into a two-word column. */
+.setting-row > div:first-child {
+  min-width: 0;
 }
 
 .setting-title {
@@ -160,13 +170,15 @@
   align-items: flex-start;
 }
 
-.sound-options {
+.sound-options,
+.toggle-options {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.sound-opt {
+.sound-opt,
+.toggle-opt {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
@@ -178,15 +190,22 @@
   transition: all 0.2s ease;
 }
 
-.sound-opt:hover {
+.sound-opt:hover,
+.toggle-opt:hover {
   border-color: var(--brand-primary);
   color: var(--brand-primary);
 }
 
-.sound-opt.active {
+.sound-opt.active,
+.toggle-opt.active {
   background: var(--brand-primary);
   border-color: var(--brand-primary);
   color: var(--text-inverse);
+}
+
+.toggle-opt:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* Danger Zone */
@@ -199,8 +218,8 @@
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  margin: -32px -32px 0 -32px;
-  padding: 32px;
+  margin: calc(-1 * var(--settings-pad)) calc(-1 * var(--settings-pad)) 0;
+  padding: var(--settings-pad);
 }
 
 .danger-zone-header h2 {
@@ -276,7 +295,19 @@
 /* Responsive */
 @media (max-width: 768px) {
   .settings-card {
-    padding: 24px;
+    --settings-pad: 24px;
+    padding: var(--settings-pad);
+  }
+  /* Copy above, control below — side by side at this width turns the
+     description into a two-word column. */
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .sound-options,
+  .toggle-options {
+    flex-wrap: wrap;
   }
   .avatar-upload-section {
     flex-direction: column;
@@ -288,5 +319,8 @@
   }
   .form-row .form-group {
     margin-right: 0 !important;
+  }
+  .banner-preview {
+    height: 96px;
   }
 }

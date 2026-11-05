@@ -1,9 +1,10 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=166';
+import { router } from './router.js?v=178';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=3';
+import { initAccountMenu } from './account-menu.js?v=2';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -12,26 +13,16 @@ const NotificationManager = {
   counts: {
     ping: 0,
     support: 0,
-    alerts: 0,
-    settings: 0
+    alerts: 0
   },
 
+  // Unread state is a dot, never a number: the alerts dot rides the XpLoRe tab
+  // (and the bell on phones), so the same name can light up several elements.
   updateBadge(tabName, count) {
-    const navItem = document.querySelector(`.nav-item[data-route="${tabName}"]`);
-    if (!navItem) return;
-
-    let badge = navItem.querySelector('.nav-badge');
-
-    if (count > 0) {
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'nav-badge';
-        navItem.appendChild(badge);
-      }
-      badge.innerText = count > 9 ? '9+' : count;
-    } else {
-      if (badge) badge.remove();
-    }
+    this.counts[tabName] = count;
+    document.querySelectorAll(`.unread-dot[data-dot="${tabName}"]`).forEach(dot => {
+      dot.hidden = !(count > 0);
+    });
 
     // Update favicon notification dot
     const hasNotifications = this.counts.ping > 0 || this.counts.support > 0 || this.counts.alerts > 0;
@@ -136,11 +127,6 @@ const NotificationManager = {
     await this.refreshUnread();
     await this.refreshSupportUnread();
     await this.refreshAlertsUnread();
-
-    // Settings (App Version - Placeholder logic)
-    // For now, we'll just set it to 0. You can change this to 1 when you deploy a new version.
-    this.counts.settings = 0;
-    this.updateBadge('settings', this.counts.settings);
   },
 
   initRealtimeListeners() {
@@ -204,21 +190,10 @@ const Presence = {
 };
 
 // ============================================
-// GP TIERS — sidebar avatar border + 100 GP eligibility alert.
-// 1000+ purple border, 5000+ black/white (ambassador). A light
-// poll keeps the border and the one-time 100 GP alert current
-// without a full page reload.
+// GP ELIGIBILITY — the one-time 100 GP alert. A light
+// poll keeps the cached total current without a reload.
 // ============================================
 const TIER_100_KEY = 'gliimu_tier_100_alerted';
-
-function applyAvatarTier() {
-  const avatarEl = document.getElementById('user-avatar');
-  if (!avatarEl) return;
-  avatarEl.classList.remove('glow-avatar', 'tier-5000-avatar');
-  const gp = store.profile.total_gp || 0;
-  if (gp >= 5000) avatarEl.classList.add('tier-5000-avatar');
-  else if (gp >= 1000) avatarEl.classList.add('glow-avatar');
-}
 
 async function checkGpTiers() {
   const { data: profile } = await supabase.from('profiles').select('total_gp').eq('id', store.user.id).single();
@@ -233,7 +208,6 @@ async function checkGpTiers() {
       alert('You now have 100 GP! You are now eligible to post contents and request live sessions in Gliimu.');
     }
   }
-  applyAvatarTier();
 }
 
 // ============================================
@@ -243,119 +217,65 @@ function initSidebarAutoClose() {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
 
-  // Navigating from the sidebar (nav link or avatar) slides it away immediately
+  const collapse = () => {
+    document.body.classList.remove('sidebar-open');
+    const toggle = document.getElementById('rail-toggle');
+    if (!toggle) return;
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Expand menu');
+  };
+
+  // Navigating from the rail slides it back to icon width
   sidebar.addEventListener('click', (e) => {
-    if (e.target.closest('.nav-item') || e.target.closest('.user-card')) {
-      document.body.classList.remove('sidebar-open');
-    }
+    if (e.target.closest('.nav-item') || e.target.closest('.rail-person')) collapse();
   });
 
-  // Tapping anywhere outside the drawer closes it
+  // Tapping anywhere outside the expanded rail unpins it
   document.addEventListener('click', (e) => {
     if (!document.body.classList.contains('sidebar-open')) return;
     if (sidebar.contains(e.target)) return;
-    if (e.target.closest('.floating-menu-btn')) return;
-    document.body.classList.remove('sidebar-open');
+    collapse();
   });
 }
 
 // ============================================
-// DRAGGABLE FLOATING MENU BUTTON
+// FOLLOWED PEOPLE RAIL — wide screens only. Avatars of everyone you follow,
+// names revealed when the rail expands.
 // ============================================
-function initFloatingButton() {
-  const btn = document.getElementById('floating-menu-btn');
-  if (!btn) return;
-
-  const STORAGE_KEY = 'gliimu_fab_pos';
-  const DRAG_THRESHOLD = 5;
-  let startX, startY, startLeft, startTop;
-  let dragging = false;
-  let moved = false;
-
-  function loadPosition() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved && typeof saved.right === 'number' && typeof saved.bottom === 'number') {
-        btn.style.right = saved.right + 'px';
-        btn.style.bottom = saved.bottom + 'px';
-        btn.style.left = 'auto';
-        btn.style.top = 'auto';
-      }
-    } catch {}
+async function loadFollowedRail() {
+  const rail = document.getElementById('rail-people');
+  if (!rail || !store.user?.id) return;
+  try {
+    const { data: rows, error } = await supabase.from('followed_users')
+      .select('followed_id').eq('follower_id', store.user.id)
+      .order('created_at', { ascending: false }).limit(12);
+    if (error) throw error;
+    const ids = (rows || []).map(row => row.followed_id);
+    if (!ids.length) { rail.innerHTML = ''; return; }
+    const { data: people, error: profileError } = await supabase.from('profiles')
+      .select('id, full_name, avatar_url').in('id', ids);
+    if (profileError) throw profileError;
+    const byId = new Map((people || []).map(person => [person.id, person]));
+    rail.innerHTML = `<div class="rail-people-heading">Following</div>` + ids
+      .map(id => byId.get(id))
+      .filter(person => person?.avatar_url)
+      .map(person => `<a class="rail-person" href="#/profile?u=${person.id}" title="${escapeHtml(person.full_name || '')}">
+        <img class="rail-person-avatar" src="${escapeHtml(person.avatar_url)}" alt="">
+        <span class="rail-person-name">${escapeHtml(person.full_name || '')}</span>
+      </a>`)
+      .join('');
+  } catch (error) {
+    console.warn('Followed rail could not load:', error.message);
   }
+}
 
-  function savePosition() {
-    const rect = btn.getBoundingClientRect();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      right: window.innerWidth - rect.right,
-      bottom: window.innerHeight - rect.bottom
-    }));
-  }
-
-  function clampPosition() {
-    const rect = btn.getBoundingClientRect();
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    let newRight = w - rect.right;
-    let newBottom = h - rect.bottom;
-    newRight = Math.max(8, Math.min(newRight, w - rect.width - 8));
-    newBottom = Math.max(8, Math.min(newBottom, h - rect.height - 8));
-    btn.style.right = newRight + 'px';
-    btn.style.bottom = newBottom + 'px';
-    btn.style.left = 'auto';
-    btn.style.top = 'auto';
-  }
-
-  function onPointerDown(e) {
-    e.preventDefault();
-    const pt = e.touches ? e.touches[0] : e;
-    startX = pt.clientX;
-    startY = pt.clientY;
-    const rect = btn.getBoundingClientRect();
-    startLeft = rect.left;
-    startTop = rect.top;
-    dragging = true;
-    moved = false;
-    btn.classList.add('dragging');
-  }
-
-  function onPointerMove(e) {
-    if (!dragging) return;
-    const pt = e.touches ? e.touches[0] : e;
-    const dx = pt.clientX - startX;
-    const dy = pt.clientY - startY;
-    if (!moved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
-    moved = true;
-    const newLeft = startLeft + dx;
-    const newTop = startTop + dy;
-    btn.style.left = newLeft + 'px';
-    btn.style.top = newTop + 'px';
-    btn.style.right = 'auto';
-    btn.style.bottom = 'auto';
-  }
-
-  function onPointerUp() {
-    if (!dragging) return;
-    dragging = false;
-    btn.classList.remove('dragging');
-    if (moved) {
-      clampPosition();
-      savePosition();
-    } else {
-      toggleSidebar();
-    }
-  }
-
-  btn.addEventListener('mousedown', onPointerDown);
-  btn.addEventListener('touchstart', onPointerDown, { passive: false });
-  document.addEventListener('mousemove', onPointerMove);
-  document.addEventListener('touchmove', onPointerMove, { passive: false });
-  document.addEventListener('mouseup', onPointerUp);
-  document.addEventListener('touchend', onPointerUp);
-
-  window.addEventListener('resize', () => { clampPosition(); savePosition(); });
-
-  loadPosition();
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ============================================
@@ -398,19 +318,9 @@ async function initApp() {
     }
   } catch (e) {}
 
-  document.getElementById('user-name').innerText = store.profile.username;
-
-  const avatarEl = document.getElementById('user-avatar');
-  if (avatarEl) {
-    if (store.profile.avatar_url) {
-      avatarEl.src = store.profile.avatar_url;
-    } else {
-      avatarEl.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E`;
-    }
-
-    // GP tier border on the sidebar avatar
-    applyAvatarTier();
-  }
+  const avatarSrc = store.profile.avatar_url
+    || `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E`;
+  document.querySelectorAll('[data-user-avatar]').forEach(el => { el.src = avatarSrc; });
 
   // Initialize Notifications
   notify.init();
@@ -421,7 +331,9 @@ async function initApp() {
   Presence.init();
   window.GliimuPresence = Presence;
   initSidebarAutoClose();
-  initFloatingButton();
+  initAccountMenu();
+  loadFollowedRail();
+  window.addEventListener('gliimu-follow-changed', () => loadFollowedRail());
 
   setInterval(checkGpTiers, 45000);
 

@@ -2213,8 +2213,9 @@ const hubView = {
     const viewedKey = `gliimu_viewed_${postId}`;
     if (!sessionStorage.getItem(viewedKey)) {
       sessionStorage.setItem(viewedKey, '1');
-      supabase.rpc('bump_post_views', { p_post: postId }).then(({ data }) => {
+      supabase.rpc('bump_post_views', { p_post: postId }).then(({ data, error }) => {
         if (typeof data === 'number') post.views = data;
+        if (!error) window.dispatchEvent(new CustomEvent('gliimu-post-viewed', { detail: { postId } }));
       });
       // Interest: opening a post counts; one where I'm tagged counts extra
       const myName = store.profile?.full_name;

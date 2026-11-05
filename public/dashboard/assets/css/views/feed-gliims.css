@@ -579,9 +579,11 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
    MOBILE SPACING (No Horizontal Scroll)
    ============================================ */
 @media (max-width: 768px) {
-  /* Reduce outer dashboard padding but keep room for the fixed bottom bar */
+  /* Reduce outer dashboard padding but keep room for the fixed bottom bar.
+     The values live in --pad-top/--pad-x so the page header's bleed margins
+     in dashboard.css cancel exactly this padding. */
   .view-container {
-    padding: 16px 8px !important;
+    padding: var(--pad-top) var(--pad-x) !important;
     padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
   }
 

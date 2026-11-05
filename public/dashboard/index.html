@@ -19,15 +19,15 @@
 
   <!-- Use absolute paths starting with / to prevent Vercel routing issues -->
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=64">
+  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=68">
   <link rel="stylesheet" href="/dashboard/assets/css/views/profile.css?v=15">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/feed-gliims.css?v=71">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css?v=3">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/ping.css?v=46">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/feed-gliims.css?v=73">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css?v=5">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/ping.css?v=50">
   <link rel="stylesheet" href="/dashboard/assets/css/views/live.css?v=22">
   <link rel="stylesheet" href="/dashboard/assets/css/views/wallet.css?v=3">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/feed.css?v=68">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/feature.css?v=1">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/feed.css?v=77">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/feature.css?v=3">
   <link rel="stylesheet" href="/dashboard/assets/css/views/reader.css?v=23">
   <link rel="stylesheet" href="/dashboard/assets/css/views/assistant.css?v=30">
   <link rel="stylesheet" href="/dashboard/assets/css/views/post-read.css?v=16">
@@ -41,7 +41,8 @@
 <body>
 
   <div class="dashboard-layout">
-      <!-- Sidebar -->
+      <!-- XpLoRe is the hub, so the rail carries only the three places you can
+           get lost in, plus the faces of the people you follow. -->
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <a href="https://gliimu.com" class="brand-logo">
@@ -55,43 +56,26 @@
             <a href="#/xplore" class="nav-item" data-route="xplore" title="XpLoRe">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
               <span class="nav-text">XpLoRe</span>
+              <span class="unread-dot" data-dot="alerts" hidden></span>
             </a>
             <a href="#/ping" class="nav-item" data-route="ping" title="Ping">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
               <span class="nav-text">Ping</span>
-            </a>
-            <a href="#/alerts" class="nav-item" data-route="alerts" title="Alerts">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-              <span class="nav-text">Alerts</span>
+              <span class="unread-dot" data-dot="ping" hidden></span>
             </a>
             <a href="#/wallet" class="nav-item" data-route="wallet" title="Billing">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
               <span class="nav-text">Billing</span>
             </a>
-            <a href="#/settings" class="nav-item" data-route="settings" title="Settings">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              <span class="nav-text">Settings</span>
-            </a>
-          </div>
-
-          <div class="nav-section nav-section-bottom">
-            <a href="#/publish" class="nav-item" data-route="publish" title="Publish">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-              <span class="nav-text">Publish</span>
-            </a>
           </div>
         </nav>
 
-        <div class="sidebar-footer">
-          <div class="user-card">
-            <div style="position: relative; cursor: pointer;" onclick="window.location.hash='#/profile'; toggleSidebarOnMobileNav();">
-              <img id="user-avatar" class="user-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E" alt="Avatar">
-            </div>
-            <div class="user-info">
-              <span class="user-name" id="user-name">Loading...</span>
-            </div>
-          </div>
-        </div>
+        <div class="rail-people" id="rail-people" aria-label="People you follow"></div>
+
+        <button type="button" class="rail-toggle" id="rail-toggle" aria-expanded="false" aria-label="Expand menu" onclick="toggleSidebar()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M29,16c0,1.104-0.896,2-2,2H11c-1.104,0-2-0.896-2-2s0.896-2,2-2h16C28.104,14,29,14.896,29,16z"></path><path d="M29,6c0,1.104-0.896,2-2,2H11C9.896,8,9,7.104,9,6s0.896-2,2-2h16C28.104,4,29,4.896,29,6z"></path><path d="M29,26c0,1.104-0.896,2-2,2H11c-1.104,0-2-0.896-2-2s0.896-2,2-2h16C28.104,24,29,24.896,29,26z"></path><path d="M3,6c0,1.103,0.897,2,2,2s2-0.897,2-2S6.103,4,5,4S3,4.897,3,6z"></path><path d="M3,16c0,1.103,0.897,2,2,2s2-0.897,2-2s-0.897-2-2-2S3,14.897,3,16z"></path><path d="M3,26c0,1.103,0.897,2,2,2s2-0.897,2-2s-0.897-2-2-2S3,24.897,3,26z"></path></svg>
+          <span class="rail-toggle-label">Collapse</span>
+        </button>
       </aside>
 
       <!-- Main Content -->
@@ -107,27 +91,38 @@
         </div>
       </main>
 
-      <!-- Floating draggable menu toggle -->
-      <button class="floating-menu-btn" id="floating-menu-btn" aria-label="Toggle menu">
-        <img src="/icons/menu.svg" alt="Menu">
-      </button>
-
-      <!-- Backdrop overlay for sidebar -->
-      <div class="sidebar-backdrop" onclick="toggleSidebar()"></div>
+      <!-- Narrow screens have no sidebar, so this bar is the whole navigation -->
+      <!-- Narrow screens have no sidebar, so this bar is the whole navigation.
+           Three icons only — everything else lives behind the avatar at the top
+           right of XpLoRe. -->
+      <nav class="bottom-bar" id="bottom-bar" aria-label="Main">
+        <a href="#/ping" class="bottom-item" data-route="ping" title="Ping" aria-label="Ping">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span class="unread-dot" data-dot="ping" hidden></span>
+        </a>
+        <a href="#/xplore" class="bottom-item" data-route="xplore" title="XpLoRe" aria-label="XpLoRe">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+          <span class="unread-dot" data-dot="alerts" hidden></span>
+        </a>
+        <a href="#/wallet" class="bottom-item" data-route="wallet" title="Billing" aria-label="Billing">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+        </a>
+      </nav>
   </div>
 
   <!-- Use absolute paths for JS as well -->
   <script src="/shared/js/theme.js"></script>
   <script src="https://unpkg.com/@daily-co/daily-js@0.94.0"></script>
-  <script type="module" src="/dashboard/assets/js/app.js?v=175"></script>
+  <script type="module" src="/dashboard/assets/js/app.js?v=188"></script>
 
   <script>
     function toggleSidebar() {
-      document.body.classList.toggle('sidebar-open');
-    }
-
-    function toggleSidebarOnMobileNav() {
-      document.body.classList.remove('sidebar-open');
+      const open = document.body.classList.toggle('sidebar-open');
+      const toggle = document.getElementById('rail-toggle');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-label', open ? 'Collapse menu' : 'Expand menu');
+      }
     }
   </script>
 </body>

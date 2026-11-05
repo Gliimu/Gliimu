@@ -1,12 +1,22 @@
-/* Ping Shell — tabs + panes wrapper */
+/* Ping Shell — tabs + panes wrapper. The router header sits above it and the
+   bottom bar only exists on phones, so both are subtracted from the viewport. */
 .ping-shell {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 64px);
+  height: calc(100dvh - var(--page-header-h) - var(--bottom-bar-h));
 }
 
+/* The shell already fills the viewport, so this page drops the padding that
+   would otherwise push 48px of it below the fold. */
+.view-ping { padding: 0; }
+/* The shell is the page's own chrome, so the header keeps its own height and
+   no bleed margin (this container has no padding to cancel). */
+.view-ping .page-header { margin: 0; }
+
+/* Phones pin 140px of bottom padding onto every container for the fixed bar;
+   the shell already subtracts that bar, so it would overflow the screen. */
 @media (max-width: 768px) {
-  .ping-shell { height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
+  .view-ping { padding: 0 !important; }
 }
 
 /* Ping Layout */
@@ -381,7 +391,6 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .ping-shell { height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
   .ping-sidebar { position: absolute; top: 0; left: 0; bottom: 0; width: 100%; z-index: 10; transition: transform 0.3s ease; }
   .ping-main { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; z-index: 2000; transform: translateX(100%); transition: transform 0.3s ease; }
   .ping-layout.chat-open .ping-sidebar { transform: translateX(-100%); }

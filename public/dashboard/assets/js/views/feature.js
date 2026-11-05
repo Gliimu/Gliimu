@@ -27,11 +27,45 @@ export default {
     window.featureInstance = this;
     this._imageFile = null;
     this._prices = { feature_1day: 5000, feature_1week: 30000, feature_1month: 110000 };
+    this._optIn = false;
+    if (store.user?.id) {
+      const { data } = await supabase.from('profiles')
+        .select('feature_my_profile').eq('id', store.user.id).maybeSingle();
+      this._optIn = Boolean(data?.feature_my_profile);
+    }
     await this.checkSlotsAndRender();
   },
 
   destroy() {
     this._imageFile = null;
+  },
+
+  // The free route: owner consent, stored on their own profile row.
+  optInRow() {
+    return `<label class="feature-optin">
+      <input type="checkbox" data-feature-optin${this._optIn ? ' checked' : ''}>
+      <span>
+        <strong>Feature my profile instead</strong>
+        <small>Set your profile to be featured for free in <a href="#/settings" onclick="event.preventDefault(); window.location.hash = '#/settings'">Settings</a> as you earn more GP.</small>
+      </span>
+    </label>`;
+  },
+
+  bindOptIn(container) {
+    const box = container.querySelector('[data-feature-optin]');
+    if (!box) return;
+    box.addEventListener('change', async () => {
+      box.disabled = true;
+      const { error } = await supabase.from('profiles')
+        .update({ feature_my_profile: box.checked }).eq('id', store.user.id);
+      box.disabled = false;
+      if (error) {
+        box.checked = !box.checked;
+        appAlert('Could not save that choice. Please try again.');
+        return;
+      }
+      this._optIn = box.checked;
+    });
   },
 
   async checkSlotsAndRender() {
@@ -40,7 +74,8 @@ export default {
 
     const { data, error } = await supabase.rpc('featured_slot_check');
     if (error) {
-      container.innerHTML = `<div class="feature-page-card"><p>Could not check availability. Please try again.</p><a href="#/profile" class="feature-back-link">Back to profile</a></div>`;
+      container.innerHTML = `<div class="feature-page-card"><p>Could not check availability. Please try again.</p>${this.optInRow()}<a href="#/xplore" class="feature-back-link">Back to XpLoRe</a></div>`;
+      this.bindOptIn(container);
       return;
     }
 
@@ -53,11 +88,13 @@ export default {
           <div class="feature-unavailable-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
           </div>
-          <h2>Feature is Currently unavailable</h2>
-          <p class="feature-unavailable-msg">All carousel slots are filled out at the moment. Please try again later or contact support in Ping.</p>
-          <a href="#/profile" class="feature-back-link">Back to profile</a>
+          <h2>All spotlight slots are taken</h2>
+          <p class="feature-unavailable-msg">Three pieces of featured content are live right now. Try again later, contact support in Ping, or be shown as a creator instead.</p>
+          ${this.optInRow()}
+          <a href="#/xplore" class="feature-back-link">Back to XpLoRe</a>
         </div>
       `;
+      this.bindOptIn(container);
       return;
     }
 
@@ -72,16 +109,17 @@ export default {
 
     container.innerHTML = `
       <div class="feature-page-card">
-        <a href="#/profile" class="feature-back-link">
+        <a href="#/xplore" class="feature-back-link">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-          Back to profile
+          Back to XpLoRe
         </a>
         <h2>Feature Your Content</h2>
-        <p class="feature-page-subtitle">Get your content in front of thousands of users on the XpLoRe carousel</p>
+        <p class="feature-page-subtitle">Take one of the three XpLoRe spotlight slots in front of every member browsing the hub</p>
         <div class="feature-slots-info">
           <span class="feature-slots-dot available"></span>
           ${info.active || 0} of ${info.max_slots || 3} slots taken
         </div>
+        ${this.optInRow()}
 
         <div class="feature-form">
           <label class="feature-label">Title <span class="feature-required">*</span></label>
@@ -135,6 +173,7 @@ export default {
         </div>
       </div>
     `;
+    this.bindOptIn(container);
   },
 
   handleImage(input) {
@@ -208,7 +247,7 @@ export default {
 
       store.profile.wallet_balance = balance - price;
       appAlert('Your featured content has been submitted for review. You will be notified once it is approved.');
-      window.location.hash = '#/profile';
+      window.location.hash = '#/xplore';
     } catch (err) {
       appAlert(err.message || 'Something went wrong. Please try again.');
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = `Pay ${gliits(price)} to submit for review`; }
