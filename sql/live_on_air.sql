@@ -8,6 +8,11 @@
 -- session list are gone.
 --
 -- Idempotent — safe to run again.
+--
+-- Update: the 'open' state is now minted by the Live page itself, not by
+-- a published card, so section 1 (publish_live_gliim) and section 5
+-- (cancel_orphan_live_session) belong to the retired live gliim and are
+-- dropped by sql/remove_live_gliims.sql. Do not re-run those two sections.
 -- ============================================================
 
 -- ------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=184';
+import { router } from './router.js?v=186';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
@@ -16,8 +16,8 @@ const NotificationManager = {
     alerts: 0
   },
 
-  // Unread state is a dot, never a number: the alerts dot rides the XpLoRe tab
-  // (and the bell on phones), so the same name can light up several elements.
+  // Unread state is a dot, never a number: alerts ride the profile avatar, so
+  // the same name can light up the avatar and the Alerts row inside its menu.
   updateBadge(tabName, count) {
     this.counts[tabName] = count;
     document.querySelectorAll(`.unread-dot[data-dot="${tabName}"]`).forEach(dot => {

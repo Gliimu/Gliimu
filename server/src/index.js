@@ -876,10 +876,18 @@ async function dailyRequest(method, path, body = null) {
   if (body) opts.body = JSON.stringify(body);
 
   const res = await fetch(`${DAILY_API}${path}`, opts);
-  const data = await res.json();
+  // Daily answers some requests (DELETE room) with 204 and no body at all, so
+  // the payload has to be read as text and only then parsed.
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = { message: text }; }
+  }
   if (!res.ok) {
     console.error('Daily.co API error:', method, path, JSON.stringify(data));
-    throw new Error(data.error || data.message || `Daily.co request failed: ${res.status} — ${JSON.stringify(data)}`);
+    const error = new Error((data && (data.error || data.message)) || `Daily.co request failed: ${res.status}`);
+    error.status = res.status;
+    throw error;
   }
   return data;
 }
@@ -1013,6 +1021,82 @@ app.post('/api/daily/meeting-token', async (req, res) => {
   }
 });
 
+// The Live page list: sessions that are on air right now, plus the caller's
+// own sessions that are still waiting for the host to go on air.
+app.get('/api/live/public-sessions', async (req, res) => {
+  try {
+    const authHeader = String(req.headers.authorization || '');
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+    const callerId = authData.user.id;
+
+    await supabaseAdmin.rpc('end_stale_live_sessions');
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    const { data: active, error: activeError } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, title, description, status, participant_count, started_at, created_at, user_id')
+      .eq('status', 'active')
+      .gt('started_at', oneHourAgo)
+      .order('started_at', { ascending: false });
+
+    if (activeError) {
+      console.error('Public sessions query error:', activeError);
+      return res.status(500).json({ error: 'Failed to fetch sessions: ' + activeError.message });
+    }
+
+    const { data: mine, error: mineError } = await supabaseAdmin
+      .from('live_requests')
+      .select('id, title, description, status, participant_count, started_at, created_at, user_id')
+      .eq('status', 'open')
+      .eq('user_id', callerId)
+      .order('created_at', { ascending: false });
+
+    if (mineError) console.error('Own open sessions query error:', mineError);
+
+    const rows = [...(mine || []), ...(active || [])];
+    const userIds = [...new Set(rows.map(s => s.user_id))];
+    let profilesMap = {};
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, avatar_url, verification_badge')
+        .in('id', userIds);
+
+      if (profiles) profilesMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+    }
+
+    res.json({
+      sessions: rows.map(s => {
+        const profile = profilesMap[s.user_id] || {};
+        return {
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          status: s.status,
+          is_mine: s.user_id === callerId,
+          participant_count: s.participant_count || 0,
+          started_at: s.started_at,
+          created_at: s.created_at,
+          host_name: profile.full_name || 'Unknown',
+          host_avatar: profile.avatar_url || null,
+          host_verified: !!profile.verification_badge
+        };
+      })
+    });
+  } catch (error) {
+    console.error('Public sessions error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error.' });
+  }
+});
+
 // Delete a daily.co room when session ends
 app.post('/api/daily/delete-room', async (req, res) => {
   try {
@@ -1040,8 +1124,18 @@ app.post('/api/daily/delete-room', async (req, res) => {
       return res.status(404).json({ error: 'Request not found or no room to delete.' });
     }
 
-    // Delete room via daily.co API
-    await dailyRequest('DELETE', `/rooms/${request.room_id}`);
+    // Delete room via daily.co API. A room that is already gone is the outcome
+    // we wanted, so 404 is not a failure here. Any other Daily error is a soft
+    // one: this is teardown, and a 500 would only add noise to the console.
+    // The room_id stays in the row so a later end can retry the delete.
+    try {
+      await dailyRequest('DELETE', `/rooms/${request.room_id}`);
+    } catch (err) {
+      if (err.status !== 404) {
+        console.warn('Daily room delete failed, keeping room_id for retry:', err.message);
+        return res.json({ ok: false, error: 'Could not delete the Daily room.' });
+      }
+    }
 
     // Clear room info from database
     await supabaseAdmin

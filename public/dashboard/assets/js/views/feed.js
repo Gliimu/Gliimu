@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=109';
+import hubView from './feed-gliims.js?v=110';
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
@@ -18,7 +18,6 @@ function escapeHtml(value) {
 
 const SEARCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"/></svg>';
 const CLOSE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>';
-const PEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
 const BELL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>';
 const GEAR_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
 const BLANK_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E";
@@ -32,11 +31,11 @@ export default {
   template: `
     <div class="xplore-page">
       <div class="xplore-actions">
-        <a class="xplore-action" href="#/publish" title="Publish" aria-label="Publish">${PEN_ICON}</a>
-        <a class="xplore-action" href="#/alerts" title="Alerts" aria-label="Alerts">${BELL_ICON}<span class="unread-dot" data-dot="alerts" hidden></span></a>
+        <a class="xplore-action" href="#/alerts" title="Alerts" aria-label="Alerts">${BELL_ICON}</a>
         <a class="xplore-action" href="#/settings" title="Settings" aria-label="Settings">${GEAR_ICON}</a>
         <a class="xplore-avatar-link" href="#/profile" data-account-trigger aria-haspopup="menu" aria-expanded="false" title="Profile" aria-label="Your profile">
           <img class="xplore-avatar" data-user-avatar src="${BLANK_AVATAR}" alt="Your profile">
+          <span class="unread-dot" data-dot="alerts" hidden></span>
         </a>
       </div>
 
@@ -53,7 +52,6 @@ export default {
         <div class="hub-category-tabs" id="hub-category-tabs">
           <button class="hub-category-tab active" data-category="all">For You</button>
           <button class="hub-category-tab" data-category="xploring">Xploring</button>
-          <button class="hub-category-tab" data-category="live">Live</button>
           <button class="hub-category-tab" data-category="collections">Collections</button>
           <button class="hub-category-tab" data-category="Media">Media</button>
           <button class="hub-category-tab" data-category="Tech">Tech</button>
@@ -496,56 +494,6 @@ export default {
     }
   },
 
-  /* ---------------------------------- live ----------------------------------- */
-
-  // live_gliim_links is service-only, so the session id comes from the card's
-  // own live block and its on-air state from live_requests.
-  async liveNowIds(posts) {
-    const kinds = hubView.cardKinds || {};
-    const livePosts = posts.filter(post => kinds[post.id] === 'live');
-    if (!livePosts.length) return new Set();
-    try {
-      const { data: contents } = await supabase.from('feed_gliim_contents')
-        .select('post_id, blocks').in('post_id', livePosts.map(post => post.id));
-      const sessionToPost = new Map();
-      for (const row of contents || []) {
-        const block = (Array.isArray(row.blocks) ? row.blocks : [])
-          .find(item => item && item.type === 'live' && item.session_id);
-        if (block) sessionToPost.set(block.session_id, row.post_id);
-      }
-      if (!sessionToPost.size) return new Set();
-      const { data: sessions } = await supabase.from('live_requests')
-        .select('id, status').in('id', [...sessionToPost.keys()]).eq('status', 'active');
-      const live = new Set();
-      for (const session of sessions || []) {
-        const postId = sessionToPost.get(session.id);
-        if (postId) live.add(postId);
-      }
-      return live;
-    } catch (error) {
-      console.error('Live sessions could not be checked:', error);
-      return new Set();
-    }
-  },
-
-  // The Live tab is a snapshot of the air, not an archive: a gliim shows while
-  // its session is active and drops off the moment the host ends it.
-  async renderLive() {
-    const container = document.getElementById('library-feed');
-    if (!container) return;
-    container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Checking who is on air…</p>';
-
-    const posts = (hubView.currentPosts || []).filter(post => !post.status || post.status === 'approved');
-    const live = await this.liveNowIds(posts);
-    if (!container.isConnected || this.currentTab !== 'live') return;
-
-    const onAir = posts.filter(post => live.has(post.id));
-    container.innerHTML = onAir.length
-      ? `<div class="library-feed feed-grid">${onAir.map(post => this.wrapItem(hubView.renderPostCard(post), 'gliim')).join('')}</div>`
-      : '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Nobody is on air right now.</p>';
-    this.layoutMasonry();
-  },
-
   /* ------------------------------- the feed -------------------------------- */
 
   setupCategoryTabs() {
@@ -562,9 +510,6 @@ export default {
         this.renderRing();
         if (tab.dataset.category === 'collections') {
           this.renderCollections();
-        } else if (tab.dataset.category === 'live') {
-          hubView.currentFilter = 'all';
-          this.renderLive();
         } else {
           hubView.currentFilter = tab.dataset.category;
           hubView.renderPosts(hubView.currentPosts);
@@ -596,14 +541,13 @@ export default {
     const container = document.getElementById('library-feed');
     if (!container || this.currentTab === 'collections') return;
     this.renderRing();
-    if (this.currentTab === 'live') return this.renderLive();
     if (this.searchQuery.length >= 2) {
       await this.performSearch(this.searchQuery, this.requestId);
       return;
     }
 
     const filtered = await hubView.filterPosts();
-    if (!container.isConnected || this.currentTab === 'collections' || this.currentTab === 'live') return;
+    if (!container.isConnected || this.currentTab === 'collections') return;
 
     const shown = this.currentTab === 'xploring' && this._ringCreator
       ? filtered.filter(post => post.user_id === this._ringCreator)

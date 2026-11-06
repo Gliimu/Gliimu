@@ -1,34 +1,35 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
   '/search': () => { window.location.hash = '#/xplore'; return Promise.resolve({ title: 'XpLoRe', template: '', init() {}, destroy() {} }); },
-  '/xplore': () => import('./views/feed.js?v=102').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=102').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=103').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=103').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=63').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=8').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
-  '/live': () => import('./views/live-page.js?v=45').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=10').then(m => m.default),
+  '/live': () => import('./views/live-page.js?v=47').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=11').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=82').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=51').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=51').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=21').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=83').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=52').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=52').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=22').then(m => m.default),
 };
 
 // Routes with no tab of their own borrow another tab's highlight
 const NAV_ALIAS = { '/search': '/xplore', '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
 
-// The rail only carries XpLoRe, Ping and Billing now, so every other page opens
-// with its own title and one arrow back to wherever the user came from. The old
-// topbar is hidden at both breakpoints, which is why this lives in the router
-// instead. The reader and the collection page are excluded: they already render
-// their own bar.
+// The rail carries XpLoRe, Publish, Live, Ping and Billing, so every other page
+// opens with its own title and one arrow back to wherever the user came from.
+// The old topbar is hidden at both breakpoints, which is why this lives in the
+// router instead. The reader and the collection page are excluded: they already
+// render their own bar.
 const PAGE_TITLES = {
   '/ping': 'Ping',
   '/wallet': 'Billing',
   '/alerts': 'Alerts',
   '/publish': 'Publish',
+  '/live': 'Live',
   '/profile': 'Profile',
   '/settings': 'Settings',
   '/terms': 'Terms and Policy'

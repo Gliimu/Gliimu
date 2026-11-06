@@ -31,8 +31,9 @@
 }
 .xplore-action:hover { color: var(--brand-primary); border-color: var(--brand-primary); }
 .xplore-action[aria-expanded="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
-.xplore-action .unread-dot { top: 5px; right: 5px; border-color: var(--surface); }
-.xplore-avatar-link { display: block; line-height: 0; }
+.xplore-avatar-link { position: relative; display: block; line-height: 0; }
+/* The alerts badge rides the profile avatar, the one door to the account menu */
+.xplore-avatar-link .unread-dot { top: -1px; right: -1px; border-color: var(--surface); }
 .xplore-avatar {
   width: 36px;
   height: 36px;

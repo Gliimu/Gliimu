@@ -2,7 +2,6 @@ import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
 import * as heartbeat from '../heartbeat.js?v=3';
 import { uploadAttachment } from '../media.js?v=3';
-import { uploadFile } from '../upload.js';
 
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
 
@@ -22,15 +21,11 @@ const ICONS = {
   message: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
   minimize: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
   bolt: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
-  globe: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-  checkSquare: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
-  pageAdd: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="12" x2="12" y2="18"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>',
-  doc: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>'
+  plus: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+  users: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+  onAir: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>'
 };
 
-// The composer treats a document block ending in .pdf as a PDF tile; the live
-// page uses the same test so host uploads render identically.
-const isPdfFile = (v) => /\.pdf(?:$|[?#])/i.test(String(v || ''));
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -48,12 +43,32 @@ function initialsAvatar(name) {
 }
 window._initialsAvatar = initialsAvatar;
 
+// Ending a session must not depend on Daily deleting the room, so a failed
+// delete is reported and ignored rather than allowed to abort the teardown.
+async function deleteRoomQuietly(requestId, accessToken) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ requestId })
+    });
+    if (!res.ok) console.warn('Delete room skipped (non-critical).');
+  } catch (e) {
+    console.warn('Delete room unreachable (non-critical).');
+  }
+}
+
 const liveView = {
   // State
   activeSession: null,
   sessionRole: null, // 'host' | 'participant'
   joiningSession: false, // Guard against rapid join attempts
   goingOnAir: false,    // Guard against double-tapping "Go on air"
+  creatingSession: false, // Guard against double-tapping "Create Session"
+  publicSessions: [],    // The Live page landing list
   
   // Daily.co
   callObject: null,
@@ -62,24 +77,6 @@ const liveView = {
   participantsMap: new Map(),
   focusedSessionId: null,
 
-  // The call was mounted inside the reader page instead of the Live page.
-  embedded: false,
-  embedHash: null,
-  embedMount: null,
-
-  // Blocks the host pushes onto the live gliim while the call runs.
-  liveBlocks: [],
-  contentPollInterval: null,
-
-  // Chat without a call: the host's own card and a session that is announced
-  // but not on air yet still need the comment feature.
-  chatOnlySession: null,
-
-  // XpLoRe gliim card this session is published as (null when not shared
-  // to everybody). Chat @mentions alert against this post.
-  gliimPostId: null,
-  _mentionProfiles: null,
-  
   // UI state
   chatOpen: false,
   minimized: false,
@@ -100,6 +97,7 @@ const liveView = {
 
   template: `
     <div id="live-container">
+      <div id="live-landing"></div>
       <div id="live-session-view" style="display:none;"></div>
     </div>
   `,
@@ -127,8 +125,15 @@ const liveView = {
       restoreStudio: () => this.restoreStudio(),
       isLiveActive: () => !!this.activeSession,
       isMinimized: () => this.minimized,
-      isEmbedded: () => this.embedded,
-      endLive: () => this.forceEndLive()
+      endLive: () => this.forceEndLive(),
+      // Live page landing
+      loadPublicSessions: () => this.loadPublicSessions(),
+      openHostModal: () => this.openHostModal(),
+      closeHostModal: () => this.closeHostModal(),
+      createSession: () => this.createSession(),
+      goOnAir: (id) => this.goOnAir(id),
+      resumeSession: (id) => this.resumeSession(id),
+      cancelSession: (id) => this.cancelSession(id)
     };
   },
 
@@ -149,41 +154,198 @@ const liveView = {
     }
 
     // Attempt to recover session after refresh/network issue (only if not joining via link)
-    if (!(await this._recoverSession())) this.showIdle();
+    if (!(await this._recoverSession())) this.showLanding();
   },
 
-  // The studio has no browse page any more: a session is reached from its card
-  // or from a Ping invite, so landing here with nothing to open says so. It
-  // also stands in behind the minimized tile so the page is never blank.
-  showIdle(minimized) {
+  // The Live page opens on the session list: host your own, or join somebody
+  // else's. It also stands in behind the minimized tile so the page is never
+  // blank while a session keeps running in the corner.
+  showLanding() {
     const container = document.getElementById('live-container');
     if (!container) return;
 
     const sessionView = document.getElementById('live-session-view');
     if (sessionView) sessionView.style.display = 'none';
 
-    let idle = document.getElementById('live-idle');
-    if (!idle) {
-      idle = document.createElement('div');
-      idle.id = 'live-idle';
-      idle.className = 'live-idle';
-      container.appendChild(idle);
-    }
-
-    const title = this.activeSession && this.activeSession.title;
-    idle.innerHTML = `
-      ${title ? `<h3>${esc(title)}</h3>` : ''}
-      <p class="live-idle-hint">${minimized
-        ? 'Your session is still running in the corner — tap it to come back.'
-        : 'Open a live session from its card, or from a Ping invite.'}</p>
-    `;
-    idle.style.display = 'block';
+    const landing = document.getElementById('live-landing');
+    if (!landing) return;
+    landing.style.display = 'block';
+    this.loadPublicSessions();
   },
 
-  hideIdle() {
+  hideLanding() {
+    const landing = document.getElementById('live-landing');
+    if (landing) landing.style.display = 'none';
     const sessionView = document.getElementById('live-session-view');
     if (sessionView) sessionView.style.display = 'block';
-    document.getElementById('live-idle')?.remove();
+  },
+
+  // ============================================
+  // LANDING PAGE - session list + host modal
+  // ============================================
+
+  async loadPublicSessions() {
+    const landing = document.getElementById('live-landing');
+    if (!landing) return;
+
+    landing.innerHTML = '<div class="live-loading">Loading sessions...</div>';
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        landing.innerHTML = '<div class="live-empty">Please sign in to see live sessions.</div>';
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/live/public-sessions`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'The sessions could not be loaded.');
+
+      this.publicSessions = result.sessions || [];
+      this.renderLanding();
+    } catch (error) {
+      console.error('Load sessions error:', error);
+      landing.innerHTML = `<div class="live-error">Failed to load sessions: ${esc(error.message)}</div>`;
+    }
+  },
+
+  renderLanding() {
+    const landing = document.getElementById('live-landing');
+    if (!landing) return;
+
+    let html = `
+      <div class="live-header">
+        <h2>Live Sessions</h2>
+        <button class="btn-primary" onclick="liveInstance.openHostModal()">${ICONS.plus} Host Session</button>
+      </div>
+    `;
+
+    if (!this.publicSessions.length) {
+      html += '<div class="live-empty">Nobody is live right now. Host a session and it will show up here.</div>';
+    } else {
+      html += '<div class="live-sessions-grid">';
+      for (const session of this.publicSessions) {
+        const onAir = session.status === 'active';
+        let action;
+        if (session.is_mine && !onAir) {
+          action = `<button class="btn-primary live-session-card-join" onclick="liveInstance.goOnAir('${session.id}')">${ICONS.onAir} Go on air</button>
+            <button class="btn-secondary live-session-card-cancel" onclick="liveInstance.cancelSession('${session.id}')">Cancel</button>`;
+        } else if (session.is_mine) {
+          action = `<button class="btn-primary live-session-card-join" onclick="liveInstance.resumeSession('${session.id}')">Back to your session</button>`;
+        } else {
+          action = `<button class="btn-primary live-session-card-join" onclick="liveInstance.joinSession('${session.id}')">Join Session</button>`;
+        }
+
+        html += `
+          <div class="live-session-card">
+            <div class="live-session-card-header">
+              <h3>${esc(session.title)}</h3>
+              ${onAir ? '<span class="live-session-card-onair">LIVE</span>' : ''}
+            </div>
+            ${session.description ? `<p class="live-session-card-desc">${esc(session.description)}</p>` : ''}
+            <div class="live-session-card-meta">
+              ${session.host_name ? `<span class="live-session-card-host">${esc(session.host_name)}</span>` : ''}
+              <span class="live-session-card-participants">${ICONS.users} ${Number(session.participant_count) || 0}</span>
+            </div>
+            <div class="live-session-card-actions">${action}</div>
+          </div>
+        `;
+      }
+      html += '</div>';
+    }
+
+    landing.innerHTML = html;
+  },
+
+  openHostModal() {
+    if (document.getElementById('live-host-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'live-host-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" onclick="liveInstance.closeHostModal()">${ICONS.close}</button>
+        <h3>Host a Live Session</h3>
+        <div class="form-group">
+          <label>Session Title</label>
+          <input type="text" id="live-host-title" class="input" maxlength="60" placeholder="e.g. UI Design Workshop">
+        </div>
+        <div class="form-group">
+          <label>Description (optional)</label>
+          <textarea id="live-host-desc" class="input" rows="3" maxlength="200" placeholder="What will you cover?"></textarea>
+        </div>
+        <button class="btn-primary live-host-submit" onclick="liveInstance.createSession()">Create Session</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('live-host-title')?.focus();
+  },
+
+  closeHostModal() {
+    document.getElementById('live-host-modal')?.remove();
+  },
+
+  // Creating here mints the session and takes the host straight on air, so the
+  // clock and the Daily room are both stamped by the same paths the rest of the
+  // app uses (start_live_session + the idempotent create-room).
+  async createSession() {
+    if (this.creatingSession) return;
+    const title = document.getElementById('live-host-title')?.value?.trim();
+    const description = document.getElementById('live-host-desc')?.value?.trim();
+
+    if (!title) {
+      appAlert('Please enter a session title.');
+      return;
+    }
+
+    this.creatingSession = true;
+    try {
+      const request = await this.createSessionShell(title, description);
+      this.closeHostModal();
+      if (!(await this.goOnAir(request.id))) await this.cancelSession(request.id);
+    } catch (error) {
+      console.error('Create session error:', error);
+      appAlert(error.message || 'Your session could not be created.');
+    } finally {
+      this.creatingSession = false;
+    }
+  },
+
+  // A session the host never went on air with, dropped from their own list.
+  async cancelSession(sessionId) {
+    if (!sessionId) return;
+    try {
+      await this.endSessionShell(sessionId);
+      this.loadPublicSessions();
+    } catch (error) {
+      console.error('Cancel session error:', error);
+      appAlert(error.message || 'The session could not be cancelled.');
+    }
+  },
+
+  // Getting back into a session the host already started: the minimized tile
+  // only needs its stage put back, anything else goes through the normal join.
+  async resumeSession(sessionId) {
+    if (this.minimized) {
+      this.restoreStudio();
+      return;
+    }
+    if (this.activeSession && this.activeSession.id === sessionId) {
+      this.hideLanding();
+      return;
+    }
+    try {
+      await this.ensureSessionRoom(sessionId);
+    } catch (error) {
+      console.error('Resume session error:', error);
+      appAlert(error.message || 'The studio room could not be opened.');
+      return;
+    }
+    await this.joinSession(sessionId);
   },
 
   async _recoverSession() {
@@ -242,7 +404,6 @@ const liveView = {
       this.sessionChannel = null;
     }
     this.stopChatPolling();
-    this.stopContentFeed();
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
@@ -254,12 +415,11 @@ const liveView = {
   },
 
   // ============================================
-  // SESSION SHELLS (minted by the composer's Live block)
+  // SESSION SHELLS
   // ============================================
 
-  // Used by the Publish composer's Live block: announce the session so the card
-  // can be minted. No Daily room and no started_at yet — the clock and the room
-  // only exist once the host goes on air from their own card.
+  // Announce a session without going on air: no Daily room and no started_at
+  // yet, because the clock and the room only exist once the host goes on air.
   async createSessionShell(title, description) {
     const { data: request, error } = await supabase
       .from('live_requests')
@@ -276,8 +436,8 @@ const liveView = {
     return request;
   },
 
-  // Undo a createSessionShell() whose gliim never got published. There is no
-  // room to tear down yet, so this is only a status flip.
+  // Undo a createSessionShell() that never went on air. There is no room to
+  // tear down yet, so this is only a status flip.
   async endSessionShell(sessionId) {
     if (!sessionId) return;
     try {
@@ -314,8 +474,8 @@ const liveView = {
     return result;
   },
 
-  // "Go on air", driven from the host's own live card: stamp the broadcast
-  // clock, open the room, then let the studio join it like anybody else.
+  // "Go on air", from the host's own session row: stamp the broadcast clock,
+  // open the room, then let the studio join it like anybody else.
   async goOnAir(sessionId) {
     if (!sessionId || this.goingOnAir) return false;
     this.goingOnAir = true;
@@ -380,8 +540,14 @@ const liveView = {
         return;
       }
 
-      // Increment participant count
-      await supabase.rpc('increment_participant_count', { p_request_id: request.id });
+      // Increment participant count. The RPC refuses once the session has
+      // ended or filled up while this tab was still showing it.
+      const { error: countError } = await supabase.rpc('increment_participant_count', { p_request_id: request.id });
+      if (countError) {
+        appAlert('That session just ended or is full.');
+        this.joiningSession = false;
+        return;
+      }
 
       this.activeSession = request;
       this.sessionRole = (request.user_id === store.user.id) ? 'host' : 'participant';
@@ -426,100 +592,11 @@ const liveView = {
   },
 
   // ============================================
-  // CONTENT THE HOST ADDS WHILE ON AIR
-  // ============================================
-
-  // The live gliim body is the single source of truth: "Add to the page"
-  // appends blocks to it, and both the studio feed below the video and the
-  // reader page show that same list. Polling rather than realtime keeps the
-  // studio free of another channel to clean up.
-  startContentFeed() {
-    this.stopContentFeed();
-    this.liveBlocks = [];
-    this._feedTicks = 0;
-    this.contentPollInterval = setInterval(() => this._pollLiveBlocks(), 2500);
-    this._pollLiveBlocks();
-  },
-
-  stopContentFeed() {
-    if (this.contentPollInterval) {
-      clearInterval(this.contentPollInterval);
-      this.contentPollInterval = null;
-    }
-  },
-
-  async _pollLiveBlocks() {
-    if (!this.activeSession) return this.stopContentFeed();
-
-    if (!this.gliimPostId) {
-      // The card only exists once the host has shared it to Everybody, so
-      // look for it every tenth tick instead of hammering the feed.
-      this._feedTicks++;
-      if (this._feedTicks % 10 !== 1) return;
-      await this._resolveGliimPostId();
-      if (!this.gliimPostId) return;
-    }
-
-    const { data: row } = await supabase
-      .from('feed_gliim_contents')
-      .select('blocks')
-      .eq('post_id', this.gliimPostId)
-      .maybeSingle();
-
-    const blocks = ((row && row.blocks) || []).filter(b => b && b.type !== 'live');
-    if (blocks.length === this.liveBlocks.length) return;
-    this.liveBlocks = blocks;
-    this.renderContentFeed();
-  },
-
-  renderContentFeed() {
-    const holder = document.getElementById('live-content-feed');
-    if (!holder) return;
-    holder.innerHTML = this.liveBlocks.length
-      ? this.liveBlocks.map(b => this._renderLiveBlock(b)).join('')
-      : '<p class="live-feed-empty">Nothing added to the page yet.</p>';
-  },
-
-  // Compact mirror of the reader blocks. Only the shapes "Add to the page"
-  // can produce are handled: note, image, document.
-  _renderLiveBlock(block) {
-    if (block.type === 'text') {
-      if (block.style === 'title' || block.style === 'subtitle') {
-        return `<h4 class="live-feed-title">${esc(block.content)}</h4>`;
-      }
-      return `<p class="live-feed-text">${esc(block.content)}</p>`;
-    }
-
-    if (block.type === 'image') {
-      const cap = block.caption ? `<figcaption>${esc(block.caption)}</figcaption>` : '';
-      return `<figure class="live-feed-figure"><img src="${esc(block.content)}" alt="" loading="lazy">${cap}</figure>`;
-    }
-
-    if (block.type === 'document' || block.type === 'pdf') {
-      const name = block.caption || this._fileNameFromUrl(block.content);
-      const price = Number(block.price || 0);
-      const tag = price > 0 ? `<span class="live-feed-price">₦${price.toLocaleString()}</span>` : '';
-      return `<div class="live-feed-file">${ICONS.doc}<span class="live-feed-file-name">${esc(name)}</span>${tag}</div>`;
-    }
-
-    return '';
-  },
-
-  // Real filename straight off the stored URL — never an invented label.
-  _fileNameFromUrl(url) {
-    const raw = String(url || '').split('?')[0].split('#')[0];
-    const last = raw.substring(raw.lastIndexOf('/') + 1);
-    if (!last) return 'File';
-    try { return decodeURIComponent(last); } catch { return last; }
-  },
-
-  // ============================================
   // SESSION UI
   // ============================================
 
   enterSession() {
     if (!this.activeSession) return;
-    this.chatOnlySession = null;
 
     // Persist session for recovery on refresh/network issues
     try {
@@ -530,7 +607,7 @@ const liveView = {
       }));
     } catch (e) { console.warn('Failed to save session to storage:', e); }
 
-    this.hideIdle();
+    this.hideLanding();
 
     this.sessionStartTime = Date.now();
     this.liveSecs = 0;
@@ -554,11 +631,6 @@ const liveView = {
     this.setupSessionRealtime(this.activeSession.id);
     this.startSessionTimer();
 
-    // The composer can publish the card before the host opens the studio, so
-    // the card is looked up inside the feed — "Add to your live gliim" and the
-    // studio's own content list both read from it.
-    this.startContentFeed();
-
     heartbeat.setCurrentPost(null);
     heartbeat.start();
   },
@@ -571,12 +643,8 @@ const liveView = {
     const s = this.activeSession;
     const mobile = window.innerWidth <= 768;
 
-    // Inside the reader the gliim body below already carries everything the
-    // host adds, so the studio only renders its own feed on the Live page.
-    const withFeed = !this.embedded;
-
     sessionView.innerHTML = `
-      <div class="live-studio-container${this.embedded ? ' is-embedded' : ''}">
+      <div class="live-studio-container">
         <div class="live-session-header">
           <h3>${esc(s.title)}</h3>
           <div class="live-session-meta">
@@ -601,16 +669,12 @@ const liveView = {
               ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
               : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
             <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-            ${isHost || this.embedded ? '' : `<button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>`}
+            ${isHost ? '' : `<button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>`}
             ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
-            ${isHost ? `<button class="live-ctrl-btn" id="live-add-btn" title="Add to your live gliim">${ICONS.pageAdd}</button>` : ''}
             <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
             <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
           </div>
         </div>
-
-        ${withFeed ? `
-        <div class="live-content-feed" id="live-content-feed"></div>` : ''}
 
         ${this.chatPanelHtml(true)}
       </div>
@@ -624,21 +688,18 @@ const liveView = {
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
     document.getElementById('live-support-btn')?.addEventListener('click', () => this.showSupportDialog());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.shareSession());
-    document.getElementById('live-add-btn')?.addEventListener('click', () => this.addLiveContent());
     document.getElementById('live-minimize-btn')?.addEventListener('click', () => this.minimizeStudio());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
   },
 
-  // One chat panel, three hosts: the studio, the reader embed and the reader's
-  // comments modal. The ids are fixed so the polling code works everywhere.
-  chatPanelHtml(hidden = false, extraClass = '', withHeader = true) {
+  // The chat panel ids are fixed so the polling code always finds them.
+  chatPanelHtml(hidden = false) {
     return `
-      <div id="live-chat-panel" class="live-chat-panel ${extraClass}"${hidden ? ' style="display:none;"' : ''}>
-        ${withHeader ? `
+      <div id="live-chat-panel" class="live-chat-panel"${hidden ? ' style="display:none;"' : ''}>
         <div class="live-chat-header">
           <h4>Chat</h4>
           <button class="live-chat-close" onclick="liveInstance.toggleChat()" title="Close chat" aria-label="Close chat">${ICONS.close}</button>
-        </div>` : ''}
+        </div>
         <div id="live-chat-messages" class="live-chat-messages"></div>
         <div class="live-chat-input">
           <input type="file" id="live-chat-file" style="display:none" accept="image/*,.pdf,.epub,.doc,.docx" onchange="liveInstance.handleChatFile(event)">
@@ -652,169 +713,6 @@ const liveView = {
     `;
   },
 
-  // ============================================
-  // CHAT WITHOUT A CALL (comments on a live gliim)
-  // ============================================
-
-  // The session the chat panel belongs to: the call when there is one, the
-  // chat-only row when the reader only shows comments.
-  _chatSession() {
-    return this.activeSession || this.chatOnlySession;
-  },
-
-  // The reader mounts this when there is nothing to watch: the viewer is the
-  // host (their card is the studio, not a player) or the session has not gone
-  // on air yet. Polling and sending both work — the message only needs a
-  // session that is announced or live.
-  async openChatOnly(sessionId, postId) {
-    if (!sessionId) return false;
-    this._exposeInstance();
-    if (postId && !this.gliimPostId) this.gliimPostId = postId;
-    if (this.activeSession) return true;
-    if (this.chatOnlySession?.id === sessionId) {
-      this.startChatPolling(sessionId);
-      return true;
-    }
-
-    const { data: request } = await supabase
-      .from('live_requests')
-      .select('*')
-      .eq('id', sessionId)
-      .maybeSingle();
-    if (!request || (request.status !== 'open' && request.status !== 'active')) return false;
-
-    this.chatOnlySession = request;
-    this.chatMessages = [];
-    await this.loadChatMessages(sessionId);
-    this.startChatPolling(sessionId);
-    return true;
-  },
-
-  closeChatOnly() {
-    if (!this.chatOnlySession) return;
-    this.stopChatPolling();
-    this.chatMessages = [];
-    this.chatOnlySession = null;
-    if (!this.activeSession) this.gliimPostId = null;
-  },
-
-  // ============================================
-  // THE LIVE CARD ON THE READER PAGE
-  // ============================================
-
-  // Mounts the studio itself into `mountEl`. The viewer joins the call as a
-  // real participant — camera and mic stay off until they turn them on.
-  async openEmbed(mountEl, sessionId, postId) {
-    if (!mountEl || !sessionId) return false;
-    this._exposeInstance();
-    this.gliimPostId = postId || null;
-
-    // A minimized embed survives navigation: just put the call back on screen.
-    if (this.minimized && this.embedded && this.activeSession?.id === sessionId) {
-      return this._restoreEmbed(mountEl);
-    }
-
-    if (this.activeSession) {
-      if (this.embedded) this.closeEmbed();
-      else return false; // the studio owns the call; don't fight it
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return false;
-
-      const kickCheck = await fetch(`${API_BASE_URL}/api/live/join-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ requestId: sessionId, checkOnly: true })
-      });
-
-      if (kickCheck.status === 403) {
-        const errData = await kickCheck.json().catch(() => ({}));
-        if (errData.kicked) {
-          mountEl.innerHTML = '<div class="live-embed-ended">You were removed from this session.</div>';
-          return false;
-        }
-      }
-
-      const { data: request, error } = await supabase
-        .from('live_requests')
-        .select('*')
-        .eq('id', sessionId)
-        .maybeSingle();
-
-      if (error || !request) {
-        mountEl.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
-        return false;
-      }
-
-      // Announced but not on air: there is nothing to watch yet, but the
-      // chat — the comment feature of this gliim — is already open.
-      if (request.status !== 'active') {
-        await this.openChatOnly(sessionId);
-        mountEl.innerHTML = '<div class="live-embed-waiting">The host has not gone on air yet.</div>';
-        return false;
-      }
-
-      this.meetingToken = null;
-      this.embedded = true;
-      this.participantTiles.clear();
-      this.participantsMap.clear();
-      if (request.room_id) await this._fetchMeetingToken(request.room_id);
-
-      await supabase.rpc('increment_participant_count', { p_request_id: request.id });
-
-      this.activeSession = request;
-      this.sessionRole = 'participant';
-      this.embedMount = mountEl;
-      this.embedHash = window.location.hash;
-      this.minimized = false;
-      this.chatMessages = [];
-      this.chatOpen = false;
-      this.focusedSessionId = null;
-      this.sessionStartTime = Date.now();
-      this.liveSecs = 0;
-
-      try {
-        sessionStorage.setItem('liveSession', JSON.stringify({
-          sessionId: request.id, role: 'participant', timestamp: Date.now()
-        }));
-      } catch (e) { /* recovery is best-effort */ }
-
-      this.renderSessionUI(mountEl);
-      await this.joinDailyCall(request.room_url);
-      this.startChatPolling(request.id);
-      this.setupSessionRealtime(request.id);
-      this.startSessionTimer();
-      return true;
-    } catch (e) {
-      console.error('Open live embed failed:', e);
-      mountEl.innerHTML = '<div class="live-embed-ended">Could not load this session.</div>';
-      return false;
-    }
-  },
-
-  // Re-mounts a live embed whose call is already running.
-  _restoreEmbed(mountEl) {
-    this.minimized = false;
-    this.embedMount = mountEl;
-    this.embedHash = window.location.hash;
-
-    const tile = document.getElementById('live-minimized-tile');
-    if (tile) {
-      tile._dragCleanup?.();
-      tile.remove();
-    }
-
-    this.renderSessionUI(mountEl);
-    this._rebuildTiles();
-    if (this.activeSession) this.startChatPolling(this.activeSession.id);
-    this.startSessionTimer();
-    return true;
-  },
 
   // The tiles hold DOM nodes that died with the old page, so rebuild them from
   // the call object and re-attach every track that is still publishing.
@@ -837,65 +735,6 @@ const liveView = {
     this.pickNextFocus();
   },
 
-  // The reader calls this when it unmounts. A minimized embed keeps playing.
-  releaseEmbed() {
-    if (this.minimized && this.embedded) {
-      this.embedMount = null;
-      return;
-    }
-    this.closeEmbed();
-  },
-
-  closeEmbed() {
-    if (!this.embedded) return;
-
-    const sessionId = this.activeSession?.id;
-    if (sessionId) {
-      supabase.rpc('decrement_participant_count', { p_request_id: sessionId })
-        .then(() => {}, () => {});
-    }
-
-    try { sessionStorage.removeItem('liveSession'); } catch (e) {}
-
-    if (this.callObject) {
-      this.callObject.destroy();
-      this.callObject = null;
-    }
-    if (this.sessionChannel) {
-      supabase.removeChannel(this.sessionChannel);
-      this.sessionChannel = null;
-    }
-    this.stopChatPolling();
-    this.stopContentFeed();
-    if (this.sessionTimerInterval) {
-      clearInterval(this.sessionTimerInterval);
-      this.sessionTimerInterval = null;
-    }
-
-    const tile = document.getElementById('live-minimized-tile');
-    if (tile) {
-      tile._dragCleanup?.();
-      tile.remove();
-    }
-    document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
-    document.getElementById('live-chat-panel')?.remove();
-
-    this.participantTiles.clear();
-    this.participantsMap.clear();
-    this.chatMessages = [];
-    this.chatOpen = false;
-    this.activeSession = null;
-    this.sessionRole = null;
-    this.meetingToken = null;
-    this.focusedSessionId = null;
-    this.minimized = false;
-    this.embedded = false;
-    this.embedMount = null;
-    this.embedHash = null;
-    this.gliimPostId = null;
-    this.liveBlocks = [];
-  },
-
   // ============================================
   // Daily.co Integration
   // ============================================
@@ -906,17 +745,11 @@ const liveView = {
       this.callObject = null;
     }
 
-    // Everyone joins as a publisher. Viewers arriving through the reader get
-    // camera and mic off, so nothing is asked until they press a button.
-    const callOptions = this.embedded
-      ? { startAudioOff: true, startVideoOff: true }
-      : {};
-
+    // Everyone joins as a publisher: camera and mic live from the start.
     this.callObject = window.DailyIframe.createCallObject({
       url: roomUrl,
       userName: store.profile?.full_name || 'User',
-      userData: { user_id: store.user.id },
-      ...callOptions
+      userData: { user_id: store.user.id }
     });
 
     this.callObject
@@ -953,7 +786,7 @@ const liveView = {
         else this.setActiveSpeaker(null);
       })
       .on('left-meeting', () => {
-        this.cleanupSession('left');
+        this.cleanupSession();
       })
       .on('error', (e) => {
         console.error('Daily.co error:', e);
@@ -1317,9 +1150,9 @@ const liveView = {
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = 'none';
 
-    // The idle note stands in behind the floating tile so the page is not blank.
-    // Inside the reader there is already a page behind, so leave it alone.
-    if (!this.embedded) this.showIdle(true);
+    // The session list stands in behind the floating tile so the page is not
+    // blank.
+    this.showLanding();
 
     const tile = document.createElement('div');
     tile.className = 'live-minimized-tile';
@@ -1360,16 +1193,6 @@ const liveView = {
       if (ev.target.closest('.live-minimized-close')) return;
       if (tile._wasDragged && tile._wasDragged()) return;
 
-      // The embed lives inside the reader, so restoring means re-mounting there.
-      if (this.embedded) {
-        if (this.embedMount && document.body.contains(this.embedMount)) {
-          this._restoreEmbed(this.embedMount);
-        } else if (this.embedHash) {
-          window.location.hash = this.embedHash.slice(1);
-        }
-        return;
-      }
-
       const currentHash = window.location.hash.split('?')[0];
       if (currentHash !== '#/live') {
         window.location.hash = '/live';
@@ -1389,7 +1212,6 @@ const liveView = {
     // Close button = leave session
     tile.querySelector('.live-minimized-close')?.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (this.embedded) return this.closeEmbed();
       const isHost = this.sessionRole === 'host';
       if (isHost) this.endSession();
       else this.leaveSession();
@@ -1460,7 +1282,7 @@ const liveView = {
     }
 
     document.body.classList.add('live-studio-active');
-    this.hideIdle();
+    this.hideLanding();
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = '';
 
@@ -1482,7 +1304,7 @@ const liveView = {
       tile.remove();
     }
 
-    this.hideIdle();
+    this.hideLanding();
 
     document.body.classList.add('live-studio-active');
     this.renderSessionUI();
@@ -1490,7 +1312,6 @@ const liveView = {
     // Every tile and every track lived in the DOM that just went away, so
     // rebuild them from the call object that is still running.
     this._rebuildTiles();
-    this.startContentFeed();
 
     this.startChatPolling(this.activeSession.id);
     heartbeat.setCurrentPost(null);
@@ -1687,17 +1508,6 @@ const liveView = {
         <h2 style="margin-bottom: 4px;">Share Session</h2>
         <p class="text-muted" style="margin-bottom: 12px; font-size: 13px;">Link copied. Choose where to share.</p>
 
-        <div id="share-everybody-row" class="share-chat-item" style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 8px;">
-          <input type="checkbox" id="share-everybody-cb" style="width:16px;height:16px;accent-color:var(--brand-primary);cursor:pointer;flex-shrink:0;">
-          <span style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-            <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:rgba(139,92,246,0.15);flex-shrink:0;color:var(--brand-primary);">${ICONS.globe}</span>
-            <span style="display:flex;flex-direction:column;min-width:0;">
-              <span class="share-chat-name">Everybody</span>
-              <span style="font-size:11px;color:var(--text-muted);">Post to XpLoRe feed</span>
-            </span>
-          </span>
-        </div>
-
         <div id="share-select-all-row" style="display:flex;align-items:center;gap:10px;padding:6px 12px;margin-bottom:4px;">
           <input type="checkbox" id="share-select-all-cb" style="width:16px;height:16px;accent-color:var(--brand-primary);cursor:pointer;flex-shrink:0;">
           <span style="font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;" id="share-select-all-label">Select all chats</span>
@@ -1715,16 +1525,8 @@ const liveView = {
 
     const listEl = overlay.querySelector('#share-chat-list');
     const doneBtn = overlay.querySelector('#share-done-btn');
-    const everybodyCb = overlay.querySelector('#share-everybody-cb');
-    const everybodyRow = overlay.querySelector('#share-everybody-row');
     const selectAllCb = overlay.querySelector('#share-select-all-cb');
     const selectAllLabel = overlay.querySelector('#share-select-all-label');
-
-    everybodyRow.addEventListener('click', (ev) => {
-      if (ev.target === everybodyCb) return;
-      everybodyCb.checked = !everybodyCb.checked;
-      updateBtn();
-    });
 
     const toggleAll = () => {
       selectAllCb.checked = !selectAllCb.checked;
@@ -1753,42 +1555,20 @@ const liveView = {
 
       const updateBtn = () => {
         const chatChecked = listEl.querySelectorAll('input:checked').length;
-        const everybody = everybodyCb.checked;
-        const total = chatChecked + (everybody ? 1 : 0);
-        doneBtn.disabled = total === 0;
-        if (total === 0) {
-          doneBtn.textContent = 'Share';
-        } else {
-          const parts = [];
-          if (everybody) parts.push('Everybody');
-          if (chatChecked > 0) parts.push(`${chatChecked} chat${chatChecked > 1 ? 's' : ''}`);
-          doneBtn.textContent = `Share to ${parts.join(' + ')}`;
-        }
+        doneBtn.disabled = chatChecked === 0;
+        doneBtn.textContent = chatChecked === 0
+          ? 'Share'
+          : `Share to ${chatChecked} chat${chatChecked > 1 ? 's' : ''}`;
       };
 
       listEl.addEventListener('change', updateBtn);
-      everybodyCb.addEventListener('change', updateBtn);
       updateBtn();
 
       doneBtn.addEventListener('click', async () => {
         const selectedIds = [...listEl.querySelectorAll('input:checked')].map(cb => cb.value);
-        const postToEverybody = everybodyCb.checked;
 
         doneBtn.disabled = true;
         doneBtn.textContent = 'Sharing...';
-
-        let sentCount = 0;
-        let everybodyError = null;
-
-        if (postToEverybody) {
-          try {
-            await this._postToEverybody(sessionTitle);
-            sentCount++;
-          } catch (err) {
-            console.error('Failed to post to XpLoRe:', err);
-            everybodyError = err.message || 'Unknown error';
-          }
-        }
 
         for (const contactId of selectedIds) {
           await supabase.from('messages').insert({
@@ -1799,17 +1579,11 @@ const liveView = {
             attachment_type: 'live_invite',
             is_ai: false
           });
-          sentCount++;
         }
 
         overlay.remove();
-        if (everybodyError) {
-          appAlert(`The session could not be posted to XpLoRe: ${everybodyError}`);
-        } else if (sentCount > 0) {
-          const parts = [];
-          if (postToEverybody) parts.push('XpLoRe feed');
-          if (selectedIds.length > 0) parts.push(`${selectedIds.length} chat${selectedIds.length > 1 ? 's' : ''}`);
-          appAlert(`Shared to ${parts.join(' and ')}.`);
+        if (selectedIds.length > 0) {
+          appAlert(`Shared to ${selectedIds.length} chat${selectedIds.length > 1 ? 's' : ''}.`);
         }
       });
 
@@ -1817,210 +1591,6 @@ const liveView = {
       console.error('Failed to load chats:', err);
       listEl.innerHTML = '<p class="text-muted" style="text-align: center; padding: 20px;">Could not load chats.</p>';
     }
-  },
-
-  async _postToEverybody(sessionTitle) {
-    const sessionId = this.activeSession && this.activeSession.id;
-    if (!sessionId) throw new Error('No active session to publish.');
-    const coverUrl = await this._captureCover();
-    const { data, error } = await supabase.rpc('publish_live_gliim', {
-      p_session_id: sessionId,
-      p_title: String(sessionTitle || '').slice(0, 120),
-      p_cover_url: coverUrl
-    });
-    if (error) throw new Error(error.message);
-    this.gliimPostId = (data && data.post_id) || this.gliimPostId;
-    return data && data.post_id;
-  },
-
-  // Card artwork: the frame the host is broadcasting right now, pushed to R2.
-  // With no usable frame the host's own avatar stands in — never a placeholder.
-  async _captureCover() {
-    const blob = await new Promise(resolve => {
-      try {
-        const video = document.getElementById('live-stage-video') || document.getElementById('live-mini-video');
-        if (!video || !video.videoWidth) return resolve(null);
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        canvas.toBlob(b => resolve(b), 'image/jpeg', 0.8);
-      } catch { resolve(null); }
-    });
-    if (blob) {
-      try {
-        const file = new File([blob], `live-${Date.now()}.jpg`, { type: 'image/jpeg' });
-        return await uploadFile(file, 'media');
-      } catch (e) { console.warn('Live cover upload failed, using avatar:', e); }
-    }
-    return store.profile?.avatar_url || null;
-  },
-
-  // Real-time publishing: anything the host adds here is appended to the live
-  // gliim body, and readers pick it up by polling that body — no reload, no
-  // republish. Same block shapes the composer writes, so the reader renders
-  // them with the code it already has.
-  async addLiveContent() {
-    if (!this.activeSession || this.sessionRole !== 'host') return;
-    if (!this.gliimPostId) await this._resolveGliimPostId();
-    if (!this.gliimPostId) {
-      appAlert('This session is not on XpLoRe yet. Share it to Everybody first, then you can add content to the page.');
-      this.shareSession();
-      return;
-    }
-
-    const KIND_ICONS = {
-      text: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="14" y2="18"></line></svg>',
-      image: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
-      document: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>'
-    };
-
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal-content" style="max-width:440px;">
-        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
-        <h2 style="margin-bottom:4px;">Add to the page</h2>
-        <p class="text-muted" style="margin-bottom:14px;font-size:13px;">Goes onto your live gliim while you stream.</p>
-        <div class="live-add-kinds" id="live-add-kinds">
-          <button type="button" class="live-add-kind active" data-kind="text">${KIND_ICONS.text} Note</button>
-          <button type="button" class="live-add-kind" data-kind="image">${KIND_ICONS.image} Image</button>
-          <button type="button" class="live-add-kind" data-kind="document">${KIND_ICONS.document} Document</button>
-        </div>
-        <textarea id="live-add-text" class="input" rows="4" maxlength="2000" placeholder="What should readers see on the page?" style="margin-top:12px;"></textarea>
-        <label class="custom-file-upload" id="live-add-file-row" style="display:none;margin-top:12px;">
-          <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-          <span id="live-add-file-name">Choose file</span>
-          <input type="file" id="live-add-file" hidden>
-        </label>
-        <div id="live-add-upload" class="upload-status" style="font-size:12px;margin-top:8px;"></div>
-        <input type="text" id="live-add-caption" class="input" placeholder="Caption (optional)" style="margin-top:10px;display:none;">
-        <input type="number" id="live-add-price" class="input" min="0" step="1" placeholder="Price in ₦ (0 = free)" style="margin-top:10px;display:none;">
-        <div id="live-add-status" style="font-size:12px;margin-top:10px;min-height:16px;color:var(--text-muted);"></div>
-        <button class="btn-primary" id="live-add-submit" style="width:100%;margin-top:6px;">Add to the gliim</button>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const q = (sel) => overlay.querySelector(sel);
-    const textEl = q('#live-add-text');
-    const fileRow = q('#live-add-file-row');
-    const fileEl = q('#live-add-file');
-    const fileName = q('#live-add-file-name');
-    const uploadEl = q('#live-add-upload');
-    const captionEl = q('#live-add-caption');
-    const priceEl = q('#live-add-price');
-    const statusEl = q('#live-add-status');
-    const submitBtn = q('#live-add-submit');
-    const state = { kind: 'text', url: '', isPdf: false };
-
-    const paint = () => {
-      textEl.style.display = state.kind === 'text' ? '' : 'none';
-      fileRow.style.display = state.kind === 'text' ? 'none' : '';
-      captionEl.style.display = state.kind === 'text' ? 'none' : '';
-      priceEl.style.display = state.kind === 'document' ? '' : 'none';
-      captionEl.placeholder = state.kind === 'document' ? 'Title (optional)' : 'Caption (optional)';
-      fileEl.accept = state.kind === 'image' ? 'image/*' : '.pdf,.doc,.docx,.epub';
-      if (!fileEl.files.length) fileName.textContent = state.kind === 'image' ? 'Choose image' : 'Choose document';
-    };
-
-    const setStatus = (msg, color) => {
-      statusEl.textContent = msg;
-      statusEl.style.color = color || 'var(--text-muted)';
-    };
-
-    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
-
-    q('#live-add-kinds').addEventListener('click', (ev) => {
-      const btn = ev.target.closest('.live-add-kind');
-      if (!btn || btn === q('.live-add-kind.active')) return;
-      q('#live-add-kinds').querySelectorAll('.live-add-kind').forEach(b => b.classList.toggle('active', b === btn));
-      state.kind = btn.dataset.kind;
-      state.url = '';
-      state.isPdf = false;
-      fileEl.value = '';
-      uploadEl.textContent = '';
-      setStatus('');
-      paint();
-    });
-
-    fileEl.addEventListener('change', async () => {
-      const file = fileEl.files[0];
-      if (!file) return;
-      state.url = '';
-      state.isPdf = false;
-      fileName.textContent = file.name;
-      uploadEl.style.color = 'var(--text-muted)';
-      uploadEl.textContent = 'Uploading… 0%';
-      try {
-        // EPUB/DOCX/PDF masters ride the 'library' presign; images use 'media'.
-        const url = await uploadFile(file, state.kind === 'document' ? 'library' : 'media', (p) => {
-          uploadEl.textContent = `Uploading… ${p}%`;
-        });
-        state.url = url;
-        state.isPdf = isPdfFile(file.name) || isPdfFile(url);
-        uploadEl.style.color = 'var(--success)';
-        uploadEl.textContent = state.kind === 'document' && state.isPdf
-          ? 'Ready — it will appear as a PDF tile.'
-          : 'Ready.';
-      } catch (err) {
-        uploadEl.style.color = 'var(--error)';
-        uploadEl.textContent = err.message || 'Upload failed.';
-      }
-    });
-
-    const buildBlock = () => {
-      if (state.kind === 'text') {
-        const content = textEl.value.trim();
-        if (!content) return null;
-        return { type: 'text', content, style: 'paragraph' };
-      }
-      if (!state.url) return null;
-      const block = { type: state.kind, content: state.url };
-      const caption = captionEl.value.trim();
-      if (caption) block.caption = caption;
-      if (state.kind === 'document') {
-        const price = Math.max(0, Math.round(Number(priceEl.value) || 0));
-        if (price) block.price = price;
-        if (state.isPdf) block.is_pdf = true;
-      }
-      return block;
-    };
-
-    submitBtn.addEventListener('click', async () => {
-      const block = buildBlock();
-      if (!block) { setStatus(state.kind === 'text' ? 'Write something first.' : 'Upload a file first.', 'var(--error)'); return; }
-
-      submitBtn.disabled = true;
-      setStatus('Publishing…');
-      try {
-        const { error } = await supabase.rpc('append_live_blocks', {
-          p_session_id: this.activeSession.id,
-          p_blocks: [block]
-        });
-        if (error) throw error;
-        // Show it to the host immediately instead of waiting for the next tick.
-        if (!this.embedded) {
-          this.liveBlocks = [...this.liveBlocks, block];
-          this.renderContentFeed();
-        }
-        textEl.value = '';
-        captionEl.value = '';
-        priceEl.value = '';
-        fileEl.value = '';
-        state.url = '';
-        state.isPdf = false;
-        uploadEl.textContent = '';
-        fileName.textContent = state.kind === 'image' ? 'Choose image' : 'Choose document';
-        setStatus('Added. Viewers on the page see it right away.', 'var(--success)');
-      } catch (err) {
-        setStatus(err.message || 'Could not add it to the gliim.', 'var(--error)');
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
-
-    paint();
   },
 
   async _fetchChatContacts() {
@@ -2057,7 +1627,7 @@ const liveView = {
   async sendChatMessage() {
     const input = document.getElementById('live-chat-input');
     if (!input) return;
-    const chatSession = this._chatSession();
+    const chatSession = this.activeSession;
     const content = input.value.trim();
     if ((!content && !this._pendingAttachment) || !chatSession) return;
     if (this._sendingChat) return;
@@ -2094,80 +1664,12 @@ const liveView = {
       this._pendingAttachment = null;
       this.clearAttachmentPreview();
       await this.loadChatMessages(chatSession.id);
-      this.notifyChatMentions(content, result.message?.id);
     } catch (error) {
       console.error('Send chat error:', error);
       appAlert('Message not sent: ' + (error?.message || 'unknown error'));
     } finally {
       this._sendingChat = false;
       if (sendBtn) sendBtn.disabled = false;
-    }
-  },
-
-  // Chat is the comment feature on a live gliim, so an @FullName in chat
-  // raises the same Alert a hub comment does.
-  async notifyChatMentions(content, messageId) {
-    if (!content || !content.includes('@') || !store.user) return;
-    try {
-      const postId = await this._resolveGliimPostId();
-      if (!this._mentionProfiles) {
-        const { data } = await supabase.from('profiles').select('id, full_name').neq('id', store.user.id);
-        this._mentionProfiles = data || [];
-      }
-
-      const lower = content.toLowerCase();
-      const myName = (store.profile?.full_name || '').trim().toLowerCase();
-      const sessionTitle = String(this._chatSession()?.title || 'a live session').slice(0, 60);
-      const notified = new Set();
-
-      for (const p of this._mentionProfiles) {
-        const name = (p.full_name || '').trim().toLowerCase();
-        if (!name || name === myName || notified.has(p.id)) continue;
-        if (!lower.includes(`@${name}`)) continue;
-        notified.add(p.id);
-        await supabase.from('notifications').insert({
-          user_id: p.id,
-          actor_id: store.user.id,
-          kind: 'mention',
-          title: `${store.profile?.full_name || 'A Gliimait'} mentioned you in the live chat: "${sessionTitle}"`,
-          link_post: postId,
-          link_comment: messageId || null
-        });
-      }
-    } catch (e) {
-      console.warn('Live chat mention alert failed:', e?.message);
-    }
-  },
-
-  // live_gliim_links is server-only, so find the XpLoRe card for this session
-  // through the author's own approved rows — RLS already limits what comes back.
-  async _resolveGliimPostId() {
-    if (this.gliimPostId) return this.gliimPostId;
-    const chatSession = this._chatSession();
-    const sessionId = chatSession?.id;
-    if (!sessionId) return null;
-    try {
-      const owner = chatSession.user_id || store.user?.id;
-      if (!owner) return null;
-      const { data: posts } = await supabase
-        .from('feed_gliims').select('id')
-        .eq('user_id', owner)
-        .eq('category', 'live')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (!posts?.length) return null;
-
-      const { data: rows } = await supabase
-        .from('feed_gliim_contents').select('post_id, blocks')
-        .in('post_id', posts.map(p => p.id));
-
-      const hit = (rows || []).find(r =>
-        (r.blocks || []).some(b => b && b.type === 'live' && b.session_id === sessionId));
-      this.gliimPostId = hit ? hit.post_id : null;
-      return this.gliimPostId;
-    } catch {
-      return null;
     }
   },
 
@@ -2423,18 +1925,14 @@ const liveView = {
         })
         .eq('id', sessionId);
 
+      // Leave the call before deleting the room: Daily refuses to delete a
+      // room that still has participants in it.
+      if (this.callObject) await this.callObject.leave();
+
       if (roomId) {
-        await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ requestId: sessionId })
-        }).catch(err => console.warn('Delete room failed (non-critical):', err));
+        await deleteRoomQuietly(sessionId, session.access_token);
       }
 
-      if (this.callObject) await this.callObject.leave();
       this.cleanupSession();
     } catch (error) {
       console.error('End session error:', error);
@@ -2447,6 +1945,9 @@ const liveView = {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
+      const roomId = this.sessionRole === 'host' ? this.activeSession.room_id : null;
+      const sessionId = this.activeSession.id;
+
       if (this.sessionRole === 'host') {
         await supabase
           .from('live_requests')
@@ -2455,23 +1956,15 @@ const liveView = {
             completed_by: store.user.id,
             completed_at: new Date().toISOString()
           })
-          .eq('id', this.activeSession.id);
-
-        if (this.activeSession.room_id) {
-          await fetch(`${API_BASE_URL}/api/daily/delete-room`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ requestId: this.activeSession.id })
-          });
-        }
+          .eq('id', sessionId);
       } else {
-        await supabase.rpc('decrement_participant_count', { p_request_id: this.activeSession.id });
+        await supabase.rpc('decrement_participant_count', { p_request_id: sessionId });
       }
 
       if (this.callObject) await this.callObject.leave();
+
+      if (roomId) await deleteRoomQuietly(sessionId, session.access_token);
+
       this.cleanupSession();
     } catch (error) {
       console.error('Force end live error:', error);
@@ -2479,13 +1972,7 @@ const liveView = {
     }
   },
 
-  cleanupSession(reason) {
-    const ended = reason !== 'left';
-    const wasEmbed = this.embedded;
-    const embedMount = this.embedMount;
-    const embedSession = this.activeSession;
-    const embedPostId = this.gliimPostId;
-
+  cleanupSession() {
     // Clear persisted session
     try { sessionStorage.removeItem('liveSession'); } catch (e) {}
 
@@ -2505,7 +1992,6 @@ const liveView = {
       this.sessionTimerInterval = null;
     }
     this.stopChatPolling();
-    this.stopContentFeed();
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
@@ -2523,49 +2009,9 @@ const liveView = {
     this.meetingToken = null;
     this.screenSharing = false;
     this.focusedSessionId = null;
-    this.embedded = false;
-    this.embedMount = null;
-    this.embedHash = null;
-    this.gliimPostId = null;
-    this.liveBlocks = [];
 
-    // Back on the Live page with no session left: show the idle note again.
-    if (document.getElementById('live-container')) this.showIdle();
-
-    // The reader hosts the embed, so tell it the session is gone.
-    if (wasEmbed && ended) {
-      document.getElementById('live-chat-panel')?.remove();
-      if (embedMount && document.body.contains(embedMount)) {
-        embedMount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
-      }
-      window.dispatchEvent(new CustomEvent('live:embed-ended'));
-      return;
-    }
-
-    if (wasEmbed && embedMount && embedSession) this._renderEmbedExit(embedMount, embedSession, embedPostId);
-  },
-
-  // A leave can also be the call being torn down because the host went off
-  // air, so ask the session rather than trusting the event.
-  async _renderEmbedExit(mount, session, postId) {
-    const { data: row } = await supabase
-      .from('live_requests').select('status').eq('id', session.id).maybeSingle();
-    if (!document.body.contains(mount)) return;
-
-    if (!row || row.status !== 'active') {
-      mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
-      window.dispatchEvent(new CustomEvent('live:embed-ended'));
-      return;
-    }
-
-    mount.innerHTML = `
-      <div class="live-embed-left">
-        <span>You left the session.</span>
-        <button class="live-embed-rejoin" type="button">Rejoin</button>
-      </div>`;
-    mount.querySelector('.live-embed-rejoin')?.addEventListener('click', () => {
-      this.openEmbed(mount, session.id, postId);
-    });
+    // Back on the Live page with no session left: show the session list again.
+    if (document.getElementById('live-container')) this.showLanding();
   }
 };
 

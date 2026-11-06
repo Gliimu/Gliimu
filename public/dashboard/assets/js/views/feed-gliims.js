@@ -21,40 +21,78 @@ function parseHashtags(text) {
   );
 }
 
-// The composer's Live block is edited as a plain title + description and
-// carried in the hidden .block-content-input as JSON. Publishing mints the
-// live session from it, so the composer never needs a session to exist yet.
-function readLiveDraft(raw) {
-  let data = null;
-  try { data = JSON.parse(raw); } catch { data = null; }
-  const title = String((data && data.title) || '').trim();
-  if (!title) return null;
-  return { title, description: String((data && data.description) || '').trim() };
+// Block types the composer no longer offers. Drafts and stored content that
+// still carry them are dropped rather than rebuilt.
+const RETIRED_BLOCK_TYPES = ['live', 'slide', 'table'];
+
+// A text block whose style is Poll swaps its textarea for the question and
+// options editor. The poll lives in a hidden .poll-data-input as JSON so the
+// prose in .block-content-input is never mistaken for poll data.
+function setupTextBlock(blockDiv) {
+  const select = blockDiv.querySelector('.block-style-select');
+  const textarea = blockDiv.querySelector('.block-content-input');
+  const panel = blockDiv.querySelector('.poll-builder');
+  const dataInput = blockDiv.querySelector('.poll-data-input');
+  const optionsDiv = panel.querySelector('.poll-options');
+  const questionInput = panel.querySelector('.poll-question-input');
+
+  const sync = () => {
+    const question = questionInput.value.trim();
+    const options = Array.from(optionsDiv.querySelectorAll('.poll-option-input'))
+      .map(input => input.value.trim()).filter(Boolean);
+    dataInput.value = (question || options.length) ? JSON.stringify({ question, options }) : '';
+  };
+
+  const addOption = (value = '') => {
+    if (optionsDiv.children.length >= 6) return;
+    const row = document.createElement('div');
+    row.className = 'poll-builder-row';
+    row.innerHTML = `<input type="text" class="input poll-option-input" placeholder="Option ${optionsDiv.children.length + 1}" value="${escapeHtml(value)}"><button type="button" class="poll-option-remove" aria-label="Remove option">&times;</button>`;
+    row.querySelector('.poll-option-input').addEventListener('input', sync);
+    row.querySelector('.poll-option-remove').onclick = () => {
+      if (optionsDiv.children.length <= 2) return;
+      row.remove();
+      optionsDiv.querySelectorAll('.poll-option-input').forEach((input, i) => {
+        input.placeholder = `Option ${i + 1}`;
+      });
+      sync();
+    };
+    optionsDiv.appendChild(row);
+  };
+
+  questionInput.addEventListener('input', sync);
+  panel.querySelector('.poll-add-option').onclick = () => { addOption(); sync(); };
+
+  // Restore needs to refill the panel before it knows the style is Poll.
+  blockDiv._setPoll = (draft) => {
+    questionInput.value = (draft && draft.question) || '';
+    optionsDiv.innerHTML = '';
+    const opts = (draft && Array.isArray(draft.options)) ? draft.options.slice(0, 6) : [];
+    opts.forEach(opt => addOption(String(opt)));
+    while (optionsDiv.children.length < 2) addOption('');
+    sync();
+  };
+
+  const toggle = () => {
+    const isPoll = select.value === 'poll';
+    textarea.style.display = isPoll ? 'none' : '';
+    panel.style.display = isPoll ? 'block' : 'none';
+    if (isPoll && optionsDiv.children.length < 2) { addOption(); addOption(); }
+  };
+  select.addEventListener('change', toggle);
 }
 
-function hydrateLiveBlock(blockDiv, raw) {
-  const draft = readLiveDraft(raw);
-  const titleInput = blockDiv.querySelector('.live-session-title');
-  if (titleInput) titleInput.value = draft ? draft.title : '';
-  const descInput = blockDiv.querySelector('.live-session-description');
-  if (descInput) descInput.value = draft ? draft.description : '';
+function setPollDraft(blockDiv, block) {
+  blockDiv._setPoll({ question: block.question, options: Array.isArray(block.options) ? block.options : [] });
 }
 
-// live.js carries the session shell helpers; loaded lazily so the feed does not
-// pay for the studio module up front. Bump the query string with live.js.
-function loadLiveModule() {
-  return import('./live.js?v=47').then(mod => mod.default);
-}
-
-// Client mirror of the gliim_kind classifier (sql/unify_feed.sql): live wins
-// over everything else because a live gliim can also carry body blocks; then
+// Client mirror of the gliim_kind classifier (sql/unify_feed.sql):
 // video → bundle; audio (no video) → audiolite; document (no video/audio) →
 // book; image-only (no video/audio/document/pdf) → image-only.
 // Cards use it to style audiolites/books/image-only, without ever loading the body.
 export function gliimKindOf(blocks) {
   const list = (blocks || []).filter(b => b && b.type);
   const types = new Set(list.map(b => b.type));
-  if (types.has('live')) return 'live';
   if (types.has('video')) return 'bundle';
   if (types.has('audio')) return 'audiolite';
   if (list.some(b => b.type === 'document' && isPdfSource(b.content))) return 'bundle';
@@ -646,10 +684,6 @@ const hubView = {
             <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
             <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
-            <div onclick="hubInstance.addBlock('live')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49"></path><path d="M7.76 16.24a6 6 0 0 1 0-8.49"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg> Live</div>
-            <div onclick="hubInstance.addBlock('poll')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Poll</div>
-            <div onclick="hubInstance.addBlock('table')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg> Table</div>
-            <div onclick="hubInstance.addBlock('slide')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v16"></path><path d="M14 4v16"></path></svg> Slide</div>
           </div>
         </div>
 
@@ -707,25 +741,22 @@ const hubView = {
 
       if (!title) return alert("Title is required.");
 
-      // Every pool block must be complete before we can publish.
-      for (const pb of document.querySelectorAll('.builder-block[data-type="poll"]')) {
+      // Every poll needs a question and two real options before we can publish.
+      for (const pb of document.querySelectorAll('.builder-block[data-type="text"]')) {
+        if (pb.querySelector('.block-style-select')?.value !== 'poll') continue;
         let poll = null;
-        try { poll = JSON.parse(pb.querySelector('.block-content-input').value); } catch { poll = null; }
+        try { poll = JSON.parse(pb.querySelector('.poll-data-input').value); } catch { poll = null; }
         const opts = (poll && Array.isArray(poll.options)) ? poll.options.map(o => String(o).trim()).filter(Boolean) : [];
         if (!poll || !String(poll.question || '').trim() || opts.length < 2) {
-          return alert("Your pool block needs a question and at least 2 filled options.");
+          return alert("Your poll needs a question and at least 2 filled options.");
         }
       }
-
-      // A live block without a title would publish as an ordinary gliim with
-      // no session behind it, so it is refused here rather than dropped.
-      if (!this.checkLiveBlocks()) return;
 
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const { blocks: finalBlocks, coverUrl, liveDraft } = this.collectBlocksFromComposer();
+      const { blocks: finalBlocks, coverUrl } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
@@ -733,39 +764,29 @@ const hubView = {
       btn.innerText = "Publishing...";
       btn.disabled = true;
 
-      // A live gliim is minted by the RPC so it skips the review queue and
-      // records the session link; everything else is a plain insert.
-      let liveSessionId = null;
-      let newId = crypto.randomUUID();
+      const newId = crypto.randomUUID();
       try {
-        if (liveDraft) {
-          const minted = await this.mintLiveSession(liveDraft, finalBlocks);
-          liveSessionId = minted.sessionId;
-          newId = await this.publishLiveGliim(liveSessionId, title, minted.blocks);
-        } else {
-          const payload = {
-            id: newId,
-            title, category, description,
-            cover_url: coverUrl,
-            user_id: store.user.id
-          };
-          const premiumToggle = document.getElementById('post-premium-toggle');
-          if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
+        const payload = {
+          id: newId,
+          title, category, description,
+          cover_url: coverUrl,
+          user_id: store.user.id
+        };
+        const premiumToggle = document.getElementById('post-premium-toggle');
+        if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
-          const { error } = await supabase.from('feed_gliims').insert(payload);
-          if (error) throw new Error(error.message);
+        const { error } = await supabase.from('feed_gliims').insert(payload);
+        if (error) throw new Error(error.message);
 
-          // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
-          // If that write fails, remove the shell so no empty gliim lingers.
-          const { error: bodyError } = await supabase
-            .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
-          if (bodyError) {
-            await supabase.from('feed_gliims').delete().eq('id', newId);
-            throw new Error('Failed to save your content: ' + bodyError.message);
-          }
+        // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
+        // If that write fails, remove the shell so no empty gliim lingers.
+        const { error: bodyError } = await supabase
+          .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
+        if (bodyError) {
+          await supabase.from('feed_gliims').delete().eq('id', newId);
+          throw new Error('Failed to save your content: ' + bodyError.message);
         }
       } catch (err) {
-        await this.abandonLiveSession(liveSessionId);
         alert(err.message.startsWith('Failed') ? err.message : 'Failed: ' + err.message);
         btn.innerText = "Publish";
         btn.disabled = false;
@@ -773,10 +794,9 @@ const hubView = {
       }
 
       // Pen-badge members and staff publish instantly; everyone else lands
-      // in the review queue. Live gliims are always instant. Tag notifications
-      // only go out once the post is live — otherwise the tags are queued and
-      // fan out on CRM approval.
-      const willBeLive = !!liveSessionId || store.profile.verification_badge === 'pen' || store.profile.is_admin;
+      // in the review queue. Tag notifications only go out once the post is
+      // live — otherwise the tags are queued and fan out on CRM approval.
+      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
       if (willBeLive) {
         for (const u of this.taggedUsers) {
           await supabase.from('notifications').insert({
@@ -893,14 +913,26 @@ const hubView = {
     
     if (contentRow?.blocks && Array.isArray(contentRow.blocks)) {
       for (const block of contentRow.blocks) {
-        this.addBlock(block.type);
+        // Blocks the composer no longer offers are not carried back into a draft.
+        if (RETIRED_BLOCK_TYPES.includes(block.type)) continue;
+
+        // A stored poll is a text block wearing the Poll style.
+        this.addBlock(block.type === 'poll' ? 'text' : block.type);
         const blockDiv = blocksContainer.lastElementChild;
+
+        if (block.type === 'poll') {
+          const styleSelect = blockDiv.querySelector('.block-style-select');
+          styleSelect.value = 'poll';
+          styleSelect.dispatchEvent(new Event('change'));
+          setPollDraft(blockDiv, block);
+          continue;
+        }
+
         blockDiv.querySelector('.block-content-input').value = block.content || '';
         
         if (block.type === 'text' && block.style) {
           blockDiv.querySelector('.block-style-select').value = block.style;
         }
-        if (block.type === 'live') hydrateLiveBlock(blockDiv, block.content);
         if (block.type === 'image') {
           const capEl = blockDiv.querySelector('.block-caption-input');
           if (capEl && block.caption) capEl.value = block.caption;
@@ -955,25 +987,6 @@ const hubView = {
           legacy.textContent = 'This draft carries an older PDF block. It will be published as it is.';
           blockDiv.appendChild(legacy);
         }
-        if (block.type === 'table') {
-          let data = null;
-          try { data = JSON.parse(block.content || ''); } catch { data = null; }
-          if (data && data.rows && data.cols) {
-            blockDiv.querySelector('.table-rows-input').value = data.rows;
-            blockDiv.querySelector('.table-cols-input').value = data.cols;
-            blockDiv.querySelector('.table-generate-btn').click();
-            if (Array.isArray(data.cells)) {
-              data.cells.forEach((row, r) => {
-                if (!Array.isArray(row)) return;
-                row.forEach((val, c) => {
-                  const inp = blockDiv.querySelector(`.table-cell-input[data-r="${r}"][data-c="${c}"]`);
-                  if (inp) inp.value = val || '';
-                });
-              });
-              blockDiv.querySelector('.block-content-input').value = block.content || '';
-            }
-          }
-        }
       }
     } else {
       // No blocks, add a default text block
@@ -996,13 +1009,11 @@ const hubView = {
 
       if (!title) return alert("Title is required.");
 
-      if (!this.checkLiveBlocks()) return;
-
       const tagSuffix = this.taggedUsers.map(u => `@${u.full_name}`).join(' ');
       const hashSuffix = this.hashtags.map(t => `#${t}`).join(' ');
       const description = [rawDescription, tagSuffix, hashSuffix].filter(Boolean).join(' ');
 
-      const { blocks: finalBlocks, coverUrl, liveDraft } = this.collectBlocksFromComposer();
+      const { blocks: finalBlocks, coverUrl } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
@@ -1012,40 +1023,26 @@ const hubView = {
 
       const draftId = this.editingDraftId;
 
-      // A live draft is published by the RPC (instant approval + session link),
-      // which mints its own gliim — the draft row is then dropped so the feed
-      // never shows the same session twice.
-      let liveSessionId = null;
-      let postId;
+      const postId = draftId;
       try {
-        if (liveDraft) {
-          const minted = await this.mintLiveSession(liveDraft, finalBlocks);
-          liveSessionId = minted.sessionId;
-          postId = await this.publishLiveGliim(liveSessionId, title, minted.blocks);
-          const { error: dropError } = await supabase.from('feed_gliims').delete().eq('id', draftId);
-          if (dropError) console.warn('Could not drop the published draft:', dropError.message);
-        } else {
-          const payload = {
-            title, category, description,
-            cover_url: coverUrl,
-            status: 'approved'
-          };
-          const premiumToggle = document.getElementById('post-premium-toggle');
-          if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
+        const payload = {
+          title, category, description,
+          cover_url: coverUrl,
+          status: 'approved'
+        };
+        const premiumToggle = document.getElementById('post-premium-toggle');
+        if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
-          const { error } = await supabase.from('feed_gliims').update(payload).eq('id', draftId);
-          if (error) throw new Error(error.message);
+        const { error } = await supabase.from('feed_gliims').update(payload).eq('id', draftId);
+        if (error) throw new Error(error.message);
 
-          // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
-          const { error: bodyError } = await supabase
-            .from('feed_gliim_contents')
-            .update({ blocks: finalBlocks })
-            .eq('post_id', draftId);
-          if (bodyError) throw new Error('Failed to save content: ' + bodyError.message);
-          postId = draftId;
-        }
+        // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
+        const { error: bodyError } = await supabase
+          .from('feed_gliim_contents')
+          .update({ blocks: finalBlocks })
+          .eq('post_id', draftId);
+        if (bodyError) throw new Error('Failed to save content: ' + bodyError.message);
       } catch (err) {
-        await this.abandonLiveSession(liveSessionId);
         alert(err.message);
         btn.innerText = "Publish Draft";
         btn.disabled = false;
@@ -1054,7 +1051,7 @@ const hubView = {
 
       // Same gate as a fresh publish: notify now when live, queue the tags
       // for the approval fan-out otherwise.
-      const willBeLive = !!liveSessionId || store.profile.verification_badge === 'pen' || store.profile.is_admin;
+      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
       if (willBeLive) {
         for (const u of this.taggedUsers) {
           await supabase.from('notifications').insert({
@@ -1154,29 +1151,20 @@ const hubView = {
     if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
     if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
     if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
-    if (type === 'live') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49"></path><path d="M7.76 16.24a6 6 0 0 1 0-8.49"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>';
-    if (type === 'poll') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>';
-    if (type === 'table') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>';
-    if (type === 'slide') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v16"></path><path d="M14 4v16"></path></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     let inputHtml = '';
     if (type === 'text') {
-      inputHtml = `<select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option></select><textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>`;
-    } else if (type === 'poll') {
       inputHtml = `
-        <input type="text" class="input poll-question-input" placeholder="Ask a question..." style="margin-bottom: 8px;">
-        <div class="poll-options" style="display: flex; flex-direction: column; gap: 8px;"></div>
-        <button type="button" class="btn-secondary poll-add-option" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">+ Add Option</button>
-        <input type="hidden" class="block-content-input">
-      `;
-    } else if (type === 'live') {
-      inputHtml = `
-        <input type="text" class="input live-session-title" placeholder="Live session title" maxlength="60" style="margin-bottom: 8px;">
-        <textarea class="input live-session-description" placeholder="What is this session about?" rows="3" maxlength="500"></textarea>
-        <div class="upload-status live-session-hint" style="font-size: 12px; margin-top: 8px;">Publishing starts this session. Open your card in the feed to go on air.</div>
-        <input type="hidden" class="block-content-input">
+        <select class="input block-style-select" style="margin-bottom: 8px;"><option value="paragraph">Paragraph</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="list">List</option><option value="poll">Poll</option></select>
+        <textarea class="input block-content-input" placeholder="Write your text..." rows="4"></textarea>
+        <div class="poll-builder" style="display:none;">
+          <input type="text" class="input poll-question-input" placeholder="Ask a question..." style="margin-bottom: 8px;">
+          <div class="poll-options"></div>
+          <button type="button" class="btn-secondary poll-add-option" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">+ Add Option</button>
+        </div>
+        <input type="hidden" class="poll-data-input">
       `;
     } else if (type === 'document') {
       inputHtml = `
@@ -1200,26 +1188,6 @@ const hubView = {
         <input type="hidden" class="doc-is-pdf">
         <input type="hidden" class="block-content-input">
       `;
-    } else if (type === 'table') {
-      inputHtml = `
-        <div class="table-config" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Rows</label>
-          <input type="number" class="input table-rows-input" min="1" max="20" value="2" style="width:60px;">
-          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Cols</label>
-          <input type="number" class="input table-cols-input" min="1" max="10" value="2" style="width:60px;">
-          <button type="button" class="btn-secondary table-generate-btn" style="padding:6px 12px;font-size:13px;">Generate</button>
-        </div>
-        <div class="table-grid-wrapper" style="overflow-x:auto;"></div>
-        <input type="hidden" class="block-content-input">
-      `;
-    } else if (type === 'slide') {
-      inputHtml = `
-        <div class="slide-carousel-wrapper">
-          <div class="slide-list"></div>
-          <button type="button" class="btn-secondary slide-add-btn" style="margin-top:8px;padding:6px 12px;font-size:13px;width:100%;">+ Add Slide</button>
-        </div>
-        <input type="hidden" class="block-content-input">
-      `;
     } else {
       const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*';
       inputHtml = `
@@ -1237,225 +1205,6 @@ const hubView = {
 
     blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
-
-    if (type === 'poll') {
-      const optionsDiv = blockDiv.querySelector('.poll-options');
-      const hiddenInput = blockDiv.querySelector('.block-content-input');
-      const syncPoll = () => {
-        const question = blockDiv.querySelector('.poll-question-input').value.trim();
-        const options = Array.from(optionsDiv.querySelectorAll('.poll-option-input'))
-          .map(i => i.value.trim()).filter(Boolean);
-        hiddenInput.value = (question || options.length)
-          ? JSON.stringify({ question, options })
-          : '';
-      };
-      const addOption = (value = '') => {
-        if (optionsDiv.children.length >= 6) return;
-        const row = document.createElement('div');
-        row.style.cssText = 'display: flex; gap: 8px; align-items: center;';
-        row.innerHTML = `<input type="text" class="input poll-option-input" placeholder="Option ${optionsDiv.children.length + 1}" value="${escapeHtml(value)}"><button type="button" class="poll-option-remove" aria-label="Remove option" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;">×</button>`;
-        row.querySelector('.poll-option-input').addEventListener('input', syncPoll);
-        row.querySelector('.poll-option-remove').onclick = () => {
-          if (optionsDiv.children.length <= 2) return;
-          row.remove();
-          optionsDiv.querySelectorAll('.poll-option-input').forEach((inp, i) => { inp.placeholder = `Option ${i + 1}`; });
-          syncPoll();
-        };
-        optionsDiv.appendChild(row);
-      };
-      addOption();
-      addOption();
-      blockDiv.querySelector('.poll-question-input').addEventListener('input', syncPoll);
-      blockDiv.querySelector('.poll-add-option').onclick = () => {
-        addOption();
-        syncPoll();
-      };
-      return;
-    }
-
-    if (type === 'table') {
-      const wrapper = blockDiv.querySelector('.table-grid-wrapper');
-      const hiddenInput = blockDiv.querySelector('.block-content-input');
-      const rowsInput = blockDiv.querySelector('.table-rows-input');
-      const colsInput = blockDiv.querySelector('.table-cols-input');
-      const genBtn = blockDiv.querySelector('.table-generate-btn');
-
-      const buildTable = (rows, cols, existingCells) => {
-        let html = '<table class="table-grid" style="border-collapse:collapse;width:max-content;min-width:100%;">';
-        for (let r = 0; r < rows; r++) {
-          html += '<tr>';
-          for (let c = 0; c < cols; c++) {
-            const val = existingCells && existingCells[r] ? (existingCells[r][c] || '') : '';
-            html += `<td style="border:1px solid var(--border);padding:0;min-width:100px;"><input type="text" class="input table-cell-input" data-r="${r}" data-c="${c}" value="${escapeHtml(val)}" placeholder="Cell ${r+1},${c+1}" style="border:none;border-radius:0;font-size:13px;padding:8px;min-width:90px;background:transparent;"></td>`;
-          }
-          html += '</tr>';
-        }
-        html += '</table>';
-        wrapper.innerHTML = html;
-        wrapper.querySelectorAll('.table-cell-input').forEach(inp => {
-          inp.addEventListener('input', syncTable);
-        });
-        syncTable();
-      };
-
-      const syncTable = () => {
-        const rows = parseInt(rowsInput.value) || 0;
-        const cols = parseInt(colsInput.value) || 0;
-        if (rows < 1 || cols < 1) { hiddenInput.value = ''; return; }
-        const cells = [];
-        for (let r = 0; r < rows; r++) {
-          cells[r] = [];
-          for (let c = 0; c < cols; c++) {
-            const inp = wrapper.querySelector(`.table-cell-input[data-r="${r}"][data-c="${c}"]`);
-            cells[r][c] = inp ? inp.value : '';
-          }
-        }
-        const hasContent = cells.some(row => row.some(c => c.trim()));
-        hiddenInput.value = hasContent ? JSON.stringify({ rows, cols, cells }) : '';
-      };
-
-      genBtn.onclick = () => {
-        const rows = Math.min(20, Math.max(1, parseInt(rowsInput.value) || 2));
-        const cols = Math.min(10, Math.max(1, parseInt(colsInput.value) || 2));
-        rowsInput.value = rows;
-        colsInput.value = cols;
-        buildTable(rows, cols);
-      };
-
-      rowsInput.addEventListener('change', () => {
-        const rows = Math.min(20, Math.max(1, parseInt(rowsInput.value) || 2));
-        const cols = Math.min(10, Math.max(1, parseInt(colsInput.value) || 2));
-        rowsInput.value = rows;
-        colsInput.value = cols;
-        buildTable(rows, cols);
-      });
-      colsInput.addEventListener('change', () => {
-        const rows = Math.min(20, Math.max(1, parseInt(rowsInput.value) || 2));
-        const cols = Math.min(10, Math.max(1, parseInt(colsInput.value) || 2));
-        rowsInput.value = rows;
-        colsInput.value = cols;
-        buildTable(rows, cols);
-      });
-
-      buildTable(parseInt(rowsInput.value) || 2, parseInt(colsInput.value) || 2);
-      return;
-    }
-
-    if (type === 'slide') {
-      const slideList = blockDiv.querySelector('.slide-list');
-      const hiddenInput = blockDiv.querySelector('.block-content-input');
-      let slideIndex = 0;
-
-      const syncSlides = () => {
-        const slides = [];
-        slideList.querySelectorAll('.slide-item').forEach(item => {
-          const sType = item.dataset.slideType;
-          if (sType === 'text') {
-            const content = item.querySelector('.slide-text-input').value.trim();
-            if (content) slides.push({ type: 'text', content });
-          } else if (sType === 'image') {
-            const url = item.querySelector('.slide-file-url').value;
-            const caption = item.querySelector('.slide-caption-input')?.value.trim() || '';
-            if (url) slides.push({ type: 'image', url, caption });
-          } else if (sType === 'video') {
-            const url = item.querySelector('.slide-file-url').value;
-            if (url) slides.push({ type: 'video', url });
-          } else if (sType === 'audio') {
-            const url = item.querySelector('.slide-file-url').value;
-            const title = item.querySelector('.slide-caption-input')?.value.trim() || '';
-            if (url) slides.push({ type: 'audio', url, title });
-          }
-        });
-        hiddenInput.value = slides.length ? JSON.stringify({ slides }) : '';
-      };
-
-      const addSlide = () => {
-        const idx = slideIndex++;
-        const item = document.createElement('div');
-        item.className = 'slide-item';
-        item.dataset.slideType = 'image';
-        item.innerHTML = `
-          <div class="slide-item-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <select class="input slide-type-select" style="width:auto;font-size:12px;padding:4px 8px;">
-              <option value="image" selected>Image</option>
-              <option value="video">Video</option>
-              <option value="text">Text</option>
-              <option value="audio">Audio</option>
-            </select>
-            <button type="button" class="slide-remove-btn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;">×</button>
-          </div>
-          <div class="slide-item-body"></div>
-        `;
-        slideList.appendChild(item);
-
-        const body = item.querySelector('.slide-item-body');
-        const typeSelect = item.querySelector('.slide-type-select');
-
-        const renderBody = (sType) => {
-          item.dataset.slideType = sType;
-          if (sType === 'text') {
-            body.innerHTML = `<textarea class="input slide-text-input" placeholder="Slide text..." rows="3" style="font-size:13px;"></textarea>`;
-            body.querySelector('.slide-text-input').addEventListener('input', syncSlides);
-          } else {
-            const accept = sType === 'image' ? 'image/*' : sType === 'video' ? 'video/*' : 'audio/*';
-            const captionLabel = sType === 'image' ? 'Caption (optional)' : sType === 'audio' ? 'Title (optional)' : '';
-            body.innerHTML = `
-              <label class="custom-file-upload" style="font-size:12px;">
-                <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-                <span class="slide-file-name">Choose ${sType}</span>
-                <input type="file" class="slide-file-input" accept="${accept}" hidden>
-              </label>
-              <div class="upload-status slide-upload-status" style="font-size:11px;margin-top:4px;"></div>
-              <input type="hidden" class="slide-file-url">
-              ${captionLabel ? `<input type="text" class="input slide-caption-input" placeholder="${captionLabel}" style="margin-top:6px;font-size:12px;">` : ''}
-            `;
-            const fileInput = body.querySelector('.slide-file-input');
-            const urlInput = body.querySelector('.slide-file-url');
-            const statusEl = body.querySelector('.slide-upload-status');
-            const nameEl = body.querySelector('.slide-file-name');
-            fileInput.addEventListener('change', async () => {
-              const file = fileInput.files[0];
-              if (!file) return;
-              statusEl.textContent = 'Uploading...';
-              statusEl.style.color = 'var(--brand-primary)';
-              try {
-                const url = await uploadFile(file, sType, (percent) => {
-                  statusEl.textContent = `Uploading... ${percent}%`;
-                });
-                urlInput.value = url;
-                nameEl.textContent = file.name;
-                statusEl.textContent = 'Done';
-                statusEl.style.color = 'var(--success)';
-              } catch (err) {
-                statusEl.textContent = err.message || 'Upload failed';
-                statusEl.style.color = 'var(--error)';
-              }
-              syncSlides();
-            });
-            urlInput.addEventListener('change', syncSlides);
-            const captionInput = body.querySelector('.slide-caption-input');
-            if (captionInput) captionInput.addEventListener('input', syncSlides);
-          }
-        };
-
-        typeSelect.addEventListener('change', () => renderBody(typeSelect.value));
-        renderBody('image');
-
-        item.querySelector('.slide-remove-btn').onclick = () => {
-          if (slideList.querySelectorAll('.slide-item').length <= 1) return;
-          item.remove();
-          syncSlides();
-        };
-      };
-
-      blockDiv.querySelector('.slide-add-btn').onclick = () => {
-        if (slideList.querySelectorAll('.slide-item').length >= 20) return;
-        addSlide();
-      };
-
-      addSlide();
-      return;
-    }
 
     // Make block draggable
     blockDiv.draggable = true;
@@ -1558,9 +1307,8 @@ const hubView = {
       }
     };
 
-    if (type === 'live') {
-      this.setupLiveBlock(blockDiv);
-    } else if (type !== 'text') {
+    if (type === 'text') setupTextBlock(blockDiv);
+    if (type !== 'text') {
       blockDiv.querySelector('.block-file-input').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1589,45 +1337,24 @@ const hubView = {
     }
   },
 
-  // The Live block is title + description only; the session it points at is
-  // created at publish time (see mintLiveSession), so nothing is fetched here.
-  setupLiveBlock(blockDiv) {
-    const hiddenInput = blockDiv.querySelector('.block-content-input');
-    const titleInput = blockDiv.querySelector('.live-session-title');
-    const descInput = blockDiv.querySelector('.live-session-description');
-
-    const sync = () => {
-      const title = titleInput.value.trim();
-      hiddenInput.value = title
-        ? JSON.stringify({ title, description: descInput.value.trim() })
-        : '';
-    };
-
-    [titleInput, descInput].forEach(el => el.addEventListener('input', sync));
-  },
-
-  // A live block without a title has no session to mint, so the gliim would
-  // publish as an ordinary post with the live material silently gone.
-  checkLiveBlocks() {
-    for (const lb of document.querySelectorAll('.builder-block[data-type="live"]')) {
-      if (!readLiveDraft(lb.querySelector('.block-content-input').value)) {
-        alert("Your live block needs a session title.");
-        return false;
-      }
-    }
-    return true;
-  },
-
-  // Serialize the composer's blocks for storage. Also returns the card cover
-  // and the live session draft when the gliim carries a live block.
+  // Serialize the composer's blocks for storage, also returning the card cover.
   collectBlocksFromComposer() {
     const blocks = [];
     let coverUrl = null;
-    let liveDraft = null;
 
     document.querySelectorAll('.builder-block').forEach(b => {
       const type = b.dataset.type;
       const content = b.querySelector('.block-content-input').value.trim();
+
+      // A text block styled as a poll stores its question in .poll-data-input.
+      if (type === 'text' && b.querySelector('.block-style-select').value === 'poll') {
+        let poll = null;
+        try { poll = JSON.parse(b.querySelector('.poll-data-input').value); } catch { poll = null; }
+        if (!poll || !String(poll.question || '').trim()) return;
+        blocks.push({ type: 'poll', question: poll.question, options: poll.options || [] });
+        return;
+      }
+
       if (!content) return;
 
       const blockData = { type, content };
@@ -1644,66 +1371,13 @@ const hubView = {
         if (price) blockData.price = price;
         if (b.querySelector('.doc-is-pdf')?.value === '1' || isPdfSource(content)) blockData.is_pdf = true;
       }
-      if (type === 'poll') {
-        const poll = JSON.parse(content);
-        blockData.question = poll.question;
-        blockData.options = poll.options;
-        delete blockData.content;
-      }
-      if (type === 'live') {
-        liveDraft = readLiveDraft(content);
-        if (!liveDraft) return;
-      }
       blocks.push(blockData);
 
       if (!coverUrl && (type === 'image' || type === 'video')) coverUrl = content;
       if (!coverUrl && type === 'document') coverUrl = blockData.cover_url || null;
     });
 
-    return { blocks, coverUrl, liveDraft };
-  },
-
-  // Publishing is what brings a live gliim into existence: the block's title
-  // and description become a session in its waiting state, the block is
-  // rewritten to point at that session id, and publish_live_gliim() then owns
-  // the card — instant approval, auto-retire when the session ends.
-  async mintLiveSession(liveDraft, blocks) {
-    const liveModule = await loadLiveModule();
-    const row = await liveModule.createSessionShell(liveDraft.title, liveDraft.description);
-    return {
-      sessionId: row.id,
-      blocks: blocks.map(b => (b.type === 'live' ? { type: 'live', session_id: row.id } : b))
-    };
-  },
-
-  // A session that never made it onto the feed is cancelled so the sweeper
-  // can forget it. Nothing was broadcasting, so there is nothing to tear down.
-  async abandonLiveSession(sessionId) {
-    if (!sessionId) return;
-    await (await loadLiveModule()).endSessionShell(sessionId);
-  },
-
-  // A gliim with a live block is created by the RPC (it writes the session
-  // link, forces category 'live' and approves instantly), then the composer's
-  // own blocks replace the single live block the RPC seeded.
-  async publishLiveGliim(sessionId, title, finalBlocks) {
-    const { data, error } = await supabase.rpc('publish_live_gliim', {
-      p_session_id: sessionId,
-      p_title: title,
-    });
-    if (error) throw new Error(error.message);
-    const postId = data && data.post_id;
-    if (!postId) throw new Error('The session could not be published.');
-
-    const { error: bodyError } = await supabase
-      .from('feed_gliim_contents')
-      .update({ blocks: finalBlocks })
-      .eq('post_id', postId);
-    if (bodyError) {
-      await supabase.rpc('remove_live_gliim', { p_session_id: sessionId });
-      throw new Error('Failed to save your content: ' + bodyError.message);
-    }
-    return postId;
+    return { blocks, coverUrl };
   },
 
   // Autosave: serialize composer state to localStorage so a refresh doesn't
@@ -1718,6 +1392,7 @@ const hubView = {
       const style = block.querySelector('.block-style-select')?.value || '';
       const caption = block.querySelector('.block-caption-input')?.value || '';
       const saved = { type, content, style, caption };
+      if (type === 'text' && style === 'poll') saved.poll = block.querySelector('.poll-data-input')?.value || '';
       if (type === 'document') {
         saved.cover = block.querySelector('.doc-cover-url')?.value || '';
         saved.price = block.querySelector('.doc-price-input')?.value || '';
@@ -1784,16 +1459,37 @@ const hubView = {
         if (builder) {
           builder.innerHTML = '';
           for (const block of state.blocks) {
-            this.addBlock(block.type);
+            if (RETIRED_BLOCK_TYPES.includes(block.type)) continue;
+            // A stored poll is a text block wearing the Poll style.
+            this.addBlock(block.type === 'poll' ? 'text' : block.type);
             const blockDiv = builder.lastElementChild;
             if (!blockDiv) continue;
+            if (block.type === 'poll') {
+              // A legacy autosave keeps the poll JSON in the content field.
+              let poll = null;
+              try { poll = JSON.parse(block.content); } catch { poll = null; }
+              if (!poll) continue;
+              const styleSelect = blockDiv.querySelector('.block-style-select');
+              styleSelect.value = 'poll';
+              styleSelect.dispatchEvent(new Event('change'));
+              setPollDraft(blockDiv, poll);
+              continue;
+            }
             if (block.content) {
               const contentInput = blockDiv.querySelector('.block-content-input');
               if (contentInput) contentInput.value = block.content;
             }
             if (block.style) {
               const styleSelect = blockDiv.querySelector('.block-style-select');
-              if (styleSelect) styleSelect.value = block.style;
+              if (styleSelect) {
+                styleSelect.value = block.style;
+                if (block.type === 'text' && block.style === 'poll') {
+                  styleSelect.dispatchEvent(new Event('change'));
+                  let poll = null;
+                  try { poll = JSON.parse(block.poll || 'null'); } catch { poll = null; }
+                  blockDiv._setPoll(poll || { question: '', options: [] });
+                }
+              }
             }
             if (block.caption) {
               const captionInput = blockDiv.querySelector('.block-caption-input');
@@ -1807,27 +1503,6 @@ const hubView = {
               }
               if (block.price) blockDiv.querySelector('.doc-price-input').value = block.price;
               if (block.isPdf) blockDiv.querySelector('.doc-is-pdf').value = '1';
-            }
-            if (block.type === 'live') hydrateLiveBlock(blockDiv, block.content);
-            if (block.type === 'table' && block.content) {
-              let data = null;
-              try { data = JSON.parse(block.content); } catch { data = null; }
-              if (data && data.rows && data.cols) {
-                blockDiv.querySelector('.table-rows-input').value = data.rows;
-                blockDiv.querySelector('.table-cols-input').value = data.cols;
-                blockDiv.querySelector('.table-generate-btn').click();
-                if (Array.isArray(data.cells)) {
-                  data.cells.forEach((row, r) => {
-                    if (!Array.isArray(row)) return;
-                    row.forEach((val, c) => {
-                      const inp = blockDiv.querySelector(`.table-cell-input[data-r="${r}"][data-c="${c}"]`);
-                      if (inp) inp.value = val || '';
-                    });
-                  });
-                  const ci = blockDiv.querySelector('.block-content-input');
-                  if (ci) ci.value = block.content;
-                }
-              }
             }
           }
         }
@@ -1924,23 +1599,8 @@ const hubView = {
       }
     } catch { /* cards keep the default style */ }
 
-    // On a live gliim the comments ARE the session chat, and clients can't read
-    // live_chat_messages, so the badge count comes from the server-side RPC.
-    await this.populateLiveChatCounts(this.cardKinds);
-
     this.feedLoaded = true;
     this.renderPosts(this.currentPosts);
-  },
-
-  async populateLiveChatCounts(kindMap) {
-    this.liveChatCounts = {};
-    try {
-      const liveIds = Object.keys(kindMap || {}).filter(id => kindMap[id] === 'live');
-      if (!liveIds.length) return this.liveChatCounts;
-      const { data: chatCounts } = await supabase.rpc('live_chat_counts', { p_post_ids: liveIds });
-      for (const row of chatCounts || []) this.liveChatCounts[row.post_id] = Number(row.chat_count) || 0;
-    } catch { /* cards show no chats */ }
-    return this.liveChatCounts;
   },
 
   // Gliim cards live inside the merged Library feed, so filtering and card
@@ -2005,20 +1665,6 @@ const hubView = {
       : '';
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-
-    // Live sessions: same square artwork as a bundle, with the host's avatar
-    // standing in when no snapshot was captured.
-    if (this.cardKinds && this.cardKinds[post.id] === 'live') {
-      const chatCount = (this.liveChatCounts || {})[post.id] || 0;
-      const liveSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49"></path><path d="M7.76 16.24a6 6 0 0 1 0-8.49"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path><path d="M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>';
-      const art = post.cover_url || post.profiles?.avatar_url || '';
-      const cardStyle = art ? ` style="background-image: url('${escapeHtml(art)}');"` : '';
-      return `<article class="audiolite-card bundle-card live-card" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${liveSvg}Live</span><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
-        <h2 class="audiolite-title">${escapeHtml(post.title || 'Untitled Gliim')}</h2>
-        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${chatCount}</span></div></div>
-      </article>`;
-    }
 
     if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
       const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
@@ -2322,45 +1968,6 @@ const hubView = {
             </button>`).join('');
           return `<div class="poll-block" data-poll-post="${post.id}"><h3 class="read-block-subtitle">${escapeHtml(question)}</h3><div class="poll-options-list">${rows}</div><div class="poll-total" data-poll-total></div></div>`;
         }
-        if (b.type === 'table') {
-          let data = null;
-          try { data = JSON.parse(b.content); } catch { data = null; }
-          if (!data || !Array.isArray(data.cells) || !data.rows || !data.cols) return '';
-          let html = '<div class="read-block-table-wrap"><table class="read-block-table"><tbody>';
-          for (let r = 0; r < data.rows; r++) {
-            html += '<tr>';
-            for (let c = 0; c < data.cols; c++) {
-              const val = data.cells[r] && data.cells[r][c] ? escapeHtml(data.cells[r][c]) : '';
-              html += `<td>${val}</td>`;
-            }
-            html += '</tr>';
-          }
-          html += '</tbody></table></div>';
-          return html;
-        }
-        if (b.type === 'slide') {
-          let data = null;
-          try { data = JSON.parse(b.content); } catch { data = null; }
-          if (!data || !Array.isArray(data.slides) || !data.slides.length) return '';
-          const slidesHtml = data.slides.map((s, idx) => {
-            if (s.type === 'image') {
-              const cap = s.caption ? `<div class="slide-caption">${escapeHtml(s.caption)}</div>` : '';
-              return `<div class="slide-item-view"><img src="${escapeHtml(s.url)}" alt="" loading="lazy">${cap}</div>`;
-            }
-            if (s.type === 'video') {
-              return `<div class="slide-item-view"><video controls preload="metadata" src="${escapeHtml(s.url)}"></video></div>`;
-            }
-            if (s.type === 'audio') {
-              const title = s.title ? `<div class="slide-caption">${escapeHtml(s.title)}</div>` : '';
-              return `<div class="slide-item-view"><audio controls preload="metadata" src="${escapeHtml(s.url)}"></audio>${title}</div>`;
-            }
-            if (s.type === 'text') {
-              return `<div class="slide-item-view slide-text-view"><p>${escapeHtml(s.content)}</p></div>`;
-            }
-            return '';
-          }).join('');
-          return `<div class="slide-carousel-view" data-slide-idx="0"><div class="slide-track">${slidesHtml}</div><div class="slide-nav"><button class="slide-nav-btn slide-prev" onclick="hubInstance.slideNav(this,-1)">&#8249;</button><span class="slide-counter">1 / ${data.slides.length}</span><button class="slide-nav-btn slide-next" onclick="hubInstance.slideNav(this,1)">&#8250;</button></div></div>`;
-        }
         return '';
       }).join('');
     } else if (post.is_premium && !isOwner) {
@@ -2518,24 +2125,6 @@ const hubView = {
         : (error && error.message) || 'Could not save your vote.');
     }
     await this.hydratePolls(block);
-  },
-
-  slideNav(btn, dir) {
-    const carousel = btn.closest('.slide-carousel-view');
-    if (!carousel) return;
-    const track = carousel.querySelector('.slide-track');
-    const items = track.querySelectorAll('.slide-item-view');
-    if (!items.length) return;
-    let idx = parseInt(carousel.dataset.slideIdx || '0');
-    idx = Math.max(0, Math.min(items.length - 1, idx + dir));
-    carousel.dataset.slideIdx = idx;
-    track.style.transform = `translateX(-${idx * 100}%)`;
-    const counter = carousel.querySelector('.slide-counter');
-    if (counter) counter.textContent = `${idx + 1} / ${items.length}`;
-    const prev = carousel.querySelector('.slide-prev');
-    const next = carousel.querySelector('.slide-next');
-    if (prev) prev.disabled = idx === 0;
-    if (next) next.disabled = idx === items.length - 1;
   },
 
   // Read-view media wiring: the equalizer dances while an audio chapter
@@ -2878,7 +2467,6 @@ window.hubInstance = {
   addBlock: (type) => hubView.addBlock(type),
   hydratePolls: (scope) => hubView.hydratePolls(scope),
   pollVote: (postId, idx) => hubView.pollVote(postId, idx),
-  slideNav: (btn, dir) => hubView.slideNav(btn, dir),
   saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),

@@ -1,5 +1,9 @@
 -- ============================================================
--- Live sessions as XpLoRe gliims
+-- Live sessions as XpLoRe gliims  [RETIRED — archive copy only]
+--
+-- Do not run this file. The feature was removed and everything it
+-- creates is dropped by sql/remove_live_gliims.sql; this copy is kept
+-- because it is where the bodies of the dropped functions live.
 --
 -- A live session shared to "Everybody" becomes a real gliim card
 -- in the XpLoRe feed. The card row lives in feed_gliims, its body

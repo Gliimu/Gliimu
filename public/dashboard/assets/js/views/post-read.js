@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=109';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=110';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -16,7 +16,6 @@ let scrollHandler = null;
 let resizeHandler = null;
 let keydownHandler = null;
 let clickOutsideHandler = null;
-let liveEndedHandler = null;
 
 export default {
   template: `
@@ -43,30 +42,6 @@ export default {
       document.removeEventListener('click', clickOutsideHandler);
       clickOutsideHandler = null;
     }
-    if (liveEndedHandler) {
-      window.removeEventListener('live:embed-ended', liveEndedHandler);
-      liveEndedHandler = null;
-    }
-    // A minimized embed keeps broadcasting; anything else is torn down.
-    if (this._liveCountTimer) {
-      clearInterval(this._liveCountTimer);
-      this._liveCountTimer = null;
-    }
-    if (this._chatTargetTimer) {
-      clearInterval(this._chatTargetTimer);
-      this._chatTargetTimer = null;
-    }
-    if (this._liveBodyTimer) {
-      clearInterval(this._liveBodyTimer);
-      this._liveBodyTimer = null;
-    }
-    if (this.liveView) {
-      this.liveView.releaseEmbed();
-      this.liveView.closeChatOnly();
-      this.liveView = null;
-    }
-    this.liveSessionId = null;
-    this.isLiveHostCard = false;
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
     sessionStorage.removeItem('openReadViewId');
@@ -92,8 +67,6 @@ export default {
     }
 
     this.postId = postId;
-    this.liveSessionId = null;
-    this.isLiveHostCard = false;
 
     // Block Ctrl+S (save) and Ctrl+P (print) on the reader page
     keydownHandler = (e) => {
@@ -122,31 +95,19 @@ export default {
       .eq('post_id', postId).maybeSingle();
     post.blocks = contentRow?.blocks || null;
 
-    if (gliimKindOf(post.blocks) === 'live') {
-      const liveBlock = (post.blocks || []).find(b => b.type === 'live');
-      this.liveSessionId = liveBlock?.session_id || null;
-    }
-
-    // The host's own card is the studio door: same page, but the mount holds
-    // the way in instead of a player of their own broadcast.
-    this.isLiveHostCard = !!this.liveSessionId && post.user_id === store.user.id;
-
-    // Watching a live session is free, so the reading gate does not apply.
-    if (!this.liveSessionId) {
-      const { data: balanceData } = await supabase.rpc('gliits_get_balance');
-      if (balanceData) {
-        const balance = Number(balanceData.balance || 0);
-        const plan = balanceData.plan;
-        const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
-        if (balance < 3 && !planActive) {
-          window.location.hash = '#/xplore';
-          setTimeout(() => {
-            if (typeof appAlert === 'function') {
-              appAlert('Your balance is below G3. Top up or activate a plan to continue reading.');
-            }
-          }, 100);
-          return;
-        }
+    const { data: balanceData } = await supabase.rpc('gliits_get_balance');
+    if (balanceData) {
+      const balance = Number(balanceData.balance || 0);
+      const plan = balanceData.plan;
+      const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
+      if (balance < 3 && !planActive) {
+        window.location.hash = '#/xplore';
+        setTimeout(() => {
+          if (typeof appAlert === 'function') {
+            appAlert('Your balance is below G3. Top up or activate a plan to continue reading.');
+          }
+        }, 100);
+        return;
       }
     }
 
@@ -164,166 +125,12 @@ export default {
     await this.populateCardKinds(relatedPosts);
     await this.checkFollowStatus(post.user_id);
 
-    // The reader needs the live module before render: the chat panel is the
-    // comment feature for a live gliim.
-    if (this.liveSessionId) {
-      const { default: liveView } = await import('./live.js?v=47');
-      this.liveView = liveView;
-    }
-
     this.render(post, interactions, relatedPosts);
     this.setupScrollProgress();
 
-    if (this.liveSessionId) {
-      await this.mountLiveEmbed();
-      this.scrollToChatTarget();
-      this.startLiveBodyPolling();
-    } else {
-      // Billing only runs while a post is actually open in the reader.
-      heartbeat.setCurrentPost(postId);
-      heartbeat.start();
-    }
-  },
-
-  // The live card opens the broadcast in the studio layout: the viewer is
-  // already in the call and can turn on their camera and microphone.
-  async mountLiveEmbed() {
-    const mount = document.getElementById('read-live-mount');
-    const liveView = this.liveView;
-    if (!mount || !liveView) return;
-
-    liveEndedHandler = () => {
-      if (liveView.minimized) return;
-      const path = window.location.hash.split('?')[0];
-      if (path === '#/post' || path === '#/read') {
-        window.location.hash = '#/xplore';
-      }
-    };
-    window.addEventListener('live:embed-ended', liveEndedHandler);
-
-    if (this.isLiveHostCard) {
-      await this.renderHostLiveControl(mount);
-      this.syncLiveCommentCount();
-      return;
-    }
-
-    const ok = await liveView.openEmbed(mount, this.liveSessionId, this.postId);
-    if (!ok && !mount.innerHTML.trim()) {
-      mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
-    }
-    this.syncLiveCommentCount();
-  },
-
-  // The host does not watch their own broadcast: the card carries the door
-  // into the studio, and the chat below still works as the comments.
-  async renderHostLiveControl(mount) {
-    const liveView = this.liveView;
-    const { data: request } = await supabase
-      .from('live_requests')
-      .select('id, status')
-      .eq('id', this.liveSessionId)
-      .maybeSingle();
-
-    if (!request || request.status === 'completed' || request.status === 'cancelled') {
-      mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
-      return;
-    }
-
-    const onAir = request.status === 'active';
-    mount.innerHTML = `
-      <div class="read-live-host">
-        <span class="read-live-host-state">${onAir ? 'You are on air.' : 'Announced. Nothing is broadcasting yet.'}</span>
-        <button class="read-live-host-btn" type="button">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>
-          ${onAir ? 'Back to your studio' : 'Go on air'}
-        </button>
-      </div>`;
-
-    mount.querySelector('.read-live-host-btn')?.addEventListener('click', () => {
-      if (onAir) window.location.hash = `/live?join=${this.liveSessionId}`;
-      else liveView.goOnAir(this.liveSessionId);
-    });
-
-    await liveView.openChatOnly(this.liveSessionId, this.postId);
-  },
-
-  // For a live gliim the comment count is the chat count.
-  syncLiveCommentCount() {
-    const liveView = this.liveView;
-    if (!this.liveSessionId || !liveView) return;
-    const apply = () => {
-      const el = document.getElementById('read-comment-count');
-      if (el) el.textContent = String(liveView.chatMessages?.length || 0);
-    };
-    apply();
-    if (!this._liveCountTimer) {
-      this._liveCountTimer = setInterval(apply, 3000);
-    }
-  },
-
-  // The host can push new blocks onto the live gliim mid-broadcast. Viewers
-  // who already have the page open get them appended — never a full re-render,
-  // which would tear the video embed down.
-  startLiveBodyPolling() {
-    if (this._liveBodyTimer) return;
-    this._liveBodyTimer = setInterval(() => this.checkLiveBodyUpdates(), 2500);
-  },
-
-  async checkLiveBodyUpdates() {
-    if (!this.liveSessionId || !this.currentPost) return;
-    const { data: row } = await supabase
-      .from('feed_gliim_contents').select('blocks')
-      .eq('post_id', this.postId).maybeSingle();
-    const blocks = (row && row.blocks) || [];
-    const seen = (this.currentPost.blocks || []).length;
-    if (blocks.length <= seen) return;
-
-    const fresh = blocks.slice(seen).filter(b => b && b.type !== 'live');
-    this.currentPost.blocks = blocks;
-    const holder = document.getElementById('read-blocks');
-    if (!fresh.length || !holder) return;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'read-live-additions';
-    wrap.innerHTML = this.renderBlocks({ ...this.currentPost, blocks: fresh }, this.isOwnerView);
-    holder.appendChild(wrap);
-
-    hubView.setupMediaBlocks(wrap);
-    hubView.hydratePolls(wrap);
-    wrap.querySelectorAll('.rdr-inline-file[data-file-src]').forEach(el => {
-      const src = el.getAttribute('data-file-src');
-      if (src) renderFileInto(src, el);
-    });
-  },
-
-  // A mention alert carries the exact comment. On a live gliim the comments
-  // are chat messages, so open the chat modal and highlight that message once
-  // the 3-second poll has delivered it.
-  scrollToChatTarget() {
-    const commentId = sessionStorage.getItem('openCommentId');
-    if (!commentId) return;
-    sessionStorage.removeItem('openCommentId');
-
-    const modal = document.getElementById('comments-modal');
-    if (modal) {
-      modal.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    }
-
-    const reveal = () => {
-      const el = document.getElementById(`chat-msg-${commentId}`);
-      if (!el) return false;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('chat-highlight');
-      setTimeout(() => el.classList.remove('chat-highlight'), 3000);
-      return true;
-    };
-
-    if (reveal()) return;
-    let tries = 0;
-    this._chatTargetTimer = setInterval(() => {
-      if (reveal() || ++tries > 20) clearInterval(this._chatTargetTimer);
-    }, 500);
+    // Billing only runs while a post is actually open in the reader.
+    heartbeat.setCurrentPost(postId);
+    heartbeat.start();
   },
 
   async fetchPost(postId) {
@@ -442,12 +249,10 @@ export default {
         hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
       }
     } catch { /* cards keep the default style */ }
-    await hubView.populateLiveChatCounts(hubView.cardKinds);
   },
 
   render(post, interactions, relatedPosts) {
     const isOwner = post.user_id === store.user.id;
-    const isLive = !!this.liveSessionId;
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url
       ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
@@ -611,20 +416,16 @@ export default {
 
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
 
-    // A live gliim's comments ARE its chat: same panel, same polling, same
-    // attachments, so viewers and the host all see one conversation.
-    const bodyHtml = this.liveSessionId
-      ? this.liveView.chatPanelHtml(false, 'live-chat-in-modal', false)
-      : `
-          <div class="comment-input-wrapper">
-            <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
-            <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
-              ${commentSvg}
-            </button>
-          </div>
-          <div class="comment-list" id="comment-list-${post.id}">
-            ${commentsHtml}
-          </div>`;
+    const bodyHtml = `
+      <div class="comment-input-wrapper">
+        <input type="text" id="comment-text-${post.id}" class="input" placeholder="Write a comment... Use @ to tag.">
+        <button class="comment-send-btn" onclick="hubInstance.submitComment('${post.id}')">
+          ${commentSvg}
+        </button>
+      </div>
+      <div class="comment-list" id="comment-list-${post.id}">
+        ${commentsHtml}
+      </div>`;
 
     modal.innerHTML = `
       <div class="comments-modal-content" onclick="event.stopPropagation()">
@@ -642,12 +443,8 @@ export default {
 
     modal.onclick = () => hubInstance.closeCommentsModal();
 
-    if (this.liveSessionId) {
-      this.liveView.renderChatMessages?.();
-    } else {
-      hubView.setupMentionPicker(post.id);
-      hubView.setupAudioliteTimestampHint(post.id);
-    }
+    hubView.setupMentionPicker(post.id);
+    hubView.setupAudioliteTimestampHint(post.id);
   },
 
   openCommentsModal(postId) {
@@ -669,7 +466,6 @@ export default {
   renderBlocks(post, isOwner) {
     if (post.blocks && post.blocks.length > 0) {
       return post.blocks.map(b => {
-        if (b.type === 'live') return '<div class="read-live-mount" id="read-live-mount"></div>';
         if (b.type === 'text') {
           if (b.style === 'title') return `<h2 class="read-block-title">${escapeHtml(b.content)}</h2>`;
           if (b.style === 'subtitle') return `<h3 class="read-block-subtitle">${escapeHtml(b.content)}</h3>`;

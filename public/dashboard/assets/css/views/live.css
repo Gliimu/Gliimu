@@ -1,28 +1,208 @@
 /* ============================================
-   LIVE — IDLE STATE (no session running)
+   LIVE PAGE — LANDING (session list + host modal)
    ============================================ */
-.live-idle {
+.live-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 45vh;
-  padding: 48px 24px;
-  text-align: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
-.live-idle h3 {
-  font-size: 18px;
-  font-weight: 700;
+.live-header h2 {
+  font-size: 22px;
+  font-weight: 800;
   color: var(--text-primary);
   margin: 0;
 }
-.live-idle-hint {
+.live-header .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.live-header .btn-primary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.live-sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.live-session-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.live-session-card:hover {
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.08);
+}
+
+.live-session-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.live-session-card-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.live-session-card-onair {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--error);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.live-session-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.live-session-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.live-session-card-host {
+  font-weight: 500;
+}
+.live-session-card-participants {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.live-session-card-participants svg {
+  width: 14px;
+  height: 14px;
+}
+
+.live-session-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.live-session-card-actions button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.live-session-card-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.live-loading,
+.live-empty,
+.live-error {
+  text-align: center;
+  padding: 48px 24px;
   font-size: 14px;
   color: var(--text-muted);
-  margin: 0;
-  max-width: 420px;
-  line-height: 1.5;
+  margin: auto;
+}
+.live-error {
+  color: var(--error);
+}
+
+/* Host modal */
+#live-host-modal .modal-content {
+  max-width: 440px;
+}
+#live-host-modal h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  color: var(--text-primary);
+}
+#live-host-modal .form-group {
+  margin-bottom: 16px;
+}
+#live-host-modal label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+#live-host-modal .live-host-submit {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .live-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .live-header h2 {
+    font-size: 18px;
+  }
+  .live-header .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .live-sessions-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .live-session-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .live-session-card {
+    padding: 14px;
+  }
+  .live-session-card-header h3 {
+    font-size: 15px;
+  }
+  .live-session-card-desc {
+    font-size: 12px;
+  }
+  .live-session-card-actions {
+    flex-direction: column;
+  }
 }
 
 /* ============================================
@@ -61,15 +241,6 @@ body.live-studio-active .topbar {
   flex-direction: column;
 }
 
-/* Mounted inside the reader page the studio is just another block in the
-   scroll, so it stops being a full-height shell. */
-.live-studio-container.is-embedded {
-  min-height: 0;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
 .live-video-area {
   flex: 0 0 auto;
   height: clamp(320px, 56vh, 620px);
@@ -79,10 +250,6 @@ body.live-studio-active .topbar {
   padding: 12px;
   min-height: 0;
   position: relative;
-}
-
-.is-embedded .live-video-area {
-  height: clamp(280px, 44vh, 460px);
 }
 
 /* Stage — the large focused video */
@@ -284,15 +451,11 @@ body.live-studio-active .topbar {
 /* ============================================
    CONTROLS BAR
    ============================================ */
-/* Video + controls stay on screen while the added content scrolls beneath. */
 .live-studio-top {
   position: sticky;
   top: 0;
   z-index: 12;
   background: #0a0a0a;
-}
-.is-embedded .live-studio-top {
-  position: static;
 }
 
 .live-controls-bar {
@@ -345,89 +508,6 @@ body.live-studio-active .topbar {
 .live-ctrl-btn.copied {
   background: rgba(34, 197, 94, 0.3);
   border-color: #22c55e;
-}
-
-/* ============================================
-   CONTENT THE HOST ADDS TO THE GLIIM
-   ============================================ */
-.live-content-feed {
-  flex: 1 0 auto;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 20px 18px 60px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.live-feed-empty {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
-  text-align: center;
-}
-
-.live-feed-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.live-feed-text {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.live-feed-figure {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.live-feed-figure img {
-  width: 100%;
-  height: auto;
-  border-radius: 12px;
-  display: block;
-}
-.live-feed-figure figcaption {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.live-feed-file {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
-}
-.live-feed-file-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.live-feed-price {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
 }
 
 /* ============================================
@@ -1140,158 +1220,4 @@ body.live-studio-active .topbar {
   18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   75% { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(1.04); }
-}
-
-/* ============================================
-   LIVE CALL MOUNTED INSIDE THE READER
-   The viewer gets the studio itself, inline in the article.
-   ============================================ */
-.read-live-mount {
-  margin: 0 0 28px;
-}
-
-.live-embed-ended {
-  padding: 48px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  background: var(--bg-secondary, #111);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  font-size: 14px;
-}
-
-/* Announced but not on air: the card is live, the broadcast is not yet. */
-.live-embed-waiting {
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  border: 1px dashed var(--border);
-  border-radius: 16px;
-  font-size: 14px;
-}
-
-/* The viewer left on their own: the broadcast is still on air. */
-.live-embed-left {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 32px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  background: var(--bg-secondary, #111);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  font-size: 14px;
-}
-
-.live-embed-rejoin {
-  border: 0;
-  border-radius: 999px;
-  padding: 8px 16px;
-  background: var(--brand-primary);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* ============================================
-   HOST'S OWN LIVE CARD — the door to the studio
-   ============================================ */
-.read-live-host {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 44px 20px;
-  text-align: center;
-  background: var(--bg-secondary, #111);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-.read-live-host-state {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-.read-live-host-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 22px;
-  border: none;
-  border-radius: 999px;
-  background: var(--brand-primary);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: filter 0.15s ease;
-}
-.read-live-host-btn:hover {
-  filter: brightness(1.08);
-}
-.read-live-host-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* The reader's comments modal hosts the same chat panel, but inline. */
-.live-chat-panel.live-chat-in-modal {
-  position: static;
-  width: 100%;
-  height: 60vh;
-  border-left: none;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  z-index: 1;
-}
-.live-chat-in-modal .live-chat-messages {
-  background: transparent;
-}
-.live-chat-in-modal .live-chat-input input {
-  color: var(--text-primary);
-}
-
-/* A mention alert deep-links into the chat and flashes the target message,
-   the same way a hub comment highlight does. */
-.live-chat-message.chat-highlight {
-  background: var(--brand-primary-light);
-  box-shadow: 0 0 0 1px var(--brand-primary);
-  transition: background 0.3s ease;
-}
-
-/* Host's "add to the page" dialog: three kinds, one submit. */
-.live-add-kinds {
-  display: flex;
-  gap: 8px;
-}
-.live-add-kind {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 9px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.live-add-kind.active {
-  border-color: var(--brand-primary);
-  color: var(--brand-primary);
-  background: var(--brand-primary-soft);
-}
-
-@media (max-width: 768px) {
-  .is-embedded .live-video-area {
-    height: 340px;
-  }
 }

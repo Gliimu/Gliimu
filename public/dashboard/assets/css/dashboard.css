@@ -218,7 +218,8 @@
 /* The word only fits once the rail is wide enough to hold it */
 .rail-toggle-label { display: none; }
 
-/* Unread indicator (alerts live on the XpLoRe tab and the mobile bell) */
+/* Unread indicator — rides the nav row it belongs to (Ping) and the profile
+   avatar, which carries alerts on every screen */
 .unread-dot {
   position: absolute;
   top: 8px;
