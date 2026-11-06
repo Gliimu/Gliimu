@@ -103,7 +103,6 @@ still_there as (
 ),
 kept(fn) as (
   values ('add_gp'),('deduct_wallet'),('send_support'),('bump_post_views'),
-         ('featured_slot_check'),('xplore_spotlight'),('earned_gp_pattern'),
          ('gliits_heartbeat'),('gliits_get_balance'),('publish_live_gliim'),
          ('request_account_deletion'),('registrar_members')
 ),

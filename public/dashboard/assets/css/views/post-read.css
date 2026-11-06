@@ -165,23 +165,55 @@
   }
 }
 
-/* Engagement bar — sticky at bottom, edge-to-edge within .view-container */
+/* Engagement rail — the four actions stand vertically beside the article, the
+   way every short-video app does it, so the text keeps the whole screen height.
+   `right` is set by positionRail() in post-read.js: it measures the reading
+   column and parks the rail in the pad reserved by .post-read-main's
+   padding-right. The value here only covers the frame before JS runs. */
 .post-read-bottom {
-  position: sticky;
-  bottom: var(--bottom-bar-h);
-  background: var(--bg-primary);
-  border-top: 1px solid var(--border);
-  z-index: 50;
-  margin: 0 calc(-1 * var(--space-8));
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 16px;
+  z-index: 14;
+  transition: opacity 0.18s ease;
+}
+
+/* Out of sight once the recommendation grid takes over the screen. */
+.post-read-bottom.is-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .post-read-bottom-inner {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 9px 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  gap: 32px;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.post-read-bottom .action-btn {
+  flex-direction: column;
+  gap: 2px;
+  width: 48px;
+  padding: 9px 0 6px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.post-read-bottom .action-btn span {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.post-read-main {
+  padding-right: 76px;
 }
 
 /* Mobile adjustments */
@@ -190,14 +222,21 @@
     padding: 5px 16px;
   }
   .post-read-main {
-    padding: 0 12px 0;
+    padding: 0 66px 0 12px;
   }
   .post-read-main .read-body {
     padding: 20px 0;
   }
-  .post-read-bottom-inner {
-    padding: 7px 0;
-    gap: 24px;
+  .post-read-bottom {
+    top: auto;
+    bottom: calc(var(--bottom-bar-h) + 12px);
+    transform: none;
+    right: 12px;
+  }
+  .post-read-bottom .action-btn {
+    width: 44px;
+    padding: 7px 0 5px;
+    border-radius: 12px;
   }
 }
 

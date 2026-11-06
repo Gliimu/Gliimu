@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=108';
+import hubView from './feed-gliims.js?v=109';
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
@@ -6,7 +6,6 @@ import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
 const SEARCH_HISTORY_KEY = 'gliimu_search_history';
 const MAX_HISTORY = 8;
 const CHIP_COUNT = 3;
-const SLOT_COUNT = 3;
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -22,12 +21,11 @@ const CLOSE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="1
 const PEN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
 const BELL_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>';
 const GEAR_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
-const PLUS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
 const BLANK_AVATAR = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E";
 
 // XpLoRe is the single home of every published work and of search itself.
-// The resting state is browse (account cluster, search box, spotlight,
-// category tabs, then the feed); typing swaps the feed for results in place.
+// The resting state is browse (account cluster, search box, category tabs,
+// then the feed); typing swaps the feed for results in place.
 // Data, cards and the composer still belong to hubView.
 export default {
   title: 'XpLoRe',
@@ -50,8 +48,6 @@ export default {
         </div>
         <div class="xplore-chips" id="xplore-chips"></div>
       </div>
-
-      <div class="xplore-spotlight" id="xplore-spotlight" hidden></div>
 
       <div class="libmerge hub-layout" id="library-container">
         <div class="hub-category-tabs" id="hub-category-tabs">
@@ -104,7 +100,6 @@ export default {
     window.feedInstance = this;
     this.refreshDots();
     this.applySelfAvatar();
-    this.loadSpotlight();
   },
 
   // app.js paints [data-user-avatar] once at boot, before this view exists,
@@ -180,8 +175,6 @@ export default {
     this.searchQuery = term;
     this.addToHistory(term);
     this.renderChips(false);
-    // Browse furniture has no business on screen while results are wanted.
-    this.setSpotlightVisible(false);
     this.renderRing();
     const container = document.getElementById('library-feed');
     if (container) container.innerHTML = '<p style="text-align:center;width:100%;padding:60px 0;color:var(--text-muted);">Searching…</p>';
@@ -196,7 +189,6 @@ export default {
     this.requestId++;
     const input = document.getElementById('xplore-search-input');
     if (input) input.value = '';
-    this.setSpotlightVisible(true);
     this.renderRing();
     this.renderChips(document.activeElement === input);
   },
@@ -471,102 +463,6 @@ export default {
         </span>
         <span class="xplore-ring-name">${escapeHtml(creator.name)}${creator.badge ? badgeIcon(creator.badge) : ''}</span>
       </button>`).join('');
-  },
-
-  /* -------------------------------- spotlight -------------------------------- */
-  // Three slots on the XpLoRe stage, filled by priority: approved featured
-  // content first, then the creators who opted in and earned GP this week, and
-  // finally one ask to be featured. '+' offers the paid slot while any of the
-  // three are still held by something other than featured content.
-  async loadSpotlight() {
-    const request = (this._spotRequest = (this._spotRequest || 0) + 1);
-    const now = new Date().toISOString();
-
-    const [featured, spotlight, own] = await Promise.all([
-      supabase.from('featured_posts')
-        .select('id, title, description, image_url, link_url, link_label')
-        .eq('status', 'approved').lte('starts_at', now).gte('ends_at', now)
-        .order('created_at', { ascending: false }).limit(SLOT_COUNT),
-      supabase.rpc('xplore_spotlight', { p_days: 7, p_limit: SLOT_COUNT }),
-      store.user?.id
-        ? supabase.from('profiles').select('feature_my_profile').eq('id', store.user.id).maybeSingle()
-        : Promise.resolve({ data: null })
-    ]);
-
-    if (request !== this._spotRequest) return;
-    if (featured.error) console.warn('Featured content could not load:', featured.error.message);
-    if (spotlight.error) console.warn('Spotlight creators could not load:', spotlight.error.message);
-
-    this._featuredSlots = featured.data || [];
-    this._creatorSlots = spotlight.data || [];
-    this._profileOptedIn = Boolean(own.data?.feature_my_profile);
-    this.renderSpotlight();
-    this.setSpotlightVisible(this.searchQuery.length < 2);
-  },
-
-  setSpotlightVisible(show) {
-    const el = document.getElementById('xplore-spotlight');
-    if (el) el.hidden = !show || !el.innerHTML.trim();
-  },
-
-  renderSpotlight() {
-    const el = document.getElementById('xplore-spotlight');
-    if (!el) return;
-    const slots = this._featuredSlots.slice(0, SLOT_COUNT).map(post => this.featuredSlot(post));
-    (this._creatorSlots || []).forEach(person => {
-      if (slots.length < SLOT_COUNT) slots.push(this.creatorSlot(person));
-    });
-    if (slots.length < SLOT_COUNT && !this._profileOptedIn) slots.push(this.askSlot());
-
-    // The plus line is offered while any paid slot is still free, and it is the
-    // only door to the feature page when there is nothing to show at all.
-    const canAdd = this._featuredSlots.length < SLOT_COUNT;
-    const add = canAdd ? `<a class="spotlight-add" href="#/feature">${PLUS_ICON}<span>Feature content</span></a>` : '';
-    if (!slots.length) {
-      el.innerHTML = add;
-      el.hidden = !add;
-      return;
-    }
-    // With one lone ask slot it reads better across the whole band than in a
-    // third of it, so that case is not laid out as a carousel.
-    const solo = slots.length === 1 && !this._featuredSlots.length && !this._creatorSlots.length;
-    el.innerHTML = `<div class="spotlight-track${solo ? ' spotlight-track--solo' : ''}">${slots.join('')}</div>` + add;
-  },
-
-  featuredSlot(post) {
-    const body = `<span class="spotlight-kicker">Featured</span>
-      <h3 class="spotlight-title">${escapeHtml(post.title || '')}</h3>
-      ${post.description ? `<p class="spotlight-text">${escapeHtml(post.description)}</p>` : ''}`;
-    const media = post.image_url
-      ? `<img class="spotlight-photo" src="${escapeHtml(post.image_url)}" alt="">` : '';
-    if (!post.link_url) {
-      return `<div class="spotlight-slot spotlight-slot--featured">${media}<div class="spotlight-body">${body}</div></div>`;
-    }
-    return `<a class="spotlight-slot spotlight-slot--featured" href="${escapeHtml(post.link_url)}" target="_blank" rel="noopener noreferrer">${media}<div class="spotlight-body">${body}</div></a>`;
-  },
-
-  // Half the tile is the creator's own photograph, the other half is what they
-  // earned this week — so nobody holds a slot on the strength of old GP.
-  creatorSlot(person) {
-    const gp = Number(person.gp_window || 0);
-    return `<a class="spotlight-slot spotlight-slot--creator" href="${this.profileHref(person.user_id)}" title="View profile">
-      ${person.avatar_url ? `<img class="spotlight-photo" src="${escapeHtml(person.avatar_url)}" alt="">` : ''}
-      <div class="spotlight-body">
-        <h3 class="spotlight-title">${escapeHtml(person.full_name || '')}${person.verification_badge ? badgeIcon(person.verification_badge) : ''}</h3>
-        ${person.bio ? `<p class="spotlight-text">${escapeHtml(person.bio)}</p>` : ''}
-        <span class="spotlight-gp">G${gp.toLocaleString()} this week</span>
-      </div>
-    </a>`;
-  },
-
-  askSlot() {
-    return `<div class="spotlight-slot spotlight-slot--ask">
-      <div class="spotlight-body">
-        <span class="spotlight-kicker">Spotlight</span>
-        <h3 class="spotlight-title">Feature your profile</h3>
-        <p class="spotlight-text">Set your profile to be featured for free in <a href="#/settings">Settings</a> as you earn more GP.</p>
-      </div>
-    </div>`;
   },
 
   async toggleFollow(userId, button) {

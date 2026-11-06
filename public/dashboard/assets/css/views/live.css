@@ -28,9 +28,10 @@
 /* ============================================
    LIVE SESSION — STUDIO CONTAINER
    ============================================ */
+/* The studio is a long page: video at the top, then everything the host adds
+   to the gliim below it. So the window scrolls rather than being pinned. */
 body.live-studio-active {
-  overflow: hidden;
-  height: 100vh;
+  background: #0a0a0a;
 }
 
 body.live-studio-active .sidebar {
@@ -52,25 +53,36 @@ body.live-studio-active .topbar {
 }
 
 .live-studio-container {
-  position: fixed;
-  inset: 0;
+  position: relative;
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   background: #0a0a0a;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+}
+
+/* Mounted inside the reader page the studio is just another block in the
+   scroll, so it stops being a full-height shell. */
+.live-studio-container.is-embedded {
+  min-height: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .live-video-area {
-  flex: 1;
+  flex: 0 0 auto;
+  height: clamp(320px, 56vh, 620px);
   display: flex;
   flex-direction: row;
   gap: 10px;
   padding: 12px;
   min-height: 0;
   position: relative;
+}
+
+.is-embedded .live-video-area {
+  height: clamp(280px, 44vh, 460px);
 }
 
 /* Stage — the large focused video */
@@ -272,6 +284,17 @@ body.live-studio-active .topbar {
 /* ============================================
    CONTROLS BAR
    ============================================ */
+/* Video + controls stay on screen while the added content scrolls beneath. */
+.live-studio-top {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  background: #0a0a0a;
+}
+.is-embedded .live-studio-top {
+  position: static;
+}
+
 .live-controls-bar {
   display: flex;
   justify-content: center;
@@ -325,10 +348,93 @@ body.live-studio-active .topbar {
 }
 
 /* ============================================
+   CONTENT THE HOST ADDS TO THE GLIIM
+   ============================================ */
+.live-content-feed {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 18px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.live-feed-empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+}
+
+.live-feed-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.live-feed-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.live-feed-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.live-feed-figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+}
+.live-feed-figure figcaption {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.live-feed-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+}
+.live-feed-file-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.live-feed-price {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* ============================================
    CHAT PANEL
    ============================================ */
 .live-chat-panel {
-  position: absolute;
+  position: fixed;
   right: 0;
   top: 0;
   bottom: 0;
@@ -1037,58 +1143,11 @@ body.live-studio-active .topbar {
 }
 
 /* ============================================
-   WATCH-ONLY EMBED (live card inside the reader)
-   Same studio markup, but inline in the article instead of full-bleed.
+   LIVE CALL MOUNTED INSIDE THE READER
+   The viewer gets the studio itself, inline in the article.
    ============================================ */
 .read-live-mount {
   margin: 0 0 28px;
-}
-
-.live-studio-container.live-embed {
-  position: relative;
-  inset: auto;
-  width: 100%;
-  height: auto;
-  z-index: 1;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.live-embed .live-session-header {
-  padding: 12px 16px;
-}
-
-.live-embed .live-video-area {
-  flex: 0 0 auto;
-  height: clamp(240px, 46vw, 460px);
-  padding: 0 12px 12px;
-}
-
-.live-embed .live-participant-rail {
-  flex: 0 0 104px;
-}
-
-.live-embed-bar {
-  gap: 8px;
-}
-
-.live-embed-join {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.live-embed-join svg {
-  width: 16px;
-  height: 16px;
-}
-
-.live-embed-spacer {
-  flex: 1;
 }
 
 .live-embed-ended {
@@ -1109,6 +1168,33 @@ body.live-studio-active .topbar {
   border: 1px dashed var(--border);
   border-radius: 16px;
   font-size: 14px;
+}
+
+/* The viewer left on their own: the broadcast is still on air. */
+.live-embed-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-secondary, #111);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+.live-embed-rejoin {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 /* ============================================
@@ -1205,14 +1291,7 @@ body.live-studio-active .topbar {
 }
 
 @media (max-width: 768px) {
-  .live-embed .live-video-area {
-    height: 220px;
-  }
-  .live-embed .live-participant-rail {
-    flex: 0 0 84px;
-  }
-  .live-embed-join {
-    padding: 8px 12px;
-    font-size: 12px;
+  .is-embedded .live-video-area {
+    height: 340px;
   }
 }

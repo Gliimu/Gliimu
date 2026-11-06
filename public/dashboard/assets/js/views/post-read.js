@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=108';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=109';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -13,6 +13,7 @@ function escapeHtml(value) {
 }
 
 let scrollHandler = null;
+let resizeHandler = null;
 let keydownHandler = null;
 let clickOutsideHandler = null;
 let liveEndedHandler = null;
@@ -29,6 +30,10 @@ export default {
     if (scrollHandler) {
       window.removeEventListener('scroll', scrollHandler);
       scrollHandler = null;
+    }
+    if (resizeHandler) {
+      window.removeEventListener('resize', resizeHandler);
+      resizeHandler = null;
     }
     if (keydownHandler) {
       document.removeEventListener('keydown', keydownHandler);
@@ -162,7 +167,7 @@ export default {
     // The reader needs the live module before render: the chat panel is the
     // comment feature for a live gliim.
     if (this.liveSessionId) {
-      const { default: liveView } = await import('./live.js?v=46');
+      const { default: liveView } = await import('./live.js?v=47');
       this.liveView = liveView;
     }
 
@@ -180,8 +185,8 @@ export default {
     }
   },
 
-  // The live card opens the broadcast itself: watch-only video, chat and
-  // support, with a "Join with camera" door into the full studio.
+  // The live card opens the broadcast in the studio layout: the viewer is
+  // already in the call and can turn on their camera and microphone.
   async mountLiveEmbed() {
     const mount = document.getElementById('read-live-mount');
     const liveView = this.liveView;
@@ -261,7 +266,7 @@ export default {
   // which would tear the video embed down.
   startLiveBodyPolling() {
     if (this._liveBodyTimer) return;
-    this._liveBodyTimer = setInterval(() => this.checkLiveBodyUpdates(), 10000);
+    this._liveBodyTimer = setInterval(() => this.checkLiveBodyUpdates(), 2500);
   },
 
   async checkLiveBodyUpdates() {
@@ -381,7 +386,9 @@ export default {
       }
     };
 
-    const fields = `id, title, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
+    // renderPostCard() reads these directly — omit one and the card degrades
+    // silently ("Invalid Date", missing premium lock, zero views).
+    const fields = `id, title, description, created_at, views, is_premium, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
 
     const [sameAuthor, sameCategory, interestResult] = await Promise.all([
       supabase.from('feed_gliims').select(fields)
@@ -452,7 +459,6 @@ export default {
     const shares = interactions.filter(i => i.interaction_type === 'share').length;
     const supports = interactions.filter(i => i.interaction_type === 'support').length;
     const hasLiked = interactions.some(i => i.user_id === store.user.id && i.interaction_type === 'like');
-    const hasSupported = interactions.some(i => i.user_id === store.user.id && i.interaction_type === 'support');
     const isSaved = (hubView.savedPosts || new Set()).has(post.id);
 
     const postComments = interactions.filter(i => i.interaction_type === 'comment');
@@ -545,11 +551,10 @@ export default {
               <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
               <span>${shares}</span>
             </button>
-            ${(!isLive && (post.profiles?.total_gp || 0) >= 500) ? `
-            <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+            <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
               <span>${supports}</span>
-            </button>` : ''}
+            </button>
           </div>
         </div>
       </main>
@@ -728,10 +733,26 @@ export default {
     }
   },
 
+  // The rail is fixed to the viewport but must sit beside the reading column,
+  // whose right edge moves with the sidebar, the container padding and the
+  // 800px cap. Measuring beats viewport arithmetic: it cannot drift out of sync.
+  positionRail() {
+    const rail = document.querySelector('.post-read-bottom');
+    const main = document.getElementById('post-read-section-1');
+    if (!rail || !main) return;
+    const rect = main.getBoundingClientRect();
+    if (rect.width < 100) return;
+    // clientWidth, not innerWidth: `right` resolves against the layout viewport,
+    // which excludes the scrollbar that innerWidth counts.
+    const inset = window.matchMedia('(max-width: 768px)').matches ? 12 : 16;
+    rail.style.right = `${Math.max(8, Math.round(document.documentElement.clientWidth - rect.right) + inset)}px`;
+  },
+
   setupScrollProgress() {
     const bar = document.getElementById('post-read-progress');
     const section1 = document.getElementById('post-read-section-1');
     const section2 = document.getElementById('post-read-section-2');
+    const rail = document.querySelector('.post-read-bottom');
     if (!bar || !section1) return;
 
     const scrollKey = `gliimu_scroll_${this.postId}`;
@@ -756,12 +777,20 @@ export default {
           pct = 100;
         }
       }
-      
+      // The rail belongs to the article, so it fades once the article has
+      // mostly left the screen rather than the moment the grid peeks in —
+      // a short gliim shows the grid while the reader is still on it.
+      rail?.classList.toggle('is-hidden', section1Rect.bottom < viewportHeight * 0.35);
+
       bar.style.width = pct + '%';
 
       sessionStorage.setItem(scrollKey, String(scrollTop));
     };
     window.addEventListener('scroll', scrollHandler, { passive: true });
+
+    this.positionRail();
+    resizeHandler = () => this.positionRail();
+    window.addEventListener('resize', resizeHandler);
 
     if (savedScroll) {
       setTimeout(() => {
@@ -771,6 +800,6 @@ export default {
   },
 
   closeReader() {
-    history.back();
+    window.gliimBack();
   }
 };

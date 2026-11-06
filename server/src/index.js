@@ -955,7 +955,10 @@ app.post('/api/daily/create-room', async (req, res) => {
   }
 });
 
-// Generate a Daily.co meeting token for the host (owner privileges)
+// Generate a Daily.co meeting token for one member of a live session.
+// Everyone in the call gets a token: the host gets owner privileges so
+// mute/remove work mid-call, and participants get a plain token so there is
+// a per-person identity those permission changes can act on.
 app.post('/api/daily/meeting-token', async (req, res) => {
   try {
     const authHeader = String(req.headers.authorization || '');
@@ -970,27 +973,40 @@ app.post('/api/daily/meeting-token', async (req, res) => {
     const { roomId } = req.body || {};
     if (!roomId) return res.status(400).json({ error: 'Missing roomId.' });
 
-    // Verify user owns this room's session
     const { data: request } = await supabaseAdmin
       .from('live_requests')
-      .select('id, user_id, room_id')
+      .select('id, user_id, status')
       .eq('room_id', roomId)
-      .eq('user_id', authData.user.id)
       .maybeSingle();
 
-    if (!request) {
-      return res.status(403).json({ error: 'Only the host can get an owner token.' });
+    if (!request) return res.status(404).json({ error: 'No session found for this room.' });
+    if (request.status !== 'active') {
+      return res.status(409).json({ error: 'This session is not on air.' });
     }
 
-    // Create owner meeting token via Daily.co API
+    const isOwner = request.user_id === authData.user.id;
+
+    if (!isOwner) {
+      const { data: kicked } = await supabaseAdmin
+        .from('live_kicked_users')
+        .select('id')
+        .eq('session_id', request.id)
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
+      if (kicked) {
+        return res.status(403).json({ error: 'You were removed from this session.', kicked: true });
+      }
+    }
+
     const meetingToken = await dailyRequest('POST', '/meeting-tokens', {
       properties: {
         room_name: `gliimu-${request.id}`,
-        is_owner: true
+        is_owner: isOwner,
+        exp: Math.floor(Date.now() / 1000) + 6 * 60 * 60
       }
     });
 
-    res.json({ token: meetingToken.token });
+    res.json({ token: meetingToken.token, is_owner: isOwner });
   } catch (error) {
     console.error('Meeting token error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });

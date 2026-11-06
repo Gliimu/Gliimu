@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=108';
-import feedView from './feed.js?v=101';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=109';
+import feedView from './feed.js?v=102';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -35,7 +35,6 @@ export default {
       closeQr: (e, el) => { if (e.target === el) el.remove(); },
       copyName: () => this.copyName(),
       copyShareLink: () => this.copyShareLink(),
-      goFeature: () => this.goFeature(),
       toggleFilterMenu: (e) => this.toggleFilterMenu(e),
       applyFilter: (filter) => this.applyFilter(filter),
       toggleFollow: () => this.toggleFollow(),
@@ -132,19 +131,6 @@ export default {
       setTimeout(() => btn.classList.remove('copied'), 1500);
     }
     notify.toast('Profile link copied');
-  },
-
-  async goFeature() {
-    const { data, error } = await supabase.rpc('featured_slot_check');
-    if (error || !data) {
-      appAlert('Could not check availability. Please try again.');
-      return;
-    }
-    if (!data.available) {
-      appAlert('Feature is currently unavailable. Slots are filled out. Contact support in Ping.');
-      return;
-    }
-    window.location.hash = '#/feature';
   },
 
   toggleFilterMenu(e) {
@@ -245,14 +231,6 @@ export default {
       </div>
     ` : '';
 
-    const starSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
-    const featureAcc = isMe ? `
-      <button class="profile-feature-btn" onclick="profileInstance.goFeature()" title="Feature your content on the XpLoRe carousel">
-        ${starSvg}
-        <span>Feature your content</span>
-      </button>
-    ` : '';
-
     return `
       <div class="profile-details-panel" id="profile-details-panel">
         <div class="profile-details-stats">
@@ -287,7 +265,6 @@ export default {
         ` : ''}
         ${streakAcc}
         ${shareAcc}
-        ${featureAcc}
       </div>
     `;
   },

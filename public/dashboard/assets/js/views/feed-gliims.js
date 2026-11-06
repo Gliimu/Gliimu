@@ -43,7 +43,7 @@ function hydrateLiveBlock(blockDiv, raw) {
 // live.js carries the session shell helpers; loaded lazily so the feed does not
 // pay for the studio module up front. Bump the query string with live.js.
 function loadLiveModule() {
-  return import('./live.js?v=46').then(mod => mod.default);
+  return import('./live.js?v=47').then(mod => mod.default);
 }
 
 // Client mirror of the gliim_kind classifier (sql/unify_feed.sql): live wins
@@ -2231,7 +2231,6 @@ const hubView = {
     const shares = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'share').length;
     const supports = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'support').length;
     const hasLiked = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'like');
-    const hasSupported = this.allInteractions.some(i => i.post_id === post.id && i.user_id === store.user.id && i.interaction_type === 'support');
     const isSaved = this.savedPosts.has(post.id);
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
@@ -2451,11 +2450,10 @@ const hubView = {
             <img src="/icons/share.svg" class="action-icon-img" alt="Share" loading="eager" decoding="async">
             <span>${shares}</span>
           </button>
-          ${(post.profiles?.total_gp || 0) >= 500 ? `
-          <button class="action-btn support-btn ${hasSupported ? 'supported' : ''}" ${hasSupported ? 'disabled' : ''} onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
+          <button class="action-btn support-btn" onclick="hubInstance.supportCreator('${post.id}', '${post.user_id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             <span>${supports}</span>
-          </button>` : ''}
+          </button>
         </div>
       </div>
     `;
@@ -2676,24 +2674,49 @@ const hubView = {
   async supportCreator(postId, authorId) {
     if (authorId === store.user.id) return;
 
-    const already = this.allInteractions.some(i => i.post_id === postId && i.user_id === store.user.id && i.interaction_type === 'support');
-    if (already) return;
-
     const post = this.currentPosts.find(p => p.id === postId);
+    const COST = 100;
+    const balance = Number(store.profile?.wallet_balance ?? this.userBalance ?? 0);
 
-    const { data: credited, error } = await supabase.rpc('send_support', { p_post: postId });
+    if (balance <= 0) {
+      return appAlert('Your wallet is empty. Top up from the Wallet page to support a creator.');
+    }
+
+    let acceptPartial = false;
+    if (balance < COST) {
+      const ok = await appConfirm(
+        `Supporting costs G${COST}, but your wallet holds G${balance}. Send G${balance} instead?`,
+        { okText: `Send G${balance}` }
+      );
+      if (!ok) return;
+      acceptPartial = true;
+    }
+
+    const { data, error } = await supabase.rpc('send_support', {
+      p_post: postId,
+      p_accept_partial: acceptPartial,
+    });
     if (error) {
       const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert("You don't have enough in your wallet to support. G500 is required.");
-      if (msg.includes('ALREADY_SUPPORTED') || msg.includes('CANNOT_SUPPORT_SELF')) return;
+      if (msg.includes('INSUFFICIENT_FUNDS')) return appAlert('Your wallet no longer has anything to send. Top up from the Wallet page.');
+      if (msg.includes('CANNOT_SUPPORT_SELF')) return;
+      if (msg.includes('NOT_AUTHENTICATED')) return appAlert('Please sign in again.');
+      if (msg.includes('POST_NOT_FOUND')) return appAlert('This gliim is no longer available.');
       return appAlert("Support failed: " + msg);
     }
 
-    this.allInteractions.push({ id: `local-${Date.now()}`, post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: credited });
-    this.userBalance = (this.userBalance || 0) - 500;
+    const spent = Number(data?.cost ?? COST);
+    this.allInteractions.push({ id: `local-${Date.now()}`, post_id: postId, user_id: store.user.id, interaction_type: 'support', amount: spent });
+    this.userBalance = balance - spent;
     if (store.profile) store.profile.wallet_balance = this.userBalance;
 
     this.interestSignal(4, post?.category);
+
+    // When already on the reader route, re-assigning the same hash does not
+    // re-render, so bump the visible counter by hand.
+    const counter = document.querySelector('.support-btn span');
+    if (counter) counter.textContent = String(Number(counter.textContent || 0) + 1);
+
     this.closeModal();
     this.openReadView(postId);
   },
@@ -2866,7 +2889,7 @@ window.hubInstance = {
   removeHashtag: (index) => hubView.removeHashtag(index),
   isModalOpen: () => hubView.isModalOpen,
   closeReader: () => {
-    history.back();
+    window.gliimBack();
   },
   openCommentsModal: () => {
     const modal = document.getElementById('comments-modal');

@@ -24,7 +24,8 @@ const ICONS = {
   bolt: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
   globe: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
   checkSquare: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
-  pageAdd: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="12" x2="12" y2="18"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>'
+  pageAdd: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="12" x2="12" y2="18"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>',
+  doc: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>'
 };
 
 // The composer treats a document block ending in .pdf as a PDF tile; the live
@@ -56,14 +57,19 @@ const liveView = {
   
   // Daily.co
   callObject: null,
+  meetingToken: null,
   participantTiles: new Map(),
   participantsMap: new Map(),
   focusedSessionId: null,
 
-  // Watch-only embed (the live card on the reader page)
-  watchOnly: false,
+  // The call was mounted inside the reader page instead of the Live page.
+  embedded: false,
   embedHash: null,
   embedMount: null,
+
+  // Blocks the host pushes onto the live gliim while the call runs.
+  liveBlocks: [],
+  contentPollInterval: null,
 
   // Chat without a call: the host's own card and a session that is announced
   // but not on air yet still need the comment feature.
@@ -121,7 +127,7 @@ const liveView = {
       restoreStudio: () => this.restoreStudio(),
       isLiveActive: () => !!this.activeSession,
       isMinimized: () => this.minimized,
-      isWatchOnly: () => this.watchOnly,
+      isEmbedded: () => this.embedded,
       endLive: () => this.forceEndLive()
     };
   },
@@ -236,6 +242,7 @@ const liveView = {
       this.sessionChannel = null;
     }
     this.stopChatPolling();
+    this.stopContentFeed();
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
@@ -379,27 +386,9 @@ const liveView = {
       this.activeSession = request;
       this.sessionRole = (request.user_id === store.user.id) ? 'host' : 'participant';
 
-      // Host needs owner token to control participants
-      if (this.sessionRole === 'host' && request.room_id) {
-        try {
-          const tokenRes = await fetch(`${API_BASE_URL}/api/daily/meeting-token`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ roomId: request.room_id })
-          });
-          if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
-            this.hostMeetingToken = tokenData.token;
-          } else {
-            console.warn('Failed to get host meeting token:', await tokenRes.text());
-          }
-        } catch (tokenError) {
-          console.warn('Error fetching host token:', tokenError);
-        }
-      }
+      // Everyone in the call carries a token: the host gets owner rights so
+      // mute and remove work mid-call, participants get a plain one.
+      if (request.room_id) await this._fetchMeetingToken(request.room_id);
 
       this.enterSession();
 
@@ -409,6 +398,119 @@ const liveView = {
     } finally {
       this.joiningSession = false;
     }
+  },
+
+  async _fetchMeetingToken(roomId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+      const res = await fetch(`${API_BASE_URL}/api/daily/meeting-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ roomId })
+      });
+      if (!res.ok) {
+        console.warn('Meeting token refused:', await res.text());
+        return null;
+      }
+      const data = await res.json();
+      this.meetingToken = data.token || null;
+      return this.meetingToken;
+    } catch (e) {
+      console.warn('Meeting token fetch failed:', e);
+      return null;
+    }
+  },
+
+  // ============================================
+  // CONTENT THE HOST ADDS WHILE ON AIR
+  // ============================================
+
+  // The live gliim body is the single source of truth: "Add to the page"
+  // appends blocks to it, and both the studio feed below the video and the
+  // reader page show that same list. Polling rather than realtime keeps the
+  // studio free of another channel to clean up.
+  startContentFeed() {
+    this.stopContentFeed();
+    this.liveBlocks = [];
+    this._feedTicks = 0;
+    this.contentPollInterval = setInterval(() => this._pollLiveBlocks(), 2500);
+    this._pollLiveBlocks();
+  },
+
+  stopContentFeed() {
+    if (this.contentPollInterval) {
+      clearInterval(this.contentPollInterval);
+      this.contentPollInterval = null;
+    }
+  },
+
+  async _pollLiveBlocks() {
+    if (!this.activeSession) return this.stopContentFeed();
+
+    if (!this.gliimPostId) {
+      // The card only exists once the host has shared it to Everybody, so
+      // look for it every tenth tick instead of hammering the feed.
+      this._feedTicks++;
+      if (this._feedTicks % 10 !== 1) return;
+      await this._resolveGliimPostId();
+      if (!this.gliimPostId) return;
+    }
+
+    const { data: row } = await supabase
+      .from('feed_gliim_contents')
+      .select('blocks')
+      .eq('post_id', this.gliimPostId)
+      .maybeSingle();
+
+    const blocks = ((row && row.blocks) || []).filter(b => b && b.type !== 'live');
+    if (blocks.length === this.liveBlocks.length) return;
+    this.liveBlocks = blocks;
+    this.renderContentFeed();
+  },
+
+  renderContentFeed() {
+    const holder = document.getElementById('live-content-feed');
+    if (!holder) return;
+    holder.innerHTML = this.liveBlocks.length
+      ? this.liveBlocks.map(b => this._renderLiveBlock(b)).join('')
+      : '<p class="live-feed-empty">Nothing added to the page yet.</p>';
+  },
+
+  // Compact mirror of the reader blocks. Only the shapes "Add to the page"
+  // can produce are handled: note, image, document.
+  _renderLiveBlock(block) {
+    if (block.type === 'text') {
+      if (block.style === 'title' || block.style === 'subtitle') {
+        return `<h4 class="live-feed-title">${esc(block.content)}</h4>`;
+      }
+      return `<p class="live-feed-text">${esc(block.content)}</p>`;
+    }
+
+    if (block.type === 'image') {
+      const cap = block.caption ? `<figcaption>${esc(block.caption)}</figcaption>` : '';
+      return `<figure class="live-feed-figure"><img src="${esc(block.content)}" alt="" loading="lazy">${cap}</figure>`;
+    }
+
+    if (block.type === 'document' || block.type === 'pdf') {
+      const name = block.caption || this._fileNameFromUrl(block.content);
+      const price = Number(block.price || 0);
+      const tag = price > 0 ? `<span class="live-feed-price">₦${price.toLocaleString()}</span>` : '';
+      return `<div class="live-feed-file">${ICONS.doc}<span class="live-feed-file-name">${esc(name)}</span>${tag}</div>`;
+    }
+
+    return '';
+  },
+
+  // Real filename straight off the stored URL — never an invented label.
+  _fileNameFromUrl(url) {
+    const raw = String(url || '').split('?')[0].split('#')[0];
+    const last = raw.substring(raw.lastIndexOf('/') + 1);
+    if (!last) return 'File';
+    try { return decodeURIComponent(last); } catch { return last; }
   },
 
   // ============================================
@@ -453,8 +555,9 @@ const liveView = {
     this.startSessionTimer();
 
     // The composer can publish the card before the host opens the studio, so
-    // look the card up now — "Add to your live gliim" needs it.
-    if (this.sessionRole === 'host') this._resolveGliimPostId();
+    // the card is looked up inside the feed — "Add to your live gliim" and the
+    // studio's own content list both read from it.
+    this.startContentFeed();
 
     heartbeat.setCurrentPost(null);
     heartbeat.start();
@@ -468,43 +571,12 @@ const liveView = {
     const s = this.activeSession;
     const mobile = window.innerWidth <= 768;
 
-    // Watch-only viewers get a slim bar: no mic/camera/screen controls, no
-    // share, no host tools. They can jump into the studio if they want to speak.
-    if (this.watchOnly) {
-      sessionView.innerHTML = `
-        <div class="live-studio-container live-embed">
-          <div class="live-session-header">
-            <h3>${esc(s.title)}</h3>
-            <div class="live-session-meta">
-              <span id="live-session-timer">0:00</span>
-            </div>
-          </div>
-          <div class="live-video-area">
-            <div class="live-stage">
-              <video id="live-stage-video" autoplay playsinline></video>
-              <div class="live-stage-empty" id="live-stage-empty" style="display:none;">Waiting for video…</div>
-              <div class="live-stage-info" id="live-stage-info"></div>
-            </div>
-            <div class="live-participant-rail" id="live-participant-rail"></div>
-          </div>
-          <div class="live-controls-bar live-embed-bar">
-            <button class="btn-primary live-embed-join" id="live-embed-cam-btn">${ICONS.video} Join with camera</button>
-            <span class="live-embed-spacer"></span>
-            <button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>
-            <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
-            <button class="live-ctrl-btn danger" id="live-leave-btn" title="Stop watching">${ICONS.close}</button>
-          </div>
-        </div>
-      `;
-      document.getElementById('live-embed-cam-btn')?.addEventListener('click', () => this.leaveEmbedForStudio());
-      document.getElementById('live-support-btn')?.addEventListener('click', () => this.showSupportDialog());
-      document.getElementById('live-minimize-btn')?.addEventListener('click', () => this.minimizeStudio());
-      document.getElementById('live-leave-btn')?.addEventListener('click', () => this.leaveSession());
-      return;
-    }
+    // Inside the reader the gliim body below already carries everything the
+    // host adds, so the studio only renders its own feed on the Live page.
+    const withFeed = !this.embedded;
 
     sessionView.innerHTML = `
-      <div class="live-studio-container">
+      <div class="live-studio-container${this.embedded ? ' is-embedded' : ''}">
         <div class="live-session-header">
           <h3>${esc(s.title)}</h3>
           <div class="live-session-meta">
@@ -512,28 +584,33 @@ const liveView = {
           </div>
         </div>
 
-        <div class="live-video-area">
-          <div class="live-stage">
-            <video id="live-stage-video" autoplay playsinline muted></video>
-            <div class="live-stage-empty" id="live-stage-empty">Waiting for video&hellip;</div>
-            <div class="live-stage-info" id="live-stage-info"></div>
+        <div class="live-studio-top">
+          <div class="live-video-area">
+            <div class="live-stage">
+              <video id="live-stage-video" autoplay playsinline muted></video>
+              <div class="live-stage-empty" id="live-stage-empty">Waiting for video&hellip;</div>
+              <div class="live-stage-info" id="live-stage-info"></div>
+            </div>
+            <div class="live-participant-rail" id="live-participant-rail"></div>
           </div>
-          <div class="live-participant-rail" id="live-participant-rail"></div>
+
+          <div class="live-controls-bar">
+            <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
+            <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
+            ${mobile
+              ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
+              : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
+            <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
+            ${isHost || this.embedded ? '' : `<button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>`}
+            ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
+            ${isHost ? `<button class="live-ctrl-btn" id="live-add-btn" title="Add to your live gliim">${ICONS.pageAdd}</button>` : ''}
+            <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
+            <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
+          </div>
         </div>
 
-        <div class="live-controls-bar">
-          <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
-          <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
-          ${mobile
-            ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
-            : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
-          <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-          ${isHost ? '' : `<button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>`}
-          ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
-          ${isHost ? `<button class="live-ctrl-btn" id="live-add-btn" title="Add to your live gliim">${ICONS.pageAdd}</button>` : ''}
-          <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
-          <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
-        </div>
+        ${withFeed ? `
+        <div class="live-content-feed" id="live-content-feed"></div>` : ''}
 
         ${this.chatPanelHtml(true)}
       </div>
@@ -622,22 +699,23 @@ const liveView = {
   },
 
   // ============================================
-  // WATCH-ONLY EMBED (the live card on the reader page)
+  // THE LIVE CARD ON THE READER PAGE
   // ============================================
 
-  // Mounts a watch-only player into `mountEl`. Free to watch, no camera, no mic.
+  // Mounts the studio itself into `mountEl`. The viewer joins the call as a
+  // real participant — camera and mic stay off until they turn them on.
   async openEmbed(mountEl, sessionId, postId) {
     if (!mountEl || !sessionId) return false;
     this._exposeInstance();
     this.gliimPostId = postId || null;
 
     // A minimized embed survives navigation: just put the call back on screen.
-    if (this.minimized && this.watchOnly && this.activeSession?.id === sessionId) {
+    if (this.minimized && this.embedded && this.activeSession?.id === sessionId) {
       return this._restoreEmbed(mountEl);
     }
 
     if (this.activeSession) {
-      if (this.watchOnly) this.closeEmbed();
+      if (this.embedded) this.closeEmbed();
       else return false; // the studio owns the call; don't fight it
     }
 
@@ -681,12 +759,16 @@ const liveView = {
         return false;
       }
 
+      this.meetingToken = null;
+      this.embedded = true;
+      this.participantTiles.clear();
+      this.participantsMap.clear();
+      if (request.room_id) await this._fetchMeetingToken(request.room_id);
+
       await supabase.rpc('increment_participant_count', { p_request_id: request.id });
 
       this.activeSession = request;
       this.sessionRole = 'participant';
-      this.watchOnly = true;
-      this.hostMeetingToken = null;
       this.embedMount = mountEl;
       this.embedHash = window.location.hash;
       this.minimized = false;
@@ -695,8 +777,6 @@ const liveView = {
       this.focusedSessionId = null;
       this.sessionStartTime = Date.now();
       this.liveSecs = 0;
-      this.participantTiles.clear();
-      this.participantsMap.clear();
 
       try {
         sessionStorage.setItem('liveSession', JSON.stringify({
@@ -746,7 +826,7 @@ const liveView = {
 
     const participants = this.callObject.participants() || {};
     for (const p of Object.values(participants)) {
-      if (!p || (p.local && this.watchOnly)) continue;
+      if (!p) continue;
       this.addParticipantTile(p);
       const tracks = p.tracks || {};
       if (tracks.video?.persistentTrack) this.attachTrack(p.session_id, tracks.video.persistentTrack);
@@ -759,7 +839,7 @@ const liveView = {
 
   // The reader calls this when it unmounts. A minimized embed keeps playing.
   releaseEmbed() {
-    if (this.minimized && this.watchOnly) {
+    if (this.minimized && this.embedded) {
       this.embedMount = null;
       return;
     }
@@ -767,7 +847,7 @@ const liveView = {
   },
 
   closeEmbed() {
-    if (!this.watchOnly) return;
+    if (!this.embedded) return;
 
     const sessionId = this.activeSession?.id;
     if (sessionId) {
@@ -786,6 +866,7 @@ const liveView = {
       this.sessionChannel = null;
     }
     this.stopChatPolling();
+    this.stopContentFeed();
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
@@ -805,29 +886,14 @@ const liveView = {
     this.chatOpen = false;
     this.activeSession = null;
     this.sessionRole = null;
-    this.hostMeetingToken = null;
+    this.meetingToken = null;
     this.focusedSessionId = null;
     this.minimized = false;
-    this.watchOnly = false;
+    this.embedded = false;
     this.embedMount = null;
     this.embedHash = null;
     this.gliimPostId = null;
-  },
-
-  // "Join with camera": drop the silent embed and hand over to the real studio
-  // so there is never a second Daily.co call in the same tab.
-  leaveEmbedForStudio() {
-    const sessionId = this.activeSession?.id;
-    this.closeEmbed();
-    if (!sessionId) {
-      window.location.hash = '/live';
-      return;
-    }
-    if (window.location.hash.split('?')[0] === '#/live') {
-      this.joinSession(sessionId);
-    } else {
-      window.location.hash = `/live?join=${sessionId}`;
-    }
+    this.liveBlocks = [];
   },
 
   // ============================================
@@ -840,20 +906,23 @@ const liveView = {
       this.callObject = null;
     }
 
-    // Watch-only viewers never capture, so they get no permission prompt.
-    const sources = this.watchOnly ? { audioSource: false, videoSource: false } : {};
+    // Everyone joins as a publisher. Viewers arriving through the reader get
+    // camera and mic off, so nothing is asked until they press a button.
+    const callOptions = this.embedded
+      ? { startAudioOff: true, startVideoOff: true }
+      : {};
 
     this.callObject = window.DailyIframe.createCallObject({
       url: roomUrl,
       userName: store.profile?.full_name || 'User',
       userData: { user_id: store.user.id },
-      ...sources
+      ...callOptions
     });
 
     this.callObject
       .on('joined-meeting', () => {
         const local = this.callObject.participants().local;
-        if (local && !this.watchOnly) {
+        if (local) {
           this.addParticipantTile(local);
           // Explicitly attach local video track if available
           if (local.tracks?.video?.persistentTrack) {
@@ -884,19 +953,19 @@ const liveView = {
         else this.setActiveSpeaker(null);
       })
       .on('left-meeting', () => {
-        this.cleanupSession();
+        this.cleanupSession('left');
       })
       .on('error', (e) => {
         console.error('Daily.co error:', e);
       });
 
     try {
-      if (!this.watchOnly) await this.callObject.startCamera();
-      const joinOptions = this.hostMeetingToken ? { token: this.hostMeetingToken } : {};
+      if (this.sessionRole === 'host') await this.callObject.startCamera();
+      const joinOptions = this.meetingToken ? { token: this.meetingToken } : {};
       await this.callObject.join(joinOptions);
     } catch (error) {
       console.error('Failed to join call:', error);
-      if (!this.watchOnly) alert('Could not connect. Check camera/mic permissions.');
+      appAlert('Could not connect to this session.');
     }
   },
 
@@ -1248,8 +1317,9 @@ const liveView = {
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = 'none';
 
-    // The idle note stands in behind the floating tile so the page is not blank
-    this.showIdle(true);
+    // The idle note stands in behind the floating tile so the page is not blank.
+    // Inside the reader there is already a page behind, so leave it alone.
+    if (!this.embedded) this.showIdle(true);
 
     const tile = document.createElement('div');
     tile.className = 'live-minimized-tile';
@@ -1291,7 +1361,7 @@ const liveView = {
       if (tile._wasDragged && tile._wasDragged()) return;
 
       // The embed lives inside the reader, so restoring means re-mounting there.
-      if (this.watchOnly) {
+      if (this.embedded) {
         if (this.embedMount && document.body.contains(this.embedMount)) {
           this._restoreEmbed(this.embedMount);
         } else if (this.embedHash) {
@@ -1319,7 +1389,7 @@ const liveView = {
     // Close button = leave session
     tile.querySelector('.live-minimized-close')?.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (this.watchOnly) return this.closeEmbed();
+      if (this.embedded) return this.closeEmbed();
       const isHost = this.sessionRole === 'host';
       if (isHost) this.endSession();
       else this.leaveSession();
@@ -1417,22 +1487,10 @@ const liveView = {
     document.body.classList.add('live-studio-active');
     this.renderSessionUI();
 
-    // Re-attach the video stream from the existing callObject to the new stage element
-    if (this.callObject) {
-      const stageVideo = document.getElementById('live-stage-video');
-      if (stageVideo) {
-        const participants = this.callObject.participants();
-        const local = participants?.local;
-        if (local) {
-          const camTrack = local.tracks?.camera;
-          if (camTrack && camTrack.track && stageVideo) {
-            const stream = new MediaStream([camTrack.track]);
-            stageVideo.srcObject = stream;
-            stageVideo.play().catch(() => {});
-          }
-        }
-      }
-    }
+    // Every tile and every track lived in the DOM that just went away, so
+    // rebuild them from the call object that is still running.
+    this._rebuildTiles();
+    this.startContentFeed();
 
     this.startChatPolling(this.activeSession.id);
     heartbeat.setCurrentPost(null);
@@ -1536,6 +1594,9 @@ const liveView = {
     const HOST_SHARE = 70;
     const balance = Number(store.profile?.wallet_balance || 0);
     const short = balance < COST;
+    const empty = balance <= 0;
+    const sendAmount = short ? balance : COST;
+    const hostGets = short ? Math.round(balance * 0.70) : HOST_SHARE;
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -1545,16 +1606,23 @@ const liveView = {
         <div class="live-support-mark">${ICONS.bolt}</div>
         <h2 style="margin-bottom: 6px;">Support this session</h2>
         <p class="text-muted" style="margin-bottom: 16px; font-size: 14px;">
-          G${COST} is taken from your wallet. The host receives G${HOST_SHARE}.
+          ${short
+            ? `Supporting costs G${COST}, but your wallet holds G${balance}. Send G${balance} instead? The host still receives 70% of it.`
+            : `G${COST} is taken from your wallet. The host receives G${HOST_SHARE}.`}
         </p>
         <div class="live-support-balance">
           <span>Your wallet</span>
           <strong>G${balance}</strong>
         </div>
-        <button class="btn-primary" id="live-support-send" style="width:100%;margin-top:16px;" ${short ? 'disabled' : ''}>
-          Send G${COST}
+        <div class="live-support-balance">
+          <span>Host receives</span>
+          <strong>G${hostGets}</strong>
+        </div>
+        <button class="btn-primary" id="live-support-send" style="width:100%;margin-top:16px;" ${empty ? 'disabled' : ''}>
+          ${short ? `Send G${sendAmount} instead` : `Send G${COST}`}
         </button>
-        ${short ? `<p class="live-support-short">You need G${COST} in your wallet. Top up from the Wallet page.</p>` : ''}
+        ${empty ? `<p class="live-support-short">Your wallet is empty. Top up from the Wallet page.</p>`
+                : (short ? `<p class="live-support-short">Nothing is charged beyond what you already hold.</p>` : '')}
       </div>
     `;
     document.body.appendChild(overlay);
@@ -1564,22 +1632,25 @@ const liveView = {
       btn.disabled = true;
       btn.textContent = 'Sending...';
 
-      const { data, error } = await supabase.rpc('support_live_session', { p_request: this.activeSession.id });
+      const { data, error } = await supabase.rpc('support_live_session', {
+        p_request: this.activeSession.id,
+        p_accept_partial: short,
+      });
 
       if (error) {
         const msg = String(error.message || '');
-        if (msg.includes('INSUFFICIENT_FUNDS')) appAlert(`You need G${COST} in your wallet to support this session.`);
+        if (msg.includes('INSUFFICIENT_FUNDS')) appAlert('Your wallet is empty. Top up from the Wallet page to support this session.');
         else if (msg.includes('SESSION_NOT_ACTIVE')) appAlert('This session is no longer live.');
         else if (msg.includes('SESSION_NOT_FOUND')) appAlert('This session could not be found.');
         else if (msg.includes('NOT_AUTHENTICATED')) appAlert('Please sign in again.');
         else if (msg.includes('CANNOT_SUPPORT_SELF')) appAlert('You cannot support your own session.');
         else appAlert('Support failed: ' + (msg || 'unknown error'));
         btn.disabled = false;
-        btn.textContent = `Send G${COST}`;
+        btn.textContent = short ? `Send G${sendAmount} instead` : `Send G${COST}`;
         return;
       }
 
-      const spent = Number(data?.cost || COST);
+      const spent = Number(data?.cost || sendAmount);
       if (store.profile) store.profile.wallet_balance = Number(store.profile.wallet_balance || 0) - spent;
       overlay.remove();
       this._flashSupport(spent);
@@ -1928,6 +1999,11 @@ const liveView = {
           p_blocks: [block]
         });
         if (error) throw error;
+        // Show it to the host immediately instead of waiting for the next tick.
+        if (!this.embedded) {
+          this.liveBlocks = [...this.liveBlocks, block];
+          this.renderContentFeed();
+        }
         textEl.value = '';
         captionEl.value = '';
         priceEl.value = '';
@@ -2403,9 +2479,12 @@ const liveView = {
     }
   },
 
-  cleanupSession() {
-    const wasEmbed = this.watchOnly;
+  cleanupSession(reason) {
+    const ended = reason !== 'left';
+    const wasEmbed = this.embedded;
     const embedMount = this.embedMount;
+    const embedSession = this.activeSession;
+    const embedPostId = this.gliimPostId;
 
     // Clear persisted session
     try { sessionStorage.removeItem('liveSession'); } catch (e) {}
@@ -2426,6 +2505,7 @@ const liveView = {
       this.sessionTimerInterval = null;
     }
     this.stopChatPolling();
+    this.stopContentFeed();
     if (this.callObject) {
       this.callObject.destroy();
       this.callObject = null;
@@ -2440,25 +2520,52 @@ const liveView = {
     this.chatMessages = [];
     this.activeSession = null;
     this.sessionRole = null;
-    this.hostMeetingToken = null;
+    this.meetingToken = null;
     this.screenSharing = false;
     this.focusedSessionId = null;
-    this.watchOnly = false;
+    this.embedded = false;
     this.embedMount = null;
     this.embedHash = null;
     this.gliimPostId = null;
+    this.liveBlocks = [];
 
     // Back on the Live page with no session left: show the idle note again.
     if (document.getElementById('live-container')) this.showIdle();
 
     // The reader hosts the embed, so tell it the session is gone.
-    if (wasEmbed) {
+    if (wasEmbed && ended) {
       document.getElementById('live-chat-panel')?.remove();
       if (embedMount && document.body.contains(embedMount)) {
         embedMount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
       }
       window.dispatchEvent(new CustomEvent('live:embed-ended'));
+      return;
     }
+
+    if (wasEmbed && embedMount && embedSession) this._renderEmbedExit(embedMount, embedSession, embedPostId);
+  },
+
+  // A leave can also be the call being torn down because the host went off
+  // air, so ask the session rather than trusting the event.
+  async _renderEmbedExit(mount, session, postId) {
+    const { data: row } = await supabase
+      .from('live_requests').select('status').eq('id', session.id).maybeSingle();
+    if (!document.body.contains(mount)) return;
+
+    if (!row || row.status !== 'active') {
+      mount.innerHTML = '<div class="live-embed-ended">This session has ended.</div>';
+      window.dispatchEvent(new CustomEvent('live:embed-ended'));
+      return;
+    }
+
+    mount.innerHTML = `
+      <div class="live-embed-left">
+        <span>You left the session.</span>
+        <button class="live-embed-rejoin" type="button">Rejoin</button>
+      </div>`;
+    mount.querySelector('.live-embed-rejoin')?.addEventListener('click', () => {
+      this.openEmbed(mount, session.id, postId);
+    });
   }
 };
 
