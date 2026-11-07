@@ -1,21 +1,22 @@
 /* Library Styles */
 
 /* ============================================
-   XPLORE — one page: account cluster, search box,
-   spotlight, sticky tabs, feed (or results).
+   XPLORE — browse: one line to publish, sticky
+   tabs, then the feed.
    ============================================ */
 
-/* Publish, alerts, the ▾ menu and the avatar — this page stands in for the
-   tabs that left the sidebar. Phones get the same jobs from the bottom bar. */
-.xplore-actions {
+/* The mark on the left is the phone's only logo (the rail carries it on wide
+   screens); the "+" on the right is the only door to Publish. */
+.xplore-topline {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
-  padding: 14px 18px 0;
+  gap: 10px;
+  padding: 12px 18px 0;
 }
-.xplore-action {
-  position: relative;
+.xplore-mark { display: none; margin-right: auto; line-height: 0; }
+.xplore-mark img { width: 30px; height: 30px; display: block; object-fit: contain; }
+.xplore-publish {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,126 +25,16 @@
   border: 1px solid var(--border);
   border-radius: 50%;
   background: var(--surface);
-  color: var(--text-secondary);
+  color: var(--brand-primary);
   text-decoration: none;
-  cursor: pointer;
   transition: color 0.2s ease, border-color 0.2s ease;
 }
-.xplore-action:hover { color: var(--brand-primary); border-color: var(--brand-primary); }
-.xplore-action[aria-expanded="true"] { color: var(--brand-primary); border-color: var(--brand-primary); }
-.xplore-avatar-link { position: relative; display: block; line-height: 0; }
-/* The alerts badge rides the profile avatar, the one door to the account menu */
-.xplore-avatar-link .unread-dot { top: -1px; right: -1px; border-color: var(--surface); }
-.xplore-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  display: block;
-}
+.xplore-publish:hover { border-color: var(--brand-primary); }
 
-/* Narrow screens carry no sidebar, so the brand sits over the search box for
-   identity and the avatar becomes the one door to everything else. */
-.xplore-brand { display: none; height: 26px; width: auto; margin-bottom: 4px; }
-
-.xplore-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: clamp(20px, 6vh, 56px) 20px 20px;
-}
-
-/* Phones: the avatar keeps its top-right seat and opens everything the wide
-   cluster shows as icons; the logo is a fixed-colour bitmap, so the theme swap
-   has to be a filter. */
 @media (max-width: 768px) {
-  .xplore-actions { padding: 10px 12px 0; }
-  .xplore-actions .xplore-action { display: none; }
-  .xplore-brand { display: block; }
-  .xplore-hero { padding-top: 6px; }
-  [data-theme="light"] .xplore-brand { filter: brightness(0); }
-  [data-theme="dark"] .xplore-brand { filter: brightness(0) invert(1); }
+  .xplore-topline { padding: 10px 12px 0; }
+  .xplore-mark { display: block; }
 }
-
-.xplore-search-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  max-width: 620px;
-  padding: 6px 10px 6px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  box-shadow: var(--shadow-sm);
-}
-/* Focusing stays idle: the box looks the same resting and typing. */
-.xplore-search-box > svg { width: 20px; height: 20px; color: var(--text-muted); flex-shrink: 0; }
-.xplore-search-input {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 0;
-  background: none;
-  border: none;
-  outline: none;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  color: var(--text-primary);
-}
-.xplore-search-input::placeholder { color: var(--text-muted); }
-/* WebKit draws its own clear button inside type="search"; Enter is the only exit. */
-.xplore-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
-
-/* Recent searches */
-.xplore-chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; max-width: 620px; }
-.xplore-chips:empty { display: none; }
-.xplore-chips-label { font-size: 12px; color: var(--text-muted); }
-.xplore-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 4px 2px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-.xplore-chip-text {
-  padding: 4px 0;
-  background: none;
-  border: none;
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.xplore-chip-text:hover { color: var(--brand-primary); }
-.xplore-chip-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 50%;
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.xplore-chip-remove:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-.xplore-chip-remove svg { width: 12px; height: 12px; }
-.xplore-chip-clear {
-  background: none;
-  border: none;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  text-decoration: underline;
-}
-.xplore-chip-clear:hover { color: var(--brand-primary); }
 
 /* People: the creators shelf in the feed and the people slice in results
    share this one component. */
@@ -182,7 +73,7 @@
   color: var(--text-primary);
   text-decoration: none;
 }
-.xplore-person-id:focus-visible, .xplore-chip-text:focus-visible {
+.xplore-person-id:focus-visible {
   outline: 2px solid var(--brand-primary);
   outline-offset: 2px;
 }
@@ -242,34 +133,10 @@
 .xplore-row .blog-title { font-size: 18px; margin-bottom: 8px; }
 .xplore-row .blog-desc { font-size: 14px; -webkit-line-clamp: 2; margin-bottom: 16px; }
 
-/* Results mode */
-.xplore-results-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.xplore-results-clear {
-  margin-left: auto;
-  padding: 6px 14px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.xplore-results-clear:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
-.xplore-no-results { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+/* Results live on their own page now (views/search.js + search.css); this file
+   keeps only the pieces it shares with it: people, slices and rows. */
 
 @media (max-width: 768px) {
-  .xplore-hero { padding: 16px 12px 12px; gap: 10px; }
-  .xplore-search-box { padding-left: 14px; }
-  .xplore-search-input { font-size: 15px; }
   .xplore-person { width: 88px; }
   .xplore-person-avatar { width: 44px; height: 44px; }
   .xplore-row > * { flex-basis: 78vw; }
@@ -312,7 +179,7 @@
    Wide screens: multi-column grid of cards. Mobile: single-column list.
    ============================================ */
 .libmerge.hub-layout { max-width: 1500px; padding-top: 16px; }
-/* XpLoRe shell cancels .view-container's 2rem padding so the search hero sits
+/* XpLoRe shell cancels .view-container's 2rem padding so the topline sits
    flush with the viewport top and the content edges; the .hub-layout
    child re-applies the inner padding for tabs and feed. */
 .xplore-page { margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0; }

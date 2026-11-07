@@ -128,6 +128,48 @@ export function gliimCoverOf(blocks) {
   return '';
 }
 
+// The four kinds the Publish canvas offers. The same icons label a block and
+// every "+ Insert" menu, so they live once, here.
+const BLOCK_KINDS = ['text', 'image', 'media', 'document'];
+const BLOCK_NAMES = { text: 'Text', image: 'Image', media: 'Media', document: 'Document' };
+const BLOCK_ICONS = {
+  text: '<span class="block-kind-aa">Aa</span>',
+  image: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+  media: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>',
+  document: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>'
+};
+const gripIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>';
+const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+
+// One upload routine for the whole canvas: percent progress in the status
+// line, then a retry and a start-over link instead of a silent failure.
+async function runComposerUpload(file, kind, statusEl, urlEl, inputEl, onDone) {
+  statusEl.style.color = 'var(--brand-primary)';
+  try {
+    statusEl.textContent = 'Uploading... 0%';
+    const fileUrl = await uploadFile(file, kind, (percent) => {
+      statusEl.textContent = `Uploading... ${percent}%`;
+    });
+    urlEl.value = fileUrl;
+    statusEl.textContent = 'Upload complete!';
+    statusEl.style.color = 'var(--success)';
+    if (onDone) onDone(fileUrl);
+  } catch (err) {
+    statusEl.style.color = 'var(--error)';
+    statusEl.textContent = '';
+    statusEl.append(err.message || 'Upload failed.');
+    const retry = document.createElement('a');
+    retry.textContent = 'Retry';
+    retry.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
+    retry.onclick = (ev) => { ev.preventDefault(); runComposerUpload(file, kind, statusEl, urlEl, inputEl, onDone); };
+    const reset = document.createElement('a');
+    reset.textContent = 'Start over';
+    reset.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
+    reset.onclick = (ev) => { ev.preventDefault(); urlEl.value = ''; inputEl.value = ''; inputEl.click(); };
+    statusEl.append(retry, ' · ', reset);
+  }
+}
+
 // Timestamp comments read the position off the first <audio> element in the
 // reader, so they only make sense on a log that has audio. A video log keeps
 // plain comments rather than a badge stuck at 0:00.
@@ -597,6 +639,7 @@ const hubView = {
     chips.innerHTML = this.taggedUsers.map((u, i) => `
       <span class="hub-tag-chip"><span>@${escapeHtml(u.full_name)}</span><button type="button" class="hub-tag-chip-x" onclick="hubInstance.removeTag(${i})">&times;</button></span>
     `).join('');
+    this.updateSettingsSummary();
   },
 
   removeTag(index) {
@@ -634,6 +677,7 @@ const hubView = {
       input.placeholder = this.hashtags.length >= 3 ? 'Max 3 reached' : 'Type and press Enter...';
       input.disabled = this.hashtags.length >= 3;
     }
+    this.updateSettingsSummary();
   },
 
   removeHashtag(index) {
@@ -671,12 +715,36 @@ const hubView = {
 
     const composerInnerHtml = `
         ${opts.inline ? '' : '<button class="modal-close" onclick="hubInstance.closeModal()">×</button>'}
-        <h2 style="margin-bottom: 24px;">Publish to the Feed</h2>
-        <div class="form-group"><label>Title</label><input type="text" id="post-title" class="input" placeholder="An elite headline..."></div>
-        <div class="form-row" style="gap: 16px;">
-          <div class="form-group" id="post-category-group" style="flex: 1;"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
-          <div class="form-group" style="flex: 2;"><label>Description (SEO Summary)</label><input type="text" id="post-description" class="input" placeholder="Brief summary..."></div>
+        <div class="doc-canvas">
+        <div class="doc-masthead">
+          <input type="text" id="post-title" class="doc-title" placeholder="Give your gliim a title" autocomplete="off">
+          <input type="text" id="post-description" class="doc-standfirst" placeholder="One line that tells readers what it is" autocomplete="off">
+          <div class="doc-cover" id="post-cover-slot">
+            <label class="doc-cover-picker">
+              <input type="file" class="mast-cover-input" accept="image/*" hidden>
+              <img class="doc-cover-img" alt="" hidden>
+              <span class="doc-cover-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <strong>Add a cover</strong>
+                <small>This picture becomes the card readers see.</small>
+              </span>
+            </label>
+            <button type="button" class="doc-cover-clear" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              <span>Remove</span>
+            </button>
+            <span class="upload-status mast-cover-status"></span>
+            <input type="hidden" id="post-cover-url">
+          </div>
         </div>
+
+        <div class="doc-settings">
+          <button type="button" class="doc-settings-summary" id="settings-summary-btn" aria-expanded="false">
+            <span id="settings-summary-text">Details</span>
+            <svg class="doc-settings-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="doc-settings-body" id="settings-body">
+        <div class="form-group"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
         <div class="form-group">
           <label>Tag People (optional)</label>
           <div class="hub-tag-picker">
@@ -705,36 +773,22 @@ const hubView = {
           <p style="font-size: 12px; color: var(--text-muted);">Reach <strong>1000 GP</strong> to premium-lock a gliim and charge viewers per open. You're at ${userGP.toLocaleString()} GP.</p>
         </div>
         `}
-        <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
-        <h3 style="margin-bottom: 16px;">Content Blocks</h3>
-        <div id="blocks-container" style="display: flex; flex-direction: column; gap: 16px;"></div>
-
-        <div class="builder-add-dropdown">
-          <button class="btn-secondary" id="add-block-trigger">+ Add Block</button>
-          <div class="dropdown-menu" id="add-block-menu">
-            <div onclick="hubInstance.addBlock('text')"><span style="font-weight:700;">Aa</span> Text</div>
-            <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
-            <div onclick="hubInstance.addBlock('media')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg> Media</div>
-            <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
           </div>
         </div>
 
-        <div style="display: flex; gap: 12px; margin-top: 32px;">
-          <button id="save-draft-btn" class="btn-secondary" style="flex: 1;">Save Draft</button>
-          <button id="submit-post-btn" class="btn-primary" style="flex: 1;">Publish</button>
+        <div id="blocks-container" class="doc-blocks"></div>
+
+        <div class="doc-actions">
+          <button id="save-draft-btn" class="btn-secondary">Save Draft</button>
+          <button id="submit-post-btn" class="btn-primary">Publish</button>
+        </div>
         </div>
       </div>
     `;
 
     let modal;
-    const closeComposer = () => {
-      if (opts.inline) {
-        window.location.hash = '#/xplore';
-      } else {
-        modal.remove();
-        this.isModalOpen = false;
-      }
-    };
+    this.composerInline = !!opts.inline;
+    const closeComposer = () => this.dismissComposer();
 
     if (opts.inline) {
       const mount = document.querySelector(opts.mountPoint || '#publish-mount');
@@ -742,9 +796,14 @@ const hubView = {
       mount.innerHTML = `<div id="create-modal" class="publish-composer">${composerInnerHtml}`;
       modal = mount;
     } else {
+      // A draft opened from a card or the reader must not share the page with
+      // the Publish canvas — two composers with the same ids would fight.
+      document.getElementById('publish-mount')?.replaceChildren();
       modal = document.createElement('div');
       modal.className = 'modal-overlay';
-      modal.innerHTML = `<div class="modal-content gliim-builder">${composerInnerHtml}`;
+      // Same id as the inline mount: autosave looks the composer up by it, and
+      // without it the modal composer never saved or restored anything.
+      modal.innerHTML = `<div id="create-modal" class="modal-content gliim-builder">${composerInnerHtml}`;
       document.body.appendChild(modal);
       this.isModalOpen = true;
     }
@@ -754,13 +813,19 @@ const hubView = {
     this.setupTagPicker();
     this.setupHashtagInput();
 
-    document.getElementById('add-block-trigger').addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.getElementById('add-block-menu').classList.toggle('active');
+    this.setupCoverSlot();
+
+    const summaryBtn = document.getElementById('settings-summary-btn');
+    summaryBtn.addEventListener('click', () => {
+      const open = document.querySelector('.doc-settings').classList.toggle('open');
+      summaryBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
-    document.addEventListener('click', () => {
-      document.getElementById('add-block-menu')?.classList.remove('active');
-    });
+    document.getElementById('post-category').addEventListener('change', () => this.updateSettingsSummary());
+    document.getElementById('post-premium-toggle')?.addEventListener('change', () => this.updateSettingsSummary());
+    this.updateSettingsSummary();
+
+    this.wireCanvasDismiss();
+    this.renderInsertBars();
 
     // Autosave: restore composer state if it exists, then wire up save on changes
     this.restoreComposerState();
@@ -791,6 +856,8 @@ const hubView = {
       const { blocks: finalBlocks, coverUrl } = this.collectBlocksFromComposer();
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
+
+      if (!coverUrl) return this.requireCover();
 
       const btn = document.getElementById('submit-post-btn');
       btn.innerText = "Publishing...";
@@ -910,6 +977,172 @@ const hubView = {
     });
   },
 
+  // ---- Publish canvas --------------------------------------------------------
+  // The document header owns the cover. A body image or a document's own cover
+  // still works as a fallback, but nothing publishes without one of the three.
+  setupCoverSlot() {
+    const slot = document.getElementById('post-cover-slot');
+    if (!slot) return;
+    const input = slot.querySelector('.mast-cover-input');
+    const status = slot.querySelector('.mast-cover-status');
+    const clearBtn = slot.querySelector('.doc-cover-clear');
+
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      status.textContent = '';
+      runComposerUpload(file, 'media', status, document.getElementById('post-cover-url'), input, (url) => {
+        this.setCover(url);
+        this.saveComposerState();
+      });
+    });
+
+    clearBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      input.value = '';
+      status.textContent = '';
+      // Clearing the header only drops the explicit choice: an image already
+      // in the body still becomes the cover, so show that instead of a blank.
+      this.setCover(this.bodyCover());
+      this.saveComposerState();
+    });
+
+    this.setCover(document.getElementById('post-cover-url').value);
+  },
+
+  setCover(url) {
+    const hidden = document.getElementById('post-cover-url');
+    if (hidden) hidden.value = url || '';
+    const slot = document.getElementById('post-cover-slot');
+    if (!slot) return;
+    const img = slot.querySelector('.doc-cover-img');
+    const empty = slot.querySelector('.doc-cover-empty');
+    const clearBtn = slot.querySelector('.doc-cover-clear');
+    if (url) img.src = url;
+    img.hidden = !url;
+    empty.hidden = !!url;
+    clearBtn.hidden = !url;
+    if (url) slot.classList.remove('needs-cover');
+  },
+
+  // The cover the body alone would give this gliim, using the same rule the
+  // feed cards already fall back to.
+  bodyCover() {
+    return gliimCoverOf(this.collectBlocksFromComposer().blocks);
+  },
+
+  // Called when a body upload supplies the first picture in the document.
+  syncCoverFromBody(url) {
+    if (url && !document.getElementById('post-cover-url').value) this.setCover(url);
+  },
+
+  // Used instead of an alert when there is genuinely no cover to use: point at
+  // the one place that can supply it rather than describing the whole ruleset.
+  requireCover() {
+    const slot = document.getElementById('post-cover-slot');
+    if (slot) {
+      slot.classList.add('needs-cover');
+      slot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const status = slot.querySelector('.mast-cover-status');
+      if (status) status.textContent = 'Readers need a picture to click on. Add a cover here.';
+    }
+  },
+
+  // The collapsed settings row says what is inside without opening it.
+  updateSettingsSummary() {
+    const text = document.getElementById('settings-summary-text');
+    if (!text) return;
+    const parts = [];
+    const category = document.getElementById('post-category');
+    if (category) parts.push(category.value);
+    if (this.taggedUsers?.length) parts.push(`${this.taggedUsers.length} ${this.taggedUsers.length === 1 ? 'tag' : 'tags'}`);
+    if (this.hashtags?.length) parts.push(this.hashtags.map(t => `#${t}`).join(' '));
+    if (document.getElementById('post-premium-toggle')?.checked) parts.push('Premium');
+    text.textContent = parts.length ? `Details · ${parts.join(' · ')}` : 'Details';
+  },
+
+  // Blocks only — insert bars share the container, so never use lastElementChild.
+  blockEls() {
+    return Array.from(document.querySelectorAll('#blocks-container .builder-block'));
+  },
+
+  // One "+ Insert" bar per insertion point: before each block and after the last.
+  renderInsertBars() {
+    const container = document.getElementById('blocks-container');
+    if (!container) return;
+    container.querySelectorAll('.block-insert-bar').forEach(bar => bar.remove());
+    const els = this.blockEls();
+    els.forEach((el, i) => {
+      if (i === 0) container.insertBefore(this.insertBar(0), el);
+      container.insertBefore(this.insertBar(i + 1), el.nextSibling);
+    });
+    if (!els.length) container.appendChild(this.insertBar(0));
+  },
+
+  insertBar(at) {
+    const bar = document.createElement('div');
+    bar.className = 'block-insert-bar';
+    bar.dataset.at = at;
+    bar.innerHTML = `
+      <button type="button" class="block-insert-btn" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Insert</span>
+      </button>
+      <div class="block-insert-menu">
+        ${BLOCK_KINDS.map(kind => `<button type="button" class="block-insert-option" data-kind="${kind}">${BLOCK_ICONS[kind]}<span>${BLOCK_NAMES[kind]}</span></button>`).join('')}
+      </div>
+    `;
+    const btn = bar.querySelector('.block-insert-btn');
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = bar.classList.contains('open');
+      this.closeInsertMenus();
+      if (wasOpen) return;
+      bar.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    });
+    bar.querySelectorAll('.block-insert-option').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.addBlock(opt.dataset.kind, Number(bar.dataset.at));
+        this.closeInsertMenus();
+      });
+    });
+    return bar;
+  },
+
+  closeInsertMenus() {
+    document.querySelectorAll('.block-insert-bar.open').forEach(bar => bar.classList.remove('open'));
+    document.querySelectorAll('.block-insert-btn[aria-expanded="true"]').forEach(btn => btn.setAttribute('aria-expanded', 'false'));
+  },
+
+  // Tapping away from a block hides its handles again on touch screens.
+  wireCanvasDismiss() {
+    if (this._canvasDismissWired) return;
+    this._canvasDismissWired = true;
+    document.addEventListener('click', () => {
+      this.closeInsertMenus();
+      document.querySelectorAll('.builder-block.is-open').forEach(b => b.classList.remove('is-open'));
+    });
+  },
+
+  removeBlock(blockDiv) {
+    blockDiv.remove();
+    this.renderInsertBars();
+    this.saveComposerState();
+  },
+
+  // Closes whichever mount the composer is living in: the Publish page canvas
+  // or the overlay modal opened from a feed card or the reader.
+  dismissComposer() {
+    if (this.composerInline) {
+      window.location.hash = '#/xplore';
+      return;
+    }
+    document.querySelector('.modal-overlay')?.remove();
+    this.isModalOpen = false;
+  },
+
   async openDraftComposer(draft) {
     // Clear any stale autosave from a different session — the draft itself
     // is the source of truth when editing.
@@ -925,12 +1158,16 @@ const hubView = {
     document.getElementById('post-title').value = draft.title || '';
     document.getElementById('post-category').value = draft.category || 'Media';
     document.getElementById('post-description').value = draft.description || '';
+
+    // A draft keeps whatever cover it already had in the header slot.
+    this.setCover(draft.cover_url || '');
     
     // Pre-fill premium toggle if applicable
     const premiumToggle = document.getElementById('post-premium-toggle');
     if (premiumToggle && draft.is_premium) {
       premiumToggle.checked = true;
     }
+    this.updateSettingsSummary();
     
     // Clear existing blocks and load draft blocks
     const blocksContainer = document.getElementById('blocks-container');
@@ -949,8 +1186,7 @@ const hubView = {
         if (RETIRED_BLOCK_TYPES.includes(block.type)) continue;
 
         // A stored poll is a text block wearing the Poll style.
-        this.addBlock(block.type === 'poll' ? 'text' : block.type);
-        const blockDiv = blocksContainer.lastElementChild;
+        const blockDiv = this.addBlock(block.type === 'poll' ? 'text' : block.type);
 
         if (block.type === 'poll') {
           const styleSelect = blockDiv.querySelector('.block-style-select');
@@ -1049,6 +1285,8 @@ const hubView = {
 
       if (finalBlocks.length === 0) return alert("Add some content blocks.");
 
+      if (!coverUrl) return this.requireCover();
+
       const btn = newPublishBtn;
       btn.innerText = "Publishing...";
       btn.disabled = true;
@@ -1107,7 +1345,7 @@ const hubView = {
 
       this.clearComposerAutosave();
       this.editingDraftId = null;
-      document.querySelector('.modal-overlay').remove();
+      this.dismissComposer();
       this.fetchPosts();
     });
     
@@ -1166,27 +1404,20 @@ const hubView = {
       alert("Draft updated!");
       this.clearComposerAutosave();
       this.editingDraftId = null;
-      document.querySelector('.modal-overlay').remove();
+      this.dismissComposer();
       this.fetchPosts();
     });
   },
 
-  addBlock(rawType) {
+  // Builds one block on the canvas and returns its element. Callers must not
+  // read lastElementChild: "+ Insert" bars share the same container.
+  addBlock(rawType, at = null) {
     // Audio and Video used to be separate tiles; a draft or autosave written
     // before the merge still names them, so they open as the one Media tile.
     const type = isMediaBlock({ type: rawType }) ? 'media' : rawType;
-    document.getElementById('add-block-menu')?.classList.remove('active');
     const blocksContainer = document.getElementById('blocks-container');
     const blockDiv = document.createElement('div');
     blockDiv.className = 'builder-block'; blockDiv.dataset.type = type;
-
-    let iconHtml = '';
-    if (type === 'text') iconHtml = '<span style="font-weight:700; font-size: 14px;">Aa</span>';
-    if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
-    if (type === 'media') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>';
-    if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
-
-    const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     let inputHtml = '';
     if (type === 'text') {
@@ -1237,110 +1468,92 @@ const hubView = {
       `;
     }
 
-    const BLOCK_NAMES = { text: 'Text', image: 'Image', media: 'Media', document: 'Document' };
-    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}${BLOCK_NAMES[type] || type}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
-    blocksContainer.appendChild(blockDiv);
+    blockDiv.innerHTML = `
+      <div class="block-tools">
+        <span class="block-drag-handle" title="Drag to reorder">${gripIcon}</span>
+        <span class="block-label">${BLOCK_ICONS[type] || ''}<span>${BLOCK_NAMES[type] || type}</span></span>
+        <button type="button" class="block-remove-btn" title="Remove block">${removeIcon}</button>
+      </div>${inputHtml}`;
+
+    // Blocks live at the front of the container; an insert bar can ask for a
+    // block at any position, including the very first.
+    const existing = this.blockEls();
+    if (at === null || at >= existing.length) blocksContainer.appendChild(blockDiv);
+    else blocksContainer.insertBefore(blockDiv, existing[at]);
+    this.renderInsertBars();
+
+    blockDiv.querySelector('.block-remove-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.removeBlock(blockDiv);
+    });
+
+    // Touch screens get the handles by tapping the block; a tap anywhere
+    // outside them closes it again (see wireCanvasDismiss).
+    blockDiv.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeInsertMenus();
+      document.querySelectorAll('.builder-block.is-open').forEach(b => {
+        if (b !== blockDiv) b.classList.remove('is-open');
+      });
+      blockDiv.classList.add('is-open');
+    });
 
     // Make block draggable
     blockDiv.draggable = true;
     const dragHandle = blockDiv.querySelector('.block-drag-handle');
-    
+
     dragHandle.addEventListener('mousedown', () => {
       blockDiv.draggable = true;
     });
-    
+
     blockDiv.addEventListener('dragstart', (e) => {
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/html', blockDiv.outerHTML);
-      blockDiv.style.opacity = '0.4';
+      blockDiv.classList.add('is-dragging');
       hubView.draggedBlock = blockDiv;
     });
-    
-    blockDiv.addEventListener('dragend', (e) => {
-      blockDiv.style.opacity = '';
+
+    blockDiv.addEventListener('dragend', () => {
+      blockDiv.classList.remove('is-dragging');
       document.querySelectorAll('.builder-block').forEach(b => {
-        b.style.borderTop = '';
-        b.style.borderBottom = '';
+        b.classList.remove('drag-above', 'drag-below');
       });
       hubView.draggedBlock = null;
     });
-    
+
     blockDiv.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      
+
       const dragged = hubView.draggedBlock;
       if (!dragged || dragged === blockDiv) return;
-      
-      const rect = blockDiv.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      
-      // Reset all borders
+
+      const before = e.clientY < blockDiv.getBoundingClientRect().top + blockDiv.offsetHeight / 2;
       document.querySelectorAll('.builder-block').forEach(b => {
-        b.style.borderTop = '';
-        b.style.borderBottom = '';
+        b.classList.remove('drag-above', 'drag-below');
       });
-      
-      // Show indicator
-      if (e.clientY < midpoint) {
-        blockDiv.style.borderTop = '2px solid var(--brand-primary)';
-      } else {
-        blockDiv.style.borderBottom = '2px solid var(--brand-primary)';
-      }
+      blockDiv.classList.add(before ? 'drag-above' : 'drag-below');
     });
-    
-    blockDiv.addEventListener('dragleave', (e) => {
-      blockDiv.style.borderTop = '';
-      blockDiv.style.borderBottom = '';
+
+    blockDiv.addEventListener('dragleave', () => {
+      blockDiv.classList.remove('drag-above', 'drag-below');
     });
-    
+
     blockDiv.addEventListener('drop', (e) => {
       e.preventDefault();
       const dragged = hubView.draggedBlock;
       if (!dragged || dragged === blockDiv) return;
-      
-      const rect = blockDiv.getBoundingClientRect();
-      const midpoint = rect.top + rect.height / 2;
-      
-      if (e.clientY < midpoint) {
-        blocksContainer.insertBefore(dragged, blockDiv);
-      } else {
-        blocksContainer.insertBefore(dragged, blockDiv.nextSibling);
-      }
-      
-      // Clean up borders
-      document.querySelectorAll('.builder-block').forEach(b => {
-        b.style.borderTop = '';
-        b.style.borderBottom = '';
-      });
-    });
 
-    const runUpload = async (file, kind, statusEl, urlEl, inputEl, onDone) => {
-      statusEl.style.color = 'var(--brand-primary)';
-      try {
-        statusEl.textContent = 'Uploading... 0%';
-        const fileUrl = await uploadFile(file, kind, (percent) => {
-          statusEl.textContent = `Uploading... ${percent}%`;
-        });
-        urlEl.value = fileUrl;
-        statusEl.textContent = 'Upload complete!';
-        statusEl.style.color = 'var(--success)';
-        if (onDone) onDone(fileUrl);
-      } catch (err) {
-        statusEl.style.color = 'var(--error)';
-        statusEl.textContent = '';
-        statusEl.append(err.message || 'Upload failed.');
-        const retry = document.createElement('a');
-        retry.textContent = 'Retry';
-        retry.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
-        retry.onclick = (ev) => { ev.preventDefault(); runUpload(file, kind, statusEl, urlEl, inputEl, onDone); };
-        const reset = document.createElement('a');
-        reset.textContent = 'Start over';
-        reset.style.cssText = 'margin-left: 6px; color: var(--brand-primary); text-decoration: underline; cursor: pointer;';
-        reset.onclick = (ev) => { ev.preventDefault(); urlEl.value = ''; inputEl.value = ''; inputEl.click(); };
-        statusEl.append(retry, ' · ', reset);
-      }
-    };
+      const before = e.clientY < blockDiv.getBoundingClientRect().top + blockDiv.offsetHeight / 2;
+      blocksContainer.insertBefore(dragged, before ? blockDiv : blockDiv.nextSibling);
+
+      document.querySelectorAll('.builder-block').forEach(b => {
+        b.classList.remove('drag-above', 'drag-below');
+      });
+      // The gaps moved with the blocks, so rebuild them.
+      this.renderInsertBars();
+      this.saveComposerState();
+    });
 
     if (type === 'text') setupTextBlock(blockDiv);
     if (type !== 'text') {
@@ -1350,13 +1563,16 @@ const hubView = {
         blockDiv.querySelector('.block-file-name').innerText = file.name;
         // EPUB/DOCX/PDF masters ride the 'library' kind — the 'media' presign
         // only accepts images, audio and video.
-        runUpload(file, type === 'document' ? 'library' : 'media', blockDiv.querySelector('.upload-status'), blockDiv.querySelector('.block-content-input'), e.target, (fileUrl) => {
+        runComposerUpload(file, type === 'document' ? 'library' : 'media', blockDiv.querySelector('.upload-status'), blockDiv.querySelector('.block-content-input'), e.target, (fileUrl) => {
           if (type === 'document') {
             blockDiv.querySelector('.doc-is-pdf').value = (isPdfSource(file.name) || isPdfSource(fileUrl)) ? '1' : '';
           }
           const preview = blockDiv.querySelector('.block-preview');
           if (type === 'image') {
             preview.innerHTML = `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+            // The first picture in the body becomes the cover, unless the
+            // header slot already carries an explicit one.
+            this.syncCoverFromBody(fileUrl);
           } else if (type === 'media') {
             // The file's own MIME type picks the player — there is no separate
             // video block or audio block any more.
@@ -1374,18 +1590,23 @@ const hubView = {
           const file = coverInput.files[0];
           if (!file) return;
           blockDiv.querySelector('.doc-cover-name').textContent = file.name;
-          runUpload(file, 'media', blockDiv.querySelector('.doc-cover-status'), blockDiv.querySelector('.doc-cover-url'), coverInput, (url) => {
+          runComposerUpload(file, 'media', blockDiv.querySelector('.doc-cover-status'), blockDiv.querySelector('.doc-cover-url'), coverInput, (url) => {
             blockDiv.querySelector('.doc-cover-preview').innerHTML = `<img src="${url}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+            this.syncCoverFromBody(url);
           });
         });
       }
     }
+
+    return blockDiv;
   },
 
   // Serialize the composer's blocks for storage, also returning the card cover.
   collectBlocksFromComposer() {
     const blocks = [];
     let coverUrl = null;
+    // The header slot wins; the body only fills in when it was left empty.
+    const headerCover = (document.getElementById('post-cover-url')?.value || '').trim() || null;
 
     document.querySelectorAll('.builder-block').forEach(b => {
       const type = b.dataset.type;
@@ -1424,7 +1645,7 @@ const hubView = {
       if (!coverUrl && type === 'document') coverUrl = blockData.cover_url || null;
     });
 
-    return { blocks, coverUrl };
+    return { blocks, coverUrl: headerCover || coverUrl };
   },
 
   // Autosave: serialize composer state to localStorage so a refresh doesn't
@@ -1451,6 +1672,7 @@ const hubView = {
       title: document.getElementById('post-title')?.value || '',
       description: document.getElementById('post-description')?.value || '',
       category: document.getElementById('post-category')?.value || '',
+      cover: document.getElementById('post-cover-url')?.value || '',
       taggedUsers: this.taggedUsers || [],
       hashtags: this.hashtags || [],
       premium: document.getElementById('post-premium-toggle')?.checked || false,
@@ -1481,6 +1703,7 @@ const hubView = {
         const catSelect = document.getElementById('post-category');
         if (catSelect) catSelect.value = state.category;
       }
+      if (state.cover) this.setCover(state.cover);
       if (state.premium) {
         const premiumToggle = document.getElementById('post-premium-toggle');
         if (premiumToggle) premiumToggle.checked = true;
@@ -1494,16 +1717,15 @@ const hubView = {
         this.renderHashtagChips();
       }
 
-      // Restore blocks: remove the default empty text block, then rebuild
+      // Restore blocks: the container starts empty, every saved block is rebuilt
       if (state.blocks && state.blocks.length) {
-        const builder = modal.querySelector('.block-builder');
-        if (builder) {
-          builder.innerHTML = '';
+        const container = document.getElementById('blocks-container');
+        if (container) {
+          container.innerHTML = '';
           for (const block of state.blocks) {
             if (RETIRED_BLOCK_TYPES.includes(block.type)) continue;
             // A stored poll is a text block wearing the Poll style.
-            this.addBlock(block.type === 'poll' ? 'text' : block.type);
-            const blockDiv = builder.lastElementChild;
+            const blockDiv = this.addBlock(block.type === 'poll' ? 'text' : block.type);
             if (!blockDiv) continue;
             if (block.type === 'poll') {
               // A legacy autosave keeps the poll JSON in the content field.
@@ -1548,25 +1770,31 @@ const hubView = {
           }
         }
       }
+      // Whatever was restored, the insert bars and the summary row follow it.
+      this.renderInsertBars();
+      this.updateSettingsSummary();
     } catch { /* corrupt data — ignore */ }
   },
 
   wireComposerAutosave() {
-    if (this._autosaveWired) return;
-    this._autosaveWired = true;
-    const modal = document.getElementById('create-modal');
-    if (!modal) return;
+    const composer = document.getElementById('create-modal');
+    if (!composer) return;
 
-    // Save on any input/change in the modal
-    modal.addEventListener('input', () => this.saveComposerState());
-    modal.addEventListener('change', () => this.saveComposerState());
+    // Save on any input/change. Each composer open builds a fresh element, so
+    // these listeners can never pile up across opens.
+    composer.addEventListener('input', () => this.saveComposerState());
+    composer.addEventListener('change', () => this.saveComposerState());
 
     // Also save when blocks are added (these don't always fire input)
-    const originalAddBlock = this.addBlock.bind(this);
-    this.addBlock = (type) => {
-      originalAddBlock(type);
-      this.saveComposerState();
-    };
+    if (!this._addBlockAutosave) {
+      this._addBlockAutosave = true;
+      const originalAddBlock = this.addBlock.bind(this);
+      this.addBlock = (...args) => {
+        const created = originalAddBlock(...args);
+        this.saveComposerState();
+        return created;
+      };
+    }
   },
 
   clearComposerAutosave() {
@@ -2506,10 +2734,8 @@ window.hubInstance = {
   toggleSavePost: (id) => hubView.toggleSavePost(id),
   toggleReadMenu: (id) => hubView.toggleReadMenu(id),
   closeModal: () => hubView.closeModal(),
-  addBlock: (type) => hubView.addBlock(type),
   hydratePolls: (scope) => hubView.hydratePolls(scope),
   pollVote: (postId, idx) => hubView.pollVote(postId, idx),
-  saveComposerState: () => hubView.saveComposerState(),
   openPdfTile: (el) => hubView.openPdfTile(el),
   promptDelete: (id) => hubView.promptDelete(id),
   replyToUser: (postId, fullName, userId) => hubView.replyToUser(postId, fullName, userId),

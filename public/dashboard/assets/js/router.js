@@ -1,30 +1,31 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
-  '/search': () => { window.location.hash = '#/xplore'; return Promise.resolve({ title: 'XpLoRe', template: '', init() {}, destroy() {} }); },
-  '/xplore': () => import('./views/feed.js?v=105').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=105').then(m => m.default),
+  '/search': () => import('./views/search.js?v=1').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=108').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=108').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=64').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=8').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=48').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=13').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=15').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=85').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=54').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=54').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=24').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=87').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=56').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=56').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=26').then(m => m.default),
 };
 
 // Routes with no tab of their own borrow another tab's highlight
-const NAV_ALIAS = { '/search': '/xplore', '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
+const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
 
-// The rail carries XpLoRe, Ping, Publish, Live and Billing, so every other page
-// opens with its own title and one arrow back to wherever the user came from.
-// The old topbar is hidden at both breakpoints, which is why this lives in the
-// router instead. The reader and the collection page are excluded: they already
-// render their own bar.
+// The rail carries XpLoRe, Live, Search, Billing and your face, and the pages
+// outside it open with their own title plus one arrow back to wherever the user
+// came from. XpLoRe is excluded because its logo line is its header; the reader
+// and the collection page render their own bar. The old topbar is hidden at both
+// breakpoints, which is why this lives in the router instead.
 const PAGE_TITLES = {
+  '/search': 'Search',
   '/ping': 'Ping',
   '/wallet': 'Billing',
   '/alerts': 'Alerts',
@@ -38,13 +39,13 @@ const PAGE_TITLES = {
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>';
 
 // Where a back affordance lands. The router keeps its own stack of committed
-// routes instead of trusting browser history: the #/search and #/support
-// redirect shims put a hash in the history that the user never asked for, and
-// a cold deep link leaves history empty, so history.back() can either loop or
-// leave the app. The query string is part of the entry because ?chat= and
-// ?name= decide what a page actually shows.
+// routes instead of trusting browser history: the #/support redirect shim puts a
+// hash in the history that the user never asked for, and a cold deep link leaves
+// history empty, so history.back() can either loop or leave the app. The query
+// string is part of the entry because ?chat= and ?name= decide what a page
+// actually shows.
 const backStack = [];
-const SHIMS = ['/search', '/support'];
+const SHIMS = ['/support'];
 
 function remember(hash) {
   const path = (hash || '').split('?')[0];

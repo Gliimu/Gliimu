@@ -1,10 +1,10 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=191';
+import { router } from './router.js?v=194';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=3';
-import { initAccountMenu } from './account-menu.js?v=2';
+import { initAccountMenu } from './account-menu.js?v=3';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -23,10 +23,18 @@ const NotificationManager = {
     document.querySelectorAll(`.unread-dot[data-dot="${tabName}"]`).forEach(dot => {
       dot.hidden = !(count > 0);
     });
+    this.refreshAnyDot();
 
     // Update favicon notification dot
     const hasNotifications = this.counts.ping > 0 || this.counts.support > 0 || this.counts.alerts > 0;
     notify.faviconDot(hasNotifications);
+  },
+
+  // The avatar is the only way to reach Ping and Alerts now, so it carries one
+  // combined dot instead of three separate ones.
+  refreshAnyDot() {
+    const pending = this.counts.ping + this.counts.support + this.counts.alerts > 0;
+    document.querySelectorAll('.unread-dot[data-dot="any"]').forEach(dot => { dot.hidden = !pending; });
   },
 
   async refreshUnread() {

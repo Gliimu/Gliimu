@@ -170,6 +170,40 @@
   flex-shrink: 0;
 }
 
+/* The last slot is your face, not a page. It is a <button> because it opens a
+   menu on every screen size, and buttons do not inherit the row styling. */
+.nav-item--account {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  text-align: left;
+}
+.nav-item--account.is-open { background: var(--surface-hover); color: var(--text-primary); }
+
+.nav-avatar {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.nav-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  display: block;
+  background: var(--bg-tertiary);
+}
+.nav-avatar .unread-dot {
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+}
+
 /* Rail people — the avatars of everyone you follow (wide screens only) */
 .rail-people {
   display: flex;
@@ -263,16 +297,6 @@
 }
 .unread-dot[hidden] { display: none; }
 
-/* Avatar in the mobile bottom bar */
-.user-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
-  object-fit: cover;
-  background: var(--bg-tertiary);
-  display: block;
-}
-
 /* ============================================
    BOTTOM BAR — a floating pill, the whole navigation under 769px
    ============================================ */
@@ -316,24 +340,11 @@
 .bottom-item:active { background: var(--surface-hover); }
 .bottom-item.active { color: var(--brand-primary); }
 
-/* Publish is the one action in the bar, so the "+" carries a tinted circle
-   instead of sitting flush with the four places. The circle is sized rather
-   than inset-stretched, otherwise it reads as another wide lozenge. */
-.bottom-item--add { color: var(--brand-primary); }
-.bottom-item--add::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-full);
-  background: var(--brand-primary-light);
-}
-.bottom-item--add svg { position: relative; }
-
-/* Unread dots sit over the icon in the bottom bar */
-.bottom-item .unread-dot { top: 3px; right: calc(50% - 16px); }
+/* The last slot is your face and it opens the account menu, so it is sized to
+   match the icons around it rather than to look like a profile picture. */
+.bottom-item .nav-avatar { margin-right: 0; }
+.nav-avatar--sm { width: 24px; height: 24px; }
+.bottom-item .nav-avatar .unread-dot { top: -1px; right: -1px; width: 9px; height: 9px; }
 
 /* ============================================
    ACCOUNT MENU — opened from the avatar on narrow screens
@@ -353,6 +364,7 @@
 }
 
 .account-menu-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -651,6 +663,7 @@
   .nav-label, .nav-text { display: none; }
   .nav-item { justify-content: center; padding: var(--space-3) 0; }
   .nav-item svg { margin-right: 0; }
+  .nav-avatar { margin-right: 0; }
 
   .rail-person { justify-content: center; padding: var(--space-1) 0; }
   .rail-person-avatar { width: 34px; height: 34px; }
@@ -672,6 +685,7 @@
 
   body.sidebar-open .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
   body.sidebar-open .nav-item svg { margin-right: 12px; }
+  body.sidebar-open .nav-avatar { margin-right: 12px; }
 
   body.sidebar-open .rail-people-heading { display: block; }
   body.sidebar-open .rail-person { justify-content: flex-start; padding: var(--space-1) var(--space-2); }

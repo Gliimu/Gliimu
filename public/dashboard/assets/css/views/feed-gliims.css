@@ -404,35 +404,288 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 .hub-filter-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 .hub-filter-item.active { color: var(--brand-primary); background: var(--brand-primary-light); font-weight: 600; }
 
-/* Gliim Studio (Maker) */
-.gliim-builder { max-width: 700px; max-height: 90vh; overflow-y: auto; }
+/* ============================================
+   GLIIM STUDIO — publish canvas
+   A document, not a form: masthead, a discreet settings row, then the blocks
+   with their handles fading in on hover (tap to reveal on touch).
+   ============================================ */
+.gliim-builder { max-width: 760px; max-height: 90vh; overflow-y: auto; }
 .publish-composer {
-  max-width: 700px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: var(--space-8);
+  padding: var(--space-6) var(--space-6) var(--space-8);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2xl);
 }
-.builder-block { background: var(--bg-tertiary); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
-.block-label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.doc-canvas { display: flex; flex-direction: column; gap: var(--space-5); }
 
-/* Trash Icon Button */
+/* Masthead: title, standfirst, cover */
+.doc-masthead { display: flex; flex-direction: column; gap: var(--space-2); }
+.doc-title {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+.doc-title::placeholder { color: var(--text-muted); font-weight: 800; }
+.doc-standfirst {
+  width: 100%;
+  padding: 0 0 var(--space-3);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.doc-standfirst::placeholder { color: var(--text-muted); }
+
+/* Cover slot — hidden attributes drive the empty/filled states, so make sure
+   the display rules below cannot win against them. */
+.doc-cover { position: relative; }
+.doc-cover [hidden] { display: none !important; }
+.doc-cover-picker {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  /* Without this the masthead cover is ~400px tall on desktop and dwarfs the body. */
+  max-height: 300px;
+  overflow: hidden;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.doc-cover-picker:hover { border-color: var(--brand-primary); }
+.doc-cover-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.doc-cover-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-secondary);
+}
+.doc-cover-empty svg { color: var(--text-muted); }
+.doc-cover-empty strong { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.doc-cover-empty small { font-size: 12.5px; color: var(--text-muted); }
+.doc-cover-clear {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(15, 23, 42, 0.62);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.doc-cover-clear:hover { background: var(--error); }
+.mast-cover-status { display: block; margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
+.mast-cover-status:empty { display: none; }
+.doc-cover.needs-cover .doc-cover-picker { border-color: var(--error); border-style: solid; background: var(--error-light); }
+.doc-cover.needs-cover .doc-cover-empty strong,
+.doc-cover.needs-cover .doc-cover-empty small { color: var(--error-text); }
+.doc-cover.needs-cover { animation: cover-nudge 0.35s ease; }
+@keyframes cover-nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Collapsible details row (category, tags, hashtags, premium lock) */
+.doc-settings {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+.doc-settings-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.doc-settings-summary:hover { color: var(--text-primary); }
+.doc-settings-chevron { flex-shrink: 0; color: var(--text-muted); transition: transform 0.2s ease; }
+.doc-settings.open .doc-settings-chevron { transform: rotate(180deg); }
+.doc-settings-body { display: none; padding: var(--space-4) 14px 14px; border-top: 1px solid var(--border); }
+.doc-settings.open .doc-settings-body { display: block; }
+.doc-settings-body .form-group:last-child { margin-bottom: 0; }
+
+/* Blocks */
+.doc-blocks { display: flex; flex-direction: column; }
+.builder-block {
+  position: relative;
+  padding: 34px 14px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.builder-block:hover,
+.builder-block:focus-within { background: var(--bg-secondary); border-color: var(--border); }
+.builder-block.is-open { background: var(--bg-secondary); border-color: var(--border-strong); }
+.builder-block.is-dragging { opacity: 0.45; }
+.builder-block.drag-above { box-shadow: 0 -2px 0 0 var(--brand-primary); }
+.builder-block.drag-below { box-shadow: 0 2px 0 0 var(--brand-primary); }
+
+/* Handle strip occupies the reserved 34px above the block content */
+.block-tools {
+  position: absolute;
+  top: 5px;
+  left: 8px;
+  right: 8px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.builder-block:hover .block-tools,
+.builder-block:focus-within .block-tools,
+.builder-block.is-open .block-tools { opacity: 1; }
+.block-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: grab;
+}
+.block-drag-handle:active { cursor: grabbing; }
+.block-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.block-kind-aa { min-width: 16px; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
+
+/* Trash button sits at the far end of the handle strip */
 .block-remove-btn {
-  background: var(--error-light);
-  color: var(--error);
+  margin-left: auto;
+  background: transparent;
+  color: var(--text-muted);
   border: none;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
 }
-.block-remove-btn:hover { background: var(--error); color: white; }
+.block-remove-btn:hover { background: var(--error-light); color: var(--error); }
+
+/* "+ Insert" caret between blocks */
+.block-insert-bar { position: relative; height: 20px; display: flex; align-items: center; justify-content: center; }
+.block-insert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.block-insert-bar:hover .block-insert-btn,
+.block-insert-bar.open .block-insert-btn,
+.block-insert-btn:focus-visible { opacity: 1; }
+.block-insert-btn:hover { color: var(--brand-primary); border-color: var(--brand-primary); }
+.block-insert-menu {
+  position: absolute;
+  top: calc(100% - 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.block-insert-bar.open .block-insert-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.block-insert-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.block-insert-option:hover { background: var(--brand-primary-light); color: var(--brand-primary); }
+
+.doc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
 
 .block-style-select { margin-bottom: 8px; }
 
@@ -444,29 +697,26 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
 /* Dark Mode Paperclip Fix */
 [data-theme="dark"] .upload-icon-img { filter: brightness(0) invert(1); }
 
-/* Builder Add Block Drop-up (menu opens upward from the button) */
-.builder-add-dropdown { position: relative; margin-top: 16px; }
-.dropdown-menu {
-  position: absolute;
-  bottom: 110%;
-  top: auto;
-  left: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-lg);
-  min-width: 220px;
-  z-index: 100;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(10px);
-  transition: all 0.2s ease;
-  overflow: hidden;
+/* Touch screens: no hover, so handles appear on tap and the insert caret is
+   always reachable. The .is-open rule must stay last — it ties with the hover
+   selectors and wins on order. */
+@media (hover: none) {
+  .builder-block:hover .block-tools,
+  .builder-block:focus-within .block-tools { opacity: 0; }
+  .builder-block.is-open .block-tools { opacity: 1; }
+  .block-insert-btn { opacity: 0.75; }
 }
-.dropdown-menu.active { opacity: 1; visibility: visible; transform: translateY(0); }
-.dropdown-menu { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); }
-.dropdown-menu div { padding: 12px 10px; font-size: 13px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--surface); text-align: center; min-height: 70px; }
-.dropdown-menu div:hover { background: var(--bg-tertiary); color: var(--brand-primary); }
+
+@media (max-width: 640px) {
+  .publish-composer { padding: var(--space-4) var(--space-3) var(--space-6); border-radius: 0; border-left: none; border-right: none; }
+  .doc-title { font-size: 22px; }
+  .doc-standfirst { font-size: 14px; }
+  .doc-cover-picker { aspect-ratio: 4 / 3; }
+  .builder-block { padding: 32px 8px 12px; }
+  .block-insert-menu { grid-template-columns: 1fr 1fr; min-width: 240px; }
+  .doc-actions .btn-primary,
+  .doc-actions .btn-secondary { flex: 1; }
+}
 
 /* Pool (poll) blocks in the composer and the read view */
 .poll-block { border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 20px 0; }

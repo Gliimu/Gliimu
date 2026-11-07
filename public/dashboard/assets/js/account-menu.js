@@ -3,9 +3,10 @@ const ITEMS = `
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
     <span>Profile</span>
   </a>
-  <a class="account-menu-item" role="menuitem" href="#/publish">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-    <span>Publish</span>
+  <a class="account-menu-item" role="menuitem" href="#/ping">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    <span>Ping</span>
+    <span class="unread-dot" data-dot="ping" hidden></span>
   </a>
   <a class="account-menu-item" role="menuitem" href="#/alerts">
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
@@ -61,10 +62,16 @@ function place(trigger, el) {
   el.style.left = `${Math.round(left)}px`;
 }
 
-// One door, one screen: narrow screens have no rail and no icon cluster, so the
-// avatar in the top-right of XpLoRe opens everything else. On wide screens the
-// same avatar is simply the link to your own profile.
-const NARROW = window.matchMedia('(max-width: 768px)');
+// Your face in the navigation is one door on every screen size: it opens this
+// menu instead of going straight to your profile, because Ping, Alerts and
+// Settings have no tab of their own any more.
+function seedDots(el) {
+  const counts = window.NotificationManager?.counts;
+  if (!counts) return;
+  el.querySelectorAll('[data-dot]').forEach(dot => {
+    dot.hidden = !(counts[dot.dataset.dot] > 0);
+  });
+}
 
 export function toggleAccountMenu(trigger) {
   const reopening = menu && opener === trigger;
@@ -76,6 +83,7 @@ export function toggleAccountMenu(trigger) {
   menu.className = 'account-menu';
   menu.setAttribute('role', 'menu');
   menu.innerHTML = ITEMS;
+  seedDots(menu);
   document.body.appendChild(menu);
   place(trigger, menu);
 
@@ -96,7 +104,7 @@ window.addEventListener('resize', close);
 export function initAccountMenu() {
   document.addEventListener('click', (event) => {
     const trigger = event.target.closest('[data-account-trigger]');
-    if (!trigger || (trigger.tagName === 'A' && !NARROW.matches)) return;
+    if (!trigger) return;
     event.preventDefault();
     toggleAccountMenu(trigger);
   });
