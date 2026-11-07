@@ -1,4 +1,4 @@
-import liveView from './live.js?v=49';
+import liveView from './live.js?v=50';
 
 export default {
   title: 'Live',

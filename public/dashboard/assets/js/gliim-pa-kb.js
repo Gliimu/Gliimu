@@ -21,7 +21,7 @@ I can help with:
 - **Wallet and top-ups** — funding, transfers, withdrawals
 - **Plans and pricing** — Wallet, Use n' Pay, Xtra
 - **The Updates** — leaderboard, contests, cohorts and referrals
-- **Publishing** — a gliim, a book, an audiolite or a bundle
+- **Publishing** — a gliim, a book, a log or a bundle
 - **Going live** — 1-on-1 sessions, screen share, voice notes
 - **Premium content**, your **portfolio**, and **support**
 - **Media craft** — b-roll, editing, lighting, audio, pitching clients
@@ -92,12 +92,12 @@ Contest scores update on their own from your activity — no manual scoring. Use
   },
   {
     title: 'Publishing a gliim',
-    keys: ['upload', 'post', 'publish', 'gliim', 'gliims', 'bundle', 'book', 'audiolite', 'pdf', 'submit', 'content', 'create', 'composer', 'share my work'],
+    keys: ['upload', 'post', 'publish', 'gliim', 'gliims', 'bundle', 'book', 'log', 'audiolite', 'media', 'pdf', 'submit', 'content', 'create', 'composer', 'share my work'],
     answer: `To publish in the **Hub**:
 
 1. Make sure you have at least **50 GP**.
 2. Tap the **+** button to open the composer.
-3. Choose what you are making — a **Book**, an **Audiolite**, or a **Bundle** that mixes text, images, video, audio and PDFs.
+3. Choose what you are making — a **Book**, a **Log** (a recording: audio or video), or a **Bundle** that mixes text, images, media and documents.
 4. Add your files, a title and a description. PDFs can carry their own price once you reach **500 GP**.
 5. Submit.
 
@@ -222,7 +222,7 @@ Try asking about:
 - **Wallet, top-ups and transfers**
 - **Plans and pricing**
 - **The Updates** — contests, cohorts, leaderboard and referrals
-- **Publishing a gliim** (books, audiolites, bundles, PDFs)
+- **Publishing a gliim** (books, logs, bundles, documents)
 - **Going live**, **premium content**, or your **portfolio**
 - **Media craft** — b-roll, editing, lighting, pitching clients
 - **Support** and reporting a problem

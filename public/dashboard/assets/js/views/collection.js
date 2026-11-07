@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=111';
+import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=112';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -47,6 +47,7 @@ export default {
       this.posts = [];
       this.interactions = [];
       this.cardKinds = {};
+      this.cardCovers = {};
       return;
     }
 
@@ -74,14 +75,20 @@ export default {
         .select('post_id, blocks')
         .in('post_id', postIds);
       this.cardKinds = {};
-      for (const row of kindRows || []) this.cardKinds[row.post_id] = gliimKindOf(row.blocks) || 'bundle';
+      this.cardCovers = {};
+      for (const row of kindRows || []) {
+        this.cardKinds[row.post_id] = gliimKindOf(row.blocks) || 'bundle';
+        this.cardCovers[row.post_id] = gliimCoverOf(row.blocks);
+      }
     } else {
       this.interactions = [];
       this.cardKinds = {};
+      this.cardCovers = {};
     }
 
     hubView.allInteractions = this.interactions;
     hubView.cardKinds = this.cardKinds;
+    hubView.cardCovers = this.cardCovers;
 
     const contributors = {};
     for (const p of this.posts) {

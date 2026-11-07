@@ -5,7 +5,7 @@
 // hand the conversation back.
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
-import { kbAnswer } from '../gliim-pa-kb.js?v=29';
+import { kbAnswer } from '../gliim-pa-kb.js?v=30';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js?v=3';
 
 // Answers are rendered from a small markdown subset. Everything is escaped

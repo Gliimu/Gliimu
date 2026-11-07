@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=111';
+import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=112';
 import feedView from './feed.js?v=103';
 import { notify } from '../notify.js?v=33';
 
@@ -473,6 +473,7 @@ export default {
   async syncCardContext(list, profile) {
     const ids = list.map(item => item.id);
     hubView.cardKinds = {};
+    hubView.cardCovers = {};
     hubView.allInteractions = [];
     if (!ids.length) return;
 
@@ -481,7 +482,10 @@ export default {
         supabase.from('feed_gliim_contents').select('post_id, blocks').in('post_id', ids),
         supabase.from('feed_interactions').select('post_id, interaction_type').in('post_id', ids)
       ]);
-      for (const row of kindRes.data || []) hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+      for (const row of kindRes.data || []) {
+        hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+        hubView.cardCovers[row.post_id] = gliimCoverOf(row.blocks);
+      }
       hubView.allInteractions = interRes.data || [];
     } catch { /* cards keep the default style */ }
 

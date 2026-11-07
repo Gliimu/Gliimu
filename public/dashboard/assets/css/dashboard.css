@@ -14,14 +14,43 @@
   --page-header-h: 52px;
   --pad-x: var(--space-8);
   --pad-top: var(--space-8);
+  /* With viewport-fit=cover the page can be painted behind the status bar.
+     Every element that pins itself to the top of the viewport has to add this
+     much room, otherwise the camera cut-out covers the back arrow and title. */
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 @media (max-width: 768px) {
   :root {
-    --bottom-bar-h: calc(64px + env(safe-area-inset-bottom));
+    /* The pill is 48px tall and floats 10px off the bottom, so its top edge sits
+       58px above the edge. Reserve exactly that; the container's own bottom
+       padding then adds the breathing gap instead of doubling up. */
+    --bottom-bar-h: calc(58px + env(safe-area-inset-bottom));
     --pad-x: 8px;
-    --pad-top: 16px;
+    --pad-top: calc(16px + var(--safe-top));
   }
 }
+
+/* Nothing may paint under the status bar. Pages whose header bleeds flush to
+   the viewport top would otherwise put the back arrow behind the camera
+   cut-out, so this strip covers the inset. It hangs off the view container so
+   each route can match its own top colour with --top-strip. */
+.view-container::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background: var(--top-strip, var(--surface));
+  z-index: 900;
+  pointer-events: none;
+}
+
+/* Match the strip to whatever each route paints at the top: the default is the
+   page header's surface, XpLoRe and the collection page show the layout's
+   tertiary, the reader its own white bar. */
+.view-xplore, .view-feed, .view-collection { --top-strip: var(--bg-tertiary); }
+.view-read, .view-post { --top-strip: var(--bg-primary); }
 
 /* Main Layout - Uses bg-tertiary (swapped) */
 .dashboard-layout {
@@ -245,19 +274,24 @@
 }
 
 /* ============================================
-   BOTTOM BAR — the whole navigation under 769px
+   BOTTOM BAR — a floating pill, the whole navigation under 769px
    ============================================ */
 .bottom-bar {
   display: none;
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 14px;
+  right: 14px;
   z-index: 9000;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.06);
+  /* Translucent so the feed keeps scrolling under it, the way Pinterest's bar
+     reads; the blur keeps the icons legible over whatever passes behind. */
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 6px 8px;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.16);
 }
 
 .bottom-item {
@@ -272,7 +306,7 @@
   padding: 6px 2px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   color: var(--text-muted);
   font-family: var(--font-sans);
   text-decoration: none;
@@ -281,6 +315,22 @@
 }
 .bottom-item:active { background: var(--surface-hover); }
 .bottom-item.active { color: var(--brand-primary); }
+
+/* Publish is the one action in the bar, so the "+" carries a tinted circle
+   instead of sitting flush with the four places. The circle is sized rather
+   than inset-stretched, otherwise it reads as another wide lozenge. */
+.bottom-item--add { color: var(--brand-primary); }
+.bottom-item--add::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--brand-primary-light);
+}
+.bottom-item--add svg { position: relative; }
 
 /* Unread dots sit over the icon in the bottom bar */
 .bottom-item .unread-dot { top: 3px; right: calc(50% - 16px); }
@@ -392,9 +442,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: var(--page-header-h);
+  height: calc(var(--page-header-h) + var(--safe-top));
+  padding-top: var(--safe-top);
   margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 16px;
-  padding: 0 var(--space-4);
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+  padding-bottom: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }

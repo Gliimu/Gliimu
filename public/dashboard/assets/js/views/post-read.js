@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=111';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=112';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -243,11 +243,13 @@ export default {
   async populateCardKinds(posts) {
     if (!posts || posts.length === 0) return;
     hubView.cardKinds = hubView.cardKinds || {};
+    hubView.cardCovers = hubView.cardCovers || {};
     try {
       const ids = posts.map(p => p.id);
       const { data: kindRows } = await supabase.from('feed_gliim_contents').select('post_id, blocks').in('post_id', ids);
       for (const row of kindRows || []) {
         hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+        hubView.cardCovers[row.post_id] = gliimCoverOf(row.blocks);
       }
     } catch { /* cards keep the default style */ }
   },
@@ -268,8 +270,8 @@ export default {
     const isSaved = (hubView.savedPosts || new Set()).has(post.id);
 
     const postComments = interactions.filter(i => i.interaction_type === 'comment');
-    const isAudiolite = gliimKindOf(post.blocks) === 'audiolite';
-    if (isAudiolite) {
+    const isAudioLog = gliimKindOf(post.blocks) === 'log' && hasAudioPlayer(post.blocks);
+    if (isAudioLog) {
       postComments.sort((a, b) => {
         const ta = a.metadata?.audio_timestamp ?? Infinity;
         const tb = b.metadata?.audio_timestamp ?? Infinity;
@@ -286,7 +288,7 @@ export default {
         const parsedText = hubView.parseTags(c.comment_text);
         const commentTime = new Date(c.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const ts = c.metadata?.audio_timestamp;
-        const tsBadge = (isAudiolite && ts != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${post.id}', ${ts})" title="Jump to ${formatAudioTimestamp(ts)}">${formatAudioTimestamp(ts)}</button>` : '';
+        const tsBadge = (isAudioLog && ts != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${post.id}', ${ts})" title="Jump to ${formatAudioTimestamp(ts)}">${formatAudioTimestamp(ts)}</button>` : '';
         return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span>${tsBadge}<span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       }).join('');
     }
@@ -480,10 +482,10 @@ export default {
           const cap = b.caption ? `<figcaption class="read-block-caption">${escapeHtml(b.caption)}</figcaption>` : '';
           return `<figure class="read-block-figure"><img src="${escapeHtml(b.content)}" class="read-block-media" data-lightbox data-caption="${escapeHtml(b.caption || '')}">${cap}</figure>`;
         }
-        if (b.type === 'video') {
-          return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
-        }
-        if (b.type === 'audio') {
+        if (isMediaBlock(b)) {
+          if (mediaIsVideo(b)) {
+            return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
+          }
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
           return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata" crossorigin="anonymous"></audio></div>`;
         }

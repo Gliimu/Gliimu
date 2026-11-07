@@ -23,7 +23,9 @@ const ICONS = {
   bolt: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
   plus: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
   users: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-  onAir: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>'
+  onAir: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>',
+  like: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"></path><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>',
+  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l8.84 8.84 8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
 };
 
 
@@ -120,7 +122,8 @@ const liveView = {
       reportLiveSession: () => this.reportLiveSession(),
       toggleScreenShare: () => this.toggleScreenShare(),
       shareSession: () => this.shareSession(),
-      showSupportDialog: () => this.showSupportDialog(),
+      tapSupport: () => this.tapSupport(),
+      tapReact: () => this.tapReact(),
       minimizeStudio: () => this.minimizeStudio(),
       restoreStudio: () => this.restoreStudio(),
       isLiveActive: () => !!this.activeSession,
@@ -386,6 +389,9 @@ const liveView = {
   },
 
   destroy() {
+    this.chatOpen = false;
+    this._closeChatOverlay();
+
     // If minimized, preserve the session — only clean up DOM artifacts
     if (this.minimized) {
       document.body.classList.remove('live-studio-active');
@@ -669,7 +675,8 @@ const liveView = {
               ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
               : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
             <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-            ${isHost ? '' : `<button class="live-ctrl-btn" id="live-support-btn" title="Support G100">${ICONS.bolt}</button>`}
+            ${isHost ? '' : `<button class="live-ctrl-btn" id="live-react-btn" title="React">${ICONS.like}</button>`}
+            ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn" id="live-support-btn" title="Support G10">${ICONS.bolt}</button>`}
             ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
             <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
             <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -686,7 +693,8 @@ const liveView = {
     document.getElementById('live-screen-btn')?.addEventListener('click', () => this.toggleScreenShare());
     document.getElementById('live-flip-btn')?.addEventListener('click', () => this.flipCamera());
     document.getElementById('live-chat-btn')?.addEventListener('click', () => this.toggleChat());
-    document.getElementById('live-support-btn')?.addEventListener('click', () => this.showSupportDialog());
+    document.getElementById('live-react-btn')?.addEventListener('click', () => this.tapReact());
+    document.getElementById('live-support-btn')?.addEventListener('click', () => this.tapSupport());
     document.getElementById('live-share-btn')?.addEventListener('click', () => this.shareSession());
     document.getElementById('live-minimize-btn')?.addEventListener('click', () => this.minimizeStudio());
     document.getElementById('live-leave-btn')?.addEventListener('click', () => isHost ? this.endSession() : this.leaveSession());
@@ -1030,7 +1038,28 @@ const liveView = {
   toggleChat() {
     this.chatOpen = !this.chatOpen;
     const panel = document.getElementById('live-chat-panel');
-    if (panel) panel.style.display = this.chatOpen ? 'flex' : 'none';
+    if (!panel) return;
+    panel.style.display = this.chatOpen ? 'flex' : 'none';
+
+    if (this.chatOpen && window.innerWidth <= 768) {
+      document.body.classList.add('live-chat-modal-open');
+      if (!this._chatBackdrop) {
+        this._chatBackdrop = document.createElement('div');
+        this._chatBackdrop.className = 'live-chat-backdrop';
+        this._chatBackdrop.addEventListener('click', () => this.toggleChat());
+        document.body.appendChild(this._chatBackdrop);
+      }
+    } else {
+      this._closeChatOverlay();
+    }
+  },
+
+  _closeChatOverlay() {
+    document.body.classList.remove('live-chat-modal-open');
+    if (this._chatBackdrop) {
+      this._chatBackdrop.remove();
+      this._chatBackdrop = null;
+    }
   },
 
   muteParticipant(sessionId) {
@@ -1147,6 +1176,7 @@ const liveView = {
     this.minimized = true;
 
     document.body.classList.remove('live-studio-active');
+    this._closeChatOverlay();
     const studio = document.querySelector('.live-studio-container');
     if (studio) studio.style.display = 'none';
 
@@ -1408,74 +1438,93 @@ const liveView = {
     }
   },
 
-  showSupportDialog() {
+  // One tap takes G10 out of the wallet with no confirmation screen. A short
+  // wallet is the only case that asks, and then it can only offer what it holds.
+  async tapSupport() {
     if (!this.activeSession || this.sessionRole === 'host') return;
+    if (this._supportBusy) return;
 
-    const COST = 100;
-    const HOST_SHARE = 70;
+    const COST = 10;
     const balance = Number(store.profile?.wallet_balance || 0);
-    const short = balance < COST;
-    const empty = balance <= 0;
-    const sendAmount = short ? balance : COST;
-    const hostGets = short ? Math.round(balance * 0.70) : HOST_SHARE;
+    let partial = false;
 
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal-content" style="max-width: 400px;">
-        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()" aria-label="Close">${ICONS.close}</button>
-        <div class="live-support-mark">${ICONS.bolt}</div>
-        <h2 style="margin-bottom: 6px;">Support this session</h2>
-        <p class="text-muted" style="margin-bottom: 16px; font-size: 14px;">
-          ${short
-            ? `Supporting costs G${COST}, but your wallet holds G${balance}. Send G${balance} instead? The host still receives 70% of it.`
-            : `G${COST} is taken from your wallet. The host receives G${HOST_SHARE}.`}
-        </p>
-        <div class="live-support-balance">
-          <span>Your wallet</span>
-          <strong>G${balance}</strong>
-        </div>
-        <div class="live-support-balance">
-          <span>Host receives</span>
-          <strong>G${hostGets}</strong>
-        </div>
-        <button class="btn-primary" id="live-support-send" style="width:100%;margin-top:16px;" ${empty ? 'disabled' : ''}>
-          ${short ? `Send G${sendAmount} instead` : `Send G${COST}`}
-        </button>
-        ${empty ? `<p class="live-support-short">Your wallet is empty. Top up from the Wallet page.</p>`
-                : (short ? `<p class="live-support-short">Nothing is charged beyond what you already hold.</p>` : '')}
-      </div>
-    `;
-    document.body.appendChild(overlay);
+    if (balance <= 0) {
+      appAlert(`Supporting costs G${COST} and your wallet is empty. Top up from Billing.`);
+      return;
+    }
+    if (balance < COST) {
+      const ok = await appConfirm(
+        `Your wallet is low - it holds G${balance}. Supporting this session costs G${COST}. Send the G${balance} you have instead? The host keeps 70% of it.`,
+        { okText: `Send G${balance}` }
+      );
+      if (!ok) return;
+      partial = true;
+    }
 
-    document.getElementById('live-support-send')?.addEventListener('click', async (ev) => {
-      const btn = ev.currentTarget;
-      btn.disabled = true;
-      btn.textContent = 'Sending...';
-
+    this._supportBusy = true;
+    const btn = document.getElementById('live-support-btn');
+    if (btn) btn.classList.add('is-busy');
+    try {
       const { data, error } = await supabase.rpc('support_live_session', {
         p_request: this.activeSession.id,
-        p_accept_partial: short,
+        p_accept_partial: partial,
       });
 
       if (error) {
         const msg = String(error.message || '');
-        if (msg.includes('INSUFFICIENT_FUNDS')) appAlert('Your wallet is empty. Top up from the Wallet page to support this session.');
+        if (msg.includes('INSUFFICIENT_FUNDS')) appAlert('Your wallet is too low to support. Top up from Billing.');
         else if (msg.includes('SESSION_NOT_ACTIVE')) appAlert('This session is no longer live.');
         else if (msg.includes('SESSION_NOT_FOUND')) appAlert('This session could not be found.');
         else if (msg.includes('NOT_AUTHENTICATED')) appAlert('Please sign in again.');
         else if (msg.includes('CANNOT_SUPPORT_SELF')) appAlert('You cannot support your own session.');
         else appAlert('Support failed: ' + (msg || 'unknown error'));
-        btn.disabled = false;
-        btn.textContent = short ? `Send G${sendAmount} instead` : `Send G${COST}`;
         return;
       }
 
-      const spent = Number(data?.cost || sendAmount);
-      if (store.profile) store.profile.wallet_balance = Number(store.profile.wallet_balance || 0) - spent;
-      overlay.remove();
+      const spent = Number(data?.cost || (partial ? balance : COST));
+      if (store.profile) store.profile.wallet_balance = Math.max(0, balance - spent);
       this._flashSupport(spent);
-    });
+    } finally {
+      if (btn) btn.classList.remove('is-busy');
+      this._supportBusy = false;
+    }
+  },
+
+  // The database owns the like -> heart -> bolt maths; this only mirrors the
+  // emoji onto the button. The floating reaction itself arrives over realtime,
+  // which reaches the tapper too, so nothing is drawn twice here.
+  async tapReact() {
+    if (!this.activeSession || this.sessionRole === 'host') return;
+    const { data, error } = await supabase.rpc('react_live_session', { p_request: this.activeSession.id });
+    if (error || !data?.ok) return;
+    this._setReactIcon(data.emoji);
+  },
+
+  _setReactIcon(emoji) {
+    const btn = document.getElementById('live-react-btn');
+    if (!btn || !ICONS[emoji]) return;
+    btn.innerHTML = ICONS[emoji];
+    btn.classList.toggle('is-bolt', emoji === 'bolt');
+  },
+
+  // Reaction rows carry the tapper's name and avatar because Daily participant
+  // ids do not map to Gliimu ids, and a second query per tap is not worth it.
+  _spawnReaction(row) {
+    const stage = document.querySelector('.live-video-area');
+    if (!stage || !row || !ICONS[row.emoji]) return;
+    const fly = document.createElement('div');
+    fly.className = 'live-react-fly emoji-' + row.emoji;
+    fly.style.left = (6 + Math.random() * 58).toFixed(1) + '%';
+    const pic = row.avatar_url ? esc(row.avatar_url) : esc(initialsAvatar(row.user_name));
+    const gp = Number(row.gp_awarded || 0);
+    fly.innerHTML = `
+      <img class="live-react-avatar" src="${pic}" alt="">
+      <span class="live-react-ico">${ICONS[row.emoji]}</span>
+      ${row.user_name ? `<span class="live-react-name">${esc(row.user_name)}</span>` : ''}
+      ${gp > 0 ? `<span class="live-react-gp">+${gp} GP${Number(row.cycle) > 1 ? ' &middot; cycle ' + Number(row.cycle) : ''}</span>` : ''}
+    `;
+    stage.appendChild(fly);
+    setTimeout(() => fly.remove(), 2400);
   },
 
   _flashSupport(amount) {
@@ -1879,6 +1928,12 @@ const liveView = {
 
         console.log('Session updated:', next);
       })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'live_reactions',
+        filter: 'room_id=eq.' + id
+      }, (payload) => this._spawnReaction(payload.new))
       .subscribe();
   },
 
@@ -1976,6 +2031,8 @@ const liveView = {
     // Clear persisted session
     try { sessionStorage.removeItem('liveSession'); } catch (e) {}
 
+    this.chatOpen = false;
+    this._closeChatOverlay();
     document.body.classList.remove('live-studio-active');
     document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
     const miniTile = document.getElementById('live-minimized-tile');

@@ -14,12 +14,15 @@
   height: 100%;
 }
 
+/* The chat header is sticky at the viewport top, so it owns the status-bar
+   inset itself; the margin cancels the container padding, which --pad-top/--pad-x
+   measure so the two stay in step. */
 .support-page-layout {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 64px);
-  margin: -32px;
-  padding: 0 0 0 0;
+  margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x));
+  padding: 0;
 }
 
 .support-page-layout .ping-chat-header {
@@ -28,6 +31,7 @@
   z-index: 5;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  padding-top: var(--safe-top);
   flex-shrink: 0;
 }
 
@@ -105,7 +109,7 @@
 @media (max-width: 768px) {
   .support-page-layout {
     min-height: calc(100dvh - 64px);
-    margin: -16px;
+    margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x));
   }
   .support-page-layout .ping-messages { padding: 16px; }
   .sup-modes { padding: 10px 16px 0; flex-wrap: wrap; }

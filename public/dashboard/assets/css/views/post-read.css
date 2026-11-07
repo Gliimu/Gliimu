@@ -29,10 +29,11 @@
   body > * { display: none !important; }
 }
 
-/* Scroll progress bar */
+/* Scroll progress bar — starts below the status bar so the phone camera cutout
+   never sits on top of it. */
 .post-read-progress {
   position: fixed;
-  top: 0;
+  top: var(--safe-top);
   left: 0;
   height: 3px;
   width: 0%;
@@ -41,14 +42,17 @@
   transition: width 0.1s linear;
 }
 
-/* Header — edge-to-edge within .view-container (cancel its padding) */
+/* Header — edge-to-edge within .view-container (cancel its padding).
+   It is sticky at the very top, so it owns the status-bar inset itself: the
+   height grows by --safe-top and the buttons stay padded below it. */
 .post-read-header {
   position: sticky;
   top: 0;
   z-index: 100;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border);
-  margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0;
+  margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 0;
+  padding-top: var(--safe-top);
 }
 
 .post-read-header-inner {
@@ -159,8 +163,7 @@
     grid-column: 1 / -1;
   }
   .post-read-related .related-posts-grid .feed-item--gliim:has(.book-cover-card),
-  .post-read-related .related-posts-grid .feed-item--gliim:has(.audiolite-card:not(.bundle-card)),
-  .post-read-related .related-posts-grid .feed-item--gliim:has(.image-only-card) {
+  .post-read-related .related-posts-grid .feed-item--gliim:has(.audiolite-card:not(.bundle-card)) {
     grid-column: auto;
   }
 }

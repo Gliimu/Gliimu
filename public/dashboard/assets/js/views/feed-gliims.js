@@ -86,20 +86,53 @@ function setPollDraft(blockDiv, block) {
   blockDiv._setPoll({ question: block.question, options: Array.isArray(block.options) ? block.options : [] });
 }
 
-// Client mirror of the gliim_kind classifier (sql/unify_feed.sql):
-// video → bundle; audio (no video) → audiolite; document (no video/audio) →
-// book; image-only (no video/audio/document/pdf) → image-only.
-// Cards use it to style audiolites/books/image-only, without ever loading the body.
+// One Media tile replaced the separate Audio and Video blocks, so the file
+// itself decides which player a block needs. Rows written before the merge
+// still say 'audio' or 'video' until sql/media_block.sql rewrites them, and a
+// cached client can post either shape, so all three names are accepted here.
+const MEDIA_TYPES = new Set(['media', 'audio', 'video']);
+const VIDEO_EXT = /\.(mp4|m4v|mov|webm|avi|mkv|3gp)(?:$|[?#])/i;
+
+export function isMediaBlock(block) {
+  return !!block && MEDIA_TYPES.has(block.type);
+}
+
+export function mediaIsVideo(block) {
+  if (!isMediaBlock(block)) return false;
+  return block.type === 'video' || VIDEO_EXT.test(String(block.content || ''));
+}
+
+// The three things a gliim can be, decided from its block shapes alone:
+//   log   — media only (audio or video), nothing else
+//   book  — a reflowable document (epub/docx), no media
+//   bundle — everything else, shown the way a gliim has always looked
 export function gliimKindOf(blocks) {
   const list = (blocks || []).filter(b => b && b.type);
-  const types = new Set(list.map(b => b.type));
-  if (types.has('video')) return 'bundle';
-  if (types.has('audio')) return 'audiolite';
-  if (list.some(b => b.type === 'document' && isPdfSource(b.content))) return 'bundle';
-  if (types.has('document')) return 'book';
-  if (types.has('pdf')) return 'bundle';
-  if (types.has('image') && types.size === 1) return 'image-only';
-  return null;
+  if (!list.length) return null;
+  const media = list.filter(isMediaBlock);
+  if (media.length === list.length) return 'log';
+  const books = list.filter(b => b.type === 'document' && !isPdfBlock(b));
+  if (books.length && !media.length) return 'book';
+  return 'bundle';
+}
+
+// Old gliims were published before covers were compulsory, so a missing
+// cover_url falls back to the first image in the body. Nothing is invented:
+// when there is no image either, the card simply has no cover.
+export function gliimCoverOf(blocks) {
+  for (const b of blocks || []) {
+    if (!b || !b.type) continue;
+    if (b.type === 'image' && b.content) return b.content;
+    if (b.type === 'document' && b.cover_url) return b.cover_url;
+  }
+  return '';
+}
+
+// Timestamp comments read the position off the first <audio> element in the
+// reader, so they only make sense on a log that has audio. A video log keeps
+// plain comments rather than a badge stuck at 0:00.
+export function hasAudioPlayer(blocks) {
+  return (blocks || []).some(b => isMediaBlock(b) && !mediaIsVideo(b));
 }
 
 // A document block whose file is a PDF renders through the PDF tile path.
@@ -681,8 +714,7 @@ const hubView = {
           <div class="dropdown-menu" id="add-block-menu">
             <div onclick="hubInstance.addBlock('text')"><span style="font-weight:700;">Aa</span> Text</div>
             <div onclick="hubInstance.addBlock('image')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Image</div>
-            <div onclick="hubInstance.addBlock('video')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg> Video</div>
-            <div onclick="hubInstance.addBlock('audio')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg> Audio</div>
+            <div onclick="hubInstance.addBlock('media')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg> Media</div>
             <div onclick="hubInstance.addBlock('document')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg> Document</div>
           </div>
         </div>
@@ -946,12 +978,12 @@ const hubView = {
           blockDiv.querySelector('.upload-status').innerText = 'Upload complete!';
           blockDiv.querySelector('.upload-status').style.color = 'var(--success)';
         }
-        if (block.type === 'video' || block.type === 'audio') {
+        if (isMediaBlock(block)) {
           const capEl = blockDiv.querySelector('.block-caption-input');
           if (capEl && block.caption) capEl.value = block.caption;
           const preview = blockDiv.querySelector('.block-preview');
           if (preview) {
-            const mediaEl = block.type === 'video'
+            const mediaEl = mediaIsVideo(block)
               ? `<video src="${block.content}" controls style="max-width:100%;border-radius:8px;margin-top:8px;"></video>`
               : `<audio src="${block.content}" controls style="width:100%;margin-top:8px;"></audio>`;
             preview.innerHTML = mediaEl;
@@ -1139,7 +1171,10 @@ const hubView = {
     });
   },
 
-  addBlock(type) {
+  addBlock(rawType) {
+    // Audio and Video used to be separate tiles; a draft or autosave written
+    // before the merge still names them, so they open as the one Media tile.
+    const type = isMediaBlock({ type: rawType }) ? 'media' : rawType;
     document.getElementById('add-block-menu')?.classList.remove('active');
     const blocksContainer = document.getElementById('blocks-container');
     const blockDiv = document.createElement('div');
@@ -1148,8 +1183,7 @@ const hubView = {
     let iconHtml = '';
     if (type === 'text') iconHtml = '<span style="font-weight:700; font-size: 14px;">Aa</span>';
     if (type === 'image') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>';
-    if (type === 'video') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>';
-    if (type === 'audio') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>';
+    if (type === 'media') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>';
     if (type === 'document') iconHtml = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
 
     const removeIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
@@ -1189,21 +1223,22 @@ const hubView = {
         <input type="hidden" class="block-content-input">
       `;
     } else {
-      const accept = type === 'image' ? 'image/*' : type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : '*/*';
+      const accept = type === 'image' ? 'image/*' : type === 'media' ? 'video/*,audio/*' : '*/*';
       inputHtml = `
         <label class="custom-file-upload">
           <img src="/icons/clip.svg" class="upload-icon-img" alt="Upload">
-          <span class="block-file-name">Choose ${type}</span>
+          <span class="block-file-name">Choose ${type === 'media' ? 'video or audio file' : type}</span>
           <input type="file" class="block-file-input" accept="${accept}" hidden>
         </label>
         <div class="upload-status" style="font-size: 12px; margin-top: 8px;"></div>
         <div class="block-preview"></div>
-        ${['image', 'audio'].includes(type) ? `<input type="text" class="input block-caption-input" placeholder="${type === 'image' ? 'Caption (optional)' : 'Chapter title (optional)'}" style="margin-top: 8px;">` : ''}
+        ${['image', 'media'].includes(type) ? `<input type="text" class="input block-caption-input" placeholder="${type === 'image' ? 'Caption (optional)' : 'Chapter title (optional)'}" style="margin-top: 8px;">` : ''}
         <input type="hidden" class="block-content-input">
       `;
     }
 
-    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
+    const BLOCK_NAMES = { text: 'Text', image: 'Image', media: 'Media', document: 'Document' };
+    blockDiv.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;"><div style="display: flex; align-items: center; gap: 8px;"><span class="block-drag-handle" style="cursor: grab; padding: 4px; display: flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg></span><span class="block-label">${iconHtml}${BLOCK_NAMES[type] || type}</span></div><button class="block-remove-btn" onclick="this.parentElement.parentElement.remove(); hubInstance.saveComposerState()">${removeIcon}</button></div>${inputHtml}`;
     blocksContainer.appendChild(blockDiv);
 
     // Make block draggable
@@ -1320,7 +1355,17 @@ const hubView = {
             blockDiv.querySelector('.doc-is-pdf').value = (isPdfSource(file.name) || isPdfSource(fileUrl)) ? '1' : '';
           }
           const preview = blockDiv.querySelector('.block-preview');
-          preview.innerHTML = type === 'image' ? `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">` : `<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>`;
+          if (type === 'image') {
+            preview.innerHTML = `<img src="${fileUrl}" style="max-width: 100%; border-radius: 8px; margin-top: 8px;">`;
+          } else if (type === 'media') {
+            // The file's own MIME type picks the player — there is no separate
+            // video block or audio block any more.
+            preview.innerHTML = file.type.startsWith('video/')
+              ? `<video src="${fileUrl}" controls style="max-width: 100%; border-radius: 8px; margin-top: 8px;"></video>`
+              : `<audio src="${fileUrl}" controls style="width: 100%; margin-top: 8px;"></audio>`;
+          } else {
+            preview.innerHTML = '<div style="background:var(--bg-tertiary);padding:8px;border-radius:8px;margin-top:8px;font-size:12px;">File ready</div>';
+          }
         });
       });
       if (type === 'document') {
@@ -1359,7 +1404,7 @@ const hubView = {
 
       const blockData = { type, content };
       if (type === 'text') blockData.style = b.querySelector('.block-style-select').value;
-      if (type === 'image' || type === 'audio' || type === 'document') {
+      if (type === 'image' || type === 'media' || type === 'document') {
         const capEl = b.querySelector('.block-caption-input');
         const cap = capEl ? capEl.value.trim() : '';
         if (cap) blockData.caption = cap;
@@ -1373,7 +1418,9 @@ const hubView = {
       }
       blocks.push(blockData);
 
-      if (!coverUrl && (type === 'image' || type === 'video')) coverUrl = content;
+      // A video URL is not a cover, so only an image (or a document's own
+      // cover) can become the card background.
+      if (!coverUrl && type === 'image') coverUrl = content;
       if (!coverUrl && type === 'document') coverUrl = blockData.cover_url || null;
     });
 
@@ -1585,11 +1632,15 @@ const hubView = {
     // (never the bodies — RLS withholds premium rows here just the same, so
     // a locked post simply falls back to the default card).
     this.cardKinds = {};
+    this.cardCovers = {};
     try {
       const ids = (feed_gliims || []).map(p => p.id);
       if (ids.length) {
         const { data: kindRows } = await supabase.from('feed_gliim_contents').select('post_id, blocks').in('post_id', ids);
-        for (const row of kindRows || []) this.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+        for (const row of kindRows || []) {
+          this.cardKinds[row.post_id] = gliimKindOf(row.blocks);
+          this.cardCovers[row.post_id] = gliimCoverOf(row.blocks);
+        }
       }
     } catch { /* cards keep the default style */ }
 
@@ -1648,8 +1699,11 @@ const hubView = {
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
+    // Older gliims were published before a cover was compulsory, so the body's
+    // first image is used instead. A gliim with neither simply has no cover.
+    const cover = post.cover_url || (this.cardCovers && this.cardCovers[post.id]) || '';
     const comments = (this.allInteractions || []).filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
-    const coverHtml = post.cover_url ? `<div class="blog-cover" style="background-image: url('${post.cover_url}');"></div>` : '';
+    const coverHtml = cover ? `<div class="blog-cover" style="background-image: url('${cover}');"></div>` : '';
     const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
     const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
     const statusChip = (label, bg, fg) => `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:${bg};color:${fg};font-size:11px;font-weight:700;">${label}</span>`;
@@ -1660,12 +1714,14 @@ const hubView = {
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
 
-    if (this.cardKinds && this.cardKinds[post.id] === 'audiolite') {
-      const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
-      if (post.cover_url) {
-        const cardStyle = `background-image: url('${post.cover_url}');`;
+    // Logs are audio-or-video-only gliims: a square tile with a play badge and
+    // the title, no text preview.
+    if (this.cardKinds && this.cardKinds[post.id] === 'log') {
+      const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon></svg>';
+      if (cover) {
+        const cardStyle = `background-image: url('${cover}');`;
         return `<article class="audiolite-card audiolite-cover-card" id="post-${post.id}" style="${cardStyle}" onclick="hubInstance.openReadView('${post.id}')">
-          <div class="audiolite-center-icon" aria-hidden="true">${headsetSvg}</div>
+          <div class="audiolite-center-icon" aria-hidden="true">${playSvg}</div>
           <h2 class="audiolite-title">${escapeHtml(post.title)}</h2>
         </article>`;
       }
@@ -1673,33 +1729,25 @@ const hubView = {
       const onColor = readableOn(color);
       const cardStyle = color && onColor ? ` style="background:${escapeHtml(color)};color:${onColor};"` : '';
       return `<article class="audiolite-card" id="post-${post.id}"${cardStyle} onclick="hubInstance.openReadView('${post.id}')">
-        <div class="audiolite-center-icon" aria-hidden="true">${headsetSvg}</div>
+        <div class="audiolite-center-icon" aria-hidden="true">${playSvg}</div>
         <h2 class="audiolite-title">${escapeHtml(post.title)}</h2>
       </article>`;
     }
 
     // Books: just the cover image as a square — no title, no author, no stats.
-    if (this.cardKinds && this.cardKinds[post.id] === 'book' && post.cover_url) {
-      return `<article class="book-cover-card" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
+    if (this.cardKinds && this.cardKinds[post.id] === 'book' && cover) {
+      return `<article class="book-cover-card" id="post-${post.id}" style="background-image: url('${cover}');" onclick="hubInstance.openReadView('${post.id}')">
         ${statusBadge ? `<div class="book-cover-badges">${statusBadge}${premiumBadge}</div>` : (premiumBadge ? `<div class="book-cover-badges">${premiumBadge}</div>` : '')}
       </article>`;
     }
 
     // Bundles: square card with cover image background + gradient + title/author/stats.
-    if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && post.cover_url) {
+    // Anything that isn't a pure log or a pure book is a bundle, including gliims
+    // that used to be classed as image-only.
+    if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && cover) {
       const bundleSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
-      return `<article class="audiolite-card bundle-card" id="post-${post.id}" style="background-image: url('${post.cover_url}');" onclick="hubInstance.openReadView('${post.id}')">
+      return `<article class="audiolite-card bundle-card" id="post-${post.id}" style="background-image: url('${cover}');" onclick="hubInstance.openReadView('${post.id}')">
         <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bundleSvg}Bundle</span><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
-        <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
-        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
-      </article>`;
-    }
-
-    // Image-only gliims render as 1:1 squares with the first image as the card background.
-    if (this.cardKinds && this.cardKinds[post.id] === 'image-only' && post.cover_url) {
-      const imgCover = `background-image: url('${post.cover_url}');`;
-      return `<article class="audiolite-card image-only-card" id="post-${post.id}" style="${imgCover}" onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
         <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
         <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
       </article>`;
@@ -1874,8 +1922,8 @@ const hubView = {
     const isSaved = this.savedPosts.has(post.id);
 
     const postComments = this.allInteractions.filter(i => i.post_id === post.id && i.interaction_type === 'comment');
-    const isAudiolite = gliimKindOf(post.blocks) === 'audiolite';
-    if (isAudiolite) {
+    const isAudioLog = gliimKindOf(post.blocks) === 'log' && hasAudioPlayer(post.blocks);
+    if (isAudioLog) {
       postComments.sort((a, b) => {
         const ta = a.metadata?.audio_timestamp ?? Infinity;
         const tb = b.metadata?.audio_timestamp ?? Infinity;
@@ -1890,7 +1938,7 @@ const hubView = {
         const parsedText = this.parseTags(c.comment_text);
         const commentTime = new Date(c.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const ts = c.metadata?.audio_timestamp;
-        const tsBadge = (isAudiolite && ts != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${post.id}', ${ts})" title="Jump to ${formatAudioTimestamp(ts)}">${formatAudioTimestamp(ts)}</button>` : '';
+        const tsBadge = (isAudioLog && ts != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${post.id}', ${ts})" title="Jump to ${formatAudioTimestamp(ts)}">${formatAudioTimestamp(ts)}</button>` : '';
         return `<div class="comment-item" id="comment-${c.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${c.profiles?.full_name || 'Gliimait'}</span>${tsBadge}<span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       }).join('');
     }
@@ -1911,10 +1959,10 @@ const hubView = {
           const cap = b.caption ? `<figcaption class="read-block-caption">${escapeHtml(b.caption)}</figcaption>` : '';
           return `<figure class="read-block-figure"><img src="${escapeHtml(b.content)}" class="read-block-media" data-lightbox data-caption="${escapeHtml(b.caption || '')}">${cap}</figure>`;
         }
-        if (b.type === 'video') {
-          return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
-        }
-        if (b.type === 'audio') {
+        if (isMediaBlock(b)) {
+          if (mediaIsVideo(b)) {
+            return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
+          }
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
           return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata" crossorigin="anonymous"></audio></div>`;
         }
@@ -2030,7 +2078,7 @@ const hubView = {
                 </button>
               </div>
               <div style="font-size: 11px; color: var(--text-muted); margin-top: -18px; margin-bottom: 16px;">Earn 5 GP per comment</div>
-              ${isAudiolite ? `<div class="audiolite-ts-hint" id="audiolite-ts-hint-${post.id}" style="font-size: 11px; color: var(--brand-primary, #6366f1); margin-top: -12px; margin-bottom: 12px; display: none;">Comment will be timestamped at <span id="audiolite-ts-current-${post.id}">0:00</span></div>` : ''}
+              ${isAudioLog ? `<div class="audiolite-ts-hint" id="audiolite-ts-hint-${post.id}" style="font-size: 11px; color: var(--brand-primary, #6366f1); margin-top: -12px; margin-bottom: 12px; display: none;">Comment will be timestamped at <span id="audiolite-ts-current-${post.id}">0:00</span></div>` : ''}
               <div class="comment-list" id="comment-list-${post.id}">
                 ${commentsHtml}
               </div>
@@ -2329,8 +2377,8 @@ const hubView = {
     if (!text) return;
 
     const post = (this.currentPosts || []).find(p => p.id === postId);
-    const isAudiolite = post && gliimKindOf(post.blocks) === 'audiolite';
-    const audioTs = isAudiolite ? getCurrentAudioTime() : null;
+    const isAudioLog = !!post && gliimKindOf(post.blocks) === 'log' && hasAudioPlayer(post.blocks);
+    const audioTs = isAudioLog ? getCurrentAudioTime() : null;
     const metadata = audioTs != null ? { audio_timestamp: audioTs } : null;
     const insertRow = { post_id: postId, user_id: store.user.id, interaction_type: 'comment', comment_text: text };
     if (metadata) insertRow.metadata = metadata;
@@ -2344,7 +2392,7 @@ const hubView = {
       const cAvatar = data.profiles.avatar_url ? `<img src="${data.profiles.avatar_url}" class="${cAvatarClass}" style="object-fit:cover;" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')">` : `<div class="${cAvatarClass}" onclick="hubInstance.showUserMenu(event, '${data.user_id}', '${postId}', '${data.profiles.full_name}')"></div>`;
       const parsedText = this.parseTags(text);
       const commentTime = new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const tsBadge = (isAudiolite && audioTs != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${postId}', ${audioTs})" title="Jump to ${formatAudioTimestamp(audioTs)}">${formatAudioTimestamp(audioTs)}</button>` : '';
+      const tsBadge = (isAudioLog && audioTs != null) ? `<button class="audio-ts-badge" onclick="event.stopPropagation(); seekToAudioTime('${postId}', ${audioTs})" title="Jump to ${formatAudioTimestamp(audioTs)}">${formatAudioTimestamp(audioTs)}</button>` : '';
       const newComment = `<div class="comment-item" id="comment-${data.id}">${cAvatar}<div class="comment-content-wrap"><div class="comment-meta"><span class="comment-author">${data.profiles.full_name}</span>${tsBadge}<span class="comment-time">${commentTime}</span></div><p class="comment-text">${parsedText}</p></div></div>`;
       if (list.querySelector('p')) {
         list.innerHTML = newComment;

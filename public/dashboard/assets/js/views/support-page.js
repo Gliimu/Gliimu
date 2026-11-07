@@ -1,4 +1,4 @@
-import supportView from './support.js?v=36';
+import supportView from './support.js?v=40';
 
 export default {
   title: 'Support',

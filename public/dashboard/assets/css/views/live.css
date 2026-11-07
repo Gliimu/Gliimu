@@ -212,6 +212,11 @@
    to the gliim below it. So the window scrolls rather than being pinned. */
 body.live-studio-active {
   background: #0a0a0a;
+  padding-bottom: 0 !important;
+}
+
+body.live-studio-active .bottom-bar {
+  display: none !important;
 }
 
 body.live-studio-active .sidebar {
@@ -236,6 +241,8 @@ body.live-studio-active .topbar {
   position: relative;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: var(--safe-top, 0px);
   background: #0a0a0a;
   display: flex;
   flex-direction: column;
@@ -453,7 +460,7 @@ body.live-studio-active .topbar {
    ============================================ */
 .live-studio-top {
   position: sticky;
-  top: 0;
+  top: var(--safe-top, 0px);
   z-index: 12;
   background: #0a0a0a;
 }
@@ -516,7 +523,7 @@ body.live-studio-active .topbar {
 .live-chat-panel {
   position: fixed;
   right: 0;
-  top: 0;
+  top: var(--safe-top, 0px);
   bottom: 0;
   width: 320px;
   background: rgba(10, 10, 10, 0.72);
@@ -904,9 +911,20 @@ body.live-studio-active .topbar {
     height: 18px;
   }
 
+  /* Chat opens as a bottom sheet over the studio, not a side drawer */
   .live-chat-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: 100%;
+    height: min(76vh, 620px);
     border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 18px 18px 0 0;
+    background: rgba(10, 10, 10, 0.96);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 60;
   }
 
   .live-chat-header {
@@ -1149,44 +1167,16 @@ body.live-studio-active .topbar {
   background: rgba(251, 191, 36, 0.18);
   border-color: rgba(251, 191, 36, 0.45);
 }
+.live-ctrl-btn.is-busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
 
-/* Support modal */
-.live-support-mark {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 14px;
+/* Reaction button — its icon mirrors the current stage of the ladder */
+.live-ctrl-btn#live-react-btn.is-bolt {
   color: var(--gold, #fbbf24);
-  background: rgba(251, 191, 36, 0.14);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-}
-.live-support-mark svg {
-  width: 24px;
-  height: 24px;
-}
-.live-support-balance {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 14px;
-}
-.live-support-balance span {
-  color: var(--text-muted, rgba(255, 255, 255, 0.6));
-}
-.live-support-balance strong {
-  font-variant-numeric: tabular-nums;
-}
-.live-support-short {
-  margin: 10px 0 0;
-  font-size: 13px;
-  color: #f87171;
+  background: rgba(251, 191, 36, 0.16);
+  border-color: rgba(251, 191, 36, 0.45);
 }
 
 /* Floating confirmation bolt over the video stage */
@@ -1220,4 +1210,76 @@ body.live-studio-active .topbar {
   18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   75% { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(1.04); }
+}
+
+/* ============================================
+   FLOATING REACTIONS + MOBILE CHAT MODAL
+   ============================================ */
+/* Every viewer gets the tapper's profile and the emoji of their stage. */
+.live-react-fly {
+  position: absolute;
+  bottom: 74px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 21;
+  animation: live-react-rise 2.4s ease-out forwards;
+}
+.live-react-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.live-react-ico {
+  display: flex;
+  align-items: center;
+}
+.live-react-ico svg {
+  width: 18px;
+  height: 18px;
+}
+.live-react-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.live-react-gp {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold, #fbbf24);
+}
+.emoji-like .live-react-ico { color: #60a5fa; }
+.emoji-heart .live-react-ico { color: #f472b6; }
+.emoji-bolt .live-react-ico { color: var(--gold, #fbbf24); }
+
+@keyframes live-react-rise {
+  0% { opacity: 0; transform: translateY(16px) scale(0.9); }
+  12% { opacity: 1; transform: translateY(0) scale(1); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-56px) scale(1.02); }
+}
+
+/* Backdrop for the mobile chat sheet */
+.live-chat-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 55;
+}
+body.live-chat-modal-open {
+  overflow: hidden;
 }

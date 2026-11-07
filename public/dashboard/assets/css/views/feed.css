@@ -557,13 +557,12 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  /* Mobile: two-column grid for compact cards (books, audiolites, image-only);
+  /* Mobile: two-column grid for compact cards (books, logs);
      bundles and regular blog cards span the full width. */
   .library-feed { grid-template-columns: repeat(2, 1fr); column-gap: 12px; }
   .feed-item--gliim { grid-column: 1 / -1; }
   .feed-item--gliim:has(.book-cover-card),
-  .feed-item--gliim:has(.audiolite-card:not(.bundle-card)),
-  .feed-item--gliim:has(.image-only-card) { grid-column: auto; }
+  .feed-item--gliim:has(.audiolite-card:not(.bundle-card)) { grid-column: auto; }
   .lib-tile { aspect-ratio: 3 / 4; }
   .lib-tile.lib-audiolite { aspect-ratio: 3 / 4; }
 
@@ -882,7 +881,7 @@
   top: 0;
   z-index: 150;
   background: var(--bg-tertiary);
-  padding: 12px 0;
+  padding: calc(12px + var(--safe-top)) 0 12px;
   margin: 0 -16px 16px -16px;
   padding-left: 16px;
   padding-right: 16px;

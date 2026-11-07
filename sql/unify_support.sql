@@ -3,6 +3,13 @@
 -- This replaces sql/send_support.sql and sql/live_support.sql. Both are now
 -- superseded; they must not be run again after this file, or G500 comes back.
 --
+-- DO NOT RE-RUN THIS FILE ONCE sql/live_support_g10.sql HAS BEEN APPLIED.
+-- It reinstalls support_live_session at G100 and would put Live back to the old
+-- price while the client still taps for G10. The gliim half below
+-- (send_support, still G100) remains the source of truth for reader support.
+-- Self-check rows 06 and 13 describe the state this file installed, not the
+-- state Live is in after the G10 script; they are annotated where they lie.
+--
 -- The rules this installs:
 --   * Price is G100, on a gliim and on a live session. There is no other price.
 --   * The author / host receives 70%, the platform keeps 30%. Same split both ways.
@@ -262,10 +269,18 @@ select '05 support-desk sender untouched',
         where n.nspname = 'public' and p.proname = 'send_support')
 
 union all
-select '06 price is G100 in both',
-       case when (select count(*) from f where prosrc ~ 'v_cost\s+numeric\s*:=\s*100') = 2
-            then 'OK' else 'FAIL - one of the two is priced differently' end,
-       (select count(*)::text || ' of 2' from f where prosrc ~ 'v_cost\s+numeric\s*:=\s*100')
+-- The live half is priced by sql/live_support_g10.sql (G10), so this row only
+-- ever pins the reader sender at G100; the third column shows both prices.
+select '06 price is G100 on the reader sender',
+       case when (select count(*) from f join pg_proc p on p.oid = f.oid
+                   where p.proname = 'send_support'
+                     and f.prosrc ~ 'v_cost\s+numeric\s*:=\s*100') = 1
+            then 'OK' else 'FAIL - the gliim support is not priced at G100' end,
+       (select 'reader G' || coalesce(substring(p.prosrc from 'v_cost\s+numeric\s*:=\s*([0-9]+)'), '?')
+          from f join pg_proc p on p.oid = f.oid where p.proname = 'send_support')
+         || ' | live G' ||
+       (select coalesce(substring(p.prosrc from 'v_cost\s+numeric\s*:=\s*([0-9]+)'), '?')
+          from f join pg_proc p on p.oid = f.oid where p.proname = 'support_live_session')
 
 union all
 select '07 split is 70/30 in both',
@@ -295,20 +310,27 @@ union all
 select '11 two ledger rows written per function',
        case when (select count(*) from f where ledger_rows = 2) = 2 then 'OK'
             else 'FAIL - a sender or receiver row is missing' end,
-       (select coalesce(max(ledger_rows), -1)::text || ' gliim, ' ||
-               coalesce((select max(ledger_rows) from f where prosrc like '%live_gliim_links%'), -1)::text || ' live' from f where prosrc not like '%live_gliim_links%')
+       (select coalesce(max(ledger_rows) filter (where p.proname = 'send_support'), -1)::text || ' reader, ' ||
+               coalesce(max(ledger_rows) filter (where p.proname = 'support_live_session'), -1)::text || ' live'
+          from f join pg_proc p on p.oid = f.oid)
 
 union all
-select '12 one interaction row per function',
-       case when (select count(*) from f where action_rows = 1) = 2 then 'OK'
-            else 'FAIL - the support count on cards will not move' end,
-       (select coalesce(max(action_rows), -1)::text || ' gliim, ' ||
-               coalesce((select max(action_rows) from f where prosrc like '%live_gliim_links%'), -1)::text || ' live' from f where prosrc not like '%live_gliim_links%')
+-- Live support pays a person, not a post, so it writes no interaction row and
+-- never touches live_gliim_links (table dropped). Rows 12-13 check that.
+select '12 one interaction row on the reader sender, none on live',
+       case when (select count(*) from f join pg_proc p on p.oid = f.oid
+                   where p.proname = 'send_support' and action_rows = 1) = 1
+             and (select count(*) from f join pg_proc p on p.oid = f.oid
+                   where p.proname = 'support_live_session' and action_rows = 0) = 1
+            then 'OK' else 'FAIL - the support count on cards will not move' end,
+       (select coalesce(max(action_rows) filter (where p.proname = 'send_support'), -1)::text || ' reader, ' ||
+               coalesce(max(action_rows) filter (where p.proname = 'support_live_session'), -1)::text || ' live (expected 0)'
+          from f join pg_proc p on p.oid = f.oid)
 
 union all
-select '13 live support finds its gliim link',
-       case when (select count(*) from f where prosrc ~ 'live_gliim_links') = 1 then 'OK'
-            else 'FAIL - live support will not appear on the published card' end,
+select '13 live support no longer needs a gliim link',
+       case when (select count(*) from f where prosrc ~ 'live_gliim_links') = 0 then 'OK'
+            else 'FAIL - live support still reads the dropped table' end,
        (select count(*)::text from f where prosrc ~ 'live_gliim_links')
 
 union all
