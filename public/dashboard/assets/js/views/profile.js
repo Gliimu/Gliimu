@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=110';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=111';
 import feedView from './feed.js?v=103';
 import { notify } from '../notify.js?v=33';
 
@@ -484,8 +484,6 @@ export default {
       for (const row of kindRes.data || []) hubView.cardKinds[row.post_id] = gliimKindOf(row.blocks);
       hubView.allInteractions = interRes.data || [];
     } catch { /* cards keep the default style */ }
-
-    await hubView.populateLiveChatCounts(hubView.cardKinds);
 
     if (profile) {
       list.forEach(item => {

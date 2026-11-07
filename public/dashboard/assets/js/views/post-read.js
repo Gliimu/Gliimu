@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=110';
+import hubView, { gliimKindOf, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=111';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -67,6 +67,7 @@ export default {
     }
 
     this.postId = postId;
+    window.readInstance = this;
 
     // Block Ctrl+S (save) and Ctrl+P (print) on the reader page
     keydownHandler = (e) => {
@@ -257,10 +258,10 @@ export default {
     const avatar = post.profiles?.avatar_url
       ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
       : `<div class="${avatarClass}"></div>`;
-    const followBtnHtml = !isOwner ? `<button class="reader-follow-avatar-btn ${this._isFollowing ? 'following' : ''}" id="reader-follow-btn" onclick="event.stopPropagation(); hubInstance.toggleFollow()" title="${this._isFollowing ? 'Following' : 'Follow'}">${this._isFollowing ? '✓' : '+'}</button>` : '';
+    const followBtnHtml = !isOwner ? `<button class="reader-follow-avatar-btn ${this._isFollowing ? 'following' : ''}" id="reader-follow-btn" onclick="event.stopPropagation(); readInstance.toggleFollow()" title="${this._isFollowing ? 'Following' : 'Follow'}">${this._isFollowing ? '✓' : '+'}</button>` : '';
 
     const likes = interactions.filter(i => i.interaction_type === 'like').length;
-    const comments = isLive ? 0 : interactions.filter(i => i.interaction_type === 'comment').length;
+    const comments = interactions.filter(i => i.interaction_type === 'comment').length;
     const shares = interactions.filter(i => i.interaction_type === 'share').length;
     const supports = interactions.filter(i => i.interaction_type === 'support').length;
     const hasLiked = interactions.some(i => i.user_id === store.user.id && i.interaction_type === 'like');

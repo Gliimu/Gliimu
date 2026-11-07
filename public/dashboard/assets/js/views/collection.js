@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import hubView, { gliimKindOf } from './feed-gliims.js?v=110';
+import hubView, { gliimKindOf } from './feed-gliims.js?v=111';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -82,7 +82,6 @@ export default {
 
     hubView.allInteractions = this.interactions;
     hubView.cardKinds = this.cardKinds;
-    await hubView.populateLiveChatCounts(this.cardKinds);
 
     const contributors = {};
     for (const p of this.posts) {

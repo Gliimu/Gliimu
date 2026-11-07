@@ -1440,12 +1440,6 @@ const hubView = {
       }
       if (state.taggedUsers && state.taggedUsers.length) {
         this.taggedUsers = state.taggedUsers;
-        const taggedDiv = document.getElementById('tagged-users-list');
-        if (taggedDiv) {
-          taggedDiv.innerHTML = state.taggedUsers.map(u =>
-            `<div class="tagged-user-chip">${escapeHtml(u.full_name)}<button type="button" class="tagged-user-remove" onclick="hubInstance.removeTaggedUser('${u.id}')">×</button></div>`
-          ).join('');
-        }
         this.renderTagChips();
       }
       if (state.hashtags && state.hashtags.length) {
