@@ -3,8 +3,6 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
 
-const PLUS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
-
 function escapeHtml(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -14,9 +12,9 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// XpLoRe is browse: one line to open Publish, the category tabs, then every
-// published work. Search moved to its own page, and the account menu took the
-// alerts and settings icons out of the top-right.
+// XpLoRe is pure browse: the logo line, the category tabs, then every published
+// work. Publish, Search and Billing all live in the navigation now, so nothing
+// on this page duplicates a door that the rail or the bottom bar already opens.
 // Data, cards and the composer still belong to hubView.
 export default {
   title: 'XpLoRe',
@@ -26,7 +24,6 @@ export default {
         <a class="xplore-mark" href="https://gliimu.com" title="Gliimu" aria-label="Gliimu">
           <img src="/icons/icon.png" alt="Gliimu">
         </a>
-        <a class="xplore-publish" href="#/publish" title="Publish" aria-label="Publish a gliim">${PLUS_ICON}</a>
       </div>
 
       <div class="libmerge hub-layout" id="library-container">

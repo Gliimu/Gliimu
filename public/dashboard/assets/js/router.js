@@ -1,8 +1,8 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
-  '/search': () => import('./views/search.js?v=1').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=108').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=108').then(m => m.default),
+  '/search': () => import('./views/search.js?v=5').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=109').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=109').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=64').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=8').then(m => m.default),
@@ -10,7 +10,7 @@ const routes = {
   '/live': () => import('./views/live-page.js?v=48').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=15').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=87').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=88').then(m => m.default),
   '/post': () => import('./views/post-read.js?v=56').then(m => m.default),
   '/read': () => import('./views/post-read.js?v=56').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=26').then(m => m.default),
@@ -19,11 +19,11 @@ const routes = {
 // Routes with no tab of their own borrow another tab's highlight
 const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
 
-// The rail carries XpLoRe, Live, Search, Billing and your face, and the pages
-// outside it open with their own title plus one arrow back to wherever the user
-// came from. XpLoRe is excluded because its logo line is its header; the reader
-// and the collection page render their own bar. The old topbar is hidden at both
-// breakpoints, which is why this lives in the router instead.
+// The rail carries XpLoRe, Live, the Publish disc, Search and your face, and the
+// pages outside it open with their own title plus one arrow back to wherever the
+// user came from. XpLoRe is excluded because its logo line is its header; the
+// reader and the collection page render their own bar. The old topbar is hidden
+// at both breakpoints, which is why this lives in the router instead.
 const PAGE_TITLES = {
   '/search': 'Search',
   '/ping': 'Ping',

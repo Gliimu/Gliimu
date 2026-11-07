@@ -29,11 +29,14 @@
 }
 
 /* The box is the loudest thing on the page until it has been used. */
+/* The field wraps box + suggestion list so the dropdown can hang off the box
+   without the results page moving underneath it. */
+.search-field { position: relative; width: min(660px, 100%); }
 .search-box {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  width: min(660px, 100%);
+  width: 100%;
   height: 64px;
   padding: 0 var(--space-5);
   background: var(--surface);
@@ -78,6 +81,53 @@
 }
 .search-box-clear:hover { background: var(--border); color: var(--text-primary); }
 .search-box-clear[hidden] { display: none; }
+
+/* -------------------------------- suggest -------------------------------- */
+/* Titles and names only, so every row is something the results page can
+   actually find. It floats over the results rather than pushing them down. */
+.search-suggest {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: min(320px, 52vh);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.search-suggest[hidden] { display: none; }
+.search-suggest-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.search-suggest-item:hover,
+.search-suggest-item.is-active { background: var(--surface-hover); }
+/* The icon is the only thing saying gliim or person, so it cannot be the
+   faintest element in the row. */
+.search-suggest-icon { display: flex; flex-shrink: 0; color: var(--text-secondary); }
+.search-suggest-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-suggest-text b { font-weight: 700; }
 
 /* --------------------------------- history -------------------------------- */
 .search-history { width: min(660px, 100%); display: grid; gap: 2px; }
@@ -182,5 +232,7 @@
   .search-input { font-size: 17px; }
   .search-page.is-active .search-input { font-size: 15px; }
   .search-history { margin-top: var(--space-2); }
+  .search-suggest { max-height: 46vh; }
+  .search-suggest-item { font-size: 14px; }
   .search-body { gap: var(--space-8); }
 }

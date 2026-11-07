@@ -170,6 +170,31 @@
   flex-shrink: 0;
 }
 
+/* Publish is the one nav slot that is an action, not a destination, so it does
+   not borrow the shape of the destinations around it: a solid disc that stays
+   solid when active, sitting in the centre of the rail and the bottom bar where
+   a create button is found by instinct rather than by reading the label. */
+.nav-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+  transition: background var(--transition-fast);
+}
+.nav-plus svg { margin-right: 0; }
+.nav-item--publish:hover .nav-plus { background: var(--brand-primary-hover); }
+
+/* The disc is already brand-coloured, so the row must not also fill with
+   brand — that would make the active state a purple blob. */
+.nav-item--publish.active { background: transparent; color: var(--text-primary); }
+.nav-item--publish.active .nav-plus { background: var(--brand-primary-active); }
+
 /* The last slot is your face, not a page. It is a <button> because it opens a
    menu on every screen size, and buttons do not inherit the row styling. */
 .nav-item--account {
@@ -343,6 +368,7 @@
 /* The last slot is your face and it opens the account menu, so it is sized to
    match the icons around it rather than to look like a profile picture. */
 .bottom-item .nav-avatar { margin-right: 0; }
+.bottom-item .nav-plus { margin-right: 0; }
 .nav-avatar--sm { width: 24px; height: 24px; }
 .bottom-item .nav-avatar .unread-dot { top: -1px; right: -1px; width: 9px; height: 9px; }
 
@@ -664,6 +690,7 @@
   .nav-item { justify-content: center; padding: var(--space-3) 0; }
   .nav-item svg { margin-right: 0; }
   .nav-avatar { margin-right: 0; }
+  .nav-plus { margin-right: 0; }
 
   .rail-person { justify-content: center; padding: var(--space-1) 0; }
   .rail-person-avatar { width: 34px; height: 34px; }
@@ -684,8 +711,10 @@
   body.sidebar-open .nav-text { display: inline; }
 
   body.sidebar-open .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
+  body.sidebar-open .nav-item--publish { padding-top: 9px; padding-bottom: 9px; }
   body.sidebar-open .nav-item svg { margin-right: 12px; }
   body.sidebar-open .nav-avatar { margin-right: 12px; }
+  body.sidebar-open .nav-item--publish .nav-plus { margin-right: 12px; }
 
   body.sidebar-open .rail-people-heading { display: block; }
   body.sidebar-open .rail-person { justify-content: flex-start; padding: var(--space-1) var(--space-2); }

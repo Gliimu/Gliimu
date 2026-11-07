@@ -1,10 +1,10 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=194';
+import { router } from './router.js?v=198';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=3';
-import { initAccountMenu } from './account-menu.js?v=3';
+import { initAccountMenu } from './account-menu.js?v=4';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER

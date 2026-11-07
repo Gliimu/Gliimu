@@ -1,39 +1,22 @@
 /* Library Styles */
 
 /* ============================================
-   XPLORE — browse: one line to publish, sticky
-   tabs, then the feed.
+   XPLORE — browse: sticky tabs, then the feed.
    ============================================ */
 
-/* The mark on the left is the phone's only logo (the rail carries it on wide
-   screens); the "+" on the right is the only door to Publish. */
+/* The topline is the phone's logo — the rail carries it on wide screens, so
+   this whole row only exists below 769px. */
 .xplore-topline {
-  display: flex;
+  display: none;
   align-items: center;
-  justify-content: flex-end;
   gap: 10px;
   padding: 12px 18px 0;
 }
-.xplore-mark { display: none; margin-right: auto; line-height: 0; }
+.xplore-mark { margin-right: auto; line-height: 0; }
 .xplore-mark img { width: 30px; height: 30px; display: block; object-fit: contain; }
-.xplore-publish {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--brand-primary);
-  text-decoration: none;
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-.xplore-publish:hover { border-color: var(--brand-primary); }
 
 @media (max-width: 768px) {
-  .xplore-topline { padding: 10px 12px 0; }
-  .xplore-mark { display: block; }
+  .xplore-topline { display: flex; padding: 10px 12px 0; }
 }
 
 /* People: the creators shelf in the feed and the people slice in results
