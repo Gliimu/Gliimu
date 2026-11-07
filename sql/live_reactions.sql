@@ -336,18 +336,18 @@ select '16 the first five bolts sum to 15 GP',
        '1+2+3+4+5 = 15 GP, the 6th tops the day to 20'
 
 union all
-select '16 room access mirrors the room chat',
+select '17 room access mirrors the room chat',
        case when (select count(*) from f where prosrc ~ 'sharing_mode' and prosrc ~ 'invited_user_ids') = 1
             then 'OK' else 'FAIL - strangers could react into a closed room' end,
        'n/a'
 
 union all
-select '17 reactions logged so far (informational)',
+select '18 reactions logged so far (informational)',
        'OK',
        (select count(*)::text from public.live_reactions)
 
 union all
-select '18 gp paid by reactions so far (informational)',
+select '19 gp paid by reactions so far (informational)',
        'OK',
        (select coalesce(sum(gp_awarded), 0)::text from public.live_reactions)
 
