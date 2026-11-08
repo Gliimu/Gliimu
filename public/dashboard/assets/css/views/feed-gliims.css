@@ -1070,18 +1070,6 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   margin-bottom: 0;
 }
 
-/* Inside the reader (narrow container), override the XpLoRe mobile 2-col
-   rule so cards stay single-column on small screens. */
-@media (max-width: 768px) {
-  .related-posts-grid.library-feed {
-    grid-template-columns: 1fr;
-    column-gap: 0;
-  }
-  .related-posts-grid .feed-item--gliim {
-    grid-column: 1 / -1;
-  }
-}
-
 /* Post reader header actions */
 .post-read-header {
   display: flex;
