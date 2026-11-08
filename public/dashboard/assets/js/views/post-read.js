@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=37';
 import * as heartbeat from '../heartbeat.js?v=3';
-import { closePlayer, minimizePlaying } from '../audiolite-minimizer.js?v=5';
+import { closePlayer, minimizePlaying } from '../audiolite-minimizer.js?v=6';
 import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './feed-gliims.js?v=123';
 
 function escapeHtml(value) {

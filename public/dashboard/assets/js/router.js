@@ -11,8 +11,8 @@ const routes = {
   '/publish': () => import('./views/publish.js?v=20').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=94').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=65').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=65').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=66').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=66').then(m => m.default),
   '/collection': () => import('./views/collection.js?v=31').then(m => m.default),
 };
 

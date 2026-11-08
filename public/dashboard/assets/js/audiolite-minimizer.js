@@ -188,7 +188,7 @@ function togglePlay() {
 // track only needs to stay attached to the document, out of sight.
 function coverMarkup(base) {
   if (_current.el.tagName === 'VIDEO') {
-    return `<div class="${base} audiolite-slot" data-role="open"></div>`;
+    return `<div class="${base} audiolite-slot audiolite-slot--video" data-role="open"></div>`;
   }
   const cover = _current.cover
     ? `<img src="${escapeAttr(_current.cover)}" alt="" class="${base}" data-role="open">`

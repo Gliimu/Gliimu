@@ -557,6 +557,11 @@
   flex-shrink: 0;
 }
 
+.floating-player-cover.audiolite-slot--video {
+  width: 160px;
+  height: 90px;
+}
+
 .floating-player-cover-fallback {
   background: var(--brand-primary);
   display: flex;
@@ -644,6 +649,11 @@
   border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.mini-player-cover.audiolite-slot--video {
+  width: 120px;
+  height: 68px;
 }
 
 .mini-player-cover-fallback {
@@ -744,6 +754,10 @@
   object-fit: cover;
   pointer-events: none;
   background: #000000;
+}
+
+.audiolite-slot--video video {
+  object-fit: contain;
 }
 
 @media (max-width: 768px) {

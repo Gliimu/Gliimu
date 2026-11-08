@@ -3,7 +3,7 @@ import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
 import { renderFileInto } from '../reader.js?v=37';
 import { notify } from '../notify.js?v=33';
-import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=5';
+import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=6';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
