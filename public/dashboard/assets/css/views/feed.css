@@ -4,21 +4,6 @@
    XPLORE — browse: sticky tabs, then the feed.
    ============================================ */
 
-/* The topline is the phone's logo — the rail carries it on wide screens, so
-   this whole row only exists below 769px. */
-.xplore-topline {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 18px 0;
-}
-.xplore-mark { margin-right: auto; line-height: 0; }
-.xplore-mark img { width: 30px; height: 30px; display: block; object-fit: contain; }
-
-@media (max-width: 768px) {
-  .xplore-topline { display: flex; padding: 10px 12px 0; }
-}
-
 /* People: the creators shelf in the feed and the people slice in results
    share this one component. */
 .xplore-people { width: 100%; max-width: 1120px; min-width: 0; }
@@ -168,7 +153,10 @@
 .xplore-page { margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0; }
 @media (max-width: 768px) {
   .xplore-page { margin: 0; }
-  .libmerge.hub-layout { padding-left: 8px; padding-right: 8px; }
+  /* Mobile already gets 16px from .view-container's own top padding, so the
+     layout must not add a second 16 — that would put twice as much space above
+     the tabs as below them. */
+  .libmerge.hub-layout { padding-top: 0; padding-left: 8px; padding-right: 8px; }
 }
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its
    own height (set by JS), so short tiles pack tight under tall cards instead

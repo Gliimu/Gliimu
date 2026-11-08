@@ -59,23 +59,6 @@
   background: var(--bg-tertiary);
 }
 
-/* Topbar Logo (Hidden by default, revealed when sidebar collapses on desktop) */
-.topbar-logo-link {
-  display: none;
-  flex-shrink: 0;
-  text-decoration: none;
-  line-height: 0;
-}
-.topbar-logo-img {
-  height: 32px;
-  width: auto;
-  max-width: 150px;
-  object-fit: contain;
-  margin-right: 24px; /* Gap between logo and search/dynamic content */
-  display: none;
-  flex-shrink: 0;
-}
-
 /* Sidebar — a fixed rail on wide screens, removed entirely under 769px */
 .sidebar {
   position: fixed;
@@ -106,6 +89,19 @@
   height: 80px;
   box-sizing: border-box;
 }
+
+/* Shown in place of the feed when a signed-in member's auth check could not
+   reach Supabase. Redirecting here would loop, so this page just waits. */
+.app-offline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 96px 24px;
+  text-align: center;
+}
+.app-offline-title { font-size: var(--fs-lg); font-weight: 700; color: var(--text-primary); }
+.app-offline-hint { font-size: var(--fs-sm); color: var(--text-secondary); max-width: 42ch; }
 
 .brand-logo {
   font-family: var(--font-sans);
@@ -727,9 +723,6 @@
 /* Mobile (768px and down) — no sidebar at all, the bottom bar is the navigation */
 @media (max-width: 768px) {
   .mobile-only { display: flex !important; }
-
-  /* Hide desktop elements */
-  .topbar-logo-img { display: none !important; }
 
   /* Hide topbar (moved to bottom) */
   .topbar { display: none !important; }

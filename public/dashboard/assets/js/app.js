@@ -289,11 +289,38 @@ function escapeHtml(value) {
 // ============================================
 // APP INITIALIZATION
 // ============================================
+// A session in this browser's own storage means the sign-in is real and only
+// the network check failed. Redirecting in that case would bounce between the
+// landing page, auth.html and the dashboard forever, so the app says so and
+// waits for the member to retry.
+function renderOfflineNotice() {
+  const app = document.getElementById('app');
+  if (!app) return;
+  app.innerHTML = `
+    <div class="app-offline">
+      <p class="app-offline-title">Couldn&rsquo;t reach Gliimu</p>
+      <p class="app-offline-hint">You are signed in, but the connection failed. Check your network and try again.</p>
+      <button type="button" class="btn-primary" onclick="window.location.reload()">Retry</button>
+    </div>`;
+}
+
 async function initApp() {
   const user = await store.fetchUser();
 
   if (!user) {
-    window.location.href = '/auth.html';
+    let holdsSession = false;
+    try {
+      const { data } = await supabase.auth.getSession();
+      holdsSession = !!data?.session;
+    } catch (e) { /* no local session to speak of either */ }
+
+    if (holdsSession) {
+      renderOfflineNotice();
+      return;
+    }
+    // Signed out, so the front door. replace() rather than href: Back should
+    // not return to an empty shell of an app the visitor cannot use.
+    window.location.replace('/');
     return;
   }
 

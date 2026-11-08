@@ -22,12 +22,19 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=43">
+  <link rel="stylesheet" href="/assets/css/public.css?v=44">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
 </head>
 <body>
+
+  <!-- Entry splash: the session check runs behind this cover, so a signed-in
+       visitor is handed to the dashboard before any marketing content paints. -->
+  <div id="entry-splash" class="entry-splash" role="status" aria-label="Loading Gliimu">
+    <img src="/icons/icon.png" alt="">
+    <span class="entry-splash-dots"><span></span><span></span><span></span></span>
+  </div>
 
   <!-- FIXED LOGO -->
   <div class="fixed-logo">
@@ -179,7 +186,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=33"></script>
+  <script type="module" src="/assets/js/main.js?v=34"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

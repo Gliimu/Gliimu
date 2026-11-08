@@ -1,5 +1,51 @@
 import { supabase } from '/shared/js/config.js';
 
+// ============================================
+// ENTRY SPLASH — the authentication gate
+// ============================================
+// The cover shipped in index.html stays up until the session check answers:
+// a signed-in visitor is handed to the dashboard before the marketing page
+// paints, and everyone else gets the landing page.
+const SPLASH_MIN_MS = 500;   // long enough to read as a loader, not a flash
+const SPLASH_MAX_MS = 6000;  // never trap a visitor behind a hung auth call
+
+// Resolves false when the browser has been sent away, so boot() can skip work
+// nobody is going to see.
+async function initEntrySplash() {
+  const splash = document.getElementById('entry-splash');
+  const startedAt = Date.now();
+  let session = null;
+  let guard;
+  try {
+    const { data } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) => {
+        guard = setTimeout(() => reject(new Error('Auth check timed out')), SPLASH_MAX_MS);
+      })
+    ]);
+    session = data?.session || null;
+  } catch (e) {
+    // Offline, blocked, or a token refresh that never answered — the landing
+    // page is the safe thing to show.
+  } finally {
+    clearTimeout(guard);
+  }
+
+  if (session?.user) {
+    // replace(), not href: Back should not bounce a member out of the app and
+    // into a marketing page they never asked for.
+    window.location.replace('/dashboard/index.html#/xplore');
+    return false;
+  }
+
+  if (!splash) return true;
+  const hold = SPLASH_MIN_MS - (Date.now() - startedAt);
+  if (hold > 0) await new Promise(resolve => setTimeout(resolve, hold));
+  splash.classList.add('is-leaving');
+  setTimeout(() => splash.remove(), 300);
+  return true;
+}
+
 // The hero copy has exactly one source: site_settings, edited by operations
 // at admin.gliimu.com. A blank column renders a blank hero — no copy is
 // invented here.
@@ -489,6 +535,8 @@ window.openContactModal = openContactModal;
 // Module imports can resolve after DOMContentLoaded on a cold CDN cache,
 // which would leave this listener never firing and the page stuck loading.
 const boot = async () => {
+  if (!await initEntrySplash()) return;
+
   initJoinButtons();
   initScrollReveal();
   loadSiteSettings();

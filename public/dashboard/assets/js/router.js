@@ -1,8 +1,8 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
   '/search': () => import('./views/search.js?v=5').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=109').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=109').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=110').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=110').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=64').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=8').then(m => m.default),

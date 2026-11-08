@@ -12,20 +12,14 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// XpLoRe is pure browse: the logo line, the category tabs, then every published
-// work. Publish, Search and Billing all live in the navigation now, so nothing
-// on this page duplicates a door that the rail or the bottom bar already opens.
-// Data, cards and the composer still belong to hubView.
+// XpLoRe is pure browse: the category tabs, then every published work. Publish,
+// Search and Billing all live in the navigation now, and the brand mark sits in
+// the sidebar header, so nothing on this page duplicates a door the rail or the
+// bottom bar already opens. Data, cards and the composer still belong to hubView.
 export default {
   title: 'XpLoRe',
   template: `
     <div class="xplore-page">
-      <div class="xplore-topline">
-        <a class="xplore-mark" href="https://gliimu.com" title="Gliimu" aria-label="Gliimu">
-          <img src="/icons/icon.png" alt="Gliimu">
-        </a>
-      </div>
-
       <div class="libmerge hub-layout" id="library-container">
         <div class="hub-category-tabs" id="hub-category-tabs">
           <button class="hub-category-tab active" data-category="all">For You</button>
