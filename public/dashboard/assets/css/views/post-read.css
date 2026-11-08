@@ -55,8 +55,7 @@
   padding-top: var(--safe-top);
 }
 
-/* Edge-to-edge, with the title aligned to the article's left gutter and the
-   actions clear of the rail pad on the right. */
+/* Edge-to-edge, with the title aligned to the article's left gutter. */
 .post-read-header-inner {
   max-width: none;
   margin: 0;
@@ -101,19 +100,20 @@
   background: var(--border) !important;
 }
 
-/* Main content area — the gliim owns the whole page width. Only a right pad
-   is reserved, and that pad is where the engagement rail sits, so the text
-   never runs under the buttons. The old 800px centred column left most of a
-   wide screen empty. */
+/* Main content area — the article sits in a centred reading column. Nothing is
+   reserved for the engagement rail: it floats on its own layer above the page,
+   so the text slides under it rather than being pushed aside. */
 .post-read-main {
   flex: 1;
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 76px 0 0;
+  padding: 0;
 }
 
 .post-read-main .read-body {
+  max-width: 760px;
+  margin: 0 auto;
   padding: 32px 0;
 }
 
@@ -136,14 +136,6 @@
   max-width: 1500px;
   margin: 0 auto;
   padding: 0 24px;
-}
-
-.post-read-related .related-posts-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 32px;
-  text-align: center;
 }
 
 .post-read-related .related-posts-grid {
@@ -179,9 +171,9 @@
 }
 
 /* Engagement rail — the four actions stand vertically at the mid-right, the
-   way every short-video app does it, so the text keeps the whole screen height.
-   `right` is pure CSS: the article is full-width now, so the viewport edge is
-   a fixed reference and nothing needs measuring in JS. */
+   way every short-video app does it. The rail owns no layout space: it is a
+   fixed layer above the article, so the text scrolls underneath it. `right` is
+   pure CSS because the viewport edge is a fixed reference. */
 .post-read-bottom {
   position: fixed;
   top: 50%;
@@ -214,6 +206,9 @@
   padding: 9px 0 6px;
   border-radius: 14px;
   background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
@@ -228,9 +223,6 @@
 @media (max-width: 768px) {
   .post-read-header-inner {
     padding: 5px 12px;
-  }
-  .post-read-main {
-    padding: 0 62px 0 0;
   }
   .post-read-main .read-body {
     padding: 20px 0;

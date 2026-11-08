@@ -146,6 +146,8 @@
 .read-audio-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .read-audio-head .lib-eq { height: 22px; margin: 0; }
 .read-audio-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.read-audio-min { margin-left: auto; flex: none; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-secondary); cursor: pointer; }
+.read-audio-min:hover { background: var(--bg-secondary); color: var(--text-primary); }
 .read-block-audio { width: 100%; height: 40px; }
 
 /* Custom video player in the read view: poster-style big play button and a
@@ -1050,13 +1052,6 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   margin: 40px 0 32px;
   padding-top: 24px;
   border-top: 1px solid var(--border);
-}
-
-.related-posts-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 16px;
 }
 
 .related-posts-grid {

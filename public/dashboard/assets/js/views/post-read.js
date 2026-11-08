@@ -2,8 +2,8 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=37';
 import * as heartbeat from '../heartbeat.js?v=3';
-import { closePlayer, minimizePlaying } from '../audiolite-minimizer.js?v=4';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './feed-gliims.js?v=122';
+import { closePlayer, minimizePlaying } from '../audiolite-minimizer.js?v=5';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './feed-gliims.js?v=123';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -379,7 +379,6 @@ export default {
       ${relatedPosts.length > 0 ? `
       <section class="post-read-related" id="post-read-section-2">
         <div class="related-posts-inner">
-          <h3 class="related-posts-title">More inspiring contents</h3>
           <div class="related-posts-grid library-feed feed-grid" id="related-posts-grid">
             ${relatedPosts.map(rp => `<div class="feed-item feed-item--gliim">${hubView.renderPostCard(rp)}</div>`).join('')}
           </div>
@@ -493,10 +492,10 @@ export default {
         }
         if (isMediaBlock(b)) {
           if (mediaIsVideo(b)) {
-            return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
+            return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
           }
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
-          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata" crossorigin="anonymous"></audio></div>`;
+          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}<button type="button" class="read-audio-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button></div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls controlslist="nodownload noremoteplayback" preload="metadata" crossorigin="anonymous"></audio></div>`;
         }
         if (isPdfBlock(b)) return pdfTilesHtml(post, pdfItemsOf(b));
         if (b.type === 'document') {

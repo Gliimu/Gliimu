@@ -3,7 +3,7 @@ import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
 import { renderFileInto } from '../reader.js?v=37';
 import { notify } from '../notify.js?v=33';
-import { trackMedia, minimizePlaying, closePlayer } from '../audiolite-minimizer.js?v=4';
+import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=5';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -12,6 +12,12 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// controlsList="nodownload" only hides the player's own button; the browser's
+// right-click "Save audio/video as" item is a second way out of the reader.
+function blockSaveMenu(e) {
+  e.preventDefault();
 }
 
 // gliim_trash / gliim_restore report a machine code instead of a message.
@@ -2134,10 +2140,10 @@ const hubView = {
         }
         if (isMediaBlock(b)) {
           if (mediaIsVideo(b)) {
-            return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
+            return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
           }
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
-          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}</div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls preload="metadata" crossorigin="anonymous"></audio></div>`;
+          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}<button type="button" class="read-audio-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button></div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls controlslist="nodownload noremoteplayback" preload="metadata" crossorigin="anonymous"></audio></div>`;
         }
         if (b.type === 'document') {
           // Reflowable book file — hydrated in-page below via renderFileInto
@@ -2337,7 +2343,12 @@ const hubView = {
   // mute, fullscreen) instead of the bare browser controls.
   setupMediaBlocks(root, post) {
     root.querySelectorAll('.read-block-audio').forEach(a => {
-      const eq = a.closest('.read-block-audio-wrapper')?.querySelector('.lib-eq');
+      const wrapper = a.closest('.read-block-audio-wrapper');
+      a.addEventListener('contextmenu', blockSaveMenu);
+      wrapper?.querySelector('.read-audio-min')?.addEventListener('click', () => {
+        if (post) minimizeNow(a, post.id, post.title, post.cover_url);
+      });
+      const eq = wrapper?.querySelector('.lib-eq');
       if (!eq) return;
       
       // Hand the strip whatever starts playing; trackMedia pauses the previous
@@ -2374,6 +2385,10 @@ const hubView = {
       const time = fig.querySelector('.rvp-time');
       const muteBtn = fig.querySelector('.rvp-mute');
       const fullBtn = fig.querySelector('.rvp-full');
+      video.addEventListener('contextmenu', blockSaveMenu);
+      fig.querySelector('.rvp-min')?.addEventListener('click', () => {
+        if (post) minimizeNow(video, post.id, post.title, post.cover_url);
+      });
       const ICON_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>';
       const ICON_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
       const ICON_VOL = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';

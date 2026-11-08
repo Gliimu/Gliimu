@@ -22,10 +22,7 @@ let _resumePlay = false;
 
 export function trackMedia(el, postId, title, coverUrl) {
   el.addEventListener('play', () => {
-    // One gliim at a time: whatever just started owns the strip, and the
-    // previous track is paused rather than left running silently.
-    if (_current && _current.el !== el) _current.el.pause();
-    _current = { el, postId, title, cover: coverUrl };
+    adopt(el, postId, title, coverUrl);
     // A track that is playing inside a page has its own player on screen, so
     // the strip stands down until that page lets go of it.
     if (_player && !_player.contains(el)) dropStrip();
@@ -50,6 +47,27 @@ export function minimizePlaying() {
   }
   handOver(true);
   return _current.postId;
+}
+
+// The minimize control on a player: hand the track to the strip now, without
+// waiting for the page to be torn down. A track that never played stays paused.
+// `origin` is the page's own node, so a second click on the same button is a
+// no-op instead of a second hand-over that would restart the track.
+export function minimizeNow(el, postId, title, coverUrl) {
+  if (!_current || (el && _current.origin !== el)) {
+    if (!el) return false;
+    adopt(el, postId, title, coverUrl);
+  }
+  if (_player && _player.contains(_current.el)) return true;
+  handOver(!_current.el.paused);
+  return true;
+}
+
+// One gliim at a time: whatever takes over owns the strip, and the previous
+// track is paused rather than left running silently.
+function adopt(el, postId, title, coverUrl) {
+  if (_current && _current.el !== el) _current.el.pause();
+  _current = { el, origin: el, postId, title, cover: coverUrl };
 }
 
 export function closePlayer() {
@@ -102,7 +120,14 @@ function carryOver(el) {
   clone.addEventListener('play', syncPlayer);
   clone.addEventListener('pause', syncPlayer);
   clone.addEventListener('ended', closePlayer);
+  clone.addEventListener('contextmenu', blockContextMenu);
   return clone;
+}
+
+// The native "Save audio/video as" item is the other way a file leaves the
+// reader, so it is refused on the strip's node as well as the page's.
+function blockContextMenu(e) {
+  e.preventDefault();
 }
 
 function dropStrip() {

@@ -1,19 +1,19 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=14').then(m => m.default),
-  '/search': () => import('./views/search.js?v=10').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=114').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=114').then(m => m.default),
+  '/search': () => import('./views/search.js?v=11').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=115').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=115').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=66').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=47').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=8').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=48').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=19').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=20').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=93').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=64').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=64').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=30').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=94').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=65').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=65').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=31').then(m => m.default),
 };
 
 // Routes with no tab of their own borrow another tab's highlight
