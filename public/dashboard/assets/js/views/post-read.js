@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../reader.js?v=35';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=114';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=117';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -304,7 +304,7 @@ export default {
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     const deleteBtnHtml = isOwner ? `
-      <div class="hub-read-menu-item danger" onclick="hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete Gliim</div>
+      <div class="hub-read-menu-item danger" onclick="hubInstance.promptDelete('${post.id}')">${deleteIcon} Move to Trash</div>
     ` : '';
 
     const container = document.getElementById('post-read-container');

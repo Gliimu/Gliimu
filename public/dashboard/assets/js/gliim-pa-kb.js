@@ -93,15 +93,14 @@ Contest scores update on their own from your activity — no manual scoring. Use
   {
     title: 'Publishing a gliim',
     keys: ['upload', 'post', 'publish', 'gliim', 'gliims', 'bundle', 'book', 'log', 'audiolite', 'media', 'pdf', 'submit', 'content', 'create', 'composer', 'share my work'],
-    answer: `To publish in the **Hub**:
+    answer: `To publish a gliim:
 
-1. Make sure you have at least **50 GP**.
-2. Tap the **+** button to open the composer.
-3. Choose what you are making — a **Book**, a **Log** (a recording: audio or video), or a **Bundle** that mixes text, images, media and documents.
-4. Add your files, a title and a description. PDFs can carry their own price once you reach **500 GP**.
-5. Submit.
+1. Open the **Publish** page from the sidebar (the **+** in the mobile bar).
+2. Choose what you are making — a **Book**, a **Log** (a recording: audio or video), or a **Bundle** that mixes text, images, media and documents.
+3. Add your files, a title and a description. PDFs can carry their own price once you reach **500 GP**.
+4. Publish — the gliim goes live the moment you publish it, in XpLoRe and on your portfolio. Use **Save as draft** if you want to keep working on it.
 
-New gliims go to the CRM team for a quick review. Once approved they appear in the Hub and on your portfolio. You can mark a gliim **premium** to lock it behind GP.`
+You can mark a gliim **premium** to lock it behind GP.`
   },
   {
     title: 'Ping, messages and voice notes',

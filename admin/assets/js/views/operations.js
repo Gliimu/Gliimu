@@ -1,13 +1,27 @@
-import { supabase } from '../config.js';
-import { escapeHtml, empty, rpcError, openDrawer } from '../ui.js';
+import { supabase, API_BASE_URL } from '../config.js';
+import { escapeHtml, empty, rpcError, openDrawer } from '../ui.js?v=2';
 import { appAlert, appConfirm } from '../dialog.js';
 import { uploadFile } from '../upload.js';
 
 const TABS = [
   { id: 'landing', label: 'Landing page' },
   { id: 'partners', label: 'Partners' },
-  { id: 'release', label: 'App release' }
+  { id: 'release', label: 'App release' },
+  { id: 'deleted', label: 'Deleted' }
 ];
+
+// Days an author gets to change their mind before the nightly sweep runs.
+const TRASH_WINDOW = 30;
+
+// gliim_restore answers with a machine code instead of a message.
+function trashCode(data) {
+  const code = data && data.code;
+  if (code === 'NOT_FOUND') return 'That Gliim no longer exists.';
+  if (code === 'NOT_IN_TRASH') return 'It is not in the Trash any more.';
+  if (code === 'TOO_LATE') return 'The 30 days are over, so it can no longer be restored.';
+  if (code === 'STAFF_ONLY') return 'Only the person who moved it here can put it back.';
+  return 'That did not work. Please try again.';
+}
 
 // Every field below is one column of site_settings. The RPCs take null to
 // mean "leave this column alone" and an empty string to mean "clear it", so
@@ -81,6 +95,7 @@ export default {
     this.tab = 'landing';
     this.settings = null;
     this.partners = null;
+    this.deleted = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -106,6 +121,7 @@ export default {
 
     pane.innerHTML = this.tab === 'partners' ? this.partnersHtml()
       : this.tab === 'release' ? this.releaseHtml()
+      : this.tab === 'deleted' ? this.deletedHtml()
       : this.landingHtml();
     this.wire(pane);
   },
@@ -122,6 +138,16 @@ export default {
       return null;
     }
 
+    if (this.tab === 'deleted') {
+      const { data, error } = await supabase.rpc('admin_list_deleted_gliims', {
+        p_limit: 200, p_offset: 0
+      });
+      if (error) return error.message;
+      if (!data || data.ok === false) return rpcError(data);
+      this.deleted = { count: Number(data.count || 0), items: data.items || [] };
+      return null;
+    }
+
     if (this.settings) return null;
     const { data, error } = await supabase.rpc('operations_settings');
     if (error) return error.message;
@@ -133,6 +159,7 @@ export default {
   invalidate() {
     this.settings = null;
     this.partners = null;
+    this.deleted = null;
   },
 
   value(key) {
@@ -287,6 +314,150 @@ export default {
           <button class="btn-primary btn-small" data-save="release">Save release</button>
         </div>
       </div>`;
+  },
+
+  // ============================================
+  // TAB 4 — the Trash Operations must finalise
+  // ============================================
+  deletedHtml() {
+    const queue = this.deleted || { count: 0, items: [] };
+    const rows = queue.items;
+    const hidden = queue.count - rows.length;
+
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Deleted Gliims</div>
+            <div class="card-sub">Every Gliim here is already hidden from members. It is destroyed automatically ${TRASH_WINDOW} days after it was trashed, unless you restore it first.${hidden > 0 ? ` Showing the newest ${rows.length} of ${queue.count}.` : ''}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-quiet btn-small" data-sweep>Clean up storage</button>
+          </div>
+        </div>
+        ${rows.length ? `
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th style="width:64px;">Cover</th><th>Gliim</th><th>Author</th><th>Trashed</th><th class="num" style="width:120px;">Days left</th><th class="num" style="width:250px;"></th></tr></thead>
+            <tbody>${rows.map(g => `
+              <tr data-deleted="${escapeHtml(g.id)}">
+                <td>${g.cover_url
+                  ? `<img src="${escapeHtml(g.cover_url)}" alt="" style="width:52px;height:38px;object-fit:cover;border-radius:6px;background:var(--bg-tertiary);">`
+                  : '<span class="muted small">none</span>'}</td>
+                <td>
+                  <div style="font-weight:600;">${escapeHtml(g.title || '')}</div>
+                  ${g.deleted_reason ? `<div class="card-sub">Reason: ${escapeHtml(g.deleted_reason)}</div>` : ''}
+                </td>
+                <td>${escapeHtml(g.author_name || '')}</td>
+                <td>
+                  <div>${escapeHtml(new Date(g.deleted_at).toLocaleString())}</div>
+                  <div class="card-sub">By ${escapeHtml(g.deleted_by_name || '')}</div>
+                </td>
+                <td class="num">${Number(g.days_left) > 0
+                  ? `<span class="badge badge-warning">${Number(g.days_left)} day${Number(g.days_left) === 1 ? '' : 's'}</span>`
+                  : '<span class="badge badge-error">Window over</span>'}</td>
+                <td class="num" style="white-space:nowrap;">
+                  ${Number(g.days_left) > 0 ? `<button class="btn-quiet btn-small" data-restore="${escapeHtml(g.id)}" data-title="${escapeHtml(g.title || '')}">Restore</button>` : ''}
+                  <button class="btn-danger btn-small" data-purge="${escapeHtml(g.id)}" data-title="${escapeHtml(g.title || '')}" data-author="${escapeHtml(g.author_name || '')}">Delete permanently</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table></div>` : empty('Nothing is waiting to be deleted.')}
+      </div>`;
+  },
+
+  async restoreDeleted(id, title) {
+    const ok = await appConfirm(
+      `"${title}" goes back exactly where the member left it, media included.`,
+      { title: 'Restore this Gliim?', okText: 'Restore' });
+    if (!ok) return;
+
+    const { data, error } = await supabase.rpc('gliim_restore', { p_post: id });
+    if (error || !data || data.ok !== true) {
+      return appAlert(error ? `Could not restore it: ${error.message}` : trashCode(data));
+    }
+    await this.render();
+  },
+
+  // Hard deletion lives on the API because Postgres cannot reach R2 — the
+  // server deletes the objects and the row together.
+  async purgeNow(id, title, author) {
+    const ok = await appConfirm(
+      `"${title}" is destroyed for good, along with its pictures, comments and reports. ${author} is told it happened. This cannot be undone.`,
+      { title: 'Delete permanently', okText: 'Delete permanently', danger: true });
+    if (!ok) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return appAlert('Session expired. Please sign in again.');
+
+    const btn = document.querySelector(`[data-purge="${id}"]`);
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/content/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.deleted) {
+        if (btn) btn.disabled = false;
+        return appAlert(result.error || 'That deletion did not go through. Please try again.');
+      }
+    } catch (err) {
+      if (btn) btn.disabled = false;
+      return appAlert(`That deletion did not go through: ${err.message}`);
+    }
+
+    await this.render();
+  },
+
+  // Orphans are files no row points at any more: what the 30-day sweep leaves
+  // behind, plus uploads people abandoned. Counted first, then deleted.
+  async sweepStorage(btn) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return appAlert('Session expired. Please sign in again.');
+
+    const call = (dryRun) => fetch(`${API_BASE_URL}/api/r2-sweep`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ dryRun })
+    }).then(async (res) => {
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error === 'R2_NOT_CONFIGURED' || json.ok === false) {
+        throw new Error(json.error || 'The storage scan failed.');
+      }
+      return json;
+    });
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking storage…'; }
+    let scan;
+    try {
+      scan = await call(true);
+    } catch (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Clean up storage'; }
+      return appAlert(err.message);
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Clean up storage'; }
+
+    if (!scan.orphans) {
+      return appAlert(`Nothing to clean. ${scan.totalR2Files} files in storage, every one of them in use.`);
+    }
+
+    const ok = await appConfirm(
+      `${scan.orphans} file${scan.orphans === 1 ? '' : 's'} in storage belong to no Gliim, profile or setting. Deleting them frees the space and cannot be undone.`,
+      { title: 'Clean up storage', okText: `Delete ${scan.orphans} file${scan.orphans === 1 ? '' : 's'}`, danger: true });
+    if (!ok) return;
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Cleaning up…'; }
+    try {
+      const done = await call(false);
+      await appAlert(`${done.deleted} file${done.deleted === 1 ? '' : 's'} deleted${done.failed ? `, ${done.failed} failed` : ''}.`);
+    } catch (err) {
+      await appAlert(err.message);
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Clean up storage'; }
   },
 
   // ============================================
@@ -508,5 +679,18 @@ export default {
         if (row) this.setOrder(row.dataset.partner, input.value);
       });
     });
+
+    pane.querySelectorAll('[data-restore]').forEach((btn) => {
+      btn.addEventListener('click', () => this.restoreDeleted(btn.dataset.restore, btn.dataset.title));
+    });
+
+    pane.querySelectorAll('[data-purge]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.purgeNow(btn.dataset.purge, btn.dataset.title, btn.dataset.author);
+      });
+    });
+
+    const sweep = pane.querySelector('[data-sweep]');
+    if (sweep) sweep.addEventListener('click', () => this.sweepStorage(sweep));
   }
 };

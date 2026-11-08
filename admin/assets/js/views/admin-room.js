@@ -4,7 +4,7 @@
 // and pushed to R2 through the same chat upload kind the Support desk uses.
 import { supabase } from '../config.js';
 import { store } from '../store.js';
-import { escapeHtml, empty, avatar, timeAgo } from '../ui.js';
+import { escapeHtml, empty, avatar, timeAgo } from '../ui.js?v=2';
 import { appAlert, appConfirm } from '../dialog.js';
 import { uploadFile } from '../upload.js';
 

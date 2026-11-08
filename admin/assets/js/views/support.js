@@ -1,6 +1,6 @@
 import { supabase } from '../config.js';
 import { store } from '../store.js';
-import { escapeHtml, empty, avatar, timeAgo } from '../ui.js';
+import { escapeHtml, empty, avatar, timeAgo } from '../ui.js?v=2';
 import { appAlert } from '../dialog.js';
 import { uploadFile } from '../upload.js';
 

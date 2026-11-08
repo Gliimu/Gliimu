@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=114';
-import feedView from './feed.js?v=110';
+import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './feed-gliims.js?v=117';
+import feedView from './feed.js?v=112';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -37,6 +37,7 @@ export default {
       copyShareLink: () => this.copyShareLink(),
       toggleFilterMenu: (e) => this.toggleFilterMenu(e),
       applyFilter: (filter) => this.applyFilter(filter),
+      restoreTrash: (postId, btn) => this.restoreTrash(postId, btn),
       toggleFollow: () => this.toggleFollow(),
       messageUser: () => this.messageUser(),
       toggleDetailsAcc: (head) => this.toggleDetailsAcc(head),
@@ -371,8 +372,13 @@ export default {
 
     // Grid list first, then card context, then the template — cards must render
     // with their kinds and comment counts already known.
+    // The Trash is its own list, not the masonry grid: every row needs a
+    // countdown and a Restore button beside the card.
+    let trashItems = [];
     let gridPosts;
-    if (isMe && this._projectFilter === 'saved') {
+    if (isMe && this._projectFilter === 'trash') {
+      trashItems = await this.fetchTrashGliims();
+    } else if (isMe && this._projectFilter === 'saved') {
       gridPosts = await this.fetchSavedGliims();
     } else {
       gridPosts = posts || [];
@@ -387,10 +393,11 @@ export default {
         }
       }
     }
-    await this.syncCardContext(gridPosts, this._projectFilter === 'saved' ? null : p);
+    if (gridPosts) await this.syncCardContext(gridPosts, this._projectFilter === 'saved' ? null : p);
 
     const emptyMessage = this._projectFilter === 'saved' ? 'No saved gliims yet.'
       : this._projectFilter === 'drafts' ? 'No drafts found.'
+      : this._projectFilter === 'trash' ? 'Your Trash is empty.'
       : 'No gliims found.';
 
     const detailsPanel = this.buildDetailsPanel(p, isMe);
@@ -430,6 +437,7 @@ export default {
                   <div class="profile-filter-item ${this._projectFilter === 'drafts' ? 'active' : ''}" data-filter="drafts" onclick="profileInstance.applyFilter('drafts')">Drafts</div>
                   <div class="profile-filter-item ${this._projectFilter === 'saved' ? 'active' : ''}" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
                   <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
+                  <div class="profile-filter-item ${this._projectFilter === 'trash' ? 'active' : ''}" data-filter="trash" onclick="profileInstance.applyFilter('trash')">Trash</div>
                 </div>
               </div>
               <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
@@ -453,17 +461,20 @@ export default {
       <!-- Gliims Section -->
       <div class="profile-projects-section">
         <div class="profile-projects-header">
-          <h2>Gliims</h2>
+          <h2>${this._projectFilter === 'trash' ? 'Trash' : 'Gliims'}</h2>
         </div>
         <div class="profile-gliims-feed">
-          ${gridPosts.length
-            ? `<div class="library-feed feed-grid">${gridPosts.map(item => feedView.wrapItem(this.renderCard(item, p), 'gliim')).join('')}</div>`
-            : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`}
+          ${this._projectFilter === 'trash'
+            ? (trashItems.length ? trashItems.map(item => this.trashRowHtml(item)).join('')
+                                 : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`)
+            : (gridPosts.length
+              ? `<div class="library-feed feed-grid">${gridPosts.map(item => feedView.wrapItem(this.renderCard(item, p), 'gliim')).join('')}</div>`
+              : `<p style="color: var(--text-muted); text-align: center; padding: 40px;">${emptyMessage}</p>`)}
         </div>
       </div>
     `;
 
-    feedView.layoutMasonry('#profile-container');
+    if (this._projectFilter !== 'trash') feedView.layoutMasonry('#profile-container');
   },
 
   // Point the shared XpLoRe renderer at this profile's data: block shapes for
@@ -527,6 +538,51 @@ export default {
 
     const order = new Map(ids.map((id, i) => [id, i]));
     return visible.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  },
+
+  // RLS hides trashed rows from every normal read, so the Trash is served by
+  // the SECURITY DEFINER RPC instead.
+  async fetchTrashGliims() {
+    const { data, error } = await supabase.rpc('gliim_list_trash');
+    if (error || !data || data.ok !== true) return [];
+    return data.items || [];
+  },
+
+  trashRowHtml(item) {
+    const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const when = item.deleted_at ? new Date(item.deleted_at).toLocaleDateString() : '';
+    const restore = item.deleted_by_me
+      ? `<button class="profile-trash-restore" onclick="profileInstance.restoreTrash('${esc(item.id)}', this)">Restore</button>`
+      : `<span class="profile-trash-locked">Only the team that moved it here can restore it.</span>`;
+    return `
+      <div class="profile-trash-row" id="trash-${esc(item.id)}">
+        ${item.cover_url ? `<img class="profile-trash-cover" src="${esc(item.cover_url)}" alt="">` : '<div class="profile-trash-cover profile-trash-cover-empty"></div>'}
+        <div class="profile-trash-text">
+          <div class="profile-trash-title">${esc(item.title)}</div>
+          <div class="profile-trash-meta">Moved to the Trash on ${esc(when)} · ${item.days_left} day${item.days_left === 1 ? '' : 's'} left before it is gone for good.</div>
+          ${item.deleted_reason ? `<div class="profile-trash-reason">Reason: ${esc(item.deleted_reason)}</div>` : ''}
+        </div>
+        <div class="profile-trash-action">${restore}</div>
+      </div>
+    `;
+  },
+
+  async restoreTrash(postId, btn) {
+    if (btn) btn.disabled = true;
+    const { data, error } = await supabase.rpc('gliim_restore', { p_post: postId });
+    if (error) {
+      if (btn) btn.disabled = false;
+      return notify.toast('Could not restore it. ' + error.message, 5000);
+    }
+    if (!data || data.ok !== true) {
+      if (btn) btn.disabled = false;
+      return notify.toast('Could not restore it. ' + trashReason(data && data.code), 5000);
+    }
+
+    notify.toast('Gliim restored.');
+    document.getElementById(`trash-${postId}`)?.remove();
+    const rows = document.querySelectorAll('.profile-trash-row');
+    if (!rows.length) this.renderProfile(this.targetUserId);
   },
 
   calculateStreak(posts) {

@@ -5,16 +5,17 @@
 --   1. Creates public.notifications — one row per notification, with an
 --      optional deep link (post/comment) and a read marker. Members see only
 --      their own rows; a sender may only create rows where they are the actor.
---   2. Creates public.feed_gliim_mentions — a queue of tags made on posts
---      that are still pending review. When CRM approves the post, the tags
---      fan out as notifications (see 3). Deleting a post purges its queue.
---   3. Adds a fan-out trigger: pending → approved delivers every queued tag
---      once, then clears the queue.
---   4. Rewrites admin_review_post (same signature): approve/reject now writes
+--   2. Rewrites admin_review_post (same signature): approve/reject now writes
 --      a notification instead of a Support-thread message.
---   5. Adds notifications to the supabase_realtime publication so the sidebar
+--   3. Adds notifications to the supabase_realtime publication so the sidebar
 --      badge can live-update.
---   6. Self-check grid at the bottom.
+--   4. Self-check grid at the bottom.
+--
+-- This script used to also create public.feed_gliim_mentions — a queue for
+-- tags made on posts still awaiting review — plus the trigger that fanned
+-- that queue out on approval. Gliims publish instantly now, so the queue and
+-- its fan-out were removed; sql/instant_publish.sql drops them and
+-- sql/archive_gliim_mentions.sql keeps their old definitions.
 
 -- ============================================================
 -- 1. NOTIFICATIONS TABLE
@@ -74,75 +75,7 @@ create policy "Members delete own notifications"
   using (user_id = auth.uid());
 
 -- ============================================================
--- 2. MENTION QUEUE for posts that are not live yet
--- ============================================================
-create table if not exists public.feed_gliim_mentions (
-  post_id uuid not null references public.feed_gliims(id) on delete cascade,
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  mentioned_by uuid not null references public.profiles(id) on delete cascade,
-  kind text not null default 'tag' check (kind in ('tag', 'mention')),
-  comment_id uuid,
-  created_at timestamptz not null default now(),
-  primary key (post_id, user_id)
-);
-
-create index if not exists feed_gliim_mentions_user_idx
-  on public.feed_gliim_mentions (user_id);
-
-alter table public.feed_gliim_mentions enable row level security;
-
-revoke all on public.feed_gliim_mentions from anon;
-grant select, insert on public.feed_gliim_mentions to authenticated;
-grant all on public.feed_gliim_mentions to service_role;
-
-drop policy if exists "Members queue their own mentions" on public.feed_gliim_mentions;
-create policy "Members queue their own mentions"
-  on public.feed_gliim_mentions
-  for insert
-  to authenticated
-  with check (mentioned_by = auth.uid());
-
-drop policy if exists "Mention parties read their rows" on public.feed_gliim_mentions;
-create policy "Mention parties read their rows"
-  on public.feed_gliim_mentions
-  for select
-  to authenticated
-  using (user_id = auth.uid() or mentioned_by = auth.uid());
-
--- ============================================================
--- 3. FAN-OUT TRIGGER — approval delivers queued tags once
--- ============================================================
-create or replace function public.fan_out_gliim_mentions()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  insert into public.notifications (user_id, actor_id, kind, title, link_post, link_comment)
-  select m.user_id, m.mentioned_by, m.kind,
-         format('%s tagged you in the hub page: "%s"',
-                (select full_name from public.profiles where id = m.mentioned_by),
-                coalesce(new.title, 'a gliim')),
-         new.id, m.comment_id
-    from public.feed_gliim_mentions m
-   where m.post_id = new.id
-  on conflict do nothing;
-
-  delete from public.feed_gliim_mentions where post_id = new.id;
-  return null;
-end;
-$$;
-
-drop trigger if exists trg_fan_out_gliim_mentions on public.feed_gliims;
-create trigger trg_fan_out_gliim_mentions
-  after update of status on public.feed_gliims
-  for each row
-  when (old.status = 'pending' and new.status = 'approved')
-  execute function public.fan_out_gliim_mentions();
-
--- ============================================================
--- 4. REWRITE admin_review_post — notices become notifications
+-- 2. REWRITE admin_review_post — notices become notifications
 -- ============================================================
 create or replace function public.admin_review_post(p_post uuid, p_action text, p_note text default null)
 returns jsonb
@@ -205,7 +138,7 @@ revoke execute on function public.admin_review_post(uuid, text, text) from publi
 grant execute on function public.admin_review_post(uuid, text, text) to authenticated, service_role;
 
 -- ============================================================
--- 5. REALTIME — the sidebar badge can live-update
+-- 3. REALTIME — the sidebar badge can live-update
 -- ============================================================
 do $$
 begin
@@ -249,34 +182,13 @@ select 6, 'kind check constraint exists',
                 where conrelid = 'public.notifications'::regclass
                   and conname = 'notifications_kind_check')
 union all
-select 7, 'feed_gliim_mentions exists with composite primary key',
+select 7, 'deleting a post also removes its notifications',
        exists (select 1 from pg_constraint
-                where conrelid = 'public.feed_gliim_mentions'::regclass
-                  and contype = 'p'
-                  and cardinality(conkey) = 2)
-union all
-select 8, 'deleting a post purges its mention queue and notifications',
-       exists (select 1 from pg_constraint
-                where conrelid = 'public.feed_gliim_mentions'::regclass
-                  and conname like '%post_id%'
+                where conrelid = 'public.notifications'::regclass
+                  and conname like '%link_post%'
                   and pg_get_constraintdef(oid) ilike '%on delete cascade%')
-       and exists (select 1 from pg_constraint
-                    where conrelid = 'public.notifications'::regclass
-                      and conname like '%link_post%'
-                      and pg_get_constraintdef(oid) ilike '%on delete cascade%')
 union all
-select 9, 'fan-out trigger fires on pending to approved',
-       exists (select 1 from pg_trigger
-                where tgrelid = 'public.feed_gliims'::regclass
-                  and tgname = 'trg_fan_out_gliim_mentions'
-                  and not tgisinternal)
-union all
-select 10, 'fan-out function is security definer',
-       exists (select 1 from pg_proc
-                where oid = to_regprocedure('public.fan_out_gliim_mentions()')
-                  and prosecdef = true)
-union all
-select 11, 'review RPC writes notifications, not support_messages',
+select 8, 'review RPC writes notifications, not support_messages',
        (select prosrc from pg_proc
          where oid = to_regprocedure('public.admin_review_post(uuid,text,text)'))
        ilike '%insert into public.notifications%'
@@ -284,7 +196,7 @@ select 11, 'review RPC writes notifications, not support_messages',
              where oid = to_regprocedure('public.admin_review_post(uuid,text,text)'))
        not ilike '%insert into public.support_messages%'
 union all
-select 12, 'notifications is in the realtime publication',
+select 9, 'notifications is in the realtime publication',
        exists (select 1 from pg_publication_tables
                 where pubname = 'supabase_realtime' and tablename = 'notifications')
 order by "#";

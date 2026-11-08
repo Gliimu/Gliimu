@@ -692,32 +692,31 @@ app.delete('/api/content/:id', async (req, res) => {
     const callerId = authData.user.id;
     const itemId = req.params.id;
 
-    const { data: isCrm } = await supabaseAdmin.rpc('admin_has_role', {
-      p_user: callerId, p_role: 'crm'
+    // Finalising a deletion is an Operations action. admin_has_role returns
+    // true for any role when the caller is a super admin, so one check covers
+    // both. Members trash their own work through the gliim_trash RPC instead.
+    const { data: isOps } = await supabaseAdmin.rpc('admin_has_role', {
+      p_user: callerId, p_role: 'operations'
     });
-    const isAdmin = isCrm === true;
-
-    let type = null;
-    let owner = null;
-    let allUrls = [];
+    if (isOps !== true) return res.status(403).json({ error: 'Operations only.' });
 
     const { data: gliim } = await supabaseAdmin
-      .from('feed_gliims').select('id, user_id, cover_url, media_url, description')
+      .from('feed_gliims')
+      .select('id, user_id, title, cover_url, media_url, deleted_at')
       .eq('id', itemId).maybeSingle();
-    if (gliim) {
-      type = 'feed_gliim';
-      owner = gliim.user_id;
-      allUrls.push(gliim.cover_url, gliim.media_url);
-
-      const { data: gc } = await supabaseAdmin
-        .from('feed_gliim_contents').select('blocks').eq('post_id', itemId).maybeSingle();
-      if (gc?.blocks) {
-        allUrls.push(...collectUrlsFromBlocks(gc.blocks));
-      }
+    if (!gliim) return res.status(404).json({ error: 'Item not found.' });
+    // The 30-day window is only skippable by Operations, and only from inside
+    // the Trash queue — nothing gets destroyed that was never moved there.
+    if (!gliim.deleted_at) {
+      return res.status(400).json({ error: 'Move the Gliim to the Trash first.' });
     }
 
-    if (!type) return res.status(404).json({ error: 'Item not found.' });
-    if (!isAdmin && owner !== callerId) return res.status(403).json({ error: 'Not authorized.' });
+    const allUrls = [gliim.cover_url, gliim.media_url];
+    const { data: gc } = await supabaseAdmin
+      .from('feed_gliim_contents').select('blocks').eq('post_id', itemId).maybeSingle();
+    if (gc?.blocks) {
+      allUrls.push(...collectUrlsFromBlocks(gc.blocks));
+    }
 
     const r2Keys = extractR2Keys(allUrls.filter(Boolean));
     const r2Result = await deleteR2Objects(r2Keys);
@@ -727,9 +726,22 @@ app.delete('/api/content/:id', async (req, res) => {
     await supabaseAdmin.from('feed_gliim_contents').delete().eq('post_id', itemId);
     await supabaseAdmin.from('feed_gliims').delete().eq('id', itemId);
 
+    // link_post cascades off the post row, so the notice is written after the
+    // deletion and points at nothing.
+    if (gliim.user_id) {
+      await supabaseAdmin.from('notifications').insert({
+        user_id: gliim.user_id,
+        actor_id: callerId,
+        kind: 'review',
+        title: gliim.title
+          ? `"${gliim.title}" was permanently deleted by Operations.`
+          : 'One of your Gliims was permanently deleted by Operations.'
+      });
+    }
+
     res.json({
       deleted: true,
-      type,
+      type: 'feed_gliim',
       r2_deleted: r2Result.deleted,
       r2_failed: r2Result.failed
     });
@@ -754,10 +766,12 @@ app.post('/api/r2-sweep', async (req, res) => {
     }
     const callerId = authData.user.id;
 
-    const { data: isSuper } = await supabaseAdmin.rpc('admin_has_role', {
-      p_user: callerId, p_role: 'super'
+    // Operations runs the sweep from the Deleted queue once a day; super
+    // admins pass because admin_has_role accepts any role for them.
+    const { data: isOps } = await supabaseAdmin.rpc('admin_has_role', {
+      p_user: callerId, p_role: 'operations'
     });
-    if (!isSuper) return res.status(403).json({ error: 'Super admin only.' });
+    if (!isOps) return res.status(403).json({ error: 'Operations only.' });
 
     if (!r2Ready()) return res.json({ error: 'R2_NOT_CONFIGURED' });
 
@@ -782,6 +796,8 @@ app.post('/api/r2-sweep', async (req, res) => {
     const referencedUrls = new Set();
 
     // feed_gliims: cover_url, media_url
+    // Trashed rows are included on purpose — their media must survive until
+    // restore or the 30-day purge, otherwise restore would revive dead files.
     const { data: feedGliims } = await supabaseAdmin.from('feed_gliims').select('cover_url, media_url');
     feedGliims?.forEach(g => {
       if (g.cover_url) referencedUrls.add(g.cover_url);

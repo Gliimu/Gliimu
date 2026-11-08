@@ -1,19 +1,19 @@
 const routes = {
-  '/alerts': () => import('./views/alerts.js?v=12').then(m => m.default),
-  '/search': () => import('./views/search.js?v=5').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=110').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=110').then(m => m.default),
-  '/ping': () => import('./views/ping.js?v=64').then(m => m.default),
+  '/alerts': () => import('./views/alerts.js?v=13').then(m => m.default),
+  '/search': () => import('./views/search.js?v=7').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=112').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=112').then(m => m.default),
+  '/ping': () => import('./views/ping.js?v=65').then(m => m.default),
   '/wallet': () => import('./views/wallet.js?v=46').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=8').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
   '/live': () => import('./views/live-page.js?v=48').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=15').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=17').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=88').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=56').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=56').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=26').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=90').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=58').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=58').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=28').then(m => m.default),
 };
 
 // Routes with no tab of their own borrow another tab's highlight
@@ -76,11 +76,6 @@ export async function router() {
   const hash = window.location.hash.slice(1) || '/xplore';
   // Deep links may carry a query string (e.g. #/ping?chat=<id>)
   const path = hash.split('?')[0];
-  const routeHandler = routes[path];
-
-  const app = document.getElementById('app');
-  const topbarDynamic = document.getElementById('topbar-dynamic-content');
-  const topbarRightActions = document.getElementById('topbar-right-actions');
 
   // 1. Intercept Navigation if Live Session is Active
   // Navigating to /live never prompts — the session continues on that page.
@@ -119,6 +114,26 @@ export async function router() {
     remember(previousHash);
   }
   previousHash = incoming;
+
+  await mount();
+}
+
+// Pull-to-refresh remounts the page you are already on. It deliberately skips
+// the guards above (a refresh is not a navigation, so it must not ask about
+// leaving a live session) and the back stack (the page is not being left).
+export async function refreshCurrentView() {
+  await mount();
+}
+
+async function mount() {
+  const hash = window.location.hash.slice(1) || '/xplore';
+  const path = hash.split('?')[0];
+  const routeHandler = routes[path];
+
+  const app = document.getElementById('app');
+  const topbarDynamic = document.getElementById('topbar-dynamic-content');
+  const topbarRightActions = document.getElementById('topbar-right-actions');
+
   const request = ++navigationRequest;
   currentView?.destroy?.();
   currentView = null;

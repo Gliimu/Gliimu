@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml } from '../ui.js';
+import { escapeHtml } from '../ui.js?v=2';
 
 export default {
   template: `
@@ -38,7 +38,7 @@ export default {
     <div class="dash-section">
       <h3>Quick Actions</h3>
       <div class="dash-actions">
-        <a href="#/submissions" class="dash-action-btn">Review Submissions</a>
+        <a href="#/submissions" class="dash-action-btn">Manage Gliims</a>
         <a href="#/reports" class="dash-action-btn">Check Reports</a>
         <a href="#/support" class="dash-action-btn">Open Support Desk</a>
         <a href="#/members" class="dash-action-btn">Manage Members</a>

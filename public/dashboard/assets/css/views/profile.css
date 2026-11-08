@@ -811,6 +811,91 @@
 }
 
 /* ============================================
+   TRASH LIST
+   ============================================ */
+.profile-trash-note {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  margin: 0 0 14px;
+}
+
+.profile-trash-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+}
+
+.profile-trash-cover {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.profile-trash-cover-empty {
+  background: var(--surface-2);
+}
+
+.profile-trash-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.profile-trash-title {
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-trash-meta,
+.profile-trash-reason,
+.profile-trash-locked {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  margin-top: 3px;
+}
+
+.profile-trash-restore {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--primary);
+  color: #fff;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.profile-trash-restore:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+@media (max-width: 768px) {
+  .profile-trash-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .profile-trash-action {
+    width: 100%;
+  }
+
+  .profile-trash-restore {
+    width: 100%;
+  }
+}
+
+/* ============================================
    SEARCH DROPDOWN
    ============================================ */
 #profile-search-dropdown {

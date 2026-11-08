@@ -94,7 +94,6 @@ gliimu/
 │   │   │   │   ├── router.js    # Client-side routing
 │   │   │   │   ├── store.js     # Global state
 │   │   │   │   ├── reader.js    # Content reader (books/audiolites)
-│   │   │   │   ├── billing.js   # Billing client
 │   │   │   │   ├── upload.js    # R2 presigned uploads
 │   │   │   │   ├── media.js     # Media rendering
 │   │   │   │   ├── notify.js    # Notifications
@@ -116,71 +115,72 @@ gliimu/
 │                            # - Billing verification
 │                            # - Wallet operations
 │
-├── sql/                      # Database schema + migrations
-│   ├── setup_all.sql        # Master script (fresh install)
-│   ├── rename_tables.sql    # feed_* table rename migration
-│   ├── billing.sql          # Billing tables + RPCs
-│   ├── referrals.sql        # Referral system
-│   ├── support.sql          # Support desk schema
-│   ├── reader.sql           # Reading progress + completion
-│   ├── community.sql        # Arena (contests/cohorts)
-│   ├── operations.sql       # Landing/settings RPCs
+├── sql/                      # Database schema — the source of truth for Postgres
+│   ├── setup_core.sql       # All tables, base RLS + grants (fresh install)
+│   ├── state.sql            # Read-only: what is installed right now
+│   ├── support.sql          # Support desk + the review RPCs
+│   ├── gliits_billing.sql   # Gliits ledger + pricing
+│   ├── content_trash.sql    # Two-stage deletion and the 30-day purge
+│   ├── referrals.sql        # Referral codes, ledger, vesting
+│   ├── community.sql        # Arena (contests)
 │   ├── admin.sql            # Admin users + roles
 │   ├── registrar.sql        # Finance RPCs
-│   └── ...                  # Other feature scripts
+│   └── ...                  # See "SQL Scripts" below
 │
 └── src-tauri/               # Tauri desktop app (optional)
 ```
 
 ## Database Schema
 
-**Core Tables (43 total)**
+**37 tables** in the `public` schema, 137 functions, 10 triggers, 98 RLS
+policies across 34 tables. Figures are as of 2026-11-07; `sql/state.sql`
+re-reads them whenever you need current numbers.
 
-**Feed System** (publishing library)
-- `feed_submissions` — book/audiolite submissions (CRM review)
-- `feed_items` — approved publications (books, audiolites)
-- `feed_gliims` — user posts/bundles (auto-approved)
-- `feed_gliim_contents` — gliim block content (RLS-locked)
-- `feed_contents` — publication block content (RLS-locked)
+**Content** (the publishing library)
+- `feed_gliims` — every gliim: text, image, media and document posts, drafts included, plus `deleted_at`/`deleted_by`/`deleted_reason` for the Trash
+- `feed_gliim_contents` — block bodies, RLS-locked so only the author can read them before publish
 - `feed_interactions` — likes, comments, shares, saves
+- `post_views` — one row per reader per gliim, so views are unique, not raw hits
+- `post_hashtags` — collection membership written by the hashtag trigger
+- `saved_items`, `purchases`, `poll_votes`
 
-**Billing System**
-- `billing_prices` — subscription plans
-- `billing_cycles` — user billing periods
-- `billing_events` — payment/unlock events
-- `payment_attempts` — bank transfer verification
-- `transactions` — GP/wallet ledger
+**Ping + Support**
+- `messages` — member DMs
+- `hidden_chats` — a member's own "hide this chat" list
+- `admin_chat` — the staff room
+- `support_messages`, `support_reads` — the one support thread per member
+- `reports` — content and user reports
+- `notifications` — one-way alerts behind the Alerts page and the avatar badge
 
-**Support System**
-- `support_messages` — support threads
-- `support_reads` — read tracking
-- `admin_chat` — staff room
+**Money**
+- `gliits_config`, `gliits_plans`, `gliits_topups`, `gliits_usage` — the Gliits ledger
+- `payment_attempts` — bank-transfer top-ups awaiting one-click verification
+- `transactions` — the GP/wallet ledger
+- `referrals` — codes, ledger and vesting
+- `admin_adjustments`, `registrar_adjustments` — who changed what, and why
 
-**Community** (periodic)
-- `contests` — leaderboard contests
-- `contest_entries` — contest participants
-- `cohorts` — training cohorts (periodic)
-- `cohort_requests` — join requests
+**Live sessions**
+- `live_requests`, `live_chat_messages`, `live_kicked_users`, `live_reactions`
 
-**User System**
-- `profiles` (Supabase Auth) — user profiles
-- `admin_users` — admin roles (super/crm/registrar/captain/ops)
-- `admin_adjustments` — GP/wallet/tier changes
-- `referrals` — referral codes + vesting
-- `reading_progress` — book/audiolite progress
+**People**
+- `profiles` — mirrors Supabase Auth users; carries `is_admin`, `total_gp` and the verification badge
+- `followed_users` — who follows whom, which feeds the Xploring ring
+- `admin_users` — staff roles: `super`, `crm`, `registrar`, `operations`.
+  The table's check constraint still accepts the retired `captain` value, so
+  a stale row can pass the database while no screen in the admin app uses it.
 
-**Content**
-- `live_requests` — live session requests
-- `reports` — content/user reports
-- `faqs`, `legal_documents`, `partners` — landing content
-- `site_settings` — admin-configurable settings
+**Community**
+- `contests` — the leaderboard contests on the Updates page
+
+**Landing + settings**
+- `contact_info`, `faqs`, `legal_documents`, `partners`, `site_settings`
 
 **Row-Level Security (RLS)**
 All tables have RLS enabled. Policies enforce:
 - Users can only read/edit their own data
-- CRM can review submissions
-- Admins have elevated access
-- Premium content gated by billing status
+- Staff reach content through role-checked RPCs, not broad table grants
+- A gliim in the Trash is invisible to every member-facing policy
+  (`deleted_at is null`) until it is restored or purged
 
 ## Setup Instructions
 
@@ -204,21 +204,22 @@ npm install
 **Create the database schema:**
 
 1. Go to your Supabase project → SQL Editor
-2. Copy the contents of `sql/setup_all.sql`
+2. Copy the contents of `sql/setup_core.sql`
 3. Paste into the editor (UTF-8 encoding)
 4. Click "Run"
 5. Verify with the self-check grid at the bottom
+6. Then run the **Feature** scripts listed in [SQL Scripts](#sql-scripts) — one per paste. `setup_core.sql` alone is not a working product; it only creates the tables.
 
-**This creates:**
-- 43 tables with RLS policies
-- 80+ RPC functions
-- 5 triggers
-- Seed data (FAQs, legal docs, billing prices)
+**`setup_core.sql` creates:**
+- 31 tables, each with RLS enabled and `anon`/`authenticated` grants set
+- Seed data (FAQs, legal docs)
+
+The RPC functions, triggers and policies live in the per-feature scripts, not here. The live database currently has 37 tables, 137 functions, 10 triggers and 98 policies — see [Database Schema](#database-schema).
 
 **Make yourself an admin:**
 
 ```sql
--- After running setup_all.sql, insert your admin user
+-- After running setup_core.sql, insert your admin user
 insert into public.admin_users (user_id, role)
 values ('YOUR-USER-UUID', 'super');
 ```
@@ -348,9 +349,8 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 ### Member Dashboard
 
 **Feed** (`#/feed`)
-- Publishing library: books, audiolites, and bundles
-- CRM approval workflow for publications
-- Auto-approved gliims (social posts)
+- Publishing library: books, logs, and bundles
+- Publishing is instant — there is no approval queue; staff can take a gliim down
 - @mention support with deep links
 - Premium content gating (Pro tier or per-item purchase)
 
@@ -530,37 +530,35 @@ Current chain: **v=33** (index.html) → **v=33** (app.js) → **v=30** (router.
 
 Admin chain: **v=11**
 
-## SQL Script Organization
+## SQL Scripts
 
-**Master script:**
-- `setup_all.sql` — complete schema for fresh installs (2,926 lines)
+Every schema change lives in `sql/`. The database is only ever modified by
+pasting one of these into Dashboard → SQL Editor, so this folder — not the
+dashboard's saved snippets — is the source of truth for Postgres.
 
-**Feature scripts (run after setup_all.sql):**
-- `billing.sql` — billing tables + RPCs
-- `referrals.sql` — referral system
-- `support.sql` — support desk
-- `reader.sql` — reading progress
-- `community.sql` — arena (contests/cohorts)
-- `operations.sql` — landing/settings RPCs
-- `admin.sql` — admin users + roles
-- `registrar.sql` — finance RPCs
-- `landing_trending.sql` — trending content (extends landing_highlights RPC)
-- `faq_display_order.sql` — drag-to-reorder FAQs
+Each file is self-contained and idempotent: a header that says what it
+installs and why, the DDL, and a self-check grid at the bottom whose rows
+should all read OK. Run the file, then run its self-check in the same paste.
 
-**Migration scripts:**
-- `rename_tables.sql` — library_* → feed_* rename (already applied)
+| Kind | Files | Notes |
+|------|-------|-------|
+| Fresh install | `setup_core.sql` | every table, base RLS and grants |
+| Feature | `account_lifecycle.sql`, `admin.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `landing_highlights.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql` | the live features |
+| Live (sessions) | `live_rooms.sql`, `live_v2.sql`, `live_v3.sql`, `live_on_air.sql`, `live_participants.sql`, `live_chat.sql`, `live_chat_attachments.sql`, `live_kicked_users.sql`, `live_reactions.sql`, `live_support_g10.sql` | stacked over time; the newest wins where they overlap |
+| Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql` | |
+| Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_scroll_position.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
+| Archive | `archive_*.sql` | retired definitions, kept for reference. Never run |
+| Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql` | superseded by the removal scripts above |
+| Diagnostic | `state.sql` | read-only: answers "what is installed right now" |
 
-**One-shot scripts:**
-- `hub_clear.sql` — empty hub data
-- `cleanup.sql` — drop orphaned objects
-- `gigs_drop.sql` — remove gigs feature
+Run `state.sql` before any script that drops something.
 
 **All scripts are idempotent** (safe to re-run) and include self-check grids.
 
 ## Troubleshooting
 
 **"relation does not exist" error:**
-- Run `sql/setup_all.sql` (or the relevant feature script)
+- Run `sql/setup_core.sql`, then the feature script that owns the missing object
 - Scripts are idempotent, safe to re-run
 
 **403 on table access:**
@@ -585,7 +583,7 @@ Admin chain: **v=11**
 
 ## Deployment Checklist
 
-- [ ] Supabase: run `setup_all.sql`
+- [ ] Supabase: run `setup_core.sql`, then the feature scripts
 - [ ] Supabase: make yourself admin (`admin_users` insert)
 - [ ] Cloudflare: create R2 bucket + API token
 - [ ] Paystack: get secret key + set webhook URL

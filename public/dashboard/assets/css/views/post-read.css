@@ -114,15 +114,19 @@
 
 /* Related posts section (Section 2) — cancel .view-container padding to match XpLoRe grid width exactly */
 .post-read-related {
-  width: calc(100% + var(--space-8) * 2);
-  margin-left: calc(-1 * var(--space-8));
-  margin-right: calc(-1 * var(--space-8));
+  width: calc(100% + var(--pad-x) * 2);
+  margin-left: calc(-1 * var(--pad-x));
+  margin-right: calc(-1 * var(--pad-x));
   max-width: none;
   padding: 48px 0 100px;
   border-top: 2px solid var(--border);
   background: transparent;
 }
 
+/* The gutter re-applied inside must equal XpLoRe's: 24px on desktop, and on
+   mobile the 8px container padding plus the 8px the feed shell adds = 16px.
+   Cancelling --space-8 here instead overshoots by 24px per side and the cards
+   end up flush against the edge of the screen. */
 .post-read-related .related-posts-inner {
   max-width: 1500px;
   margin: 0 auto;
@@ -155,6 +159,7 @@
 
 /* Mobile grid: match XpLoRe exactly — 2 columns for books/audiolites, full-width for bundles */
 @media (max-width: 768px) {
+  .post-read-related .related-posts-inner { padding: 0 16px; }
   .post-read-related .related-posts-grid {
     grid-template-columns: repeat(2, 1fr);
     column-gap: 12px;

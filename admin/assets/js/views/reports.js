@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, timeAgo, badge, empty, avatar, rpcError } from '../ui.js';
+import { escapeHtml, timeAgo, badge, empty, avatar, rpcError } from '../ui.js?v=2';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const STATUS_TONE = { open: 'error', resolved: 'success', dismissed: 'neutral' };

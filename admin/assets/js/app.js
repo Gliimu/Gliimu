@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { store } from './store.js';
-import { router, firstRoute } from './router.js?v=16';
+import { router, firstRoute } from './router.js?v=17';
 
 // ============================================
 // GATE — three states: signing in, signed in but
@@ -61,7 +61,6 @@ function showShell() {
 
 async function refreshCounts() {
   if (store.can('crm')) {
-    setCount('count-submissions', 0);
     const [{ count: open }] = await Promise.all([
       supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open')
     ]);

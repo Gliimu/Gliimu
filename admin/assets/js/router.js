@@ -10,15 +10,15 @@ import { store } from './store.js';
 const STAFF = 'crm operations registrar super';
 
 const routes = {
-  '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=1').then(m => m.default) },
-  '/submissions': { role: 'crm', title: 'Submissions', load: () => import('./views/submissions.js?v=19').then(m => m.default) },
+  '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=2').then(m => m.default) },
+  '/submissions': { role: 'crm', title: 'All Gliims', load: () => import('./views/submissions.js?v=21').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js?v=2').then(m => m.default) },
   '/support': { role: STAFF, title: 'Support Desk', load: () => import('./views/support.js?v=8').then(m => m.default) },
   '/admin-room': { role: STAFF, title: 'Admins Room', load: () => import('./views/admin-room.js?v=8').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js?v=2').then(m => m.default) },
   '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=2').then(m => m.default) },
-  '/operations': { role: 'operations', title: 'Landing Page & App Release', load: () => import('./views/operations.js?v=12').then(m => m.default) },
+  '/operations': { role: 'operations', title: 'Site Content', load: () => import('./views/operations.js?v=13').then(m => m.default) },
   '/arena': { role: 'operations', title: 'XpLoRe', load: () => import('./views/updates.js?v=14').then(m => m.default) },
   '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=20').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }

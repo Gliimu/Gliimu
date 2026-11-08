@@ -237,24 +237,23 @@
   z-index: 2;
 }
 
-/* Bundle card: cover image background + gradient overlay + title/author/stats (white text). */
-.bundle-card {
+/* Bundle card: plain surface, cover on top, kind + title + creator below.
+   No scrim or overlay at all — every colour comes from the theme tokens, which
+   is what keeps it legible in both light and dark. */
+.bundle-card .bundle-cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
   background-size: cover;
   background-position: center;
-  color: #fff;
+  background-color: var(--bg-tertiary);
 }
-.bundle-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, color-mix(in srgb, var(--brand-primary) 72%, transparent) 0%, color-mix(in srgb, var(--brand-primary) 15%, transparent) 50%, color-mix(in srgb, var(--brand-primary) 35%, transparent) 100%);
-  border-radius: inherit;
-  pointer-events: none;
-}
-.bundle-card > * { position: relative; z-index: 1; }
-.bundle-card .blog-footer { border-top-color: rgba(255,255,255,.2); color: rgba(255,255,255,.85); }
-.bundle-card .blog-stat { color: rgba(255,255,255,.8); }
-.bundle-card .audiolite-kind { color: #fff; }
+.bundle-card .blog-content { padding: 16px 18px 18px; }
+.bundle-card .blog-meta { margin-bottom: 10px; }
+.bundle-card .blog-title { font-size: 17px; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bundle-card .bundle-kind { display: inline-flex; align-items: center; gap: 5px; text-transform: none; letter-spacing: 0; }
+.bundle-card .bundle-kind svg { flex-shrink: 0; }
+.bundle-card .blog-author { font-size: 13px; min-width: 0; }
+.bundle-card .blog-author span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Audiolite with cover image: same gradient treatment as bundle/book cards. */
 .audiolite-cover-card {

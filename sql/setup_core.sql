@@ -11,27 +11,35 @@
 -- WHAT THIS CREATES:
 --   - Extensions (pgcrypto)
 --   - Column additions to Supabase-managed tables
---   - Core tables (faqs, legal_documents, partners, reports, etc.)
---   - Feed tables (feed_gliims, feed_items, feed_submissions, etc.)
+--   - Landing content tables (faqs, legal_documents, partners, contact_info,
+--     site_settings columns, reports)
+--   - Staff tables (admin_users, admin_adjustments, payment_attempts)
+--   - Feed tables (feed_gliims + its Trash columns, feed_gliim_contents,
+--     feed_interactions, post_views, post_hashtags)
 --   - Gliits billing tables (config, plans, usage, topups)
---   - Support tables (support_messages, support_reads)
---   - Community tables (contests, cohorts, events, news)
---   - Collections & sponsors (post_hashtags, sponsor_posts)
---   - Social features (followed_users, poll_votes)
---   - Tracking tables (reading_progress, post_views, referrals)
+--   - Support tables (support_messages, support_reads, admin_chat)
+--   - Arena table (contests)
+--   - Social tables (followed_users, poll_votes)
+--   - Live + referral tables (live_requests, referrals)
 --
--- AFTER RUNNING THIS:
---   Run these SQL files in order:
---   1. gliits_billing.sql (billing functions)
---   2. library_content.sql (library access control)
---   3. reader.sql (reading progress functions)
---   4. admin.sql (admin role management)
---   5. referrals.sql (referral system)
---   6. community.sql (community board functions)
---   7. collections_sponsors.sql (hashtag indexing)
---   8. support.sql (support desk functions)
---   9. follow_users.sql (follow/unfollow functions)
---   10. polls.sql (poll voting functions)
+-- It creates NO functions and NO policies. Everything that behaves is
+-- installed by the feature scripts, so this file is only the shape.
+--
+-- AFTER RUNNING THIS, run the feature scripts that own the objects above:
+--   gliits_billing.sql, admin.sql, support.sql, unify_support.sql,
+--   notifications.sql, referrals.sql, community.sql, collections_sponsors.sql,
+--   follow_users.sql, polls.sql, content_trash.sql, instant_publish.sql,
+--   landing_highlights.sql, contact.sql, daily_gp.sql, verification_badges.sql,
+--   xploring_unread.sql, profile_banner_social.sql, media_block.sql,
+--   account_lifecycle.sql, registrar.sql, live_*.sql
+--
+-- Tables Supabase itself provides and this file does not create: profiles,
+-- messages. Their extras come from profile_banner_social.sql and support.sql.
+--
+-- Sections 7b-7f and 8b below still define contest_entries, cohorts,
+-- cohort_requests, events, news and sponsor_posts, which the live database no
+-- longer has. They are kept until the admin Arena screen stops offering those
+-- tabs; see the note in sql/cleanup_dead_tables.sql.
 -- ============================================================
 
 -- ============================================================
@@ -218,12 +226,19 @@ create table if not exists public.feed_gliims (
   review_note text,
   views integer not null default 0,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Two-stage deletion. A non-null deleted_at means the gliim sits in the
+  -- Trash; sql/content_trash.sql writes, restores and purges these three.
+  deleted_at timestamptz,
+  deleted_by uuid references public.profiles(id) on delete set null,
+  deleted_reason text
 );
 create index if not exists idx_feed_gliims_user on public.feed_gliims(user_id);
 create index if not exists idx_feed_gliims_status on public.feed_gliims(status);
 create index if not exists idx_feed_gliims_created on public.feed_gliims(created_at desc);
 create index if not exists idx_feed_gliims_category on public.feed_gliims(category);
+create index if not exists idx_feed_gliims_trash on public.feed_gliims (deleted_at desc)
+  where deleted_at is not null;
 
 -- 4d. feed_gliim_contents (was post_contents)
 create table if not exists public.feed_gliim_contents (

@@ -318,7 +318,7 @@ export default {
       };
       const emptySubs = {
         all: 'Notifications, top-ups, transfers, usage charges, rewards and system notices will appear here.',
-        notify: 'Tags, mentions, approvals and live-session updates will appear here.',
+        notify: 'Tags, mentions, Gliimu notices and live-session updates will appear here.',
         wallet: 'Top-ups, transfers, refunds and plan payments will appear here.',
         usage: 'Your per-minute reading charges will appear here, grouped by day.',
         gp: 'GP rewards and conversions will appear here.',

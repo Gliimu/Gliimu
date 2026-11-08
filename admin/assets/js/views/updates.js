@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, empty, rpcError, openDrawer, avatar, badge } from '../ui.js';
+import { escapeHtml, empty, rpcError, openDrawer, avatar, badge } from '../ui.js?v=2';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const TABS = [

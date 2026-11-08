@@ -14,6 +14,17 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// gliim_trash / gliim_restore report a machine code instead of a message.
+export function trashReason(code) {
+  if (code === 'ALREADY_IN_TRASH') return 'It is already in the Trash.';
+  if (code === 'NOT_IN_TRASH') return 'It is not in the Trash.';
+  if (code === 'TOO_LATE') return 'The 30 days are over, so it can no longer be restored.';
+  if (code === 'STAFF_ONLY') return 'Only the team that moved it here can put it back.';
+  if (code === 'NOT_ALLOWED') return 'You can only move your own Gliims to the Trash.';
+  if (code === 'NOT_FOUND') return 'That Gliim no longer exists.';
+  return 'Something went wrong.';
+}
+
 function parseHashtags(text) {
   if (!text) return '';
   return escapeHtml(text).replace(/#([a-z0-9_]+)/gi, (match, tag) =>
@@ -686,22 +697,19 @@ const hubView = {
   },
 
   async promptDelete(postId) {
-    const password = await appPrompt("To permanently delete this Gliim, please enter your password:", { inputType: 'password', okText: 'Delete', danger: true });
-    if (!password) return;
+    const ok = await appConfirm(
+      'Move this Gliim to the Trash? It disappears from Gliimu straight away and can be restored from your profile for 30 days.',
+      { okText: 'Move to Trash', danger: true }
+    );
+    if (!ok) return;
 
-    const email = store.user && store.user.email;
-    if (!email) return alert('Account information not available. Please sign in again.');
-    
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (signInError) {
-      return alert("Incorrect password. Deletion cancelled.");
+    const { data, error } = await supabase.rpc('gliim_trash', { p_post: postId });
+    if (error) return notify.toast('Could not move it to the Trash. ' + error.message, 5000);
+    if (!data || data.ok !== true) {
+      return notify.toast('Could not move it to the Trash. ' + trashReason(data && data.code), 5000);
     }
 
-    const { error: deleteError } = await supabase.from('feed_gliims').delete().eq('id', postId);
-    if (deleteError) return alert("Error deleting post: " + deleteError.message);
-
-    alert("Gliim deleted successfully.");
+    notify.toast('Moved to Trash. Restore it within 30 days.', 5000);
     this.closeModal();
     this.fetchPosts();
     window.profileInstance?.refreshProjects?.();
@@ -892,30 +900,17 @@ const hubView = {
         return;
       }
 
-      // Pen-badge members and staff publish instantly; everyone else lands
-      // in the review queue. Tag notifications only go out once the post is
-      // live — otherwise the tags are queued and fan out on CRM approval.
-      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
-      if (willBeLive) {
-        for (const u of this.taggedUsers) {
-          await supabase.from('notifications').insert({
-            user_id: u.id,
-            actor_id: store.user.id,
-            kind: 'tag',
-            title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
-            link_post: newId
-          });
-        }
-        notify.toast('Published');
-      } else {
-        if (this.taggedUsers.length) {
-          await supabase.from('feed_gliim_mentions').upsert(
-            this.taggedUsers.map(u => ({ post_id: newId, user_id: u.id, mentioned_by: store.user.id, kind: 'tag' })),
-            { onConflict: 'post_id,user_id', ignoreDuplicates: true }
-          );
-        }
-        notify.toast('Submitted for review');
+      // Publishing is instant, so tag notifications go straight out.
+      for (const u of this.taggedUsers) {
+        await supabase.from('notifications').insert({
+          user_id: u.id,
+          actor_id: store.user.id,
+          kind: 'tag',
+          title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
+          link_post: newId
+        });
       }
+      notify.toast('Published');
       this.clearComposerAutosave();
       closeComposer();
       this.fetchPosts();
@@ -1319,29 +1314,17 @@ const hubView = {
         return;
       }
 
-      // Same gate as a fresh publish: notify now when live, queue the tags
-      // for the approval fan-out otherwise.
-      const willBeLive = store.profile.verification_badge === 'pen' || store.profile.is_admin;
-      if (willBeLive) {
-        for (const u of this.taggedUsers) {
-          await supabase.from('notifications').insert({
-            user_id: u.id,
-            actor_id: store.user.id,
-            kind: 'tag',
-            title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
-            link_post: postId
-          });
-        }
-        notify.toast('Published');
-      } else {
-        if (this.taggedUsers.length) {
-          await supabase.from('feed_gliim_mentions').upsert(
-            this.taggedUsers.map(u => ({ post_id: postId, user_id: u.id, mentioned_by: store.user.id, kind: 'tag' })),
-            { onConflict: 'post_id,user_id', ignoreDuplicates: true }
-          );
-        }
-        notify.toast('Submitted for review');
+      // Same as a fresh publish: tags notify immediately.
+      for (const u of this.taggedUsers) {
+        await supabase.from('notifications').insert({
+          user_id: u.id,
+          actor_id: store.user.id,
+          kind: 'tag',
+          title: `${store.profile.full_name} tagged you in the hub page: "${title}"`,
+          link_post: postId
+        });
       }
+      notify.toast('Published');
 
       this.clearComposerAutosave();
       this.editingDraftId = null;
@@ -1825,9 +1808,10 @@ const hubView = {
   async fetchPosts() {
     // No blocks column here: gliim bodies live in feed_gliim_contents and are
     // fetched per-open, so premium content never rides along in the feed.
-    // status drives CRM moderation: only 'approved' gliims are shown (a
-    // pending/rejected row is invisible to everyone but staff). The legacy
-    // fallback drops is_premium AND status for a pre-migration database.
+    // status drives moderation: publishing is instant, so the only states left
+    // are draft (owner only), approved (everyone) and rejected (taken down by
+    // staff, owner only). The legacy fallback drops is_premium AND status for a
+    // pre-migration database.
     const colsFull = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, status, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
     const colsLegacy = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
     const load = (cols) => Promise.all([
@@ -1848,10 +1832,10 @@ const hubView = {
     this.allInteractions = interactions || [];
     
     // A row with no status predates moderation and stays visible; approved gliims
-    // reach everyone; owners also see their drafts, pending and rejected rows.
+    // reach everyone; owners also see their drafts and taken-down rows.
     const visible = (feed_gliims || []).filter(p =>
       !p.status || p.status === 'approved' ||
-      (p.user_id === store.user.id && (p.status === 'draft' || p.status === 'pending' || p.status === 'rejected'))
+      (p.user_id === store.user.id && (p.status === 'draft' || p.status === 'rejected'))
     );
     this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.item_id) || []);
@@ -1936,8 +1920,7 @@ const hubView = {
     const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
     const statusChip = (label, bg, fg) => `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:${bg};color:${fg};font-size:11px;font-weight:700;">${label}</span>`;
     const statusBadge = post.status === 'draft' ? statusChip('Draft', 'rgba(107,114,128,.15)', '#4B5563')
-      : post.status === 'pending' ? statusChip('Pending review', 'rgba(245,158,11,.15)', '#B45309')
-      : post.status === 'rejected' ? statusChip('Not approved', 'rgba(239,68,68,.15)', '#B91C1C')
+      : post.status === 'rejected' ? statusChip('Taken down', 'rgba(239,68,68,.15)', '#B91C1C')
       : '';
     const eyeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const commentSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
@@ -1969,15 +1952,18 @@ const hubView = {
       </article>`;
     }
 
-    // Bundles: square card with cover image background + gradient + title/author/stats.
-    // Anything that isn't a pure log or a pure book is a bundle, including gliims
-    // that used to be classed as image-only.
+    // Bundles: cover on top, then the kind, title and creator on the card's own
+    // surface. Anything that isn't a pure log or a pure book is a bundle,
+    // including gliims that used to be classed as image-only.
     if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && cover) {
       const bundleSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
-      return `<article class="audiolite-card bundle-card" id="post-${post.id}" style="background-image: url('${cover}');" onclick="hubInstance.openReadView('${post.id}')">
-        <div class="blog-meta audiolite-meta"><span class="audiolite-kind">${bundleSvg}Bundle</span><span class="audiolite-spacer"></span>${statusBadge}${premiumBadge}</div>
-        <h2 class="audiolite-title">${post.title || 'Untitled Gliim'}</h2>
-        <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
+      return `<article class="blog-card bundle-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">
+        <div class="bundle-cover" style="background-image: url('${cover}');"></div>
+        <div class="blog-content">
+          <div class="blog-meta"><span class="blog-category bundle-kind">${bundleSvg}Bundle</span>${statusBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div>
+          <h2 class="blog-title">${escapeHtml(post.title || 'Untitled Gliim')}</h2>
+          <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
+        </div>
       </article>`;
     }
 
@@ -2258,9 +2244,9 @@ const hubView = {
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
-    // Delete Button (Only visible if user is the owner)
+    // Trash Button (Only visible if user is the owner)
     const deleteBtnHtml = isOwner ? `
-      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete Gliim</div>
+      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">${deleteIcon} Move to Trash</div>
     ` : '';
 
     const modal = document.createElement('div');
@@ -2642,10 +2628,8 @@ const hubView = {
   // When the sender picked from the @ dropdown, the picked id wins —
   // namesakes who were not picked are skipped. Manually typed names
   // still fall back to matching every profile with that name.
-  // Mentions on a live post deliver immediately (with a deep link to
-  // the exact post, and the exact comment on a reply); mentions on a
-  // post that is still pending review are queued for the approval
-  // fan-out.
+  // Mentions deliver immediately with a deep link to the exact post,
+  // and the exact comment on a reply.
   async notifyMentions(postId, post, text, commentId) {
     const picks = (this.pickedMentions && this.pickedMentions[postId]) || [];
 
@@ -2657,25 +2641,17 @@ const hubView = {
     const lower = text.toLowerCase();
     const myName = (store.profile?.full_name || '').toLowerCase();
     const seen = new Set();
-    const isLive = !post.status || post.status === 'approved';
 
     const ping = async (receiverId) => {
       const title = `${store.profile.full_name} tagged you in the hub page: "${post.title || 'a gliim'}"`;
-      if (isLive) {
-        await supabase.from('notifications').insert({
-          user_id: receiverId,
-          actor_id: store.user.id,
-          kind: 'mention',
-          title,
-          link_post: postId,
-          link_comment: commentId || null
-        });
-      } else {
-        await supabase.from('feed_gliim_mentions').upsert(
-          { post_id: postId, user_id: receiverId, mentioned_by: store.user.id, kind: 'mention', comment_id: commentId || null },
-          { onConflict: 'post_id,user_id', ignoreDuplicates: true }
-        );
-      }
+      await supabase.from('notifications').insert({
+        user_id: receiverId,
+        actor_id: store.user.id,
+        kind: 'mention',
+        title,
+        link_post: postId,
+        link_comment: commentId || null
+      });
     };
 
     const pickedNames = new Set();
