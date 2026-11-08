@@ -520,8 +520,8 @@ async function renderFile(url, bodyEl, setProgress, setBlob) {
 async function fetchBlob(url) {
   // no-store: bypass the browser HTTP cache entirely. A copy cached before the
   // bucket CORS fix carried no Access-Control-Allow-Origin and made the fetch
-  // throw; skipping the cache removes that failure and keeps premium files out
-  // of disk cache, matching the blob+revoke "no reusable link" intent.
+  // throw; skipping the cache removes that failure and keeps the blob+revoke
+  // "no reusable link" intent.
   const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return await res.blob();
@@ -584,7 +584,10 @@ async function renderDocx(url, bodyEl, setBlob) {
   const blob = await fetchBlob(url);
   const buf = await blob.arrayBuffer();
   
-  // Preserve formatting: styleMap maps Word styles to CSS, convertParagraphsToHtml keeps structure
+  // Preserve formatting: styleMap maps Word styles to CSS so structure survives.
+  // mammoth invokes options.transformDocument unconditionally, so passing
+  // anything that is not a function aborts the whole conversion; empty
+  // paragraphs are already dropped by the ignoreEmptyParagraphs default.
   const options = {
     styleMap: [
       "p[style-name='Heading 1'] => h1:fresh",
@@ -601,9 +604,8 @@ async function renderDocx(url, bodyEl, setBlob) {
       "strike => s",
       "p => p:fresh"
     ],
-    convertParagraphsToHtml: true,
     includeDefaultStyleMap: true,
-    transformDocument: window.mammoth.transforms.ignoreEmptyParagraphs
+    ignoreEmptyParagraphs: true
   };
   
   const result = await window.mammoth.convertToHtml({ arrayBuffer: buf }, options);

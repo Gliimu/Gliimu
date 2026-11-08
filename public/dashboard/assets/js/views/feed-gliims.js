@@ -1,9 +1,9 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import { renderFileInto } from '../reader.js?v=35';
+import { renderFileInto } from '../reader.js?v=37';
 import { notify } from '../notify.js?v=33';
-import { trackAudio, minimizeCurrentAudio, closeMinimizedPlayer } from '../audiolite-minimizer.js';
+import { trackMedia, minimizePlaying, closePlayer } from '../audiolite-minimizer.js?v=4';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -25,11 +25,16 @@ export function trashReason(code) {
   return 'Something went wrong.';
 }
 
-function parseHashtags(text) {
+// Escape the words, linkify the tags. Escaping first and matching second used
+// to turn "didn't" into "didn&#39;t" and then linkify the "#39", so the tag
+// regex runs over the raw text and each piece is escaped on its own.
+export function parseHashtags(text) {
   if (!text) return '';
-  return escapeHtml(text).replace(/#([a-z0-9_]+)/gi, (match, tag) =>
-    `<a href="#/collection?name=${tag.toLowerCase()}" class="hub-hashtag" onclick="event.stopPropagation()">#${escapeHtml(tag.toLowerCase())}</a>`
-  );
+  return String(text).split(/(#[a-z0-9_]+)/gi).map(part => {
+    if (!/^#[a-z0-9_]+$/i.test(part)) return escapeHtml(part);
+    const tag = part.slice(1).toLowerCase();
+    return `<a href="#/collection?name=${encodeURIComponent(tag)}" class="hub-hashtag" onclick="event.stopPropagation()">#${escapeHtml(tag)}</a>`;
+  }).join('');
 }
 
 // Block types the composer no longer offers. Drafts and stored content that
@@ -371,7 +376,7 @@ const hubView = {
   },
 
   closeModal() {
-    minimizeCurrentAudio();
+    minimizePlaying();
     document.querySelector('.modal-overlay')?.remove();
     this.isModalOpen = false;
     sessionStorage.removeItem('openReadViewId');
@@ -716,11 +721,6 @@ const hubView = {
   },
 
   async openCreateModal(opts = {}) {
-    const userGP = (store.profile && store.profile.total_gp) || 0;
-
-    // 1000 GP to premium-lock a bundle.
-    const canLock = userGP >= 1000;
-
     const composerInnerHtml = `
         ${opts.inline ? '' : '<button class="modal-close" onclick="hubInstance.closeModal()">×</button>'}
         <div class="doc-canvas">
@@ -752,7 +752,7 @@ const hubView = {
             <svg class="doc-settings-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
           <div class="doc-settings-body" id="settings-body">
-        <div class="form-group"><label>Category</label><select id="post-category" class="input"><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
+        <div class="form-group"><label>Category</label><select id="post-category" class="input"><option value="" disabled selected>Choose a category</option><option>Media</option><option>Tech</option><option>Business</option><option>Personal</option><option>Education</option></select></div>
         <div class="form-group">
           <label>Tag People (optional)</label>
           <div class="hub-tag-picker">
@@ -768,19 +768,6 @@ const hubView = {
             <input type="text" id="hashtag-input" class="input" placeholder="Type and press Enter..." autocomplete="off">
           </div>
         </div>
-        ${canLock ? `
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-            <input type="checkbox" id="post-premium-toggle" style="width: 18px; height: 18px; accent-color: var(--brand-primary); flex-shrink: 0;">
-            <span><strong>Premium lock</strong> — viewers pay per minute while reading</span>
-          </label>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">You earn from every minute readers spend on your content. Leave it unchecked and the gliim stays free to open.</p>
-        </div>
-        ` : `
-        <div class="form-group">
-          <p style="font-size: 12px; color: var(--text-muted);">Reach <strong>1000 GP</strong> to premium-lock a gliim and charge viewers per open. You're at ${userGP.toLocaleString()} GP.</p>
-        </div>
-        `}
           </div>
         </div>
 
@@ -829,7 +816,6 @@ const hubView = {
       summaryBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
     document.getElementById('post-category').addEventListener('change', () => this.updateSettingsSummary());
-    document.getElementById('post-premium-toggle')?.addEventListener('change', () => this.updateSettingsSummary());
     this.updateSettingsSummary();
 
     this.wireCanvasDismiss();
@@ -845,6 +831,7 @@ const hubView = {
       const rawDescription = document.getElementById('post-description').value.trim();
 
       if (!title) return alert("Title is required.");
+      if (!category) return alert("Choose a category.");
 
       // Every poll needs a question and two real options before we can publish.
       for (const pb of document.querySelectorAll('.builder-block[data-type="text"]')) {
@@ -879,13 +866,11 @@ const hubView = {
           cover_url: coverUrl,
           user_id: store.user.id
         };
-        const premiumToggle = document.getElementById('post-premium-toggle');
-        if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
         const { error } = await supabase.from('feed_gliims').insert(payload);
         if (error) throw new Error(error.message);
 
-        // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
+        // The body lives in feed_gliim_contents.
         // If that write fails, remove the shell so no empty gliim lingers.
         const { error: bodyError } = await supabase
           .from('feed_gliim_contents').insert({ post_id: newId, blocks: finalBlocks });
@@ -1044,15 +1029,14 @@ const hubView = {
   },
 
   // The collapsed settings row says what is inside without opening it.
+  // The category is deliberately left out: it reads as a label the page picked
+  // for you ("Details · Media"), and the category has to be the author's choice.
   updateSettingsSummary() {
     const text = document.getElementById('settings-summary-text');
     if (!text) return;
     const parts = [];
-    const category = document.getElementById('post-category');
-    if (category) parts.push(category.value);
     if (this.taggedUsers?.length) parts.push(`${this.taggedUsers.length} ${this.taggedUsers.length === 1 ? 'tag' : 'tags'}`);
     if (this.hashtags?.length) parts.push(this.hashtags.map(t => `#${t}`).join(' '));
-    if (document.getElementById('post-premium-toggle')?.checked) parts.push('Premium');
     text.textContent = parts.length ? `Details · ${parts.join(' · ')}` : 'Details';
   },
 
@@ -1151,17 +1135,11 @@ const hubView = {
     
     // Pre-fill the fields
     document.getElementById('post-title').value = draft.title || '';
-    document.getElementById('post-category').value = draft.category || 'Media';
+    document.getElementById('post-category').value = draft.category || '';
     document.getElementById('post-description').value = draft.description || '';
 
     // A draft keeps whatever cover it already had in the header slot.
     this.setCover(draft.cover_url || '');
-    
-    // Pre-fill premium toggle if applicable
-    const premiumToggle = document.getElementById('post-premium-toggle');
-    if (premiumToggle && draft.is_premium) {
-      premiumToggle.checked = true;
-    }
     this.updateSettingsSummary();
     
     // Clear existing blocks and load draft blocks
@@ -1295,13 +1273,11 @@ const hubView = {
           cover_url: coverUrl,
           status: 'approved'
         };
-        const premiumToggle = document.getElementById('post-premium-toggle');
-        if (premiumToggle && premiumToggle.checked) payload.is_premium = true;
 
         const { error } = await supabase.from('feed_gliims').update(payload).eq('id', draftId);
         if (error) throw new Error(error.message);
 
-        // The body lives in feed_gliim_contents (RLS-locked for premium feed_gliims).
+        // The body lives in feed_gliim_contents.
         const { error: bodyError } = await supabase
           .from('feed_gliim_contents')
           .update({ blocks: finalBlocks })
@@ -1658,7 +1634,6 @@ const hubView = {
       cover: document.getElementById('post-cover-url')?.value || '',
       taggedUsers: this.taggedUsers || [],
       hashtags: this.hashtags || [],
-      premium: document.getElementById('post-premium-toggle')?.checked || false,
       blocks
     };
     try {
@@ -1687,10 +1662,6 @@ const hubView = {
         if (catSelect) catSelect.value = state.category;
       }
       if (state.cover) this.setCover(state.cover);
-      if (state.premium) {
-        const premiumToggle = document.getElementById('post-premium-toggle');
-        if (premiumToggle) premiumToggle.checked = true;
-      }
       if (state.taggedUsers && state.taggedUsers.length) {
         this.taggedUsers = state.taggedUsers;
         this.renderTagChips();
@@ -1807,28 +1778,21 @@ const hubView = {
 
   async fetchPosts() {
     // No blocks column here: gliim bodies live in feed_gliim_contents and are
-    // fetched per-open, so premium content never rides along in the feed.
+    // fetched per-open, so a body never rides along in the feed.
     // status drives moderation: publishing is instant, so the only states left
     // are draft (owner only), approved (everyone) and rejected (taken down by
-    // staff, owner only). The legacy fallback drops is_premium AND status for a
-    // pre-migration database.
-    const colsFull = `id, title, category, description, cover_url, views, created_at, user_id, is_premium, status, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
-    const colsLegacy = `id, title, category, description, cover_url, views, created_at, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
-    const load = (cols) => Promise.all([
+    // staff, owner only).
+    const cols = `id, title, category, description, cover_url, views, created_at, user_id, status, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
+    const load = () => Promise.all([
       supabase.from('feed_gliims').select(cols).order('created_at', { ascending: false }),
       supabase.from('feed_interactions').select('id, post_id, user_id, interaction_type, amount, comment_text, created_at, metadata, profiles:profiles!user_id(full_name, avatar_url)'),
       supabase.from('profiles').select('wallet_balance, total_gp').eq('id', store.user.id).single(),
       supabase.from('saved_items').select('item_id').eq('user_id', store.user.id)
     ]);
 
-    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsFull);
-    if (error) {
-      // Pre-migration fallback: feed_gliims.is_premium / feed_gliims.status may not exist yet.
-      [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load(colsLegacy);
-    }
+    let [{ data: feed_gliims, error }, { data: interactions }, { data: profile }, { data: saved }] = await load();
     if (error) { console.error(error); return; }
     this.userBalance = profile?.wallet_balance || 0;
-    this.userGP = profile?.total_gp || 0;
     this.allInteractions = interactions || [];
     
     // A row with no status predates moderation and stays visible; approved gliims
@@ -1840,9 +1804,8 @@ const hubView = {
     this.currentPosts = this.orderFeed(visible);
     this.savedPosts = new Set(saved?.map(s => s.item_id) || []);
 
-    // Card kind detection: read only the block shapes of the listed posts
-    // (never the bodies — RLS withholds premium rows here just the same, so
-    // a locked post simply falls back to the default card).
+    // Card kind detection: read only the block shapes of the listed posts,
+    // never the bodies. A post with no blocks simply keeps the default card.
     this.cardKinds = {};
     this.cardCovers = {};
     try {
@@ -1907,7 +1870,6 @@ const hubView = {
   },
 
   renderPostCard(post) {
-    const premiumPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
     const avatarClass = tierClass(post.profiles?.total_gp, 'blog-avatar');
     const avatar = post.profiles?.avatar_url ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">` : `<div class="${avatarClass}"></div>`;
 
@@ -1916,8 +1878,6 @@ const hubView = {
     const cover = post.cover_url || (this.cardCovers && this.cardCovers[post.id]) || '';
     const comments = (this.allInteractions || []).filter(i => i.post_id === post.id && i.interaction_type === 'comment').length;
     const coverHtml = cover ? `<div class="blog-cover" style="background-image: url('${cover}');"></div>` : '';
-    const lockSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
-    const premiumBadge = post.is_premium ? `<span class="blog-premium-badge" style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.15);color:#B45309;font-size:11px;font-weight:700;">${lockSvg}${premiumPrice ? `₦${premiumPrice.toLocaleString()}` : 'Premium'}</span>` : '';
     const statusChip = (label, bg, fg) => `<span class="blog-draft-badge" style="display:inline-block;padding:2px 8px;border-radius:999px;background:${bg};color:${fg};font-size:11px;font-weight:700;">${label}</span>`;
     const statusBadge = post.status === 'draft' ? statusChip('Draft', 'rgba(107,114,128,.15)', '#4B5563')
       : post.status === 'rejected' ? statusChip('Taken down', 'rgba(239,68,68,.15)', '#B91C1C')
@@ -1948,7 +1908,7 @@ const hubView = {
     // Books: just the cover image as a square — no title, no author, no stats.
     if (this.cardKinds && this.cardKinds[post.id] === 'book' && cover) {
       return `<article class="book-cover-card" id="post-${post.id}" style="background-image: url('${cover}');" onclick="hubInstance.openReadView('${post.id}')">
-        ${statusBadge ? `<div class="book-cover-badges">${statusBadge}${premiumBadge}</div>` : (premiumBadge ? `<div class="book-cover-badges">${premiumBadge}</div>` : '')}
+        ${statusBadge ? `<div class="book-cover-badges">${statusBadge}</div>` : ''}
       </article>`;
     }
 
@@ -1960,14 +1920,15 @@ const hubView = {
       return `<article class="blog-card bundle-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">
         <div class="bundle-cover" style="background-image: url('${cover}');"></div>
         <div class="blog-content">
-          <div class="blog-meta"><span class="blog-category bundle-kind">${bundleSvg}Bundle</span>${statusBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div>
+          <div class="blog-meta"><span class="blog-category bundle-kind">${bundleSvg}Bundle</span>${statusBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div>
           <h2 class="blog-title">${escapeHtml(post.title || 'Untitled Gliim')}</h2>
+          ${post.description ? `<p class="blog-desc">${parseHashtags(post.description)}</p>` : ''}
           <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>
         </div>
       </article>`;
     }
 
-    return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${statusBadge}${premiumBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
+    return `<article class="blog-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">${coverHtml}<div class="blog-content"><div class="blog-meta"><span class="blog-category">${post.category || 'General'}</span>${statusBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div><h2 class="blog-title">${post.title || 'Untitled Gliim'}</h2><p class="blog-desc">${parseHashtags(post.description)}</p><div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div></div></article>`;
   },
 
   async renderPosts(feed_gliims) {
@@ -2101,9 +2062,7 @@ const hubView = {
 
     const isOwner = post.user_id === store.user.id;
 
-    // Server-side content lock: the body lives in feed_gliim_contents, and RLS
-    // only returns a premium body once the heartbeat has recorded the unlock.
-    // A client that skips the gate above simply gets no rows here.
+    // The body lives in feed_gliim_contents and is fetched per-open.
     const { data: contentRow } = await supabase
       .from('feed_gliim_contents').select('blocks')
       .eq('post_id', postId).maybeSingle();
@@ -2226,16 +2185,6 @@ const hubView = {
         }
         return '';
       }).join('');
-    } else if (post.is_premium && !isOwner) {
-      // RLS withheld the body — the unlock was never recorded server-side.
-      // Show the lock card; never fall through to post.content.
-      const lockPrice = Number((this.billingSummary && this.billingSummary.prices && this.billingSummary.prices.premium_unlock) || 0);
-      blocksHtml = `
-        <div style="text-align:center;padding:48px 24px;border:1px dashed var(--border);border-radius:12px;color:var(--text-muted);">
-          <p style="font-weight:700;color:var(--text-primary);margin-bottom:8px;">This gliim is locked</p>
-          <p style="margin-bottom:16px;">${lockPrice ? `Unlock it for ₦${lockPrice.toLocaleString()}.` : 'Unlock it to read the full gliim.'}</p>
-          <button class="btn-primary" onclick="hubInstance.unlockPremiumPost('${post.id}')">Unlock</button>
-        </div>`;
     } else { blocksHtml = `<p class="read-block-text">${post.content || ''}</p>`; }
 
     // Menu Icons
@@ -2391,9 +2340,10 @@ const hubView = {
       const eq = a.closest('.read-block-audio-wrapper')?.querySelector('.lib-eq');
       if (!eq) return;
       
-      // Track audio for minimizer
+      // Hand the strip whatever starts playing; trackMedia pauses the previous
+      // track itself, so chapters and videos never overlap.
       if (post) {
-        trackAudio(a, post.id, post.title, post.cover_url);
+        trackMedia(a, post.id, post.title, post.cover_url);
       }
       
       // Ensure audio can play (fix for browser autoplay policies)
@@ -2407,10 +2357,7 @@ const hubView = {
         if (a.volume === 0) a.volume = 1.0;
       });
       a.addEventListener('pause', () => eq.classList.remove('playing'));
-      a.addEventListener('ended', () => {
-        eq.classList.remove('playing');
-        closeMinimizedPlayer();
-      });
+      a.addEventListener('ended', () => eq.classList.remove('playing'));
       
       // Add error handling
       a.addEventListener('error', (e) => {
@@ -2460,15 +2407,10 @@ const hubView = {
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         else if (fig.requestFullscreen) fig.requestFullscreen().catch(() => {});
       });
+      if (post) trackMedia(video, post.id, post.title, post.cover_url);
+      video.addEventListener('ended', syncPlay);
       syncPlay();
     });
-  },
-
-  // Shown when RLS withheld a premium body (gate skipped or unlock stale).
-  // Reopens the reader to retry the content fetch.
-  async unlockPremiumPost(postId) {
-    this.closeModal();
-    this.openReadView(postId);
   },
 
   toggleReadMenu(postId) {
@@ -2699,7 +2641,6 @@ const hubView = {
 // even when the hub view was never visited (reader opened from a profile).
 window.hubInstance = {
   openReadView: (id) => hubView.openReadView(id),
-  unlockPremiumPost: (id) => hubView.unlockPremiumPost(id),
   toggleLike: (id) => hubView.toggleLike(id),
   sharePost: (id, title) => hubView.sharePost(id, title),
   scrollToComments: (id) => hubView.scrollToComments(id),

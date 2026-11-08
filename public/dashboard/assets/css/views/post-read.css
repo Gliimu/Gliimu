@@ -55,10 +55,12 @@
   padding-top: var(--safe-top);
 }
 
+/* Edge-to-edge, with the title aligned to the article's left gutter and the
+   actions clear of the rail pad on the right. */
 .post-read-header-inner {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 7px 20px;
+  max-width: none;
+  margin: 0;
+  padding: 7px 16px 7px var(--pad-x);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -99,13 +101,16 @@
   background: var(--border) !important;
 }
 
-/* Main content area */
+/* Main content area — the gliim owns the whole page width. Only a right pad
+   is reserved, and that pad is where the engagement rail sits, so the text
+   never runs under the buttons. The old 800px centred column left most of a
+   wide screen empty. */
 .post-read-main {
   flex: 1;
-  max-width: 800px;
   width: 100%;
-  margin: 0 auto;
-  padding: 0 16px 0;
+  max-width: none;
+  margin: 0;
+  padding: 0 76px 0 0;
 }
 
 .post-read-main .read-body {
@@ -173,11 +178,10 @@
   }
 }
 
-/* Engagement rail — the four actions stand vertically beside the article, the
+/* Engagement rail — the four actions stand vertically at the mid-right, the
    way every short-video app does it, so the text keeps the whole screen height.
-   `right` is set by positionRail() in post-read.js: it measures the reading
-   column and parks the rail in the pad reserved by .post-read-main's
-   padding-right. The value here only covers the frame before JS runs. */
+   `right` is pure CSS: the article is full-width now, so the viewport edge is
+   a fixed reference and nothing needs measuring in JS. */
 .post-read-bottom {
   position: fixed;
   top: 50%;
@@ -220,25 +224,21 @@
   color: var(--text-muted);
 }
 
-.post-read-main {
-  padding-right: 76px;
-}
-
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .post-read-header-inner {
-    padding: 5px 16px;
+    padding: 5px 12px;
   }
   .post-read-main {
-    padding: 0 66px 0 12px;
+    padding: 0 62px 0 0;
   }
   .post-read-main .read-body {
     padding: 20px 0;
   }
+  /* Same mid-right anchor as desktop — only the inset and button size shrink.
+     The old bottom-anchored version stacked the rail above the app nav, which
+     put it at the foot of the screen instead of the middle of the page. */
   .post-read-bottom {
-    top: auto;
-    bottom: calc(var(--bottom-bar-h) + 12px);
-    transform: none;
     right: 12px;
   }
   .post-read-bottom .action-btn {

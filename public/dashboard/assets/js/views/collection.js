@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=117';
+import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=122';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -54,7 +54,7 @@ export default {
     const { data: posts } = await supabase
       .from('feed_gliims')
       .select(`
-        id, title, category, description, cover_url, cover_color, views, created_at, user_id, is_premium, status,
+        id, title, category, description, cover_url, cover_color, views, created_at, user_id, status,
         profiles:profiles!user_id(full_name, avatar_url, total_gp)
       `)
       .in('id', postIds)

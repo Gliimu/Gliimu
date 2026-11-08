@@ -1,7 +1,7 @@
 // Gliim P.A. built-in knowledge base.
 //
 // This lets her answer the questions Gliimaits actually ask — navigation,
-// GP tiers, wallet, pricing, Updates, publishing, live, premium, portfolio and
+// GP tiers, wallet, pricing, Updates, publishing, live, portfolio and
 // core media craft — with no external LLM. The hosted model (server /api/chat)
 // is still tried first when it is funded; this module is the always-available
 // fallback, so the Support page never shows a dead end.
@@ -23,7 +23,7 @@ I can help with:
 - **The Updates** — leaderboard, contests, cohorts and referrals
 - **Publishing** — a gliim, a book, a log or a bundle
 - **Going live** — 1-on-1 sessions, screen share, voice notes
-- **Premium content**, your **portfolio**, and **support**
+- Your **portfolio**, and **support**
 - **Media craft** — b-roll, editing, lighting, audio, pitching clients
 
 Ask me anything above, or tap a suggested chip to get started. If my answer ever misses the mark, press the thumbs-down and a person from Team Gliimu takes over.`
@@ -50,7 +50,6 @@ On a phone the same tabs slide out from the menu button, and the tab bar moves t
 - **50 GP** — publish posts in the Hub
 - **100 GP** — request and host live sessions, and publish content
 - **500 GP** — the support icon appears on your work, and you can price PDFs
-- **1,000 GP** — premium (locked) content
 - **5,000 GP** — Ambassador tier, with a distinct avatar border
 
 You earn GP by posting, going live, and engaging with the community. Your current GP shows on your profile and under your name in the Hub.`
@@ -98,9 +97,7 @@ Contest scores update on their own from your activity — no manual scoring. Use
 1. Open the **Publish** page from the sidebar (the **+** in the mobile bar).
 2. Choose what you are making — a **Book**, a **Log** (a recording: audio or video), or a **Bundle** that mixes text, images, media and documents.
 3. Add your files, a title and a description. PDFs can carry their own price once you reach **500 GP**.
-4. Publish — the gliim goes live the moment you publish it, in XpLoRe and on your portfolio. Use **Save as draft** if you want to keep working on it.
-
-You can mark a gliim **premium** to lock it behind GP.`
+4. Publish — the gliim goes live the moment you publish it, in XpLoRe and on your portfolio. Use **Save as draft** if you want to keep working on it.`
   },
   {
     title: 'Ping, messages and voice notes',
@@ -125,17 +122,6 @@ Unread counts show as a badge on the Ping tab and clear the moment you open the 
 - You earn **1 GP per minute** while live.
 
 Open Ping, pick the Gliimait you want to meet, and start the session. While you are live, your other sessions are locked so you can focus on the one in front of you.`
-  },
-  {
-    title: 'Premium content',
-    keys: ['premium', 'lock', 'locked', 'unlock', 'exclusive', 'paywall', 'paid content', 'is_premium'],
-    answer: `**Premium** gliims are locked until they are unlocked. An author marks a post premium in the composer; readers then unlock it once, and keep access forever.
-
-- Unlocking uses your wallet balance.
-- Premium posting opens up at **1,000 GP**.
-- Once you unlock something it stays in your library — you never pay twice for the same piece.
-
-Look for the lock badge on a card in the Hub to see what is premium.`
   },
   {
     title: 'Your profile and portfolio',
@@ -222,7 +208,7 @@ Try asking about:
 - **Plans and pricing**
 - **The Updates** — contests, cohorts, leaderboard and referrals
 - **Publishing a gliim** (books, logs, bundles, documents)
-- **Going live**, **premium content**, or your **portfolio**
+- **Going live** or your **portfolio**
 - **Media craft** — b-roll, editing, lighting, pitching clients
 - **Support** and reporting a problem
 

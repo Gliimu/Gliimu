@@ -93,8 +93,8 @@ export default {
     });
   },
 
-  // The reported thing itself is fetched only when a reviewer opens it: the
-  // list stays fast and a locked premium body is never pulled speculatively.
+  // The reported thing itself is fetched only when a reviewer opens it, so the
+  // list stays fast and no body is pulled speculatively.
   async targetDetails(item) {
     if (item.target_type === 'user') {
       const { data: rows } = await supabase.rpc('admin_member_lookup', { p_ids: [item.target_id] });
@@ -112,7 +112,7 @@ export default {
 
     if (item.target_type === 'post') {
       const { data } = await supabase.from('feed_gliims')
-        .select('title, description, category, is_premium, created_at, user_id')
+        .select('title, description, category, created_at, user_id')
         .eq('id', item.target_id).maybeSingle();
       if (!data) return '<p class="muted small">This gliim has been deleted.</p>';
       const { data: arows } = await supabase.rpc('admin_member_lookup', { p_ids: [data.user_id] });
@@ -122,7 +122,6 @@ export default {
           <dt>Title</dt><dd>${escapeHtml(data.title || '—')}</dd>
           <dt>Author</dt><dd>${escapeHtml((author && (author.full_name || author.username)) || 'Unknown')}</dd>
           <dt>Category</dt><dd>${escapeHtml(data.category || '—')}</dd>
-          <dt>Premium</dt><dd>${data.is_premium ? 'Yes' : 'No'}</dd>
           <dt>Posted</dt><dd>${escapeHtml(new Date(data.created_at).toLocaleString())}</dd>
         </dl>
         <div class="section-title">Description</div>

@@ -129,6 +129,11 @@
 .read-cover { width: 100%; height: 400px; background-size: cover; background-position: center; background-color: var(--bg-tertiary); }
 .read-body { padding: 40px; }
 .read-title { font-size: 32px; font-weight: 800; color: var(--text-primary); margin: 12px 0 24px; line-height: 1.2; letter-spacing: -0.5px; }
+/* The dek under the title — the same description the bundle card shows. */
+.read-desc { font-size: 17px; color: var(--text-secondary); line-height: 1.55; margin: -12px 0 24px; }
+@media (max-width: 768px) {
+  .read-desc { font-size: 15px; }
+}
 
 /* Read View Blocks */
 .read-block-title { font-size: 28px; font-weight: 800; color: var(--text-primary); margin: 32px 0 16px; }
@@ -209,7 +214,7 @@
 [data-theme="dark"] .audiolite-cover-card .audiolite-title { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
 
 /* Book cover card: JUST the cover image as a square — no title, no author, no stats.
-   Only draft/premium badges shown in the corner. */
+   Only the draft badge is shown in the corner. */
 .book-cover-card {
   position: relative;
   aspect-ratio: 3 / 4;
@@ -513,7 +518,7 @@ img.action-icon-img { width: 24px !important; height: 24px !important; transitio
   75% { transform: translateX(4px); }
 }
 
-/* Collapsible details row (category, tags, hashtags, premium lock) */
+/* Collapsible details row (category, tags, hashtags) */
 .doc-settings {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

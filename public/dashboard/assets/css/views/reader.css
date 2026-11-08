@@ -606,16 +606,19 @@
   transition: width 0.1s linear;
 }
 
-/* Mobile thumbnail player */
+/* Mobile thumbnail player. It floats above the pill nav instead of under it,
+   because the nav is z-index 9000 and would cover both buttons. */
 .audiolite-mini-player {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: calc(var(--bottom-bar-h) + 10px);
+  left: 14px;
+  right: 14px;
   background: var(--surface);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
   z-index: 2000;
+  overflow: hidden;
   animation: slideUpMobile 0.3s ease;
 }
 
@@ -711,12 +714,43 @@
   transition: width 0.1s linear;
 }
 
+/* Tapping the cover or the title returns to the gliim that is playing. */
+.floating-player-cover,
+.floating-player-title,
+.mini-player-cover,
+.mini-player-title { cursor: pointer; }
+
+/* The strip's own media node lives here. An audio track sits at zero size, out
+   of sight; a video takes the cover cell itself. Neither is interactive - the
+   tap belongs to the cell and means "go back to this gliim". */
+.audiolite-slot[data-role="hidden"] {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.audiolite-slot:not([data-role="hidden"]) {
+  display: block;
+  overflow: hidden;
+}
+
+.audiolite-slot video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  background: #000000;
+}
+
 @media (max-width: 768px) {
   .audiolite-floating-player {
     display: none;
   }
 }
-
 @media (min-width: 769px) {
   .audiolite-mini-player {
     display: none;

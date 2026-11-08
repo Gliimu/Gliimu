@@ -216,7 +216,6 @@ create table if not exists public.feed_gliims (
   media_url text,
   media_type text,
   tags text[],
-  is_premium boolean not null default false,
   price integer,
   category text,
   cover_color text,

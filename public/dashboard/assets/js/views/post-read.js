@@ -1,8 +1,9 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
-import { renderFileInto } from '../reader.js?v=35';
+import { renderFileInto } from '../reader.js?v=37';
 import * as heartbeat from '../heartbeat.js?v=3';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml } from './feed-gliims.js?v=117';
+import { closePlayer, minimizePlaying } from '../audiolite-minimizer.js?v=4';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './feed-gliims.js?v=122';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -13,7 +14,6 @@ function escapeHtml(value) {
 }
 
 let scrollHandler = null;
-let resizeHandler = null;
 let keydownHandler = null;
 let clickOutsideHandler = null;
 
@@ -30,10 +30,6 @@ export default {
       window.removeEventListener('scroll', scrollHandler);
       scrollHandler = null;
     }
-    if (resizeHandler) {
-      window.removeEventListener('resize', resizeHandler);
-      resizeHandler = null;
-    }
     if (keydownHandler) {
       document.removeEventListener('keydown', keydownHandler);
       keydownHandler = null;
@@ -42,8 +38,17 @@ export default {
       document.removeEventListener('click', clickOutsideHandler);
       clickOutsideHandler = null;
     }
-    heartbeat.stop();
-    heartbeat.setCurrentPost(null);
+    // Playing media survives this page as the floating strip, and while the
+    // strip lives the gliim it came from keeps counting as consumed. Heading
+    // for another gliim instead hands playback over to that page.
+    const toReader = /^#\/(post|read)\?/.test(window.location.hash);
+    let kept = null;
+    if (toReader) closePlayer();
+    else kept = minimizePlaying();
+    if (kept !== this.postId) {
+      heartbeat.stop();
+      heartbeat.setCurrentPost(null);
+    }
     sessionStorage.removeItem('openReadViewId');
     const modal = document.getElementById('comments-modal');
     if (modal) {
@@ -67,6 +72,9 @@ export default {
     }
 
     this.postId = postId;
+    // One gliim plays at a time: anything still running in the strip is stopped
+    // now that its own page is back on screen (or another one has taken over).
+    closePlayer();
     window.readInstance = this;
 
     // Block Ctrl+S (save) and Ctrl+P (print) on the reader page
@@ -195,8 +203,8 @@ export default {
     };
 
     // renderPostCard() reads these directly — omit one and the card degrades
-    // silently ("Invalid Date", missing premium lock, zero views).
-    const fields = `id, title, description, created_at, views, is_premium, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
+    // silently ("Invalid Date", zero views).
+    const fields = `id, title, description, created_at, views, cover_url, cover_color, category, user_id, profiles:profiles!user_id(full_name, avatar_url, total_gp, verification_badge)`;
 
     const [sameAuthor, sameCategory, interestResult] = await Promise.all([
       supabase.from('feed_gliims').select(fields)
@@ -293,7 +301,7 @@ export default {
       }).join('');
     }
 
-    const blocksHtml = this.renderBlocks(post, isOwner);
+    const blocksHtml = this.renderBlocks(post);
     this.currentPost = post;
     this.isOwnerView = isOwner;
 
@@ -334,6 +342,7 @@ export default {
         <div class="read-body">
           <span class="blog-category">${post.category || 'General'}</span>
           <h1 class="read-title">${escapeHtml(post.title || 'Untitled Gliim')}</h1>
+          ${post.description ? `<p class="read-desc">${parseHashtags(post.description)}</p>` : ''}
 
           <div class="blog-author hub-author-hit" style="margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-direction: row; align-items: center; width: fit-content; cursor: pointer;" onclick="hubInstance.viewAuthor('${post.user_id}')">
             <div style="position: relative; flex-shrink: 0; margin-right: 12px;">${avatar}${followBtnHtml}</div>
@@ -379,7 +388,7 @@ export default {
       ` : ''}
     `;
 
-    hubView.setupMediaBlocks(container);
+    hubView.setupMediaBlocks(container, post);
     hubView.hydratePolls(container);
     container.querySelectorAll('.rdr-inline-file[data-file-src]').forEach(el => {
       const src = el.getAttribute('data-file-src');
@@ -466,7 +475,7 @@ export default {
     }
   },
 
-  renderBlocks(post, isOwner) {
+  renderBlocks(post) {
     if (post.blocks && post.blocks.length > 0) {
       return post.blocks.map(b => {
         if (b.type === 'text') {
@@ -519,32 +528,9 @@ export default {
         }
         return '';
       }).join('');
-    } else if (post.is_premium && !isOwner) {
-      const lockPrice = Number((hubView.billingSummary && hubView.billingSummary.prices && hubView.billingSummary.prices.premium_unlock) || 0);
-      return `
-        <div style="text-align:center;padding:48px 24px;border:1px dashed var(--border);border-radius:12px;color:var(--text-muted);">
-          <p style="font-weight:700;color:var(--text-primary);margin-bottom:8px;">This gliim is locked</p>
-          <p style="margin-bottom:16px;">${lockPrice ? `Unlock it for ₦${lockPrice.toLocaleString()}.` : 'Unlock it to read the full gliim.'}</p>
-          <button class="btn-primary" onclick="hubInstance.unlockPremiumPost('${post.id}')">Unlock</button>
-        </div>`;
     } else {
       return `<p class="read-block-text">${escapeHtml(post.content || '')}</p>`;
     }
-  },
-
-  // The rail is fixed to the viewport but must sit beside the reading column,
-  // whose right edge moves with the sidebar, the container padding and the
-  // 800px cap. Measuring beats viewport arithmetic: it cannot drift out of sync.
-  positionRail() {
-    const rail = document.querySelector('.post-read-bottom');
-    const main = document.getElementById('post-read-section-1');
-    if (!rail || !main) return;
-    const rect = main.getBoundingClientRect();
-    if (rect.width < 100) return;
-    // clientWidth, not innerWidth: `right` resolves against the layout viewport,
-    // which excludes the scrollbar that innerWidth counts.
-    const inset = window.matchMedia('(max-width: 768px)').matches ? 12 : 16;
-    rail.style.right = `${Math.max(8, Math.round(document.documentElement.clientWidth - rect.right) + inset)}px`;
   },
 
   setupScrollProgress() {
@@ -586,10 +572,6 @@ export default {
       sessionStorage.setItem(scrollKey, String(scrollTop));
     };
     window.addEventListener('scroll', scrollHandler, { passive: true });
-
-    this.positionRail();
-    resizeHandler = () => this.positionRail();
-    window.addEventListener('resize', resizeHandler);
 
     if (savedScroll) {
       setTimeout(() => {

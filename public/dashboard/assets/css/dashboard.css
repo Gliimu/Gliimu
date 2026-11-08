@@ -377,8 +377,10 @@ html { overscroll-behavior-y: none; }
   border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   pointer-events: none;
-  /* Parked above the viewport until the drag pulls it down. */
-  transform: translateY(calc(var(--ptr-shift) - 58px));
+  /* Parked above the viewport until the drag pulls it down. The offset has to
+     cancel --safe-top as well as the chip's own height: a fixed -58px left the
+     ring peeking into view on any phone with a status-bar inset. */
+  transform: translateY(calc(var(--ptr-shift) - 100% - var(--safe-top) - 12px));
   transition: transform 0.12s linear;
 }
 .ptr-ring { width: 19px; height: 19px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--brand-primary); }

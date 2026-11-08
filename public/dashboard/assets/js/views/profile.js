@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js';
-import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './feed-gliims.js?v=117';
-import feedView from './feed.js?v=112';
+import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './feed-gliims.js?v=122';
+import feedView from './feed.js?v=114';
 import { notify } from '../notify.js?v=33';
 
 export default {
@@ -333,7 +333,7 @@ export default {
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, banner_url, social_link, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
-      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, is_premium, status').eq('user_id', userId).order('created_at', { ascending: false }),
+      supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, status').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
       isMe ? Promise.resolve({ data: null }) : supabase.from('followed_users').select('*').eq('follower_id', store.user.id).eq('followed_id', userId).maybeSingle()
@@ -525,7 +525,7 @@ export default {
     if (!ids.length) return [];
 
     const { data: savedPosts } = await supabase.from('feed_gliims')
-      .select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, is_premium, status')
+      .select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, status')
       .in('id', ids);
     const visible = (savedPosts || []).filter(item => !item.status || item.status === 'approved');
     if (!visible.length) return [];
