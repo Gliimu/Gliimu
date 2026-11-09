@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { renderFileInto } from '../secure-reader.js?v=37';
 import * as heartbeat from '../heartbeat.js?v=5';

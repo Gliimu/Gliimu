@@ -1,5 +1,5 @@
-import { supabase } from '/shared/js/config.js';
-import { API_BASE_URL } from '/shared/js/config.js';
+import { supabase } from '/shared/js/config.js?v=2';
+import { API_BASE_URL } from '/shared/js/config.js?v=2';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await supabase.auth.getSession();

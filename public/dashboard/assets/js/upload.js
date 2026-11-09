@@ -1,4 +1,4 @@
-import { supabase, API_BASE_URL } from '/shared/js/config.js';
+import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 
 // One upload path for every file the dashboard sends. The server signs a
 // Cloudflare R2 PUT URL and the browser pushes the bytes straight to R2, so

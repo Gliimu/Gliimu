@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js?v=1';
 import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './gliims.js?v=127';

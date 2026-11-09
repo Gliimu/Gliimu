@@ -1,4 +1,4 @@
-import { supabase, API_BASE_URL } from '/shared/js/config.js';
+import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store } from './store.js?v=2';
 
 let heartbeatInterval = null;

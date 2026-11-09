@@ -1,4 +1,4 @@
-import { supabase, API_BASE_URL } from '/shared/js/config.js';
+import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=2';
 import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=5';
 

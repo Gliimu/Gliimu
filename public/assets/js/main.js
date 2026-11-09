@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase } from '/shared/js/config.js?v=2';
 
 // ============================================
 // ENTRY SPLASH — the authentication gate

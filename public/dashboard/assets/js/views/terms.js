@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase } from '/shared/js/config.js?v=2';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

@@ -1,4 +1,4 @@
-import { supabase } from '/shared/js/config.js';
+import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=2';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=4';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
