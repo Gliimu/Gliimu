@@ -520,6 +520,7 @@ export default {
     }
 
     const members = active.members || [];
+    const stripOn = active.strip_visible !== false;
     const rows = members.map(m => `
       <tr data-cohort-member="${escapeHtml(m.user_id)}">
         <td>
@@ -557,6 +558,22 @@ export default {
           </div>
         </div>
         ${active.requirements_url ? `<div class="card-sub" style="margin-bottom:10px;">Requirements: <a href="${escapeHtml(active.requirements_url)}" target="_blank" rel="noopener">open the PDF</a></div>` : ''}
+        <div class="card" style="margin-top:16px;">
+          <div class="card-head"><div>
+            <div class="card-title">XpLoRe strip</div>
+            <div class="card-sub">Members tap the strip under the XpLoRe tabs to raise a hand. Hide it without ending the cohort, or give the strip its own wording.</div>
+          </div></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+            <button class="${stripOn ? 'btn-quiet btn-small' : 'btn-primary btn-small'}" data-strip-toggle="${stripOn ? 'hide' : 'show'}">${stripOn ? 'Hide strip' : 'Show strip'}</button>
+            <span class="muted small">${stripOn ? 'Visible on XpLoRe' : 'Hidden from members'}</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="in-strip-label" class="input" maxlength="120" autocomplete="off"
+                   style="max-width:420px;" placeholder="Leave blank to use the cohort title"
+                   value="${escapeHtml(active.strip_label || '')}">
+            <button class="btn-primary btn-small" data-strip-save data-strip-visible="${stripOn}">Save strip text</button>
+          </div>
+        </div>
         ${members.length ? `
           <div class="table-wrap"><table class="table">
             <thead><tr><th>Member</th><th>Raised hand</th><th>Status</th><th class="num" style="width:190px;"></th></tr></thead>
@@ -642,6 +659,30 @@ export default {
 
     this.cohortState = null;
     await this.render();
+  },
+
+  async setCohortStrip(btn, visible) {
+    const label = (document.getElementById('in-strip-label')?.value || '').trim() || null;
+    if (btn) { btn.disabled = true; }
+    const { data, error } = await supabase.rpc('operations_set_cohort_strip', { p_visible: visible, p_label: label });
+    if (btn) { btn.disabled = false; }
+    if (error) return appAlert(`Could not save the strip: ${error.message}`);
+    if (!data || data.ok === false) {
+      const codes = {
+        NOT_OPERATIONS: 'Only operations (or super) admins manage the strip.',
+        COHORT_CLOSED: 'No active cohort — start one first.',
+        BAD_LABEL: 'Strip text is too long (120 characters max).',
+        BAD_VISIBLE: 'Pick show or hide.'
+      };
+      return appAlert(codes[data?.code] || rpcError(data));
+    }
+
+    this.cohortState = null;
+    await this.render();
+    if (btn?.dataset.stripToggle !== undefined) {
+      return appAlert(visible ? 'The XpLoRe strip is back on for members.' : 'The XpLoRe strip is now hidden from members.');
+    }
+    return appAlert('Strip text saved — XpLoRe shows it under the filter tabs now.');
   },
 
   // ============================================
@@ -914,6 +955,12 @@ export default {
 
     const endCohortBtn = pane.querySelector('[data-end-cohort]');
     if (endCohortBtn) endCohortBtn.addEventListener('click', () => this.endCohort(endCohortBtn.dataset.endCohort, endCohortBtn.dataset.title));
+
+    pane.querySelectorAll('[data-strip-toggle]').forEach((btn) => {
+      btn.addEventListener('click', () => this.setCohortStrip(btn, btn.dataset.stripToggle === 'show'));
+    });
+    const stripSaveBtn = pane.querySelector('[data-strip-save]');
+    if (stripSaveBtn) stripSaveBtn.addEventListener('click', () => this.setCohortStrip(stripSaveBtn, stripSaveBtn.dataset.stripVisible !== 'false'));
 
     const sweep = pane.querySelector('[data-sweep]');
     if (sweep) sweep.addEventListener('click', () => this.sweepStorage(sweep));

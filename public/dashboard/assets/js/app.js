@@ -1,6 +1,6 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=213';
-import { initPullToRefresh } from './pull-to-refresh.js?v=12';
+import { router } from './router.js?v=214';
+import { initPullToRefresh } from './pull-to-refresh.js?v=13';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
@@ -71,7 +71,7 @@ const NotificationManager = {
       tag: `gliimu-ping-${message.sender_id}`,
       // No beep while they are reading that exact chat.
       sound: openChatId !== message.sender_id,
-      desktop: document.hidden || !/^#\/(ping|live)/.test(window.location.hash)
+      desktop: document.hidden || !['/ping', '/live'].includes(window.gliimRoute.path())
     });
   },
 
@@ -106,7 +106,7 @@ const NotificationManager = {
   },
 
   async alertNotification(row) {
-    const onAlerts = /^#\/alerts/.test(window.location.hash) && !document.hidden;
+    const onAlerts = window.gliimRoute.path() === '/alerts' && !document.hidden;
     if (onAlerts) return;
     notify.message({
       title: 'New alert',
@@ -120,7 +120,7 @@ const NotificationManager = {
   // looked up before the alert can name them.
   async alertSupport(row) {
     // Escalations and the member's own messages never ring their own bell.
-    const onSupport = /^#\/support/.test(window.location.hash) && !document.hidden;
+    const onSupport = window.gliimRoute.path() === '/support' && !document.hidden;
     if (row.sender_id === store.user.id || onSupport) return;
     const { data } = await supabase.from('profiles')
       .select('full_name').eq('id', row.sender_id).maybeSingle();
@@ -321,8 +321,11 @@ async function initApp() {
       return;
     }
     // Signed out, so the front door. replace() rather than href: Back should
-    // not return to an empty shell of an app the visitor cannot use.
-    window.location.replace('/');
+    // not return to an empty shell of an app the visitor cannot use. The clean
+    // host serves no landing of its own, so visitors go to www.
+    window.location.replace(window.location.hostname === 'dashboard.gliimu.com'
+      ? 'https://www.gliimu.com/'
+      : '/');
     return;
   }
 

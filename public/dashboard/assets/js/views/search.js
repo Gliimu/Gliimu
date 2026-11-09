@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=125';
+import hubView from './feed-gliims.js?v=126';
 import feedView from './feed.js?v=119';
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';

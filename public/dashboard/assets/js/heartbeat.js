@@ -49,7 +49,10 @@ async function sendHeartbeat() {
       if (data.code === 'INSUFFICIENT_BALANCE' || data.code === 'NO_ACTIVE_PLAN') {
         // Stop heartbeat and redirect to XpLoRe where the G0 modal will show
         stop();
-        if (window.location.hash !== '#/xplore') {
+        const here = window.gliimRoute
+          ? window.gliimRoute.path()
+          : (window.location.hash.slice(1).split('?')[0] || '/xplore');
+        if (here !== '/xplore') {
           window.location.hash = '#/xplore';
         }
       }
@@ -162,7 +165,7 @@ export async function initTopup(gliitsAmount) {
       },
       body: JSON.stringify({
         gliitsAmount,
-        callbackUrl: `${location.origin}/dashboard/#/wallet`
+        callbackUrl: window.gliimAppUrl('/wallet')
       })
     });
     const data = await res.json();

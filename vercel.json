@@ -1,5 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    { "source": "/", "has": [{ "type": "host", "value": "dashboard.gliimu.com" }], "destination": "/xplore" },
+    { "source": "/index.html", "has": [{ "type": "host", "value": "dashboard.gliimu.com" }], "destination": "/xplore" }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "dashboard.gliimu.com" }], "destination": "/dashboard/index.html" }
+  ],
   "headers": [
     {
       "source": "/dashboard/assets/:path*",

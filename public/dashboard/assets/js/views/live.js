@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
-import * as heartbeat from '../heartbeat.js?v=3';
+import * as heartbeat from '../heartbeat.js?v=5';
 import { uploadAttachment } from '../media.js?v=4';
 
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
@@ -149,7 +149,7 @@ const liveView = {
       return;
     }
 
-    const params = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const params = new URLSearchParams(window.gliimRoute.query());
     const joinId = params.get('join');
     if (joinId) {
       await this.joinSession(joinId);
@@ -492,7 +492,7 @@ const liveView = {
 
       await this.ensureSessionRoom(sessionId);
 
-      if (window.location.hash.split('?')[0] === '#/live') {
+      if (window.gliimRoute.path() === '/live') {
         await this.joinSession(sessionId);
       } else {
         window.location.hash = `/live?join=${sessionId}`;
@@ -1223,8 +1223,7 @@ const liveView = {
       if (ev.target.closest('.live-minimized-close')) return;
       if (tile._wasDragged && tile._wasDragged()) return;
 
-      const currentHash = window.location.hash.split('?')[0];
-      if (currentHash !== '#/live') {
+      if (window.gliimRoute.path() !== '/live') {
         window.location.hash = '/live';
         const waitForRestore = () => {
           if (document.querySelector('.live-studio-container')) {

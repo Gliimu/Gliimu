@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=125';
+import hubView from './feed-gliims.js?v=126';
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
@@ -100,7 +100,7 @@ export default {
     if (!strip || !c) return;
     strip.innerHTML = `
       <span class="cohort-strip-count">${Number(c.interested_count || 0)}/${Number(c.required_count || 0)}</span>
-      <span class="cohort-strip-title">${escapeHtml(c.title || '')}</span>
+      <span class="cohort-strip-title">${escapeHtml(c.strip_label || c.title || '')}</span>
       <svg class="cohort-strip-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;

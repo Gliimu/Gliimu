@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=3';
+import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=5';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -821,7 +821,7 @@ export default {
     if (!match) return;
 
     const reference = match[1];
-    history.replaceState(null, '', `${location.pathname}#/wallet`);
+    history.replaceState(null, '', window.location.hostname === 'dashboard.gliimu.com' ? '/wallet' : `${location.pathname}#/wallet`);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/paystack/verify`, {

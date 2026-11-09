@@ -3,7 +3,7 @@ import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js?v=1';
 import { renderFileInto } from '../reader.js?v=37';
 import { notify } from '../notify.js?v=33';
-import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=6';
+import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=8';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -2142,7 +2142,7 @@ const hubView = {
             return `<figure class="read-video-player"><video src="${escapeHtml(b.content)}" class="read-block-media" preload="metadata" playsinline controlslist="nodownload noremoteplayback" disablepictureinpicture></video><button type="button" class="rvp-big" aria-label="Play"><svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg></button><div class="rvp-bar"><button type="button" class="rvp-play" aria-label="Play or pause"></button><input type="range" class="rvp-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rvp-time">0:00 / 0:00</span><button type="button" class="rvp-mute" aria-label="Mute"></button><button type="button" class="rvp-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button><button type="button" class="rvp-full" aria-label="Fullscreen"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button></div></figure>`;
           }
           const cap = b.caption ? `<p class="read-audio-title">${escapeHtml(b.caption)}</p>` : '';
-          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}<button type="button" class="read-audio-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button></div><audio src="${escapeHtml(b.content)}" class="read-block-audio" controls controlslist="nodownload noremoteplayback" preload="metadata" crossorigin="anonymous"></audio></div>`;
+          return `<div class="read-block-audio-wrapper"><div class="read-audio-head"><div class="lib-eq read-eq"><span></span><span></span><span></span><span></span><span></span></div>${cap}<button type="button" class="read-audio-min" aria-label="Minimize" title="Minimize"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"></path><path d="M21 8h-3a2 2 0 0 1-2-2V3"></path><path d="M3 16h3a2 2 0 0 1 2 2v3"></path><path d="M16 21v-3a2 2 0 0 1 2-2h3"></path></svg></button></div><div class="read-audio-card"><button type="button" class="rap-play" aria-label="Play or pause"></button><div class="rap-timeline"><input type="range" class="rap-seek" min="0" max="1000" value="0" aria-label="Seek"><span class="rap-time">0:00 / 0:00</span></div><button type="button" class="rap-mute" aria-label="Mute"></button><input type="range" class="rap-vol" min="0" max="100" value="100" aria-label="Volume"></div><audio src="${escapeHtml(b.content)}" class="read-block-audio" preload="metadata" crossorigin="anonymous"></audio></div>`;
         }
         if (b.type === 'document') {
           // Reflowable book file — hydrated in-page below via renderFileInto
@@ -2348,27 +2348,72 @@ const hubView = {
         if (post) minimizeNow(a, post.id, post.title, post.cover_url);
       });
       const eq = wrapper?.querySelector('.lib-eq');
-      if (!eq) return;
-      
+
+      // Custom card chrome replaces the bare browser controls; the <audio>
+      // element itself stays hidden underneath.
+      const playBtn = wrapper?.querySelector('.rap-play');
+      const seek = wrapper?.querySelector('.rap-seek');
+      const time = wrapper?.querySelector('.rap-time');
+      const muteBtn = wrapper?.querySelector('.rap-mute');
+      const vol = wrapper?.querySelector('.rap-vol');
+      const ICON_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"></polygon></svg>';
+      const ICON_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>';
+      const ICON_VOL = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>';
+      const ICON_MUTED = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+      const fmt = (s) => !isFinite(s) ? '0:00' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+      if (playBtn && seek && time) {
+        const syncPlay = () => {
+          playBtn.innerHTML = a.paused ? ICON_PLAY : ICON_PAUSE;
+          if (eq) eq.classList.toggle('playing', !a.paused);
+        };
+        playBtn.innerHTML = ICON_PLAY;
+        playBtn.addEventListener('click', () => (a.paused ? a.play() : a.pause()));
+        a.addEventListener('play', syncPlay);
+        a.addEventListener('pause', syncPlay);
+        a.addEventListener('ended', syncPlay);
+
+        const syncTime = () => {
+          seek.value = a.duration ? Math.round((a.currentTime / a.duration) * 1000) : 0;
+          time.textContent = `${fmt(a.currentTime)} / ${fmt(a.duration)}`;
+        };
+        a.addEventListener('timeupdate', syncTime);
+        a.addEventListener('loadedmetadata', syncTime);
+        syncTime();
+
+        seek.addEventListener('input', () => {
+          if (a.duration) a.currentTime = (seek.value / 1000) * a.duration;
+        });
+
+        if (muteBtn) {
+          muteBtn.innerHTML = a.muted ? ICON_MUTED : ICON_VOL;
+          muteBtn.addEventListener('click', () => {
+            a.muted = !a.muted;
+            muteBtn.innerHTML = a.muted ? ICON_MUTED : ICON_VOL;
+          });
+        }
+        if (vol) {
+          vol.value = Math.round((a.muted ? 0 : a.volume) * 100);
+          vol.addEventListener('input', () => {
+            a.volume = vol.value / 100;
+            if (a.volume > 0 && a.muted) {
+              a.muted = false;
+              if (muteBtn) muteBtn.innerHTML = ICON_VOL;
+            }
+          });
+        }
+      }
+
       // Hand the strip whatever starts playing; trackMedia pauses the previous
       // track itself, so chapters and videos never overlap.
       if (post) {
         trackMedia(a, post.id, post.title, post.cover_url);
       }
-      
+
       // Ensure audio can play (fix for browser autoplay policies)
       a.preload = 'metadata';
       a.setAttribute('playsinline', '');
-      
-      a.addEventListener('play', () => {
-        eq.classList.add('playing');
-        // Ensure volume is up
-        if (a.muted) a.muted = false;
-        if (a.volume === 0) a.volume = 1.0;
-      });
-      a.addEventListener('pause', () => eq.classList.remove('playing'));
-      a.addEventListener('ended', () => eq.classList.remove('playing'));
-      
+
       // Add error handling
       a.addEventListener('error', (e) => {
         console.error('Audio playback error:', e, 'Source:', a.src);

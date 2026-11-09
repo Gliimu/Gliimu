@@ -9,7 +9,7 @@
 // take the page's node. It clones the same source into a node of its own and
 // picks the clock up where the page left off.
 
-import * as heartbeat from './heartbeat.js?v=3';
+import * as heartbeat from './heartbeat.js?v=5';
 
 let _player = null;
 let _refs = null;
@@ -45,6 +45,8 @@ export function minimizePlaying() {
     closePlayer();
     return null;
   }
+  // Already living in the strip: leave it exactly where it is.
+  if (_player && _player.contains(_current.el)) return _current.postId;
   handOver(true);
   return _current.postId;
 }
@@ -78,20 +80,26 @@ export function closePlayer() {
     _current = null;
   }
   stopTick();
-  // A live session runs its own heartbeat on this same timer, so handing the
-  // clock back is the strip's job only while no call is up.
+  // A live session runs its own heartbeat on this same timer. A reader open
+  // underneath the strip keeps billing the gliim it is showing.
   if (wasStrip && !window.liveInstance?.isLiveActive?.()) {
-    heartbeat.stop();
-    heartbeat.setCurrentPost(null);
+    const reading = window.readInstance?.postId;
+    if (reading) {
+      heartbeat.setCurrentPost(reading);
+      heartbeat.start();
+    } else {
+      heartbeat.stop();
+      heartbeat.setCurrentPost(null);
+    }
   }
 }
 
+// Clicking the strip opens its gliim; the track keeps playing. If the reader's
+// own player for it starts, adoption pauses the strip and takes over.
 export function restore() {
   if (!_current || !_current.postId) return;
-  const postId = _current.postId;
-  closePlayer();
-  sessionStorage.setItem('openReadViewId', postId);
-  window.location.hash = `#/post?id=${postId}`;
+  sessionStorage.setItem('openReadViewId', _current.postId);
+  window.location.hash = `#/post?id=${_current.postId}`;
 }
 
 // Rebuild the strip around a fresh node for the same source, keeping position.
@@ -158,6 +166,9 @@ function buildPlayer() {
   _player.querySelector('[data-role="close"]').addEventListener('click', closePlayer);
   _player.querySelectorAll('[data-role="open"]').forEach(el => el.addEventListener('click', restore));
 
+  // The mobile strip is docked above the nav; only the desktop card moves.
+  if (!mobile) makeDraggable(player);
+
   syncPlayer();
 
   const tick = () => {
@@ -175,6 +186,7 @@ function syncPlayer() {
   const playing = !_current.el.paused;
   _refs.toggle.innerHTML = playing ? pauseIcon() : playIcon();
   _refs.toggle.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  _player.querySelector('.strip-eq')?.classList.toggle('playing', playing);
 }
 
 function togglePlay() {
@@ -184,26 +196,87 @@ function togglePlay() {
   syncPlayer();
 }
 
-// The cover cell doubles as the media's home: a video is shown there, an audio
-// track only needs to stay attached to the document, out of sight.
+// The desktop card can be dragged anywhere by its header; the position
+// survives hand-overs between pages and full reloads.
+const STRIP_POS_KEY = 'gliimu_strip_pos';
+
+function applyStripPos(player) {
+  let pos = null;
+  try {
+    pos = JSON.parse(localStorage.getItem(STRIP_POS_KEY) || 'null');
+  } catch { /* private mode */ }
+  if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+  const x = Math.min(Math.max(8, pos.x), window.innerWidth - player.offsetWidth - 8);
+  const y = Math.min(Math.max(8, pos.y), window.innerHeight - player.offsetHeight - 8);
+  player.style.left = `${x}px`;
+  player.style.top = `${y}px`;
+  player.style.right = 'auto';
+  player.style.bottom = 'auto';
+}
+
+function makeDraggable(player) {
+  const handle = player.querySelector('.floating-player-header');
+  if (!handle) return;
+  applyStripPos(player);
+  let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
+  const clampX = (x) => Math.min(Math.max(8, x), window.innerWidth - player.offsetWidth - 8);
+  const clampY = (y) => Math.min(Math.max(8, y), window.innerHeight - player.offsetHeight - 8);
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    dragging = true;
+    try { handle.setPointerCapture(e.pointerId); } catch { /* optional */ }
+    const r = player.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY;
+    ox = r.left; oy = r.top;
+    player.style.right = 'auto';
+    player.style.bottom = 'auto';
+    player.style.left = `${ox}px`;
+    player.style.top = `${oy}px`;
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    player.style.left = `${clampX(ox + e.clientX - sx)}px`;
+    player.style.top = `${clampY(oy + e.clientY - sy)}px`;
+  });
+  const settle = () => {
+    if (!dragging) return;
+    dragging = false;
+    try {
+      localStorage.setItem(STRIP_POS_KEY, JSON.stringify({
+        x: parseInt(player.style.left, 10) || 24,
+        y: parseInt(player.style.top, 10) || 24
+      }));
+    } catch { /* private mode */ }
+  };
+  handle.addEventListener('pointerup', settle);
+  handle.addEventListener('pointercancel', settle);
+}
+
+// The cover cell doubles as the media's home: a video gets a full-width
+// stage above the controls, an audio track keeps the cover with the
+// equalizer dancing over it and its own node stays attached to the
+// document out of sight.
 function coverMarkup(base) {
-  if (_current.el.tagName === 'VIDEO') {
-    return `<div class="${base} audiolite-slot audiolite-slot--video" data-role="open"></div>`;
-  }
   const cover = _current.cover
-    ? `<img src="${escapeAttr(_current.cover)}" alt="" class="${base}" data-role="open">`
-    : `<div class="${base} ${base}-fallback" data-role="open"></div>`;
-  return `${cover}<div class="audiolite-slot" data-role="hidden"></div>`;
+    ? `<img src="${escapeAttr(_current.cover)}" alt="" class="${base}">`
+    : `<div class="${base} ${base}-fallback"></div>`;
+  return `<div class="${base}-wrap" data-role="open">${cover}<div class="strip-eq"><span></span><span></span><span></span><span></span><span></span></div></div><div class="audiolite-slot" data-role="hidden"></div>`;
+}
+
+function videoMarkup(base) {
+  return `<div class="${base} audiolite-slot audiolite-slot--video" data-role="open"></div>`;
 }
 
 function desktopMarkup() {
+  const isVideo = _current.el.tagName === 'VIDEO';
   return `
     <div class="floating-player-header">
       <span class="floating-player-label">Now Playing</span>
       <button class="floating-player-btn" data-role="close" aria-label="Close">${closeIcon()}</button>
     </div>
+    ${isVideo ? videoMarkup('floating-player-video') : ''}
     <div class="floating-player-body">
-      ${coverMarkup('floating-player-cover')}
+      ${isVideo ? '' : coverMarkup('floating-player-cover')}
       <div class="floating-player-info">
         <div class="floating-player-title" data-role="open">${escapeHtml(_current.title || 'Gliim')}</div>
         <div class="floating-player-controls">
@@ -216,9 +289,11 @@ function desktopMarkup() {
 }
 
 function mobileMarkup() {
+  const isVideo = _current.el.tagName === 'VIDEO';
   return `
+    ${isVideo ? videoMarkup('mini-player-video') : ''}
     <div class="mini-player-content">
-      ${coverMarkup('mini-player-cover')}
+      ${isVideo ? '' : coverMarkup('mini-player-cover')}
       <div class="mini-player-info">
         <div class="mini-player-title" data-role="open">${escapeHtml(_current.title || 'Gliim')}</div>
         <div class="mini-player-controls">

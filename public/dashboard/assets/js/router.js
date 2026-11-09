@@ -1,19 +1,19 @@
 const routes = {
-  '/alerts': () => import('./views/alerts.js?v=15').then(m => m.default),
-  '/search': () => import('./views/search.js?v=15').then(m => m.default),
-  '/xplore': () => import('./views/feed.js?v=119').then(m => m.default),
-  '/feed': () => import('./views/feed.js?v=119').then(m => m.default),
+  '/alerts': () => import('./views/alerts.js?v=16').then(m => m.default),
+  '/search': () => import('./views/search.js?v=16').then(m => m.default),
+  '/xplore': () => import('./views/feed.js?v=120').then(m => m.default),
+  '/feed': () => import('./views/feed.js?v=120').then(m => m.default),
   '/ping': () => import('./views/ping.js?v=68').then(m => m.default),
-  '/wallet': () => import('./views/wallet.js?v=47').then(m => m.default),
+  '/wallet': () => import('./views/wallet.js?v=48').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=9').then(m => m.default),
   '/terms': () => import('./views/terms.js').then(m => m.default),
-  '/live': () => import('./views/live-page.js?v=49').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=22').then(m => m.default),
+  '/live': () => import('./views/live-page.js?v=50').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=23').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=98').then(m => m.default),
-  '/post': () => import('./views/post-read.js?v=68').then(m => m.default),
-  '/read': () => import('./views/post-read.js?v=68').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=33').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=99').then(m => m.default),
+  '/post': () => import('./views/post-read.js?v=69').then(m => m.default),
+  '/read': () => import('./views/post-read.js?v=69').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=34').then(m => m.default),
 };
 
 // Routes with no tab of their own borrow another tab's highlight
@@ -63,19 +63,66 @@ export function backTarget() {
 // Close, the collection hero arrow).
 window.gliimBack = () => { window.location.hash = backTarget(); };
 
+// Clean URLs: on dashboard.gliimu.com the address bar shows /xplore instead of
+// /index.html#/xplore. The rest of the app still navigates by assigning
+// location.hash, so the hashchange listener below rewrites each new hash into
+// a clean history entry before the router runs. Hash-mode hosts (www) keep
+// working exactly as before.
+const HISTORY_MODE = window.location.hostname === 'dashboard.gliimu.com';
+
+// Where the router should be: the clean path on the dashboard host, the hash
+// fragment everywhere else. Always shaped like '/post?id=x' (no '#').
+function routeTarget() {
+  if (HISTORY_MODE) {
+    const path = (window.location.pathname === '/' || window.location.pathname === '/index.html')
+      ? '/xplore'
+      : window.location.pathname;
+    return path + (window.location.search || '');
+  }
+  return window.location.hash.slice(1) || '/xplore';
+}
+
+// Pages read the path and query through these instead of location.hash, so the
+// same code answers both URL shapes.
+window.gliimRoute = {
+  path() { return routeTarget().split('?')[0] || '/xplore'; },
+  query() { return routeTarget().split('?')[1] || ''; }
+};
+
+// Full URLs that open the app at a page — share links, QR codes, payment
+// callbacks. On the clean host the path is the URL; everywhere else it rides
+// the hash under /dashboard/.
+window.gliimAppUrl = (path) => HISTORY_MODE
+  ? `${window.location.origin}${path}`
+  : `${window.location.origin}/dashboard/#${path}`;
+
+if (HISTORY_MODE) {
+  const toClean = () => {
+    const v = window.location.hash.slice(1);
+    return v.startsWith('/') ? v : '';
+  };
+  // Legacy hash links (old bookmarks, shared URLs) are cleaned on arrival.
+  if (window.location.hash) {
+    history.replaceState(null, '', toClean() || '/xplore');
+  }
+  window.addEventListener('hashchange', () => {
+    history.replaceState(null, '', toClean() || '/xplore');
+    router();
+  });
+  window.addEventListener('popstate', router);
+}
+
 function pageHeader(title) {
   const back = backTarget();
   return `<div class="page-header"><a class="page-back" href="${back}" aria-label="Back" title="Back">${BACK_ICON}</a><span class="page-title">${title}</span></div>`;
 }
 
-let previousHash = window.location.hash || '#/xplore';
+let previousHash = '#' + routeTarget();
 let currentView = null;
 let navigationRequest = 0;
 
 export async function router() {
-  const hash = window.location.hash.slice(1) || '/xplore';
-  // Deep links may carry a query string (e.g. #/ping?chat=<id>)
-  const path = hash.split('?')[0];
+  const path = routeTarget().split('?')[0];
 
   // 1. Intercept Navigation if Live Session is Active
   // Navigating to /live never prompts — the session continues on that page.
@@ -89,7 +136,7 @@ export async function router() {
       // Fall through — let navigation happen normally
     } else {
       if (!await appConfirm("Do you want to leave the live session?", { okText: 'Leave', danger: true })) {
-        history.replaceState(null, '', previousHash);
+        history.replaceState(null, '', HISTORY_MODE ? previousHash.slice(1) : previousHash);
         return;
       }
       window.liveInstance.endLive(); // Force end live session
@@ -99,13 +146,13 @@ export async function router() {
   // 2. Intercept Navigation if Modal is Open (from Feed)
   if (window.hubInstance && window.hubInstance.isModalOpen && window.hubInstance.isModalOpen()) {
     if (!await appConfirm("Would you like to close the modal?", { okText: 'Close' })) {
-      history.replaceState(null, '', previousHash);
+      history.replaceState(null, '', HISTORY_MODE ? previousHash.slice(1) : previousHash);
       return;
     }
     window.hubInstance.closeModal();
   }
 
-  const incoming = window.location.hash || '#/xplore';
+  const incoming = '#' + routeTarget();
   if (backStack[backStack.length - 1] === incoming) {
     // Arrived here by pressing back, so the page being left is dropped from
     // the stack rather than stacked under itself.
@@ -126,8 +173,7 @@ export async function refreshCurrentView() {
 }
 
 async function mount() {
-  const hash = window.location.hash.slice(1) || '/xplore';
-  const path = hash.split('?')[0];
+  const path = routeTarget().split('?')[0];
   const routeHandler = routes[path];
 
   const app = document.getElementById('app');

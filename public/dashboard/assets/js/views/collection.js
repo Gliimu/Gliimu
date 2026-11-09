@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass } from '../store.js?v=2';
-import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=125';
+import hubView, { gliimKindOf, gliimCoverOf } from './feed-gliims.js?v=126';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -19,12 +19,12 @@ export default {
   `,
 
   async init() {
-    const m = location.hash.match(/[?&]name=([^&]+)/);
-    if (!m) {
+    const name = new URLSearchParams(window.gliimRoute.query()).get('name') || '';
+    if (!name) {
       window.location.hash = '#/xplore';
       return;
     }
-    this.hashtag = decodeURIComponent(m[1]).replace(/[^a-z0-9_]/g, '').toLowerCase();
+    this.hashtag = name.replace(/[^a-z0-9_]/g, '').toLowerCase();
     if (!this.hashtag) {
       window.location.hash = '#/xplore';
       return;

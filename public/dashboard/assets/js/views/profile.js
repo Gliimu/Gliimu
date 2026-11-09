@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
 import { uploadFile } from '../upload.js?v=1';
-import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './feed-gliims.js?v=125';
+import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './feed-gliims.js?v=126';
 import feedView from './feed.js?v=119';
 import { notify } from '../notify.js?v=33';
 
@@ -18,9 +18,8 @@ export default {
     this._projectFilter = 'all';
     this._isFollowing = false;
 
-    // Get user ID from hash parameter ?u=<id> for persistence across refresh
-    const m = location.hash.match(/[?&]u=([a-zA-Z0-9-]+)/);
-    const targetId = m ? m[1] : store.user.id;
+    // Get user ID from query parameter ?u=<id> for persistence across refresh
+    const targetId = new URLSearchParams(window.gliimRoute.query()).get('u') || store.user.id;
     this.targetUserId = targetId;
 
     window.profileInstance = {
@@ -124,7 +123,7 @@ export default {
   },
 
   copyShareLink() {
-    const url = `${location.origin}/dashboard/#/profile?u=${this.targetUserId}`;
+    const url = window.gliimAppUrl(`/profile?u=${this.targetUserId}`);
     if (navigator.clipboard) navigator.clipboard.writeText(url);
     const btn = document.querySelector('.profile-share-copy');
     if (btn) {
@@ -179,7 +178,7 @@ export default {
     const shareSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>`;
     const copySvg = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
 
-    const profileUrl = `${location.origin}/dashboard/#/profile?u=${this.targetUserId}`;
+    const profileUrl = window.gliimAppUrl(`/profile?u=${this.targetUserId}`);
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
 
     const streakAcc = isMe ? `
@@ -613,7 +612,7 @@ export default {
     document.getElementById('qr-large-overlay')?.remove();
 
     const userId = this.targetUserId;
-    const profileUrl = `${location.origin}/dashboard/#/profile?u=${userId}`;
+    const profileUrl = window.gliimAppUrl(`/profile?u=${userId}`);
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=560x560&ecc=H&margin=10&qzone=1&data=${encodeURIComponent(profileUrl)}`;
 
     const overlay = document.createElement('div');
