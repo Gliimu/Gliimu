@@ -21,15 +21,18 @@ export default {
   template: `
     <div class="xplore-page">
       <div class="libmerge hub-layout" id="library-container">
-        <div class="hub-category-tabs" id="hub-category-tabs">
-          <button class="hub-category-tab active" data-category="all">For You</button>
-          <button class="hub-category-tab" data-category="xploring">Xploring</button>
-          <button class="hub-category-tab" data-category="collections">Collections</button>
-          <button class="hub-category-tab" data-category="Media">Media</button>
-          <button class="hub-category-tab" data-category="Tech">Tech</button>
-          <button class="hub-category-tab" data-category="Business">Business</button>
-          <button class="hub-category-tab" data-category="Personal">Personal</button>
-          <button class="hub-category-tab" data-category="Education">Education</button>
+        <div class="hub-top-band">
+          <button class="cohort-strip" id="cohort-strip" hidden type="button"></button>
+          <div class="hub-category-tabs" id="hub-category-tabs">
+            <button class="hub-category-tab active" data-category="all">For You</button>
+            <button class="hub-category-tab" data-category="xploring">Xploring</button>
+            <button class="hub-category-tab" data-category="collections">Collections</button>
+            <button class="hub-category-tab" data-category="Media">Media</button>
+            <button class="hub-category-tab" data-category="Tech">Tech</button>
+            <button class="hub-category-tab" data-category="Business">Business</button>
+            <button class="hub-category-tab" data-category="Personal">Personal</button>
+            <button class="hub-category-tab" data-category="Education">Education</button>
+          </div>
         </div>
 
         <div class="xplore-ring" id="xplore-ring" hidden></div>
@@ -51,6 +54,7 @@ export default {
     this._viewedIds = null;
 
     this.setupCategoryTabs();
+    this.setupCohortStrip();
     this.setupRing();
     this.bindFollowButtons();
 
@@ -73,6 +77,51 @@ export default {
     this.requestId++;
     document.removeEventListener('click', this._followClick);
     window.removeEventListener('gliimu-post-viewed', this._viewedListener);
+  },
+
+  /* ------------------------------- co-hort strip ---------------------------- */
+
+  // Operations starts one co-hort at a time; the strip sits over the filter
+  // tabs and reads "2/9 Full Stack Media Architecture". Tapping it records
+  // interest, then hands the member to Support in Ping with a pre-arranged
+  // message they can send, edit or add to. Anything failing keeps it hidden.
+  async setupCohortStrip() {
+    const requestId = this.requestId;
+    const { data, error } = await supabase.rpc('get_active_cohort');
+    if (this.disposed || requestId !== this.requestId) return;
+    if (error || !data || data.ok !== true || !data.cohort) return;
+    this.cohort = data.cohort;
+    this.renderCohortStrip();
+  },
+
+  renderCohortStrip() {
+    const strip = document.getElementById('cohort-strip');
+    const c = this.cohort;
+    if (!strip || !c) return;
+    strip.innerHTML = `
+      <span class="cohort-strip-count">${Number(c.interested_count || 0)}/${Number(c.required_count || 0)}</span>
+      <span class="cohort-strip-title">${escapeHtml(c.title || '')}</span>
+      <svg class="cohort-strip-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+    strip.hidden = false;
+    if (!this._cohortClick) {
+      this._cohortClick = () => this.onCohortTap();
+      strip.addEventListener('click', this._cohortClick);
+    }
+  },
+
+  async onCohortTap() {
+    const c = this.cohort;
+    if (!c) return;
+    const { data, error } = await supabase.rpc('cohort_show_interest', { p_cohort: c.id });
+    if (!error && data && data.ok === true) {
+      this.cohort.interested_count = data.interested_count;
+      this.cohort.my_status = data.my_status;
+      this.renderCohortStrip();
+    }
+    sessionStorage.setItem('cohortSupportPrefill', 'I would like to join the co-hort, how do I register?');
+    window.location.hash = '#/ping';
   },
 
   async collections() {

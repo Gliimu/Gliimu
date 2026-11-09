@@ -145,6 +145,11 @@ export default {
         .eq('id', ds.notifId)
         .then(() => window.NotificationManager?.refreshAlertsUnread?.());
     }
+    if (ds.linkUrl) {
+      // A cohort acceptance points at the requirements PDF the member must read.
+      window.open(ds.linkUrl, '_blank', 'noopener');
+      return;
+    }
     if (ds.linkPost) {
       sessionStorage.setItem('openReadViewId', ds.linkPost);
       if (ds.linkComment) sessionStorage.setItem('openCommentId', ds.linkComment);
@@ -169,7 +174,7 @@ export default {
         .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('support_messages').select('id, content, kind, created_at')
         .eq('thread_user', store.user.id).neq('sender_id', store.user.id).order('created_at', { ascending: false }).limit(50),
-      supabase.from('notifications').select('id, kind, title, body, link_post, link_comment, created_at, read_at')
+      supabase.from('notifications').select('id, kind, title, body, link_post, link_comment, link_url, created_at, read_at')
         .eq('user_id', store.user.id).order('created_at', { ascending: false }).limit(100)
     ]);
 
@@ -252,7 +257,8 @@ export default {
         status: n.read_at ? 'info' : 'unread',
         notifId: n.id,
         linkPost: n.link_post,
-        linkComment: n.link_comment
+        linkComment: n.link_comment,
+        linkUrl: n.link_url
       });
     }
 
@@ -362,8 +368,8 @@ export default {
       statusBadge = '<span class="alert-badge" style="background:rgba(99,102,241,.12);color:#4F46E5;">New</span>';
     }
 
-    const clickable = a.linkPost ? 'cursor:pointer;' : '';
-    const attrs = a.notifId ? `data-notif-id="${escapeHtml(a.notifId)}" data-link-post="${escapeHtml(a.linkPost || '')}" data-link-comment="${escapeHtml(a.linkComment || '')}"` : '';
+    const clickable = (a.linkPost || a.linkUrl) ? 'cursor:pointer;' : '';
+    const attrs = a.notifId ? `data-notif-id="${escapeHtml(a.notifId)}" data-link-post="${escapeHtml(a.linkPost || '')}" data-link-comment="${escapeHtml(a.linkComment || '')}" data-link-url="${escapeHtml(a.linkUrl || '')}"` : '';
 
     return `
       <div class="notice-item${a.status === 'warning' ? ' notice-item-warning' : ''}${a.status === 'unread' ? ' notice-item-unread' : ''}" style="${clickable}" ${attrs}>
@@ -373,6 +379,7 @@ export default {
         <div class="notice-info">
           <span class="notice-title" ${a.status === 'unread' ? 'style="font-weight:700;"' : ''}>${escapeHtml(a.title)}${statusBadge}</span>
           ${a.subtitle ? `<span class="notice-subtitle">${escapeHtml(a.subtitle)}</span>` : ''}
+          ${a.linkUrl ? `<span class="notice-viewmore">View more<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span>` : ''}
           <span class="notice-date">${escapeHtml(timeAgo(a.time))}</span>
         </div>
         ${amountHtml}

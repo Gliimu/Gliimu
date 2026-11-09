@@ -7,6 +7,7 @@ const TABS = [
   { id: 'landing', label: 'Landing page' },
   { id: 'partners', label: 'Partners' },
   { id: 'release', label: 'App release' },
+  { id: 'cohorts', label: 'Cohorts' },
   { id: 'deleted', label: 'Deleted' }
 ];
 
@@ -96,6 +97,7 @@ export default {
     this.settings = null;
     this.partners = null;
     this.deleted = null;
+    this.cohortState = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -121,6 +123,7 @@ export default {
 
     pane.innerHTML = this.tab === 'partners' ? this.partnersHtml()
       : this.tab === 'release' ? this.releaseHtml()
+      : this.tab === 'cohorts' ? this.cohortsHtml()
       : this.tab === 'deleted' ? this.deletedHtml()
       : this.landingHtml();
     this.wire(pane);
@@ -145,6 +148,15 @@ export default {
       if (error) return error.message;
       if (!data || data.ok === false) return rpcError(data);
       this.deleted = { count: Number(data.count || 0), items: data.items || [] };
+      return null;
+    }
+
+    if (this.tab === 'cohorts') {
+      if (this.cohortState) return null;
+      const { data, error } = await supabase.rpc('operations_cohort_state');
+      if (error) return error.message;
+      if (!data || data.ok === false) return rpcError(data);
+      this.cohortState = data;
       return null;
     }
 
@@ -461,6 +473,178 @@ export default {
   },
 
   // ============================================
+  // TAB 5 — the co-hort drive
+  // ============================================
+  cohortsHtml() {
+    const state = this.cohortState || {};
+    const active = state.active;
+    const past = state.past || [];
+
+    if (!active) {
+      return `
+        <div class="card">
+          <div class="card-head"><div>
+            <div class="card-title">Start a co-hort</div>
+            <div class="card-sub">One co-hort runs at a time. Starting one puts a strip over the XpLoRe filter tabs reading "0/9 {title}"; members tap it to raise their hand through Support, and you accept them here.</div>
+          </div></div>
+          <div class="form-group">
+            <label for="in-cohort-title">Cohort title</label>
+            <input type="text" id="in-cohort-title" class="input" maxlength="120" autocomplete="off"
+                   placeholder="e.g. Full Stack Media Architecture">
+          </div>
+          <div class="form-group">
+            <label for="in-cohort-count">Members to accept</label>
+            <input type="number" id="in-cohort-count" class="input" min="1" max="999" step="1" value="9">
+            <div class="card-sub">The strip counts every hand raised against this total.</div>
+          </div>
+          <div class="form-group">
+            <label for="in-cohort-due">Deadline (optional)</label>
+            <input type="date" id="in-cohort-due" class="input">
+            <div class="card-sub">Appears in the acceptance message: "finalize the process before this date".</div>
+          </div>
+          <div class="form-group">
+            <label for="in-cohort-url">Requirements PDF (optional)</label>
+            <input type="text" id="in-cohort-url" class="input" placeholder="https://cdn.gliimu.com/…" autocomplete="off">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+              <label class="btn-quiet btn-small" for="up-cohort-req" style="cursor:pointer;">Upload a PDF</label>
+              <input type="file" id="up-cohort-req" accept=".pdf,application/pdf" hidden data-cohort-upload>
+              <span class="muted small" id="cohort-upload-status"></span>
+            </div>
+            <div class="card-sub">Accepted members get a "View more" chip on their Alerts card that opens this file. Leave blank to skip it.</div>
+          </div>
+          <div class="card-actions" style="margin-left:0;margin-top:6px;">
+            <button class="btn-primary btn-small" data-start-cohort>Start cohort</button>
+          </div>
+        </div>
+        ${this.pastHtml(past)}`;
+    }
+
+    const members = active.members || [];
+    const rows = members.map(m => `
+      <tr data-cohort-member="${escapeHtml(m.user_id)}">
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${m.avatar_url
+              ? `<img src="${escapeHtml(m.avatar_url)}" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;background:var(--bg-tertiary);">`
+              : '<span style="width:30px;height:30px;border-radius:50%;background:var(--bg-tertiary);display:inline-block;"></span>'}
+            <span style="font-weight:600;">${escapeHtml(m.full_name || '')}</span>
+          </div>
+        </td>
+        <td>${escapeHtml(new Date(m.joined_at).toLocaleString())}</td>
+        <td>${m.status === 'approved' ? '<span class="badge badge-success">Accepted</span>'
+          : m.status === 'declined' ? '<span class="badge badge-error">Declined</span>'
+          : '<span class="badge badge-warning">Waiting</span>'}</td>
+        <td class="num" style="white-space:nowrap;">
+          ${m.status !== 'approved' ? `<button class="btn-primary btn-small" data-approve="${escapeHtml(m.user_id)}" data-name="${escapeHtml(m.full_name || 'this member')}">Accept</button>` : ''}
+          ${m.status === 'interested' ? `<button class="btn-quiet btn-small" data-decline="${escapeHtml(m.user_id)}" data-name="${escapeHtml(m.full_name || 'this member')}">Decline</button>` : ''}
+        </td>
+      </tr>`).join('');
+    const raised = Number(active.interested_count || 0);
+    const due = active.due_date
+      ? ` Requirements are due ${escapeHtml(new Date(`${active.due_date}T00:00:00`).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }))}.`
+      : '';
+
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">${escapeHtml(active.title)}</div>
+            <div class="card-sub">Started ${escapeHtml(new Date(active.created_at).toLocaleDateString())}.${due} ${raised} member${raised === 1 ? ' has' : 's have'} raised a hand so far.</div>
+          </div>
+          <div class="card-actions">
+            <span class="badge badge-success">${Number(active.approved_count || 0)}/${Number(active.required_count || 0)} accepted</span>
+            <button class="btn-danger btn-small" data-end-cohort="${escapeHtml(active.id)}" data-title="${escapeHtml(active.title)}">End cohort</button>
+          </div>
+        </div>
+        ${active.requirements_url ? `<div class="card-sub" style="margin-bottom:10px;">Requirements: <a href="${escapeHtml(active.requirements_url)}" target="_blank" rel="noopener">open the PDF</a></div>` : ''}
+        ${members.length ? `
+          <div class="table-wrap"><table class="table">
+            <thead><tr><th>Member</th><th>Raised hand</th><th>Status</th><th class="num" style="width:190px;"></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table></div>` : empty('No one has tapped the strip yet.')}
+      </div>
+      ${this.pastHtml(past)}`;
+  },
+
+  pastHtml(past) {
+    if (!past.length) return '';
+    return `
+      <div class="card" style="margin-top:16px;">
+        <div class="card-head"><div>
+          <div class="card-title">Past cohorts</div>
+          <div class="card-sub">The last ten that ended, newest first.</div>
+        </div></div>
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>Cohort</th><th class="num">To accept</th><th class="num">Hands raised</th><th class="num">Accepted</th><th>Ended</th></tr></thead>
+          <tbody>${past.map(c => `
+            <tr>
+              <td style="font-weight:600;">${escapeHtml(c.title || '')}</td>
+              <td class="num">${Number(c.required_count || 0)}</td>
+              <td class="num">${Number(c.interested_count || 0)}</td>
+              <td class="num">${Number(c.approved_count || 0)}</td>
+              <td>${escapeHtml(new Date(c.ended_at).toLocaleDateString())}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>
+      </div>`;
+  },
+
+  async startCohort(btn) {
+    const title = document.getElementById('in-cohort-title')?.value.trim() || '';
+    const count = Number(document.getElementById('in-cohort-count')?.value || 0);
+    const url = document.getElementById('in-cohort-url')?.value.trim() || null;
+    const due = document.getElementById('in-cohort-due')?.value || null;
+    if (!title) return appAlert('Give the cohort a title — the strip on XpLoRe shows it.');
+    if (!Number.isInteger(count) || count < 1 || count > 999) {
+      return appAlert('Members to accept must be a whole number between 1 and 999.');
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
+    const { data, error } = await supabase.rpc('operations_start_cohort', {
+      p_title: title, p_required_count: count, p_requirements_url: url, p_due_date: due
+    });
+    if (btn) { btn.disabled = false; btn.textContent = 'Start cohort'; }
+    if (error) return appAlert(`Could not start it: ${error.message}`);
+    if (!data || data.ok === false) return appAlert(rpcError(data));
+
+    this.cohortState = null;
+    await this.render();
+    return appAlert('The cohort is live — members see the strip over the XpLoRe filter tabs.');
+  },
+
+  async decideCohortMember(cohortId, userId, name, decision) {
+    if (decision === 'decline') {
+      const ok = await appConfirm(
+        `${name} keeps their hand raised but will not be accepted into the cohort.`,
+        { title: 'Decline this member?', okText: 'Decline' });
+      if (!ok) return;
+    }
+    const { data, error } = await supabase.rpc('operations_decide_cohort_member', {
+      p_cohort: cohortId, p_user: userId, p_decision: decision
+    });
+    if (error) return appAlert(`Could not save that: ${error.message}`);
+    if (!data || data.ok === false) return appAlert(rpcError(data));
+
+    this.cohortState = null;
+    await this.render();
+    if (decision === 'approve') {
+      return appAlert(`${name} accepted — the congratulation notice is on its way to their Alerts.`);
+    }
+  },
+
+  async endCohort(id, title) {
+    const ok = await appConfirm(
+      `"${title}" closes: the strip comes off XpLoRe and no new hands can be raised. Members already accepted keep their place.`,
+      { title: 'End this cohort?', okText: 'End cohort' });
+    if (!ok) return;
+    const { data, error } = await supabase.rpc('operations_end_cohort', { p_id: id });
+    if (error) return appAlert(`Could not end it: ${error.message}`);
+    if (!data || data.ok === false) return appAlert(rpcError(data));
+
+    this.cohortState = null;
+    await this.render();
+  },
+
+  // ============================================
   // Saving
   // ============================================
   collect(fields) {
@@ -689,6 +873,47 @@ export default {
         this.purgeNow(btn.dataset.purge, btn.dataset.title, btn.dataset.author);
       });
     });
+
+    pane.querySelectorAll('[data-cohort-upload]').forEach((fileInput) => {
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        fileInput.value = '';
+        const status = document.getElementById('cohort-upload-status');
+        if (!file) return;
+        if (status) status.textContent = 'Uploading…';
+        try {
+          const url = await uploadFile(file, 'site');
+          const input = document.getElementById('in-cohort-url');
+          if (input) input.value = url;
+          if (status) status.textContent = 'Uploaded — press Start cohort to publish it.';
+        } catch (err) {
+          if (status) status.textContent = '';
+          await appAlert(err.message || 'That upload failed.');
+        }
+      });
+    });
+
+    const startCohortBtn = pane.querySelector('[data-start-cohort]');
+    if (startCohortBtn) startCohortBtn.addEventListener('click', () => this.startCohort(startCohortBtn));
+
+    const activeCohortId = () => this.cohortState?.active?.id || null;
+
+    pane.querySelectorAll('[data-approve]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cohortId = activeCohortId();
+        if (cohortId) this.decideCohortMember(cohortId, btn.dataset.approve, btn.dataset.name, 'approve');
+      });
+    });
+
+    pane.querySelectorAll('[data-decline]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cohortId = activeCohortId();
+        if (cohortId) this.decideCohortMember(cohortId, btn.dataset.decline, btn.dataset.name, 'decline');
+      });
+    });
+
+    const endCohortBtn = pane.querySelector('[data-end-cohort]');
+    if (endCohortBtn) endCohortBtn.addEventListener('click', () => this.endCohort(endCohortBtn.dataset.endCohort, endCohortBtn.dataset.title));
 
     const sweep = pane.querySelector('[data-sweep]');
     if (sweep) sweep.addEventListener('click', () => this.sweepStorage(sweep));

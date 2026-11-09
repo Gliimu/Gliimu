@@ -159,6 +159,20 @@
   color: var(--text-muted);
 }
 
+/* View more — opens the requirements PDF attached to a cohort acceptance */
+.notice-viewmore {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
 /* Notice Amount */
 .notice-amount {
   font-size: 15px;

@@ -64,7 +64,7 @@ export default {
 
     window.pingInstance = {
       openChat: (type, id) => this.openChat(type, id),
-      openSupportChat: () => this.openSupportChat(),
+      openSupportChat: (prefill) => this.openSupportChat(prefill),
       getActiveChat: () => this.activeChat?.id || null,
       openHubMention: (postId, commentId) => this.openHubMention(postId, commentId),
       sendMessage: () => this.sendMessage(),
@@ -110,6 +110,15 @@ export default {
     };
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     window.addEventListener('storage', this.onReadStorage);
+
+    // The XpLoRe cohort strip hands its pre-arranged message over through
+    // sessionStorage: opening Support here puts the text in the composer so
+    // the member can send it, edit it or add to it.
+    const cohortPrefill = sessionStorage.getItem('cohortSupportPrefill');
+    if (cohortPrefill) {
+      sessionStorage.removeItem('cohortSupportPrefill');
+      this.openSupportChat(cohortPrefill);
+    }
   },
 
   destroy() {
@@ -400,7 +409,7 @@ export default {
     this.renderChatList();
   },
 
-  openSupportChat() {
+  openSupportChat(prefill) {
     this.destroySupport();
     this.chatRequest = (this.chatRequest || 0) + 1;
     this.activeChat = null;
@@ -411,6 +420,18 @@ export default {
     document.getElementById('ping-container').classList.add('chat-open');
     supportView.init();
     this.renderChatList();
+    if (prefill) {
+      // init() re-renders the thread once the history arrives, so the text
+      // only lands after that render — and never overwrites what the member
+      // already typed.
+      supportView.load().then(() => {
+        const input = document.getElementById('sup-input');
+        if (input && !input.value) {
+          input.value = prefill;
+          input.focus();
+        }
+      });
+    }
   },
 
   destroySupport() {

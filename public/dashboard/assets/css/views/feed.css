@@ -717,19 +717,70 @@
    STICKY FILTER TABS
    Category tabs stick to top when scrolling
    ============================================ */
-.hub-category-tabs {
+/* The sticky header band holds the cohort strip and the category tabs as two
+   rows of one surface: the strip stays over the tabs while scrolling, and the
+   safe-top room moves to whichever row is first so the camera cut-out never
+   covers either. */
+.hub-top-band {
   position: sticky;
   top: 0;
   z-index: 150;
   background: var(--bg-tertiary);
-  padding: calc(12px + var(--safe-top)) 0 12px;
   margin: 0 -16px 16px -16px;
-  padding-left: 16px;
-  padding-right: 16px;
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
+.hub-category-tabs {
+  padding: calc(12px + var(--safe-top)) 0 12px;
+  padding-left: 16px;
+  padding-right: 16px;
+  margin: 0;
+}
+
+/* ------------------------------- cohort strip ------------------------------
+   Operations' live co-hort drive: "2/9 Full Stack Media Architecture". Tapping
+   records interest and hands the member to Support in Ping. */
+.cohort-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cohort-strip[hidden] { display: none; }
+.cohort-strip:not([hidden]) { padding-top: calc(12px + var(--safe-top)); }
+.cohort-strip:not([hidden]) + .hub-category-tabs { padding-top: 12px; }
+@media (max-width: 768px) {
+  .cohort-strip:not([hidden]) { padding-top: calc(8px + var(--safe-top)); }
+  .cohort-strip:not([hidden]) + .hub-category-tabs { padding-top: 8px; }
+}
+.cohort-strip-count {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.cohort-strip-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cohort-strip-chevron { flex-shrink: 0; color: var(--text-muted); }
 
 /* --------------------------------- xploring ring ---------------------------
    The followed creators, laid out as a second tab row of faces. Same geometry
