@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=124';
+import hubView from './feed-gliims.js?v=125';
 
 export default {
   title: 'Publish',

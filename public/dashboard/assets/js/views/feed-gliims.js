@@ -1922,11 +1922,10 @@ const hubView = {
     // surface. Anything that isn't a pure log or a pure book is a bundle,
     // including gliims that used to be classed as image-only.
     if (this.cardKinds && this.cardKinds[post.id] === 'bundle' && cover) {
-      const bundleSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>';
       return `<article class="blog-card bundle-card" id="post-${post.id}" onclick="hubInstance.openReadView('${post.id}')">
         <div class="bundle-cover" style="background-image: url('${cover}');"></div>
         <div class="blog-content">
-          <div class="blog-meta"><span class="blog-category bundle-kind">${bundleSvg}Bundle</span>${statusBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div>
+          <div class="blog-meta">${statusBadge}<span class="blog-date">${new Date(post.created_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}</span></div>
           <h2 class="blog-title">${escapeHtml(post.title || 'Untitled Gliim')}</h2>
           ${post.description ? `<p class="blog-desc">${parseHashtags(post.description)}</p>` : ''}
           <div class="blog-footer"><div class="blog-author hub-author-hit" onclick="event.stopPropagation(); hubInstance.viewAuthor('${post.user_id}')"><div style="position:relative;">${avatar}</div><span>${escapeHtml(post.profiles?.full_name || 'Gliimait')}${tierIcon(post.profiles?.verification_badge)}</span></div><div class="blog-stats"><span class="blog-stat">${eyeSvg}${post.views || 0}</span><span class="blog-stat">${commentSvg}${comments}</span></div></div>

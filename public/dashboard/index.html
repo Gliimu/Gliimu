@@ -21,12 +21,12 @@
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
   <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=79">
   <link rel="stylesheet" href="/dashboard/assets/css/views/profile.css?v=16">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/feed-gliims.css?v=85">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/feed-gliims.css?v=86">
   <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css?v=5">
   <link rel="stylesheet" href="/dashboard/assets/css/views/ping.css?v=51">
   <link rel="stylesheet" href="/dashboard/assets/css/views/live.css?v=25">
   <link rel="stylesheet" href="/dashboard/assets/css/views/wallet.css?v=3">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/feed.css?v=89">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/feed.css?v=90">
   <link rel="stylesheet" href="/dashboard/assets/css/views/search.css?v=4">
   <link rel="stylesheet" href="/dashboard/assets/css/views/reader.css?v=27">
   <link rel="stylesheet" href="/dashboard/assets/css/views/assistant.css?v=30">
@@ -102,16 +102,16 @@
       </main>
 
       <!-- Narrow screens have no sidebar, so this bar is the whole navigation.
-           Same five slots as the rail, but XpLoRe sits dead centre. -->
+           Same five slots as the rail, but XpLoRe leads. -->
       <nav class="bottom-bar" id="bottom-bar" aria-label="Main">
+        <a href="#/xplore" class="bottom-item" data-route="xplore" title="XpLoRe" aria-label="XpLoRe">
+          <img class="bottom-mark" src="/icons/icon.png?v=1" alt="">
+        </a>
         <a href="#/live" class="bottom-item" data-route="live" title="Live" aria-label="Live">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>
         </a>
         <a href="#/publish" class="bottom-item" data-route="publish" title="Publish" aria-label="Publish a gliim">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </a>
-        <a href="#/xplore" class="bottom-item" data-route="xplore" title="XpLoRe" aria-label="XpLoRe">
-          <img class="bottom-mark" src="/icons/icon.png?v=1" alt="">
         </a>
         <a href="#/search" class="bottom-item" data-route="search" title="Search" aria-label="Search">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
@@ -128,7 +128,7 @@
   <!-- Use absolute paths for JS as well -->
   <script src="/shared/js/theme.js"></script>
   <script src="https://unpkg.com/@daily-co/daily-js@0.94.0"></script>
-  <script type="module" src="/dashboard/assets/js/app.js?v=223"></script>
+  <script type="module" src="/dashboard/assets/js/app.js?v=224"></script>
 
   <script>
     function toggleSidebar() {

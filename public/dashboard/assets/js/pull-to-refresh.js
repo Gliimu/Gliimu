@@ -1,7 +1,7 @@
 // Must match the ?v= that app.js uses for this same import: a second specifier
 // would load a second copy of the router, which remounts without destroying the
 // view the page is actually showing.
-import { refreshCurrentView } from './router.js?v=212';
+import { refreshCurrentView } from './router.js?v=213';
 
 // Pull down from the very top of the page and the route you are already on
 // remounts, which is what its init() does on arrival — so the feed, the lists

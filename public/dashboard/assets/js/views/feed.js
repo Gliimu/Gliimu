@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=124';
+import hubView from './feed-gliims.js?v=125';
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';
@@ -22,7 +22,6 @@ export default {
     <div class="xplore-page">
       <div class="libmerge hub-layout" id="library-container">
         <div class="hub-top-band">
-          <button class="cohort-strip" id="cohort-strip" hidden type="button"></button>
           <div class="hub-category-tabs" id="hub-category-tabs">
             <button class="hub-category-tab active" data-category="all">For You</button>
             <button class="hub-category-tab" data-category="xploring">Xploring</button>
@@ -33,6 +32,7 @@ export default {
             <button class="hub-category-tab" data-category="Personal">Personal</button>
             <button class="hub-category-tab" data-category="Education">Education</button>
           </div>
+          <button class="cohort-strip" id="cohort-strip" hidden type="button"></button>
         </div>
 
         <div class="xplore-ring" id="xplore-ring" hidden></div>

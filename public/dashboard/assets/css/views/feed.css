@@ -152,13 +152,15 @@
    child re-applies the inner padding for tabs and feed. */
 .xplore-page { margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0; }
 @media (max-width: 768px) {
-  /* Mobile cancels the container's 16px top padding exactly like the desktop
-     rule above: the tab strip must start at the viewport top, not float 16px
-     down leaving a dead band above the filter buttons. The safe-top room
-     moves into the tabs' own padding so the camera cut-out still never
-     covers the buttons. */
-  .xplore-page { margin-top: calc(-1 * (var(--pad-top) - var(--safe-top))); }
-  .libmerge.hub-layout { padding-top: 0; padding-left: 8px; padding-right: 8px; }
+  /* Mobile cancels the container's whole padding (top and sides) the same way
+     the desktop rule does — the desktop margins are -2rem each side while the
+     mobile container only pads 8px, so leaving the desktop side margins in
+     place pushed cards 16px past the viewport edges. The safe-top room moves
+     into the tabs' own padding so the camera cut-out still never covers the
+     buttons, and only once (previously the leftover + the tabs' own room
+     stacked a double gap above the filter pills). */
+  .xplore-page { margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 0; }
+  .libmerge.hub-layout { padding-top: 0; padding-left: 16px; padding-right: 16px; }
   .hub-category-tabs { padding-top: calc(8px + var(--safe-top)); }
 }
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its
@@ -717,10 +719,10 @@
    STICKY FILTER TABS
    Category tabs stick to top when scrolling
    ============================================ */
-/* The sticky header band holds the cohort strip and the category tabs as two
-   rows of one surface: the strip stays over the tabs while scrolling, and the
-   safe-top room moves to whichever row is first so the camera cut-out never
-   covers either. */
+/* The sticky header band holds the category tabs and the cohort strip as two
+   rows of one surface: tabs always lead (they carry the safe-top room for the
+   camera cut-out) and the strip sits under them; both stay fixed while
+   scrolling. */
 .hub-top-band {
   position: sticky;
   top: 0;
@@ -748,7 +750,7 @@
   width: 100%;
   padding: 10px 16px;
   border: none;
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   background: transparent;
   color: var(--text-primary);
   font: inherit;
@@ -756,12 +758,6 @@
   cursor: pointer;
 }
 .cohort-strip[hidden] { display: none; }
-.cohort-strip:not([hidden]) { padding-top: calc(12px + var(--safe-top)); }
-.cohort-strip:not([hidden]) + .hub-category-tabs { padding-top: 12px; }
-@media (max-width: 768px) {
-  .cohort-strip:not([hidden]) { padding-top: calc(8px + var(--safe-top)); }
-  .cohort-strip:not([hidden]) + .hub-category-tabs { padding-top: 8px; }
-}
 .cohort-strip-count {
   flex-shrink: 0;
   font-weight: 700;
