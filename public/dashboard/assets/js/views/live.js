@@ -64,6 +64,7 @@ async function deleteRoomQuietly(requestId, accessToken) {
 }
 
 const liveView = {
+  title: 'Live',
   // State
   activeSession: null,
   sessionRole: null, // 'host' | 'participant'

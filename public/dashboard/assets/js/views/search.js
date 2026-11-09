@@ -1,5 +1,5 @@
-import hubView from './feed-gliims.js?v=126';
-import feedView from './feed.js?v=119';
+import hubView from './gliims.js?v=127';
+import feedView from './xplore.js?v=121';
 import { supabase } from '/shared/js/config.js';
 import { store } from '../store.js?v=2';
 import { renderCollectionCard } from '../collections.js?v=1';

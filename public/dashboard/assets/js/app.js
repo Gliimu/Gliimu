@@ -1,5 +1,5 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=214';
+import { router } from './router.js?v=215';
 import { initPullToRefresh } from './pull-to-refresh.js?v=13';
 import { supabase } from '/shared/js/config.js';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';

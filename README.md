@@ -17,6 +17,7 @@
                     │   (server/src/index.js) │
                     │   - Paystack webhooks   │
                     │   - R2 presigned URLs   │
+                    │   - Daily.co rooms      │
                     │   - Billing cron        │
                     └────────────┬────────────┘
                                  │
@@ -39,95 +40,100 @@
 ## Tech Stack
 
 **Frontend**
-- Vanilla JavaScript (ES modules, no framework)
+- Vanilla JavaScript (ES modules, no framework, no bundler)
 - CSS3 with custom properties
-- Supabase JS client (auth, database, realtime, storage)
-- WebRTC for live sessions
+- Supabase JS client (auth, database, realtime)
+- Daily.co embed for Live sessions
 
 **Backend**
 - Node.js + Express
-- Supabase (PostgreSQL, Auth, Storage, Realtime, Edge Functions)
+- Supabase (PostgreSQL, Auth, Realtime)
 - Cloudflare R2 (object storage for media)
 - Paystack (payment processing)
+- Daily.co (live video rooms, meeting tokens)
 
 **Infrastructure**
-- Render (server hosting)
-- Cloudflare (CDN, DNS, R2)
+- Vercel (`www.gliimu.com` + `dashboard.gliimu.com` from `public/`, `admin.gliimu.com` from `admin/`)
+- Render (Node server)
+- Cloudflare (DNS, CDN, R2)
 - Supabase Cloud (database, auth, realtime)
+
+## URLs
+
+| Host | Serves |
+|------|--------|
+| `www.gliimu.com` | Landing page + auth (`index.html`, `auth.html`) |
+| `dashboard.gliimu.com/{xplore,search,live,publish,wallet,settings,terms,...}` | Member SPA with clean paths — a catch-all rewrite serves `dashboard/index.html` and the client router maps the path to a view |
+| `admin.gliimu.com` | Admin panel (separate Vercel project) |
+| `cdn.gliimu.com` | Cloudflare R2 media |
+| `api` (Render) | Node server endpoints |
+
+On the dashboard host the address bar shows `/xplore`, `/post?id=…`, `/profile?u=…` — no `#` fragments. On every other host the app falls back to classic hash URLs (`#/xplore`), so the same build works everywhere. Member-facing URLs never expose account UUIDs; profile and post slugs are a planned follow-up (see `TERMS-DRAFT.md` §9 for the public identity rules).
 
 ## Directory Structure
 
 ```
 gliimu/
-├── admin/                    # Admin panel (separate deploy)
-│   ├── assets/
-│   │   └── js/
-│   │       ├── views/       # Admin view modules
-│   │       │   ├── submissions.js  # CRM content review
-│   │       │   ├── crm.js         # Member management
-│   │       │   ├── support.js     # Support desk
-│   │       │   ├── operations.js  # Landing/settings
-│   │       │   ├── finance.js     # Registrar overview
-│   │       │   ├── ledger.js      # Transaction ledger
-│   │       │   ├── revenue.js     # Revenue analytics
-│   │       │   └── ...
-│   │       ├── app.js       # Admin app shell
-│   │       ├── router.js    # Admin routing
-│   │       └── store.js     # Admin state
+├── admin/                    # Admin panel (separate Vercel deploy)
+│   ├── assets/js/views/      # Admin view modules (crm, submissions, operations,
+│   │                         #   finance, ledger, revenue, support, admins, ...)
+│   ├── assets/js/            # app.js, router.js, store.js, ui.js helpers
 │   └── index.html
 │
-├── public/                   # Static assets (server root)
-│   ├── dashboard/           # Member dashboard SPA
-│   │   ├── assets/
-│   │   │   ├── js/
-│   │   │   │   ├── views/  # Member view modules
-│   │   │   │   │   ├── feed.js       # Feed (gliims + publications)
-│   │   │   │   │   ├── ping.js       # Messages + support
-│   │   │   │   │   ├── live.js       # Live sessions
-│   │   │   │   │   ├── wallet.js     # Billing + wallet
-│   │   │   │   │   ├── updates.js    # XpLoRe (trending/contests/cohorts)
-│   │   │   │   │   ├── support.js    # Support desk
-│   │   │   │   │   ├── profile.js    # User profile/portfolio
-│   │   │   │   │   ├── settings.js   # App settings
-│   │   │   │   │   └── ...
-│   │   │   │   ├── app.js       # Dashboard app shell
-│   │   │   │   ├── router.js    # Client-side routing
-│   │   │   │   ├── store.js     # Global state
-│   │   │   │   ├── reader.js    # Content reader (books/audiolites)
-│   │   │   │   ├── upload.js    # R2 presigned uploads
-│   │   │   │   ├── media.js     # Media rendering
-│   │   │   │   ├── notify.js    # Notifications
-│   │   │   │   └── ...
-│   │   │   └── css/
+├── public/                   # Landing + member dashboard (www + dashboard hosts)
+│   ├── dashboard/
+│   │   ├── assets/js/
+│   │   │   ├── views/       # One module per page — the file name IS the page:
+│   │   │   │   ├── xplore.js     # XpLoRe browse page (For You / Publications /
+│   │   │   │   │                 #   Collections / Xploring tabs + cohort strip)
+│   │   │   │   ├── gliims.js     # SHARED engine: gliim cards + composer, imported
+│   │   │   │   │                 #   by xplore, profile, reader, publish, search, collection
+│   │   │   │   ├── reader.js     # The /post reading page (engagement rail, comments)
+│   │   │   │   ├── billing.js    # Billing page (wallet, plans, earnings) — route /wallet
+│   │   │   │   ├── profile.js    # Profile + portfolio
+│   │   │   │   ├── search.js     # Search page
+│   │   │   │   ├── collection.js # Collection page (#/collection?name=…)
+│   │   │   │   ├── publish.js    # Publish page (full-page composer)
+│   │   │   │   ├── live.js       # Live page (session list, host modal, studio)
+│   │   │   │   ├── ping.js       # Ping (DMs) + Support thread
+│   │   │   │   ├── support.js    # Support thread view used inside Ping
+│   │   │   │   ├── alerts.js     # Alerts page (notifications)
+│   │   │   │   ├── settings.js   # Settings
+│   │   │   │   └── terms.js      # Terms and Policy page
+│   │   │   ├── app.js           # App shell: auth boot, badges, follow rail
+│   │   │   ├── router.js        # Routes, clean-URL shim, back stack
+│   │   │   ├── store.js         # Global state
+│   │   │   ├── heartbeat.js     # Consumption billing ticks (G3/min while open)
+│   │   │   ├── secure-reader.js # Secure full-screen reading overlay, lightbox,
+│   │   │   │                    #   inline document renderer (renderFileInto)
+│   │   │   ├── audiolite-minimizer.js  # Persistent player strip (keeps playing
+│   │   │   │                    #   across pages, billing follows the open post)
+│   │   │   ├── pull-to-refresh.js
+│   │   │   ├── account-menu.js  # Avatar menu
+│   │   │   ├── collections.js   # Hashtag collection helpers
+│   │   │   ├── media.js         # Media rendering
+│   │   │   ├── upload.js        # R2 presigned uploads
+│   │   │   ├── notify.js        # Toasts, sounds, desktop notifications
+│   │   │   ├── readState.js     # Unread tracking
+│   │   │   └── gliim-pa-kb.js   # Assistant knowledge-base fallback
+│   │   ├── assets/css/views/    # Mirrors the view names (xplore.css, gliims.css,
+│   │   │                        #   reader.css, billing.css, ...)
 │   │   └── index.html
-│   ├── shared/              # Shared assets
-│   │   └── js/
-│   │       └── config.js    # Supabase client init
-│   ├── index.html           # Landing page
-│   ├── auth.html            # Auth modal
-│   └── ...
+│   ├── shared/js/config.js   # Supabase client init (URL + anon key)
+│   ├── index.html            # Landing page
+│   ├── auth.html             # Sign up / sign in
+│   └── TERMS.md              # Terms of Service (mirrors legal_documents in the DB)
 │
-├── server/                   # Node.js backend
-│   └── src/
-│       └── index.js         # Express server
-│                            # - Paystack webhook handler
-│                            # - R2 presigned URL generation
-│                            # - Billing verification
-│                            # - Wallet operations
+├── server/                   # Node.js backend (Render)
+│   └── src/index.js          # Paystack webhook, R2 presigns, Daily.co rooms +
+│                             #   meeting tokens, billing cron, content delete
 │
 ├── sql/                      # Database schema — the source of truth for Postgres
-│   ├── setup_core.sql       # All tables, base RLS + grants (fresh install)
-│   ├── state.sql            # Read-only: what is installed right now
-│   ├── support.sql          # Support desk + the review RPCs
-│   ├── gliits_billing.sql   # Gliits ledger + pricing
-│   ├── content_trash.sql    # Two-stage deletion and the 30-day purge
-│   ├── referrals.sql        # Referral codes, ledger, vesting
-│   ├── community.sql        # Arena (contests)
-│   ├── admin.sql            # Admin users + roles
-│   ├── registrar.sql        # Finance RPCs
-│   └── ...                  # See "SQL Scripts" below
+│   ├── setup_core.sql        # All tables, base RLS + grants (fresh install)
+│   ├── state.sql             # Read-only: what is installed right now
+│   └── ...                   # See "SQL Scripts" below
 │
-└── src-tauri/               # Tauri desktop app (optional)
+└── vercel.json               # Clean-URL redirects/rewrites + asset cache headers
 ```
 
 ## Database Schema
@@ -143,6 +149,9 @@ re-reads them whenever you need current numbers.
 - `post_views` — one row per reader per gliim, so views are unique, not raw hits
 - `post_hashtags` — collection membership written by the hashtag trigger
 - `saved_items`, `purchases`, `poll_votes`
+
+**Cohorts**
+- `cohorts` — structured programs with the XpLoRe strip toggle (`strip_visible`, `strip_label`) and member acceptance
 
 **Ping + Support**
 - `messages` — member DMs
@@ -169,9 +178,6 @@ re-reads them whenever you need current numbers.
   The table's check constraint still accepts the retired `captain` value, so
   a stale row can pass the database while no screen in the admin app uses it.
 
-**Community**
-- `contests` — the leaderboard contests on the Updates page
-
 **Landing + settings**
 - `contact_info`, `faqs`, `legal_documents`, `partners`, `site_settings`
 
@@ -190,6 +196,7 @@ All tables have RLS enabled. Policies enforce:
 - Supabase project (free tier works)
 - Cloudflare account (for R2 storage)
 - Paystack account (for payments)
+- Daily.co account (for Live)
 
 ### 1. Clone and Install
 
@@ -244,6 +251,9 @@ R2_ACCESS_KEY_ID=your-r2-access-key
 R2_SECRET_ACCESS_KEY=your-r2-secret-key
 R2_BUCKET_NAME=gliimu-media
 
+# Daily.co (live sessions)
+DAILY_API_KEY=your-daily-api-key
+
 # Server
 PORT=3000
 ```
@@ -257,11 +267,6 @@ PORT=3000
 3. Enable public access via custom domain (optional)
 
 **Configure CORS:**
-
-```bash
-# Use the provided CORS config
-cat r2-cors.json
-```
 
 ```json
 {
@@ -313,166 +318,114 @@ Server runs on `http://localhost:3000`.
 
 ### 7. Deploy Frontend
 
-**Member Dashboard:**
+**Member app (`public/`):**
 
-The dashboard is served as static files from `public/`. Deploy to:
-- Vercel (drag-and-drop `public/` folder)
-- Netlify (same)
-- GitHub Pages
-- Any static host
+Deploy the whole repo to Vercel — `vercel.json` at the root rewrites
+`dashboard.gliimu.com/*` to `dashboard/index.html` and sets long-lived cache
+headers for `/dashboard/assets/*`, `/shared/*` and `/icons/*` (HTML stays
+no-cache so version-busted links always refresh).
 
-Set the Supabase URL and anon key in `public/shared/js/config.js`.
+**Admin panel (`admin/`):**
 
-**Admin Panel:**
-
-The admin panel is a separate deploy from `admin/`. Deploy to:
-- Vercel (drag-and-drop `admin/` folder)
-- Netlify
-- Subdomain: `admin.gliimu.com`
-
+Separate Vercel project on `admin.gliimu.com` (its own `admin/vercel.json`).
 Update the API base URL in `admin/assets/js/app.js` to point to your Render server.
 
 ### 8. Custom Domains
 
-**Main site:**
-- `gliimu.com` → points to your frontend host
-- `api.gliimu.com` → points to Render server
-
-**Admin:**
-- `admin.gliimu.com` → points to admin frontend host
-
-**CDN:**
-- `cdn.gliimu.com` → points to R2 bucket (custom domain)
+- `gliimu.com` / `www.gliimu.com` → Vercel (landing + auth)
+- `dashboard.gliimu.com` → same Vercel project (member SPA)
+- `admin.gliimu.com` → admin Vercel project
+- `cdn.gliimu.com` → R2 bucket custom domain
 
 ## Key Features
 
 ### Member Dashboard
 
-**Feed** (`#/feed`)
-- Publishing library: books, logs, and bundles
+**XpLoRe** (`/xplore`) — the browse page
+- One grid of gliims (books, audiolites, bundles, text/image posts) rendered by the shared card engine in `gliims.js`
+- Filter tabs: For You, Publications, Collections, Xploring (followed creators only, with unread badges)
+- Cohort strip under the tabs (admin-controlled text and visibility)
 - Publishing is instant — there is no approval queue; staff can take a gliim down
-- @mention support with deep links
-- Premium content gating (Pro tier or per-item purchase)
 
-**Ping** (`#/ping`)
-- Direct messages between users
-- Support desk (member ↔ staff)
-- Real-time notifications
-- Unread badges
+**Reader** (`/post?id=…`)
+- Secure reading page: selection/print deterrence, watermark, illustration lightbox
+- Consumption billing: G3 per minute while the post is open (the `heartbeat` module)
+- Comment and share earn GP (+5 each)
+- Related posts grid matching XpLoRe card parity
+- Minimised audio/video keeps playing across pages (`audiolite-minimizer.js`); billing follows the newly opened post
 
-**Live** (`#/live`)
-- 1-on-1 WebRTC video sessions
-- Screen sharing
-- 100 GP gate to start
-- 25 GP reward for host
-- Session limits (3 active, 3 views max)
+**Publish** (`/publish`)
+- Full-page document composer: text, image, media, document and PDF blocks, drag-and-drop ordering
+- Book / Audiolite / Bundle kinds, drafts, hashtags (max 3 → collections), instant publish
 
-**Wallet** (`#/wallet`)
-- GP balance + wallet (naira)
-- Subscription plans (Trial/Wallet/Pay-n-Go/Pro)
-- Bank transfer top-ups (admin verified)
-- Paystack card payments
-- User-to-user transfers
+**Live** (`/live`)
+- Session list + host modal; rooms are Daily.co, hosted on the server
+- Studio: stage + participant rail, chat with attachments, hand raises, host mute/kick, support tap (G10, 70/30 split), share to chats
+- No per-minute live billing
 
-**XpLoRe** (`#/updates`)
-- Trending content: most-read book, audiolite, and most-viewed bundle
-- Active contests and cohorts
-- Top Gliimaits leaderboard
-- Four pillars: Talks (TEDx-style), Publications (Wattpad-style), Contests (GoodNovel-style), Cohorts (Andela-style)
+**Ping** (`/ping`)
+- Member DMs with realtime updates, sounds and desktop notifications
+- The Support thread (member ↔ staff) lives here with CRM handover; `support.js` renders the thread inside Ping
 
-**Support** (`#/support`)
-- Member ↔ staff support threads
-- Gliim-PA (AI assistant) integration
-- Handover to CRM
+**Billing** (`/wallet` — file `billing.js`)
+- Wallet balance (naira) + Gliits (G) side by side
+- Three plans (Starter / Pro / Elite), Paystack card top-ups, bank-transfer top-ups verified in one click
+- User-to-user transfers (password-gated), Earnings tab, referral rewards
+- Withdrawals are processed manually by staff
 
-**Profile** (`#/profile`)
-- Portfolio with QR code
-- Projects tab (gliims)
-- Print-friendly A4 layout
+**Alerts, Search, Profile, Settings, Terms**
+- Alerts: notifications with click-through and mark-read
+- Search: Enter-to-search, history, autocomplete of titles and names
+- Profile: banner, portfolio grid, saved gliims, drafts filter, verification badge
+- Settings: theme, sounds, banner/social links, feature-my-profile opt-in, Danger Zone
 
-### Admin Panel
+### Admin Panel (`admin.gliimu.com`)
 
-**CRM** (`/crm`)
-- Member management
-- Support desk inbox
-- Content review (submissions)
-
-**Submissions** (`/submissions`)
-- Review book/audiolite submissions
-- Approve/reject with notes
-- Preview content
-
-**Finance** (`/finance`, `/ledger`, `/revenue`)
-- Transaction ledger
-- Bank transfer verification
-- Revenue analytics
-- GP/wallet adjustments
-
-**Operations** (`/operations`)
-- Landing page settings (hero, partners, FAQs)
-- App release config (version, download links)
-- Contact info management
-
-**Support** (`/support`)
-- All-role support desk
-- Staff room (admins chat)
-
-**Admins** (`/admins`)
-- Role management (super/crm/registrar/captain/ops)
-- Grant/revoke admin access
+**CRM** (`/crm`) — members, reports, content review
+**Submissions** (`/submissions`) — every gliim, search + grid, Take down (trash)
+**Operations** (`/operations`) — site content: landing hero/partners/FAQs, contact info, app releases, Community/Arena, Cohorts (+ the XpLoRe strip card), Deleted queue
+**Finance** (`/finance`, `/ledger`, `/revenue`) — Gliits ledger, revenue analytics, adjustments
+**Support** (`/support`) — all-role support desk + staff room
+**Admins** (`/admins`) — role management (super/crm/registrar/operations)
 
 ## Billing System
 
-**Tiers:**
-- **Trial** — 7-day free trial, 100 GP signup bonus
-- **Wallet** — pay-as-you-go with naira wallet
-- **Pay-n-Go** — monthly billing cycle
-- **Pro** — unlimited access (₦5,000/month)
+**Two currencies:**
+- **Wallet balance (₦)** — real money. Top up via Paystack or bank transfer, spend on consumption, withdraw (manual processing) or transfer to other members.
+- **Gliits (G)** — platform currency. G3 per minute while a post is open in the reader. Cannot be purchased with cash; comes from plans and activity.
 
-**GP (Gliimu Points):**
-- Soft currency (no cashout)
-- 1 GP ≈ ₦50 notional
-- Earn: signup (100), reading (50), referrals (20)
-- Spend: live sessions (100), premium content (varies)
+**Plans:** Starter / Pro / Elite — monthly, include wallet credits and platform access.
+
+**Everyday flows:**
+- Opening content bills G3/min for the consumption session; closing stops the meter
+- Supporting a creator: G100 in the reader, G10 in Live — 70% to the creator, 30% platform, repeatable
+- Daily activity: +10 GP for showing up, −7 GP for a missed day
+- Comments and shares earn +5 GP each
 
 **Payment Methods:**
-- Bank transfer (manual verification by registrar)
 - Paystack (cards, instant)
-
-**Billing Cycle:**
-- Daily cron checks for due/overdue cycles
-- Paystack webhook settles payments
-- Auto-void after 3 days overdue
+- Bank transfer (one-click verification by staff against `payment_attempts`)
 
 ## Content Reader
 
-**Primary formats (publishing library):**
-- Books: EPUB, DOCX (rendered client-side)
-- Audiolites: MP3/M4A (sequential playback)
-
-**Bundle format:**
-- Bundles: mixed (books + audiolites + PDFs)
+**Kinds:** books (EPUB/DOCX/PDF rendered client-side), audiolites (audio, sequential chapters), bundles (mixed blocks)
 
 **Features:**
-- Reading progress tracking
-- Completion GP reward (50 GP)
-- Deterrence (right-click disabled, save blocked)
-- Illustration lightbox
-- Sequential audiolite chapters
+- G3/min consumption billing scoped to the open post
+- Selection/save/print deterrence + watermark
+- Illustration lightbox, PDF tiles, poll blocks
+- Persistent minimised player (desktop floating card, mobile thumbnail) with equalizer, 3x-height video and drag-to-move
+- Comment strip + engagement rail; trash (30-day purge) instead of hard delete
 
 ## Referral System
 
 **Flow:**
-1. User shares referral code
+1. Member shares their referral link
 2. New user signs up with `?ref=CODE`
-3. Code captured and stored
-4. Referral vests after 7 days
-5. Both get 20 GP bonus on first purchase
+3. Referral vests after 7 days
+4. Bonus lands on the first real-money purchase
 
-**Platform-funded:**
-- 20 GP flat bonus (not deducted from author)
-- Triggered on first real-money purchase (₦100+)
-- Lazy evaluation via `referral_summary()` RPC
+**Surfaces:** Refer & earn card + time-filtered leaderboard on Billing; referral metrics in the Arena/Updates filters.
 
 ## Realtime
 
@@ -483,9 +436,8 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 - `live_requests` — live session status
 
 **Client-side:**
-- `notify.js` handles desktop notifications
-- `readState.js` tracks unread counts
-- Badge updates in sidebar
+- `notify.js` handles toasts, sounds and desktop notifications
+- `readState.js` tracks unread counts; badges sit on the avatar and Xploring ring
 
 ## Security
 
@@ -493,17 +445,16 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 - All tables have RLS enabled
 - Users can only access their own data
 - Admin roles have elevated access via helper functions
-- Premium content gated by billing status
+- Consumption-gated content served through RLS-locked body tables
 
 **Admin Roles:**
 - `super` — full access
 - `crm` — member management + content review
 - `registrar` — finance + billing
-- `captain` — cohort management
-- `operations` — landing/settings
+- `operations` — site content + cohorts + trash queue
 
 **Authentication:**
-- Supabase Auth (email/password)
+- Supabase Auth (email/password) + 16-word recovery phrase
 - JWT tokens (short-lived)
 - Service role key for server (bypasses RLS)
 
@@ -511,24 +462,26 @@ Update the API base URL in `admin/assets/js/app.js` to point to your Render serv
 - Paystack webhook signature verification
 - Idempotent wallet credits (per reference)
 - Password gate on user-to-user transfers
+- Member-facing URLs never expose account UUIDs
 
-## Version Chain
+## Version Chain (cache busting)
 
-The dashboard uses ES modules with `?v=` query params for cache busting:
+There is no bundler: the browser caches each ES module by its URL, so every
+module is imported with a `?v=N` query param that must be bumped when the file
+changes.
 
 ```
-index.html → app.js?v=33 → router.js?v=30 → feed.js?v=35 → reader.js?v=30
+index.html → app.js?v=N → router.js?v=N → views/xplore.js?v=N → gliims.js?v=N
 ```
 
-**When editing JS/CSS:**
-1. Bump the `?v=` on the changed file
-2. Bump the parent import (e.g., if you changed `feed.js`, bump its `?v=` in `router.js`)
-3. Continue up the chain to `index.html`
-4. Hard-refresh browser (Ctrl+Shift+R)
-
-Current chain: **v=33** (index.html) → **v=33** (app.js) → **v=30** (router.js) → **v=35** (feed.js) → **v=30** (reader.js)
-
-Admin chain: **v=11**
+**Rules when editing JS/CSS:**
+1. Bump the `?v=` of the file you changed — **in every importer**, versions are per-file, not one chain
+2. If a *shared* module gains or changes an export (usual suspects: `gliims.js`, `store.js`), every importer must move to the same fresh number at once, or a tab holding the old URL keeps throwing "does not provide an export named X"
+3. Two modules must never load two copies of the same dependency: `pull-to-refresh.js` imports `router.js` with the **same** version app.js uses
+4. `design-system.css` is shared by landing + auth + dashboard + 404 — bump all four references together
+5. Every import carries a version — an unversioned import caches forever under Vercel's asset headers
+6. Current numbers live in `index.html`, `router.js` and each importer — read them from code, never from this README (numbers go stale; this file intentionally does not track them)
+7. After editing: syntax-check with `node --input-type=module --check < file.js`, then deploy Vercel
 
 ## SQL Scripts
 
@@ -543,10 +496,10 @@ should all read OK. Run the file, then run its self-check in the same paste.
 | Kind | Files | Notes |
 |------|-------|-------|
 | Fresh install | `setup_core.sql` | every table, base RLS and grants |
-| Feature | `account_lifecycle.sql`, `admin.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `landing_highlights.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql` | the live features |
+| Feature | `account_lifecycle.sql`, `admin.sql`, `admin_all_gliims.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `landing_highlights.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql`, `cohorts.sql`, `cohorts_strip.sql` | the live features |
 | Live (sessions) | `live_rooms.sql`, `live_v2.sql`, `live_v3.sql`, `live_on_air.sql`, `live_participants.sql`, `live_chat.sql`, `live_chat_attachments.sql`, `live_kicked_users.sql`, `live_reactions.sql`, `live_support_g10.sql` | stacked over time; the newest wins where they overlap |
 | Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql` | |
-| Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_scroll_position.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
+| Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_premium.sql`, `remove_scroll_position.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
 | Archive | `archive_*.sql` | retired definitions, kept for reference. Never run |
 | Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql` | superseded by the removal scripts above |
 | Diagnostic | `state.sql` | read-only: answers "what is installed right now" |
@@ -581,20 +534,23 @@ Run `state.sql` before any script that drops something.
 - Verify subscription channel name
 - Check browser console for errors
 
+**Stale UI after a deploy:**
+- A `?v=` bump was missed — compare the numbers in the browser console's network tab against `index.html` / `router.js` / the importer (see [Version Chain](#version-chain-cache-busting))
+
 ## Deployment Checklist
 
 - [ ] Supabase: run `setup_core.sql`, then the feature scripts
 - [ ] Supabase: make yourself admin (`admin_users` insert)
 - [ ] Cloudflare: create R2 bucket + API token
 - [ ] Paystack: get secret key + set webhook URL
+- [ ] Daily.co: API key on Render
 - [ ] Server: set all env vars on Render
 - [ ] Server: deploy to Render
 - [ ] Frontend: update `config.js` with Supabase URL + anon key
-- [ ] Frontend: deploy `public/` to static host
-- [ ] Admin: update API base URL
-- [ ] Admin: deploy `admin/` to static host
-- [ ] DNS: point domains to hosts
-- [ ] Test: signup, login, create post, upload media, make payment
+- [ ] Frontend: deploy the repo to Vercel (`vercel.json` handles routing + cache)
+- [ ] Admin: update API base URL, deploy `admin/` as its own Vercel project
+- [ ] DNS: point the domains in Cloudflare
+- [ ] Test: signup, login, publish, read (billing ticks), live session, support
 
 ## License
 

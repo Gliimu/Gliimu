@@ -1,6 +1,8 @@
 /* ============================================================
-   Gliimu MVP reader (assets/js/reader.js)
-   Full-screen overlay, responsive, deterrence-only (no selection).
+   Reader styles (assets/js/secure-reader.js + assets/js/views/reader.js)
+   .rdr-*: the secure full-screen reading overlay and the minimised
+   player strip. .post-read-*: the /post page itself (merged from the
+   old post-read.css).
    ============================================================ */
 
 .rdr-overlay {
@@ -830,4 +832,287 @@
   .audiolite-mini-player {
     display: none;
   }
+}
+
+/* ============================================================
+   Post read page — full-page post viewer (#/post?id=...)
+   ============================================================ */
+
+.post-read-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+/* Disable text selection and highlighting on the reader page */
+.post-read-layout {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Allow selection inside input fields and textareas so comments still work */
+.post-read-layout input,
+.post-read-layout textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Hide everything when printing */
+@media print {
+  body > * { display: none !important; }
+}
+
+/* Scroll progress bar — starts below the status bar so the phone camera cutout
+   never sits on top of it. */
+.post-read-progress {
+  position: fixed;
+  top: var(--safe-top);
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: var(--brand-primary);
+  z-index: 1000;
+  transition: width 0.1s linear;
+}
+
+/* Header — edge-to-edge within .view-container (cancel its padding).
+   It is sticky at the very top, so it owns the status-bar inset itself: the
+   height grows by --safe-top and the buttons stay padded below it. */
+.post-read-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) 0;
+  padding-top: var(--safe-top);
+}
+
+/* Edge-to-edge, all header content grouped in the centre. */
+.post-read-header-inner {
+  max-width: none;
+  margin: 0;
+  padding: 7px 16px 7px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.post-read-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50vw;
+}
+
+.post-read-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-read-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.post-read-back:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.post-read-menu-btn {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
+}
+.post-read-menu-btn:hover {
+  background: var(--border) !important;
+}
+
+/* Main content area — the article sits in a centred reading column. Nothing is
+   reserved for the engagement rail: it floats on its own layer above the page,
+   so the text slides under it rather than being pushed aside. */
+.post-read-main {
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.post-read-main .read-body {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+/* Related posts section (Section 2) — cancel .view-container padding to match XpLoRe grid width exactly */
+.post-read-related {
+  width: calc(100% + var(--pad-x) * 2);
+  margin-left: calc(-1 * var(--pad-x));
+  margin-right: calc(-1 * var(--pad-x));
+  max-width: none;
+  padding: 48px 0 100px;
+  border-top: 2px solid var(--border);
+  background: transparent;
+}
+
+/* The gutter re-applied inside must equal XpLoRe's: 24px on desktop, and on
+   mobile the 8px container padding plus the 8px the feed shell adds = 16px.
+   Cancelling --space-8 here instead overshoots by 24px per side and the cards
+   end up flush against the edge of the screen. */
+.post-read-related .related-posts-inner {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.post-read-related .related-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-auto-rows: 8px;
+  column-gap: 24px;
+  row-gap: 0;
+}
+
+.post-read-related .related-posts-grid .feed-item {
+  margin-bottom: 0;
+}
+
+.post-read-related .related-posts-grid .blog-card {
+  margin-bottom: 0;
+}
+
+/* Mobile grid: match XpLoRe exactly — 2 columns for books/audiolites, full-width for bundles */
+@media (max-width: 768px) {
+  .post-read-related .related-posts-inner { padding: 0 16px; }
+  .post-read-related .related-posts-grid {
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: 12px;
+  }
+  .post-read-related .related-posts-grid .feed-item--gliim {
+    grid-column: 1 / -1;
+  }
+  .post-read-related .related-posts-grid .feed-item--gliim:has(.book-cover-card),
+  .post-read-related .related-posts-grid .feed-item--gliim:has(.audiolite-card:not(.bundle-card)) {
+    grid-column: auto;
+  }
+}
+
+/* Engagement rail — the four actions stand vertically anchored to the bottom
+   right. The rail owns no layout space: it is a fixed layer above the article,
+   so the text scrolls underneath it. On mobile it lifts itself above the
+   app's bottom navigation bar (58px + safe-area inset) so neither overlaps. */
+.post-read-bottom {
+  position: fixed;
+  bottom: 24px;
+  right: 16px;
+  z-index: 14;
+  transition: opacity 0.18s ease;
+}
+
+/* Out of sight once the recommendation grid takes over the screen. */
+.post-read-bottom.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.post-read-bottom-inner {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.post-read-bottom .action-btn {
+  flex-direction: column;
+  gap: 2px;
+  width: 48px;
+  padding: 9px 0 6px;
+  border-radius: 14px;
+  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 47%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.post-read-bottom .action-btn span {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .post-read-header-inner {
+    padding: 5px 12px;
+  }
+  .post-read-main .read-body {
+    padding: 20px 16px;
+  }
+  /* Bottom-anchored, lifted above the mobile bottom navigation bar so the
+     two never overlap. --bottom-bar-h = 58px + safe-area-inset-bottom. */
+  .post-read-bottom {
+    right: 12px;
+    bottom: calc(var(--bottom-bar-h) + 12px);
+  }
+  .post-read-bottom .action-btn {
+    width: 44px;
+    padding: 7px 0 5px;
+    border-radius: 12px;
+  }
+}
+
+/* Follow button on author avatar in reader */
+.reader-follow-avatar-btn {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  color: white;
+  border: 2px solid var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s, transform 0.15s;
+  z-index: 5;
+}
+.reader-follow-avatar-btn:hover {
+  background: var(--brand-primary-hover);
+  transform: scale(1.1);
+}
+.reader-follow-avatar-btn.following {
+  background: #10B981;
+}
+.reader-follow-avatar-btn.following:hover {
+  background: #059669;
 }
