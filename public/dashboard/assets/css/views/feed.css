@@ -157,6 +157,9 @@
      layout must not add a second 16 — that would put twice as much space above
      the tabs as below them. */
   .libmerge.hub-layout { padding-top: 0; padding-left: 8px; padding-right: 8px; }
+  /* Remove the extra safe-top padding on mobile — the view-container already
+     provides enough space above the tabs. */
+  .hub-category-tabs { padding-top: 8px; }
 }
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its
    own height (set by JS), so short tiles pack tight under tall cards instead
