@@ -55,13 +55,14 @@
   padding-top: var(--safe-top);
 }
 
-/* Edge-to-edge, with the title aligned to the article's left gutter. */
+/* Edge-to-edge, content centered. */
 .post-read-header-inner {
   max-width: none;
   margin: 0;
-  padding: 7px 16px 7px var(--pad-x);
+  padding: 7px 16px 7px 16px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
 }
 

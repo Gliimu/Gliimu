@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, tierIcon } from '../store.js?v=2';
-import { uploadFile } from '../upload.js';
+import { uploadFile } from '../upload.js?v=1';
 import { renderFileInto } from '../reader.js?v=37';
 import { notify } from '../notify.js?v=33';
 import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=6';

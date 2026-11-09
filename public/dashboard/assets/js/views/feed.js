@@ -1,4 +1,4 @@
-import hubView from './feed-gliims.js?v=123';
+import hubView from './feed-gliims.js?v=124';
 import { supabase } from '/shared/js/config.js';
 import { store, tierClass, badgeIcon } from '../store.js?v=2';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=1';

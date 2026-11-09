@@ -12,6 +12,8 @@ let r2Unavailable = false;
 // Throws only on a real rejection (bad type, oversize, signed out) so the
 // caller can show the message.
 async function presign(kind, file) {
+  // Refresh the session to avoid 401s on long-running pages (like live chats).
+  await supabase.auth.refreshSession();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Please sign in again.');
 

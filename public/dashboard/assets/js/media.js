@@ -4,7 +4,7 @@
 
 import { supabase } from '/shared/js/config.js';
 import { store } from './store.js?v=2';
-import { uploadFile } from './upload.js';
+import { uploadFile } from './upload.js?v=1';
 
 // ============================================
 // VOICE NOTE PLAYBACK
