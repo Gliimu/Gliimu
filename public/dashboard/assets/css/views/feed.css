@@ -152,14 +152,14 @@
    child re-applies the inner padding for tabs and feed. */
 .xplore-page { margin: calc(-1 * var(--space-8)) calc(-1 * var(--space-8)) 0; }
 @media (max-width: 768px) {
-  .xplore-page { margin: 0; }
-  /* Mobile already gets 16px from .view-container's own top padding, so the
-     layout must not add a second 16 — that would put twice as much space above
-     the tabs as below them. */
+  /* Mobile cancels the container's 16px top padding exactly like the desktop
+     rule above: the tab strip must start at the viewport top, not float 16px
+     down leaving a dead band above the filter buttons. The safe-top room
+     moves into the tabs' own padding so the camera cut-out still never
+     covers the buttons. */
+  .xplore-page { margin-top: calc(-1 * (var(--pad-top) - var(--safe-top))); }
   .libmerge.hub-layout { padding-top: 0; padding-left: 8px; padding-right: 8px; }
-  /* Remove the extra safe-top padding on mobile — the view-container already
-     provides enough space above the tabs. */
-  .hub-category-tabs { padding-top: 8px; }
+  .hub-category-tabs { padding-top: calc(8px + var(--safe-top)); }
 }
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its
    own height (set by JS), so short tiles pack tight under tall cards instead
