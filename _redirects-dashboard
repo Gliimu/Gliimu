@@ -1,0 +1,18 @@
+# Dashboard-host routes. The gliimu-dashboard Pages project copies this file to
+# public/_redirects at build time. The www project must NEVER get it: on Pages,
+# redirects win over static files, so "/ /xplore 302" would shadow the landing
+# page if this ever landed in public/ directly.
+
+/ /xplore 302
+/index.html /xplore 302
+/xplore /dashboard/index.html 200
+/search /dashboard/index.html 200
+/settings /dashboard/index.html 200
+/publish /dashboard/index.html 200
+/live /dashboard/index.html 200
+/terms /dashboard/index.html 200
+/support /dashboard/index.html 200
+/wallet /dashboard/index.html 200
+/alerts /dashboard/index.html 200
+/ping /dashboard/index.html 200
+/collection /dashboard/index.html 200
