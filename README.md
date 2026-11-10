@@ -356,9 +356,10 @@ would collapse them to `/dashboard/` and 404. When connecting via Git, put the
 npx wrangler deploy --config wrangler.gliimu-admin.jsonc
 ```
 
-Serves `admin/` (hash-routed, so no clean paths needed). `admin/_headers` caches
-`/assets/*`. Update the API base URL in `admin/assets/js/config.js`
-(`API_BASE_URL`) to point to your Render server.
+Serves `admin/` with clean, path-routed screens (`admin.gliimu.com/support`), so
+`not_found_handling` is `"single-page-application"` and no `_redirects` file is
+needed. `admin/_headers` caches `/assets/*`. Update the API base URL in
+`admin/assets/js/config.js` (`API_BASE_URL`) to point to your Render server.
 
 ### 8. Custom Domains
 
