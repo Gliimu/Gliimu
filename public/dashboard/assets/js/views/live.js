@@ -1540,7 +1540,7 @@ const liveView = {
   shareSession() {
     if (!this.activeSession) return;
 
-    const joinUrl = `${window.location.origin}${window.location.pathname}#/live?join=${this.activeSession.id}`;
+    const joinUrl = window.gliimAppUrl(`/live?join=${this.activeSession.id}`);
     const sessionTitle = this.activeSession.title || 'Live Session';
 
     navigator.clipboard.writeText(joinUrl).catch(() => {});

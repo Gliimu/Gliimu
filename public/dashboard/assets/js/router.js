@@ -7,7 +7,7 @@ const routes = {
   '/wallet': () => import('./views/billing.js?v=49').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=9').then(m => m.default),
   '/terms': () => import('./views/terms.js?v=1').then(m => m.default),
-  '/live': () => import('./views/live.js?v=53').then(m => m.default),
+  '/live': () => import('./views/live.js?v=54').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=24').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=100').then(m => m.default),
@@ -90,11 +90,10 @@ window.gliimRoute = {
 };
 
 // Full URLs that open the app at a page — share links, QR codes, payment
-// callbacks. On the clean host the path is the URL; everywhere else it rides
-// the hash under /dashboard/.
-window.gliimAppUrl = (path) => HISTORY_MODE
-  ? `${window.location.origin}${path}`
-  : `${window.location.origin}/dashboard/#${path}`;
+// callbacks. Always the clean dashboard host, no matter where the code runs:
+// the hash form is gone, and the cookie session spans .gliimu.com so a link
+// opened from landing or admin lands signed-in.
+window.gliimAppUrl = (path) => `https://dashboard.gliimu.com${path}`;
 
 if (HISTORY_MODE) {
   const toClean = () => {

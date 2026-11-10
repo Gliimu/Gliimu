@@ -392,14 +392,11 @@ async function loadHubHighlights() {
         window.location.href = '/auth.html';
         return;
       }
-      const type = el.dataset.xplore;
       const itemId = el.dataset.itemId;
-      if (type === 'events') {
-        window.location.href = '/dashboard/#/xplore';
-      } else if (itemId) {
-        window.location.href = `/dashboard/#/feed?open=${itemId}`;
+      if (itemId) {
+        window.location.href = `https://dashboard.gliimu.com/post?id=${itemId}`;
       } else {
-        window.location.href = '/dashboard/#/feed';
+        window.location.href = 'https://dashboard.gliimu.com/xplore';
       }
     });
   });
