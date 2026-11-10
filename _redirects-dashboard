@@ -1,11 +1,19 @@
-# Dashboard-host routes. The gliimu-dashboard Pages project copies this file to
-# public/_redirects at build time. The www project must NEVER get it: on Pages,
-# redirects win over static files, so "/ /xplore 302" would shadow the landing
-# page if this ever landed in public/ directly.
+# Dashboard-host routes. The gliimu-dashboard project copies this file to
+# public/_redirects at build time. The www project must NEVER get it: redirects
+# win over static files, so "/ /xplore 302" would shadow the landing page if
+# this ever landed in public/ directly.
+#
+# These rules only hold their shape because wrangler.gliimu-dashboard.jsonc sets
+# html_handling to "none". Under the default "auto-trailing-slash", a 200 proxy
+# to /dashboard/index.html is canonicalised into a 307 to /dashboard/, which
+# collapses every clean route onto one URL and the router 404s.
 
 / /xplore 302
 /index.html /xplore 302
+/dashboard /xplore 302
+/dashboard/ /xplore 302
 /xplore /dashboard/index.html 200
+/feed /dashboard/index.html 200
 /search /dashboard/index.html 200
 /settings /dashboard/index.html 200
 /publish /dashboard/index.html 200
@@ -15,4 +23,7 @@
 /wallet /dashboard/index.html 200
 /alerts /dashboard/index.html 200
 /ping /dashboard/index.html 200
+/profile /dashboard/index.html 200
+/post /dashboard/index.html 200
+/read /dashboard/index.html 200
 /collection /dashboard/index.html 200

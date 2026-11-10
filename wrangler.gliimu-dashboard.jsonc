@@ -1,0 +1,14 @@
+// dashboard.gliimu.com — the member app, served from public/ with clean paths.
+// Deploy command: npx wrangler deploy --config wrangler.gliimu-dashboard.jsonc
+// Build command:   cp _redirects-dashboard public/_redirects
+{
+	"name": "gliimu-dashboard",
+	"compatibility_date": "2026-11-10",
+	"assets": {
+		"directory": "./public",
+		// "none" is what keeps /xplore at /xplore. The default would 307 every
+		// proxied route to /dashboard/, and the router only knows clean paths.
+		"html_handling": "none",
+		"not_found_handling": "404-page"
+	}
+}
