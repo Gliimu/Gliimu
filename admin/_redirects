@@ -1,0 +1,24 @@
+# admin.gliimu.com clean routes — the address bar is the route, so the edge must
+# answer every screen path with the SPA shell. Real files (assets, icon.png) are
+# matched before these rules, so they are unaffected.
+#
+# The routes are listed rather than caught with "/*" because a redirect wins over
+# a static file: a wildcard here would shadow anything added to admin/ later.
+# Keep this list in step with the routes table in assets/js/router.js.
+#
+# wrangler.gliimu-admin.jsonc sets html_handling to "none". Under the default
+# "auto-trailing-slash" a 200 proxy to /index.html is canonicalised into a 307 to
+# /, which collapses every screen onto one URL and the router shows the dashboard.
+
+/dashboard /index.html 200
+/submissions /index.html 200
+/reports /index.html 200
+/content /index.html 200
+/support /index.html 200
+/admin-room /index.html 200
+/finance /index.html 200
+/revenue /index.html 200
+/operations /index.html 200
+/arena /index.html 200
+/members /index.html 200
+/admins /index.html 200
