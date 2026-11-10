@@ -33,8 +33,9 @@ async function initEntrySplash() {
 
   if (session?.user) {
     // replace(), not href: Back should not bounce a member out of the app and
-    // into a marketing page they never asked for.
-    window.location.replace('/dashboard/index.html#/xplore');
+    // into a marketing page they never asked for. The app lives on its own
+    // host now; the shared .gliimu.com cookie carries the session across.
+    window.location.replace('https://dashboard.gliimu.com/xplore');
     return false;
   }
 
@@ -157,7 +158,7 @@ async function initJoinButtons() {
   buttons.forEach(btn => {
     if (authed) {
       btn.textContent = 'Dashboard';
-      btn.href = '/dashboard/index.html';
+      btn.href = 'https://dashboard.gliimu.com/xplore';
     }
   });
 }

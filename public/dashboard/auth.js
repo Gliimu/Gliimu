@@ -4,7 +4,7 @@ import { API_BASE_URL } from '/shared/js/config.js?v=2';
 document.addEventListener('DOMContentLoaded', async () => {
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
-    window.location.href = '/dashboard/index.html';
+    window.location.href = 'https://dashboard.gliimu.com/xplore';
     return;
   }
 
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
     if (error) await appAlert('Error logging in: ' + error.message);
-    else window.location.href = '/dashboard/index.html';
+    else window.location.href = 'https://dashboard.gliimu.com/xplore';
   });
 
   // Handle Join Us
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadRecoveryPDF(phrase, false);
   });
 
-  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = '/dashboard/index.html');
+  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = 'https://dashboard.gliimu.com/xplore');
 
   // ============================================
   // TERMS MODAL LOGIC
