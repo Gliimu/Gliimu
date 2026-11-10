@@ -53,9 +53,9 @@
 - Daily.co (live video rooms, meeting tokens)
 
 **Infrastructure**
-- Vercel (`www.gliimu.com` + `dashboard.gliimu.com` from `public/`, `admin.gliimu.com` from `admin/`)
+- Cloudflare Workers with static assets — three projects: `gliimu` (`www.gliimu.com` + apex, from `public/`), `gliimu-dashboard` (`dashboard.gliimu.com`, from `public/`), `gliimu-admin` (`admin.gliimu.com`, from `admin/`)
 - Render (Node server)
-- Cloudflare (DNS, CDN, R2)
+- Cloudflare (DNS, CDN, R2, Workers)
 - Supabase Cloud (database, auth, realtime)
 
 ## URLs
@@ -64,7 +64,7 @@
 |------|--------|
 | `www.gliimu.com` | Landing page + auth (`index.html`, `auth.html`) |
 | `dashboard.gliimu.com/{xplore,search,live,publish,wallet,settings,terms,...}` | Member SPA with clean paths — a catch-all rewrite serves `dashboard/index.html` and the client router maps the path to a view |
-| `admin.gliimu.com` | Admin panel (separate Vercel project) |
+| `admin.gliimu.com` | Admin panel (separate Cloudflare Worker, `gliimu-admin`) |
 | `cdn.gliimu.com` | Cloudflare R2 media |
 | `api` (Render) | Node server endpoints |
 
@@ -74,7 +74,7 @@ On the dashboard host the address bar shows `/xplore`, `/post?id=…`, `/profile
 
 ```
 gliimu/
-├── admin/                    # Admin panel (separate Vercel deploy)
+├── admin/                    # Admin panel (separate Cloudflare Worker deploy)
 │   ├── assets/js/views/      # Admin view modules (crm, submissions, operations,
 │   │                         #   finance, ledger, revenue, support, admins, ...)
 │   ├── assets/js/            # app.js, router.js, store.js, ui.js helpers
@@ -133,7 +133,11 @@ gliimu/
 │   ├── state.sql             # Read-only: what is installed right now
 │   └── ...                   # See "SQL Scripts" below
 │
-└── vercel.json               # Clean-URL redirects/rewrites + asset cache headers
+├── wrangler.gliimu.jsonc           # Cloudflare Worker: www + apex (assets ./public)
+├── wrangler.gliimu-dashboard.jsonc # Cloudflare Worker: dashboard (clean paths, html_handling none)
+├── wrangler.gliimu-admin.jsonc     # Cloudflare Worker: admin (assets ./admin)
+├── _redirects-dashboard            # dashboard clean-path rewrites (copied to public/_redirects at build)
+└── public/_headers, admin/_headers # long-lived asset cache rules (HTML stays no-cache)
 ```
 
 ## Database Schema
@@ -318,23 +322,55 @@ Server runs on `http://localhost:3000`.
 
 ### 7. Deploy Frontend
 
-**Member app (`public/`):**
+The frontend is three **Cloudflare Workers with static assets** (no bundler;
+each Worker serves a folder of static files). Deploy each with Wrangler:
 
-Deploy the whole repo to Vercel — `vercel.json` at the root rewrites
-`dashboard.gliimu.com/*` to `dashboard/index.html` and sets long-lived cache
-headers for `/dashboard/assets/*`, `/shared/*` and `/icons/*` (HTML stays
-no-cache so version-busted links always refresh).
+**Member app — `gliimu` Worker (`www.gliimu.com` + apex):**
 
-**Admin panel (`admin/`):**
+```bash
+npx wrangler deploy --config wrangler.gliimu.jsonc
+```
 
-Separate Vercel project on `admin.gliimu.com` (its own `admin/vercel.json`).
-Update the API base URL in `admin/assets/js/app.js` to point to your Render server.
+Serves `public/` (landing + auth + the app under `/dashboard/`). No `_redirects`
+here — the landing page must win at `/`. `public/_headers` sets long-lived cache
+for `/dashboard/assets/*`, `/shared/*` and `/icons/*` (HTML stays no-cache so
+version-busted links always refresh).
+
+**Member SPA — `gliimu-dashboard` Worker (`dashboard.gliimu.com`):**
+
+```bash
+# build step copies the clean-path rewrites into the assets folder
+cp _redirects-dashboard public/_redirects
+npx wrangler deploy --config wrangler.gliimu-dashboard.jsonc
+```
+
+`_redirects-dashboard` maps `/` → `/xplore` and each clean path (`/xplore`,
+`/search`, `/publish`, …) to `dashboard/index.html` (200 proxy). The config sets
+`html_handling: "none"` so the clean paths survive — the default auto-trailing-slash
+would collapse them to `/dashboard/` and 404. When connecting via Git, put the
+`cp` in the **Build command** and the `wrangler deploy` in the **Deploy command**.
+
+**Admin panel — `gliimu-admin` Worker (`admin.gliimu.com`):**
+
+```bash
+npx wrangler deploy --config wrangler.gliimu-admin.jsonc
+```
+
+Serves `admin/` (hash-routed, so no clean paths needed). `admin/_headers` caches
+`/assets/*`. Update the API base URL in `admin/assets/js/config.js`
+(`API_BASE_URL`) to point to your Render server.
 
 ### 8. Custom Domains
 
-- `gliimu.com` / `www.gliimu.com` → Vercel (landing + auth)
-- `dashboard.gliimu.com` → same Vercel project (member SPA)
-- `admin.gliimu.com` → admin Vercel project
+Attach each host as a Custom Domain on its Worker (Cloudflare creates the
+proxied DNS record automatically on a same-account zone):
+
+- `www.gliimu.com` → `gliimu` Worker (landing + auth)
+- `gliimu.com` (apex) → `gliimu` Worker, then a zone **Redirect Rule**
+  (`http.host eq "gliimu.com"` → dynamic `concat("https://www.gliimu.com", http.request.uri.path)`,
+  301, preserve query) makes `www` canonical
+- `dashboard.gliimu.com` → `gliimu-dashboard` Worker (member SPA)
+- `admin.gliimu.com` → `gliimu-admin` Worker
 - `cdn.gliimu.com` → R2 bucket custom domain
 
 ## Key Features
@@ -479,9 +515,9 @@ index.html → app.js?v=N → router.js?v=N → views/xplore.js?v=N → gliims.j
 2. If a *shared* module gains or changes an export (usual suspects: `gliims.js`, `store.js`), every importer must move to the same fresh number at once, or a tab holding the old URL keeps throwing "does not provide an export named X"
 3. Two modules must never load two copies of the same dependency: `pull-to-refresh.js` imports `router.js` with the **same** version app.js uses
 4. `design-system.css` is shared by landing + auth + dashboard + 404 — bump all four references together
-5. Every import carries a version — an unversioned import caches forever under Vercel's asset headers
+5. Every import carries a version — an unversioned import caches forever under the Cloudflare asset cache headers
 6. Current numbers live in `index.html`, `router.js` and each importer — read them from code, never from this README (numbers go stale; this file intentionally does not track them)
-7. After editing: syntax-check with `node --input-type=module --check < file.js`, then deploy Vercel
+7. After editing: syntax-check with `node --input-type=module --check < file.js`, then deploy the Cloudflare Worker (`npx wrangler deploy --config wrangler.<name>.jsonc`)
 
 ## SQL Scripts
 
@@ -547,8 +583,8 @@ Run `state.sql` before any script that drops something.
 - [ ] Server: set all env vars on Render
 - [ ] Server: deploy to Render
 - [ ] Frontend: update `config.js` with Supabase URL + anon key
-- [ ] Frontend: deploy the repo to Vercel (`vercel.json` handles routing + cache)
-- [ ] Admin: update API base URL, deploy `admin/` as its own Vercel project
+- [ ] Frontend: deploy the `gliimu` + `gliimu-dashboard` Cloudflare Workers (wrangler configs handle routing + cache)
+- [ ] Admin: update API base URL in `admin/assets/js/config.js`, deploy `admin/` as the `gliimu-admin` Cloudflare Worker
 - [ ] DNS: point the domains in Cloudflare
 - [ ] Test: signup, login, publish, read (billing ticks), live session, support
 

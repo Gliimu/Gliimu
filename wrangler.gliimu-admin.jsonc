@@ -1,0 +1,14 @@
+// admin.gliimu.com — the staff admin app, served from admin/ as static assets.
+// Deploy command: npx wrangler deploy --config wrangler.gliimu-admin.jsonc
+//
+// Hash-routed SPA (every link is #/...), so no _redirects and no clean-path
+// rewriting: the server only ever sees / and /assets/*. Pinning the directory
+// keeps Wrangler's autoconfig from guessing a different folder. The backend API
+// stays on Render; only this static frontend moves to Cloudflare.
+{
+	"name": "gliimu-admin",
+	"compatibility_date": "2026-11-10",
+	"assets": {
+		"directory": "./admin"
+	}
+}

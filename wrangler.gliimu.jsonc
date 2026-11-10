@@ -2,9 +2,8 @@
 // Deploy command: npx wrangler deploy --config wrangler.gliimu.jsonc
 //
 // This project deliberately has no _redirects: the landing page must win at /.
-// Pinning the directory here is what stops Wrangler's autoconfig from guessing
-// a different folder — it once picked admin/ because admin/vercel.json looks
-// like a Vercel app root.
+// Pinning the directory here stops Wrangler's autoconfig from guessing the
+// wrong folder when the repo holds more than one deployable app root.
 {
 	"name": "gliimu",
 	"compatibility_date": "2026-11-10",

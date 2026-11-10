@@ -2,7 +2,7 @@ node_modules/
 .env
 .DS_Store
 *.log
-.vercel/
+.wrangler/
 
 # Agent scratch — never commit it.
 .zcode/
