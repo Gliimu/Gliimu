@@ -10,8 +10,8 @@ import { store } from './store.js';
 const STAFF = 'crm operations registrar super';
 
 const routes = {
-  '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=2').then(m => m.default) },
-  '/submissions': { role: 'crm', title: 'All Gliims', load: () => import('./views/submissions.js?v=21').then(m => m.default) },
+  '/dashboard': { role: 'crm', title: 'Dashboard', load: () => import('./views/dashboard.js?v=3').then(m => m.default) },
+  '/submissions': { role: 'crm', title: 'All Gliims', load: () => import('./views/submissions.js?v=22').then(m => m.default) },
   '/reports': { role: 'crm', title: 'Reports', load: () => import('./views/reports.js?v=2').then(m => m.default) },
   '/content': { role: 'crm', title: 'FAQs, Legal & Contact', load: () => import('./views/content.js?v=2').then(m => m.default) },
   '/support': { role: STAFF, title: 'Support Desk', load: () => import('./views/support.js?v=8').then(m => m.default) },
@@ -33,16 +33,42 @@ export function firstRoute() {
   }) || '/submissions';
 }
 
+// The address bar is the route: admin.gliimu.com/support. Nothing ever writes
+// a '#/...' again, so a link an admin copies is the link that works.
+function cleanPath() {
+  return window.location.pathname.replace(/\/+$/, '') || '/';
+}
+
+export function go(path, { replace = false } = {}) {
+  history[replace ? 'replaceState' : 'pushState'](null, '', path);
+  router();
+}
+
+// Views are dynamically imported, so they navigate through this instead of
+// importing the router back — same reason the member app has window.gliimRoute.
+window.adminGo = go;
+
+// Old bookmarks and notes that still carry the hash form: /#/reports -> /reports
+function dropLegacyHash() {
+  if (!window.location.hash.startsWith('#/')) return;
+  history.replaceState(null, '', window.location.hash.slice(1));
+}
+
 export async function router() {
-  const hash = window.location.hash.slice(1) || firstRoute();
-  const path = hash.split('?')[0];
+  dropLegacyHash();
+
+  let path = cleanPath();
+  if (path === '/' || path === '/index.html') {
+    path = firstRoute();
+    history.replaceState(null, '', path);
+  }
   const route = routes[path];
 
   const app = document.getElementById('app');
   const title = document.getElementById('page-title');
 
   document.querySelectorAll('.nav-item').forEach((el) => {
-    el.classList.toggle('active', el.getAttribute('href') === `#${path}`);
+    el.classList.toggle('active', el.getAttribute('href') === path);
   });
   document.body.classList.remove('sidebar-open');
 
@@ -66,3 +92,20 @@ export async function router() {
   app.innerHTML = view.template;
   if (view.init) await view.init();
 }
+
+// Clean hrefs only work as SPA navigation if clicks are intercepted — otherwise
+// every nav link is a full page reload that re-runs the session round trip.
+// Modifier-clicks are left alone so "open in new tab" still behaves normally.
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = e.target.closest('a[href]');
+  if (!link || link.target) return;
+
+  const href = link.getAttribute('href');
+  if (!href || !href.startsWith('/') || href.startsWith('//')) return;
+  if (!routes[href.replace(/\/+$/, '') || '/']) return;
+
+  e.preventDefault();
+  go(href);
+});

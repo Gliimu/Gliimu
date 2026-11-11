@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { store } from './store.js';
-import { router, firstRoute } from './router.js?v=18';
+import { router } from './router.js?v=19';
 
 // ============================================
 // GATE — three states: signing in, signed in but
@@ -117,9 +117,8 @@ async function boot() {
 
   showShell();
   watchSupport();
-  if (!window.location.hash) window.location.hash = `#${firstRoute()}`;
 
-  window.addEventListener('hashchange', router);
+  window.addEventListener('popstate', router);
   await router();
   refreshCounts();
   setInterval(refreshCounts, 60000);
