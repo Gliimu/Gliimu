@@ -149,12 +149,12 @@ export default {
   messageCreator(userId) {
     document.querySelectorAll('.sub-card-menu.active').forEach(m => m.classList.remove('active'));
     if (!userId) return alert('No author found for this post.');
-    window.adminGo('/support');
+    window.location.hash = '#/support';
   },
 
   viewAuthor(userId) {
     if (!userId) return;
-    window.adminGo('/support');
+    window.location.hash = '#/support';
   },
 
   // Deleting for real belongs to Operations → Site Content → Deleted, so the
