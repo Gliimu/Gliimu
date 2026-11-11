@@ -39,7 +39,7 @@ export function parseHashtags(text) {
   return String(text).split(/(#[a-z0-9_]+)/gi).map(part => {
     if (!/^#[a-z0-9_]+$/i.test(part)) return escapeHtml(part);
     const tag = part.slice(1).toLowerCase();
-    return `<a href="#/collection?name=${encodeURIComponent(tag)}" class="hub-hashtag" onclick="event.stopPropagation()">#${escapeHtml(tag)}</a>`;
+    return `<a href="/collection?name=${encodeURIComponent(tag)}" class="hub-hashtag" onclick="event.stopPropagation()">#${escapeHtml(tag)}</a>`;
   }).join('');
 }
 

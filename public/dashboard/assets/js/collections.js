@@ -72,7 +72,7 @@ export function renderCollectionCard(collection) {
     comments: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     shares: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98m-.01-10.98-6.82 3.98"/>'
   };
-  return `<a class="collection-tag-card" href="#/collection?name=${encodeURIComponent(collection.tag)}">
+  return `<a class="collection-tag-card" href="/collection?name=${encodeURIComponent(collection.tag)}">
     ${cover}
     <div class="collection-tag-info">
       <span class="collection-tag-name">#${escapeHtml(collection.tag)}</span>

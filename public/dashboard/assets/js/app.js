@@ -1,11 +1,11 @@
 import { store } from './store.js?v=2';
-import { router } from './router.js?v=216';
-import { initPullToRefresh } from './pull-to-refresh.js?v=14';
+import { router } from './router.js?v=217';
+import { initPullToRefresh } from './pull-to-refresh.js?v=15';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=4';
-import { initAccountMenu } from './account-menu.js?v=4';
+import { initAccountMenu } from './account-menu.js?v=5';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -268,7 +268,7 @@ async function loadFollowedRail() {
     rail.innerHTML = `<div class="rail-people-heading">Following</div>` + ids
       .map(id => byId.get(id))
       .filter(person => person?.avatar_url)
-      .map(person => `<a class="rail-person" href="#/profile?u=${person.id}" title="${escapeHtml(person.full_name || '')}">
+      .map(person => `<a class="rail-person" href="/profile?u=${person.id}" title="${escapeHtml(person.full_name || '')}">
         <img class="rail-person-avatar" src="${escapeHtml(person.avatar_url)}" alt="">
         <span class="rail-person-name">${escapeHtml(person.full_name || '')}</span>
       </a>`)
