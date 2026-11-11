@@ -236,12 +236,15 @@ function applyDownloadSection(settings) {
 
   const versionEl = document.getElementById('dl-version');
   const versionBadge = versionEl ? versionEl.closest('.download-version-badge') : null;
+  const versionRow = document.querySelector('#download-panel .download-version');
   const version = (settings.app_version || '').trim();
+  const notes = (settings.app_version_notes || '').trim();
   if (versionEl) versionEl.textContent = version;
   if (versionBadge) versionBadge.style.display = version ? '' : 'none';
 
   const notesEl = document.getElementById('dl-notes');
-  if (notesEl) notesEl.textContent = (settings.app_version_notes || '').trim();
+  if (notesEl) notesEl.textContent = notes;
+  if (versionRow) versionRow.style.display = (version || notes) ? '' : 'none';
 
   const targets = [
     ['dl-windows', settings.app_windows_url],
@@ -253,11 +256,13 @@ function applyDownloadSection(settings) {
 
   // The buttons ship disabled in index.html; a DB URL is the only thing that
   // switches one on, so a placeholder link can never be handed to a visitor.
+  let liveFiles = 0;
   targets.forEach(([id, raw]) => {
     const el = document.getElementById(id);
     if (!el) return;
     const href = safeUrl(raw);
     if (href) {
+      liveFiles++;
       el.href = href;
       el.classList.remove('is-off');
       el.removeAttribute('aria-disabled');
@@ -267,6 +272,13 @@ function applyDownloadSection(settings) {
       el.setAttribute('aria-disabled', 'true');
     }
   });
+
+  // Nothing installable: keep the buttons as a preview of what is coming and
+  // explain the disabled state instead of leaving visitors to guess.
+  const soon = document.getElementById('dl-soon');
+  const subtitle = document.getElementById('dl-subtitle');
+  if (soon) soon.hidden = liveFiles > 0;
+  if (subtitle) subtitle.style.display = liveFiles > 0 ? '' : 'none';
 
   // The QR block only renders on the desktop layout; skip the download there.
   const qrWrap = document.getElementById('dl-qr-wrap');
@@ -505,7 +517,7 @@ async function loadFaqs() {
     { q: 'How do payments work?', a: 'We accept bank transfers and Paystack. Wallet top-ups are instant.' },
     { q: 'Can I publish my own content?', a: 'Yes. Open the Publish page in your dashboard, write your gliim and it goes live the moment you publish it.' },
     { q: 'How do referrals work?', a: 'Share your referral link from the Billing page. When your friend signs up and makes a purchase, you earn GP.' },
-    { q: 'Is there a mobile app?', a: 'Yes. Check the download section for Android, iOS, Windows, macOS, and Linux.' },
+    { q: 'Is there a mobile app?', a: 'The app is on the way. We are finishing installers for Android, iOS, Windows, macOS and Linux; until then Gliimu runs in your browser on any device.' },
     { q: 'How do I contact support?', a: 'Use the Support tab in your dashboard or email support@gliimu.com.' }
   ];
   let faqs = fallback;

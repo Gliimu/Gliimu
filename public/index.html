@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=44">
+  <link rel="stylesheet" href="/assets/css/public.css?v=45">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -113,7 +113,7 @@
     <div class="container">
       <div class="pillars-header reveal download-head">
         <h2 class="section-title">eNjOy Gliimu</h2>
-        <p class="section-subtitle">Install the app for the best experience.</p>
+        <p class="section-subtitle" id="dl-subtitle">Install the app for the best experience.</p>
       </div>
 
       <div class="download-panel reveal" id="download-panel">
@@ -155,6 +155,13 @@
             </div>
           </div>
 
+          <!-- Ships hidden: main.js shows it only when no installer is live. -->
+          <p class="download-soon" id="dl-soon" hidden>
+            The app is on the way. We're putting the finishing touches on installers for
+            Windows, macOS, Linux, Android and iOS. Until then, Gliimu runs right here in
+            your browser — nothing to install, and you always have the latest version.
+          </p>
+
         </div>
       </div>
     </div>
@@ -186,7 +193,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=37"></script>
+  <script type="module" src="/assets/js/main.js?v=38"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

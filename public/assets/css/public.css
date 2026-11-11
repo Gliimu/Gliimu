@@ -409,6 +409,17 @@ section:not(.hero-video-section):not(.contact-faq-section) { position: relative;
 .dl-btn i { font-size: 18px; }
 .dl-btn.is-off { opacity: 0.4; pointer-events: none; }
 
+/* The "app is on the way" notice — main.js reveals it when no installer URL is set */
+.download-soon {
+  max-width: 620px;
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.72);
+}
+.download-soon[hidden] { display: none; }
+
 .download-qr { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 8px; }
 .download-qr-code { width: 148px; height: 148px; padding: 10px; background: #fff; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
 .download-qr-code img { width: 100%; height: 100%; display: block; }
