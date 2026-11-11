@@ -290,11 +290,21 @@ function applyDownloadSection(settings) {
   const isWideScreen = window.matchMedia('(min-width: 769px)').matches;
   if (!isWideScreen || isTouchDevice) return;
 
+  // Until there is a real installer the QR opens Gliimu in the phone's browser,
+  // so say that instead of promising a download.
+  const qrLabel = liveFiles > 0
+    ? 'Scan to download the Gliimu app'
+    : 'Scan to open Gliimu on your phone';
+  const qrHint = qrWrap.querySelector('.download-qr-hint');
+  if (qrHint) qrHint.textContent = liveFiles > 0
+    ? 'Scan with your phone to install on Android or iOS'
+    : qrLabel;
+
   qrWrap.style.display = 'flex';
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(qrTarget)}`;
   qrWrap.querySelector('.download-qr-code').innerHTML = `
     <div class="landing-qr-img">
-      <img class="qr" src="${qrSrc}" alt="Scan to download the Gliimu app">
+      <img class="qr" src="${qrSrc}" alt="${qrLabel}">
       <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
     </div>
   `;
