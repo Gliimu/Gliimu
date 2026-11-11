@@ -159,15 +159,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ============================================
   // Handle Log In
   // ============================================
+  // Signing in is a network round trip and then a hand-off to the dashboard
+  // host, so the button carries the wait: it says what it is doing, refuses a
+  // second tap, and only falls back when the answer is an error.
+  const loginBtn = document.querySelector('#login-form .btn-primary');
+  const loginLabel = loginBtn.textContent;
+  const showLoginBusy = (label) => {
+    loginBtn.disabled = true;
+    loginBtn.classList.add('is-loading');
+    loginBtn.textContent = '';
+    const spinner = document.createElement('span');
+    spinner.className = 'btn-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+    loginBtn.append(spinner, label);
+  };
+  const resetLoginBtn = () => {
+    loginBtn.disabled = false;
+    loginBtn.classList.remove('is-loading');
+    loginBtn.textContent = loginLabel;
+  };
+
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (loginBtn.disabled) return;
+
     const username = document.getElementById('login-username').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
     const fakeEmail = `${username}@gliimu.app`;
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
-    if (error) await appAlert('Error logging in: ' + error.message);
-    else window.location.href = 'https://dashboard.gliimu.com/xplore';
+    showLoginBusy('Signing in…');
+    const { error } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+
+    if (error) {
+      resetLoginBtn();
+      await appAlert('Error logging in: ' + error.message);
+      return;
+    }
+
+    showLoginBusy('Opening your dashboard…');
+    window.location.href = 'https://dashboard.gliimu.com/xplore';
   });
 
   // Handle Join Us

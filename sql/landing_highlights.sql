@@ -4,11 +4,20 @@
 -- Safe to run more than once.
 --
 -- WHAT THIS INSTALLS
---   public.landing_highlights() — the single RPC behind the "Latest on
---   Gliimu" block on gliimu.com. It answers with three things:
+--   public.landing_highlights() — the single RPC behind the XpLoRe block
+--   on gliimu.com. It answers with three things:
 --     top_book       most-viewed approved gliim that has a document block
---     top_audiolite  most-viewed approved gliim that has an audio block
+--     top_log        most-viewed approved gliim made of media blocks only
 --     top_gliimaits  the three members with the highest total_gp
+--
+-- WHY "LOG" AND NOT "AUDIOLITE"
+--   The separate audio and video blocks were merged into one Media block, so
+--   the block type is now 'media' and the card is the one with the play badge.
+--   The old branch looked for b->>'type' = 'audio', which no row has ever
+--   matched since the merge, so the card was permanently empty. A log is
+--   media-only from top to bottom — the same rule gliimKindOf() applies in
+--   public/dashboard/assets/js/views/gliims.js — so a bundle that merely
+--   carries a recording stays a bundle and never pretends to be a log.
 --
 -- WHY IT IS A FUNCTION AND NOT A QUERY
 --   gliimu.com is anonymous, so the caller has no Postgres role of its
@@ -24,6 +33,11 @@
 --
 -- This file used to live only in the database. It was captured from the
 -- live definition, so a fresh install now builds the same function.
+--
+-- ORDER OF DEPLOYMENT
+--   Safe to run before or after the gliimu.com deploy: the card reads
+--   data.top_log, and a missing key only means the card shows its
+--   play-icon placeholder, which is exactly what it does today.
 -- ============================================================
 
 create or replace function public.landing_highlights()
@@ -34,7 +48,7 @@ set search_path = public
 as $$
 declare
   v_top_book      jsonb;
-  v_top_audio     jsonb;
+  v_top_log       jsonb;
   v_top_gliimaits jsonb;
 begin
   -- 1. Top book: approved content with document blocks and most views
@@ -57,22 +71,25 @@ begin
   order by coalesce(g.views, 0) desc, g.created_at desc
   limit 1;
 
-  -- 2. Top audiolite: approved content with audio blocks and most views
+  -- 2. Top log: approved content made only of media blocks, most views
   select jsonb_build_object(
     'id', g.id,
     'title', g.title,
     'cover_url', g.cover_url,
     'author', p.full_name,
     'views', coalesce(g.views, 0)
-  ) into v_top_audio
+  ) into v_top_log
   from public.feed_gliims g
   left join public.profiles p on p.id = g.user_id
   inner join public.feed_gliim_contents c on c.post_id = g.id
   where g.status = 'approved'
     and g.deleted_at is null
     and g.cover_url is not null
-    and exists (
-      select 1 from jsonb_array_elements(c.blocks) b where b->>'type' = 'audio'
+    and jsonb_typeof(c.blocks) = 'array'
+    and jsonb_array_length(c.blocks) > 0
+    and not exists (
+      select 1 from jsonb_array_elements(c.blocks) b
+      where coalesce(b->>'type', '') not in ('media', 'audio', 'video')
     )
   order by coalesce(g.views, 0) desc, g.created_at desc
   limit 1;
@@ -94,7 +111,7 @@ begin
 
   return jsonb_build_object(
     'top_book', v_top_book,
-    'top_audiolite', v_top_audio,
+    'top_log', v_top_log,
     'top_gliimaits', v_top_gliimaits
   );
 end;
@@ -105,7 +122,7 @@ grant execute on function public.landing_highlights() to anon;
 grant execute on function public.landing_highlights() to authenticated;
 
 -- ============================================================
--- SELF CHECK — three rows, all should read OK
+-- SELF CHECK — five answers, the first four should read OK
 -- ============================================================
 -- 1. the function exists and is still security definer
 select case when count(*) = 1 and bool_and(p.prosecdef)
@@ -126,3 +143,14 @@ select case when p.prosrc like '%deleted_at is null%'
 from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public' and p.proname = 'landing_highlights';
+
+-- 4. the payload carries the log key and no longer carries the audiolite one
+select case when jsonb_exists(landing_highlights(), 'top_log')
+            and not jsonb_exists(landing_highlights(), 'top_audiolite')
+  then 'OK' else 'MISSING — this script did not replace the function' end
+  as payload_renamed;
+
+-- 5. what the Logs card points at right now
+select coalesce(landing_highlights() -> 'top_log' ->> 'title',
+                '(no approved log with a cover yet — the card shows its play-icon placeholder)')
+  as top_log_title;

@@ -184,6 +184,42 @@
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
+/* The wait between tapping "Log In to Dashboard" and the dashboard host
+   answering. The button keeps its size and only swaps its label for a
+   spinner, so the page never looks like it ignored the tap. */
+.btn-primary.is-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  opacity: 0.78;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes auth-pulse {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner {
+    animation: auth-pulse 1.2s ease-in-out infinite;
+  }
+}
+
 .btn-secondary {
   width: 100%;
   background: rgba(255, 255, 255, 0.1);

@@ -372,11 +372,11 @@ async function loadHubHighlights() {
   }
 
   const book = data.top_book;
-  const audio = data.top_audiolite;
+  const log = data.top_log;
   const gliimaits = Array.isArray(data.top_gliimaits) ? data.top_gliimaits : [];
 
   const bookCover = safeUrl(book?.cover_url);
-  const audioCover = safeUrl(audio?.cover_url);
+  const logCover = safeUrl(log?.cover_url);
 
   const avatars = gliimaits.slice(0, 3).map(u => {
     const ava = safeUrl(u.avatar_url);
@@ -385,18 +385,18 @@ async function loadHubHighlights() {
       : `<div class="xplore-events-ava xplore-events-ava-empty"></div>`;
   }).join('');
 
-  const headsetSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>';
+  const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon></svg>';
   const bookSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
 
   container.innerHTML = `
-    <a class="xplore-card xplore-card-audio" href="#" data-xplore="audiolite" ${audio?.id ? `data-item-id="${audio.id}"` : ''}>
+    <a class="xplore-card xplore-card-log" href="#" data-xplore="log" ${log?.id ? `data-item-id="${log.id}"` : ''}>
       <div class="xplore-card-cover">
-        ${audioCover
-          ? `<img src="${audioCover}" alt="">`
-          : `<div class="xplore-card-cover-empty"></div><div class="xplore-center-icon">${headsetSvg}</div>`}
+        ${logCover
+          ? `<img src="${logCover}" alt="">`
+          : `<div class="xplore-card-cover-empty"></div><div class="xplore-center-icon">${playSvg}</div>`}
       </div>
-      <h3>Audiolites</h3>
-      <p>Creating spark in minds through spoken words</p>
+      <h3>Logs</h3>
+      <p>Audio and video gliims, ready to press play</p>
     </a>
     <a class="xplore-card xplore-card-book" href="#" data-xplore="book" ${book?.id ? `data-item-id="${book.id}"` : ''}>
       <div class="xplore-card-cover">

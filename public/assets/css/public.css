@@ -240,7 +240,7 @@ section:not(.hero-video-section):not(.contact-faq-section) { position: relative;
 
 /* XpLoRe pillar cards */
 .xplore-pillars { display: grid; grid-template-columns: repeat(3, 220px); gap: var(--space-6); margin-top: 48px; justify-content: center; align-items: end; }
-.xplore-card-audio { margin-top: 20px; }
+.xplore-card-log { margin-top: 20px; }
 .xplore-card { text-align: center; text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s; }
 .xplore-card:hover { transform: translateY(-4px); }
 .xplore-card-cover { width: 120px; height: 120px; margin: 0 auto var(--space-4); position: relative; border-radius: var(--radius-md); overflow: hidden; }
