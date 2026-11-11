@@ -273,12 +273,20 @@ function applyDownloadSection(settings) {
     }
   });
 
-  // Nothing installable: keep the buttons as a preview of what is coming and
-  // explain the disabled state instead of leaving visitors to guess.
+  // Nothing installable: the buttons stay as a preview of what is coming, and
+  // the explanation is held back until a visitor actually taps one of them.
   const soon = document.getElementById('dl-soon');
   const subtitle = document.getElementById('dl-subtitle');
-  if (soon) soon.hidden = liveFiles > 0;
   if (subtitle) subtitle.style.display = liveFiles > 0 ? '' : 'none';
+  if (soon) soon.hidden = true;
+  if (liveFiles === 0 && soon) {
+    panel.querySelectorAll('.dl-btn.is-off').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        soon.hidden = false;
+      });
+    });
+  }
 
   // The QR block only renders on the desktop layout; skip the download there.
   const qrWrap = document.getElementById('dl-qr-wrap');

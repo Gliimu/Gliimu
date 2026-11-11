@@ -407,9 +407,10 @@ section:not(.hero-video-section):not(.contact-faq-section) { position: relative;
 
 .dl-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.4); transform: translateY(-2px); }
 .dl-btn i { font-size: 18px; }
-.dl-btn.is-off { opacity: 0.4; pointer-events: none; }
+.dl-btn.is-off { opacity: 0.4; cursor: pointer; }
 
-/* The "app is on the way" notice — main.js reveals it when no installer URL is set */
+/* The "app is on the way" notice — main.js reveals it when a visitor taps a
+   greyed-out platform button, so it never sits on the page unasked. */
 .download-soon {
   max-width: 620px;
   margin: 0;

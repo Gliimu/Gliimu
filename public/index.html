@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=45">
+  <link rel="stylesheet" href="/assets/css/public.css?v=46">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -155,8 +155,9 @@
             </div>
           </div>
 
-          <!-- Ships hidden: main.js shows it only when no installer is live. -->
-          <p class="download-soon" id="dl-soon" hidden>
+          <!-- Ships hidden: main.js reveals it when a visitor taps a disabled
+               platform button, so nobody meets the notice unasked. -->
+          <p class="download-soon" id="dl-soon" hidden aria-live="polite">
             The app is on the way. We're putting the finishing touches on installers for
             Windows, macOS, Linux, Android and iOS. Until then, Gliimu runs right here in
             your browser — nothing to install, and you always have the latest version.
@@ -193,7 +194,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=39"></script>
+  <script type="module" src="/assets/js/main.js?v=40"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
