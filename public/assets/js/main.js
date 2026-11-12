@@ -156,10 +156,11 @@ async function initJoinButtons() {
   }
 
   buttons.forEach(btn => {
-    if (authed) {
-      btn.textContent = 'Dashboard';
-      btn.href = 'https://dashboard.gliimu.com/xplore';
-    }
+    if (!authed) return;
+    // Only the words change — the arrow icon lives beside the label.
+    const label = btn.querySelector('span') || btn;
+    label.textContent = 'Dashboard';
+    btn.href = 'https://dashboard.gliimu.com/xplore';
   });
 }
 
@@ -223,7 +224,7 @@ function applyDownloadSection(settings) {
   // and the panel adds its own 50% layer on top.
   const bg = safeUrl(settings.app_download_bg_url);
   if (bg) {
-    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.5), rgb(0, 0, 0)) center center / cover, url('${bg}')`;
+    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.55), rgba(10, 15, 30, 0.9)) center center / cover, url('${bg}')`;
     section.style.backgroundSize = 'cover';
     section.style.backgroundPosition = 'center';
     section.classList.add('has-bg');
@@ -273,29 +274,22 @@ function applyDownloadSection(settings) {
     }
   });
 
-  // Nothing installable: the buttons stay as a preview of what is coming, and
-  // the explanation is held back until a visitor actually taps one of them.
-  const soon = document.getElementById('dl-soon');
+  // Nothing installable: the five grey buttons are taken out and the plain
+  // statement that the app is on the way becomes the section. CSS does the
+  // hiding, keyed off this one class.
+  panel.classList.toggle('no-installers', liveFiles === 0);
   const subtitle = document.getElementById('dl-subtitle');
   if (subtitle) subtitle.style.display = liveFiles > 0 ? '' : 'none';
-  if (soon) soon.hidden = true;
-  if (liveFiles === 0 && soon) {
-    panel.querySelectorAll('.dl-btn.is-off').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        soon.hidden = false;
-      });
-    });
-  }
 
-  // The QR block only renders on the desktop layout; skip the download there.
+  // The QR only helps a visitor standing at a desk with a phone in their
+  // pocket, so it renders on a wide non-touch screen and nowhere else.
   const qrWrap = document.getElementById('dl-qr-wrap');
   const qrTarget = safeUrl(settings.app_mobile_qr_url)
     || safeUrl(settings.app_android_url)
     || safeUrl(settings.app_ios_url);
   if (!qrWrap || !qrTarget) return;
   const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  const isWideScreen = window.matchMedia('(min-width: 769px)').matches;
+  const isWideScreen = window.matchMedia('(min-width: 601px)').matches;
   if (!isWideScreen || isTouchDevice) return;
 
   // Until there is a real installer the QR opens Gliimu in the phone's browser,
@@ -342,23 +336,83 @@ function forceVideoAutoplay() {
 }
 
 // ============================================
-// FETCH LATEST ON GLIIMU (contest, cohort, top 3 GP)
+// FETCH LATEST ON GLIIMU (log, publication, bundle, open co-hort)
 // ============================================
-function formatDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const DASHBOARD = 'https://dashboard.gliimu.com';
+
+// One rule for every card and for the co-hort strip: a visitor is sent to the
+// auth page, a signed-in person is sent to the thing they tapped (or to XpLoRe
+// when there is nothing behind the tap).
+async function goToDashboard(itemId) {
+  let authed = false;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    authed = !!session;
+  } catch (e) {
+    // Auth unreachable — treat the visitor as signed out.
+  }
+  if (!authed) window.location.href = '/auth.html';
+  else window.location.href = itemId ? `${DASHBOARD}/post?id=${encodeURIComponent(itemId)}` : `${DASHBOARD}/xplore`;
 }
 
-function timeLeft(iso) {
-  if (!iso) return 'No deadline';
-  const diff = new Date(iso) - new Date();
-  if (diff <= 0) return 'Ended';
-  const days = Math.floor(diff / 86400000);
-  if (days > 30) return Math.floor(days / 30) + 'mo left';
-  if (days > 0) return days + 'd left';
-  const hrs = Math.floor(diff / 3600000);
-  return hrs + 'h left';
+const PLAY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon></svg>';
+const EYE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+const COMMENT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
+
+function pillarLink(itemId, label, extraClass, inner) {
+  return `<a class="pillar-link${extraClass ? ` ${extraClass}` : ''}" href="#" data-item-id="${escapeHtml(itemId || '')}" aria-label="${escapeHtml(label)}">${inner}</a>`;
+}
+
+// The three cards are the three things a gliim can be, drawn exactly as the
+// dashboard draws them: a log is a square with a play badge, a publication is
+// its cover alone, a bundle is a wide card with the writer under it.
+function logCardHtml(log) {
+  const cover = safeUrl(log.cover_url);
+  const inner = `<article class="audiolite-card${cover ? ' audiolite-cover-card' : ''}"${
+    cover ? ` style="background-image: url('${cover}');"` : ''
+  }>
+    <div class="audiolite-center-icon" aria-hidden="true">${PLAY_SVG}</div>
+    <h2 class="audiolite-title">${escapeHtml(log.title)}</h2>
+  </article>`;
+  return pillarLink(log.id, `Log: ${log.title || 'Untitled Gliim'}`, '', inner);
+}
+
+function bookCardHtml(book) {
+  const cover = safeUrl(book.cover_url);
+  if (!cover) return '';
+  const inner = `<article class="book-cover-card" style="background-image: url('${cover}');"></article>`;
+  return pillarLink(book.id, `Publication: ${book.title || 'Untitled Gliim'}`, '', inner);
+}
+
+function bundleCardHtml(b) {
+  const cover = safeUrl(b.cover_url);
+  if (!cover) return '';
+  const avatar = safeUrl(b.author_avatar);
+  const name = String(b.author || '').trim();
+  const author = (avatar || name)
+    ? `<div class="blog-author">${avatar ? `<img class="blog-avatar" src="${avatar}" alt="">` : ''}${
+        name ? `<span>${escapeHtml(name)}</span>` : ''}</div>`
+    : '';
+  const date = b.created_at
+    ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '';
+  const desc = String(b.description || '').trim();
+  const inner = `<article class="blog-card bundle-card">
+    <div class="bundle-cover" style="background-image: url('${cover}');"></div>
+    <div class="blog-content">
+      <div class="blog-meta">${date ? `<span class="blog-date">${escapeHtml(date)}</span>` : ''}</div>
+      <h2 class="blog-title">${escapeHtml(b.title || 'Untitled Gliim')}</h2>
+      ${desc ? `<p class="blog-desc">${escapeHtml(desc)}</p>` : ''}
+      <div class="blog-footer">
+        ${author}
+        <div class="blog-stats">
+          <span class="blog-stat">${EYE_SVG}${Number(b.views) || 0}</span>
+          <span class="blog-stat">${COMMENT_SVG}${Number(b.comments) || 0}</span>
+        </div>
+      </div>
+    </div>
+  </article>`;
+  return pillarLink(b.id, `Bundle: ${b.title || 'Untitled Gliim'}`, 'pillar--bundle', inner);
 }
 
 async function loadHubHighlights() {
@@ -367,68 +421,100 @@ async function loadHubHighlights() {
 
   const { data, error } = await supabase.rpc('landing_highlights', {});
   if (error || !data) {
-    container.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">Could not load highlights.</p>';
+    container.innerHTML = '<p class="panel-note">Could not load highlights.</p>';
     return;
   }
 
-  const book = data.top_book;
-  const log = data.top_log;
-  const gliimaits = Array.isArray(data.top_gliimaits) ? data.top_gliimaits : [];
+  const cards = [
+    data.top_log && logCardHtml(data.top_log),
+    data.top_book && bookCardHtml(data.top_book),
+    data.top_bundle && bundleCardHtml(data.top_bundle),
+  ].filter(Boolean);
 
-  const bookCover = safeUrl(book?.cover_url);
-  const logCover = safeUrl(log?.cover_url);
+  container.innerHTML = cards.length
+    ? cards.join('')
+    : '<p class="panel-note">Nothing is on the shelf yet.</p>';
 
-  const avatars = gliimaits.slice(0, 3).map(u => {
-    const ava = safeUrl(u.avatar_url);
-    return ava
-      ? `<img src="${ava}" alt="" class="xplore-events-ava">`
-      : `<div class="xplore-events-ava xplore-events-ava-empty"></div>`;
-  }).join('');
-
-  const playSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon></svg>';
-  const bookSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
-
-  container.innerHTML = `
-    <a class="xplore-card xplore-card-log" href="#" data-xplore="log" ${log?.id ? `data-item-id="${log.id}"` : ''}>
-      <div class="xplore-card-cover">
-        ${logCover ? `<img src="${logCover}" alt="">` : `<div class="xplore-card-cover-empty"></div>`}
-        <span class="xplore-card-play" aria-hidden="true">${playSvg}</span>
-      </div>
-      <h3>Logs</h3>
-      <p>Audio and video gliims, ready to press play</p>
-    </a>
-    <a class="xplore-card xplore-card-book" href="#" data-xplore="book" ${book?.id ? `data-item-id="${book.id}"` : ''}>
-      <div class="xplore-card-cover">
-        ${bookCover
-          ? `<img src="${bookCover}" alt="">`
-          : `<div class="xplore-card-cover-empty"></div><div class="xplore-center-icon">${bookSvg}</div>`}
-      </div>
-      <h3>Publications</h3>
-      <p>Stories, essays and books that stay with you</p>
-    </a>
-    <a class="xplore-card xplore-card-events" href="#" data-xplore="events">
-      <div class="xplore-events-avatars">${avatars || '<div class="xplore-events-ava xplore-events-ava-empty"></div>'}</div>
-      <h3>Events</h3>
-      <p>Building value and growing together</p>
-    </a>
-  `;
-
-  container.querySelectorAll('[data-xplore]').forEach(el => {
-    el.addEventListener('click', async (e) => {
+  container.querySelectorAll('[data-item-id]').forEach(el => {
+    el.addEventListener('click', (e) => {
       e.preventDefault();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = '/auth.html';
-        return;
-      }
-      const itemId = el.dataset.itemId;
-      if (itemId) {
-        window.location.href = `https://dashboard.gliimu.com/post?id=${itemId}`;
-      } else {
-        window.location.href = 'https://dashboard.gliimu.com/xplore';
-      }
+      goToDashboard(el.dataset.itemId || null);
     });
   });
+
+  renderCohortStrip(data.top_cohort);
+  renderStepNow(data);
+}
+
+// ============================================
+// CO-HORT STRIP — seats, title, accepted faces, one line
+// ============================================
+// Sticky under the hero. It stays hidden unless a cohort is actually open,
+// and a face only appears here once Operations has accepted that person.
+function renderCohortStrip(cohort) {
+  const bar = document.getElementById('cohort-bar');
+  if (!bar) return;
+  if (!cohort || !cohort.id) return;
+
+  const accepted = Number(cohort.accepted_count) || 0;
+  const required = Number(cohort.required_count) || 0;
+
+  const countEl = document.getElementById('cohort-count');
+  if (countEl) countEl.textContent = required ? `${accepted}/${required}` : String(accepted);
+
+  const titleEl = document.getElementById('cohort-title');
+  if (titleEl) titleEl.textContent = String(cohort.strip_label || cohort.title || '').trim();
+
+  const facesEl = document.getElementById('cohort-faces');
+  if (facesEl) {
+    facesEl.innerHTML = (Array.isArray(cohort.members) ? cohort.members : []).map(m => {
+      const url = safeUrl(m && m.avatar_url);
+      return url ? `<img class="cohort-strip-face" src="${url}" alt="">` : '';
+    }).join('');
+  }
+
+  bar.hidden = false;
+
+  const strip = document.getElementById('cohort-strip');
+  if (strip) strip.addEventListener('click', () => goToDashboard(null));
+}
+
+// One step open at a time, so the rail reads as progress: everything before
+// the open node is already walked, everything after it is still ahead.
+function initStepsAccordion() {
+  const items = Array.from(document.querySelectorAll('.steps-accordion .step-item'));
+  if (items.length === 0) return;
+
+  const select = (openIndex) => {
+    items.forEach((item, i) => {
+      item.classList.toggle('is-open', i === openIndex);
+      item.classList.toggle('is-done', i < openIndex);
+      const head = item.querySelector('.step-head');
+      if (head) head.setAttribute('aria-expanded', i === openIndex ? 'true' : 'false');
+    });
+  };
+
+  items.forEach((item, i) => {
+    const head = item.querySelector('.step-head');
+    if (head) head.addEventListener('click', () => select(i));
+  });
+
+  select(0);
+}
+
+// The two "right now" lines inside How Gliimu works. They quote real rows, so
+// they stay hidden when the library has nothing to quote.
+function renderStepNow(data) {
+  const logEl = document.getElementById('step-now-log');
+  if (logEl && data.top_log && data.top_log.title) {
+    logEl.innerHTML = `Right now: <strong>${escapeHtml(data.top_log.title)}</strong>`;
+    logEl.hidden = false;
+  }
+  const cohortEl = document.getElementById('step-now-cohort');
+  if (cohortEl && data.top_cohort && data.top_cohort.title) {
+    cohortEl.innerHTML = `Now open: <strong>${escapeHtml(data.top_cohort.title)}</strong>`;
+    cohortEl.hidden = false;
+  }
 }
 
 // ============================================
@@ -566,6 +652,7 @@ const boot = async () => {
 
   initJoinButtons();
   initScrollReveal();
+  initStepsAccordion();
   loadSiteSettings();
   loadHubHighlights();
   loadPartners();
