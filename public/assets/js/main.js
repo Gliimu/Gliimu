@@ -391,9 +391,8 @@ async function loadHubHighlights() {
   container.innerHTML = `
     <a class="xplore-card xplore-card-log" href="#" data-xplore="log" ${log?.id ? `data-item-id="${log.id}"` : ''}>
       <div class="xplore-card-cover">
-        ${logCover
-          ? `<img src="${logCover}" alt="">`
-          : `<div class="xplore-card-cover-empty"></div><div class="xplore-center-icon">${playSvg}</div>`}
+        ${logCover ? `<img src="${logCover}" alt="">` : `<div class="xplore-card-cover-empty"></div>`}
+        <span class="xplore-card-play" aria-hidden="true">${playSvg}</span>
       </div>
       <h3>Logs</h3>
       <p>Audio and video gliims, ready to press play</p>
