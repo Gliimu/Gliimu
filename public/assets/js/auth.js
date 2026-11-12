@@ -2,9 +2,20 @@ import { supabase } from '/shared/js/config.js?v=2';
 import { API_BASE_URL } from '/shared/js/config.js?v=2';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // The landing page hosts this page inside a slide-over. A frame cannot move
+  // the page it sits in, so embedded we report the sign-in to the parent and
+  // let it navigate the whole window; on its own it still navigates directly.
+  const EMBEDDED = window.self !== window.top;
+  if (EMBEDDED) document.body.classList.add('auth-embed');
+
+  const enterApp = () => {
+    if (EMBEDDED) window.parent.postMessage('gliimu:signed-in', window.location.origin);
+    else window.location.href = 'https://dashboard.gliimu.com/xplore';
+  };
+
   const { data: { session } } = await supabase.auth.getSession();
   if (session) {
-    window.location.href = 'https://dashboard.gliimu.com/xplore';
+    enterApp();
     return;
   }
 
@@ -15,6 +26,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ============================================
   // Background image (same as landing download section)
+  // The slide-over is a narrow column on its own flat ground, so the photo
+  // would only cost a request.
   // ============================================
   async function loadAuthBackground() {
     const { data } = await supabase.from('site_settings').select('app_download_bg_url').single();
@@ -25,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       el.style.backgroundImage = `url('${bg}')`;
     }
   }
-  loadAuthBackground();
+  if (!EMBEDDED) loadAuthBackground();
 
   // ============================================
   // Terms & Policy (from legal_documents)
@@ -50,10 +63,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // The stored document opens with a hand-typed "Last Updated" line, and the
+    // modal already prints the row's own updated_at below it. Two dates, one of
+    // them stale, so the copy inside the body is dropped and the real timestamp
+    // stays the single source of truth.
+    let hasDateLine = false;
     if (updatedEl && data.updated_at) {
       const d = new Date(data.updated_at);
       updatedEl.textContent = 'Last Updated: ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      hasDateLine = true;
     }
+
+    const dropDateLine = () => {
+      if (!hasDateLine) return;
+      const first = container.firstElementChild;
+      if (first && /^last updated/i.test(first.textContent.trim())) first.remove();
+    };
 
     const raw = data.content.trim();
     const isUrl = /^https?:\/\//.test(raw);
@@ -64,6 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const buf = await resp.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer: buf });
         container.innerHTML = result.value || '<p>The document is empty.</p>';
+        dropDateLine();
       } catch (err) {
         container.innerHTML = `<p>Could not load the terms document.</p>
           <p><a href="${raw}" target="_blank" rel="noopener" class="link-muted">Download the document instead</a></p>`;
@@ -79,6 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     container.innerHTML = data.content;
+    dropDateLine();
   }
   loadTermsAndPolicy();
 
@@ -90,17 +117,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   const authCard = document.querySelector('.auth-card');
   const recoveryView = document.getElementById('recovery-view');
 
+  function showTab(targetTab) {
+    tabs.forEach(t => t.classList.toggle('active', t.getAttribute('data-tab') === targetTab));
+    forms.forEach(form => form.classList.toggle('active', form.id === `${targetTab}-form`));
+  }
+
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetTab = tab.getAttribute('data-tab');
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      forms.forEach(form => {
-        form.classList.remove('active');
-        if (form.id === `${targetTab}-form`) form.classList.add('active');
-      });
-    });
+    tab.addEventListener('click', () => showTab(tab.getAttribute('data-tab')));
   });
+
+  // /auth.html?tab=join is what the landing page's "Join Us" link and the
+  // slide-over ask for; anything unknown keeps the default Log In view.
+  const wantedTab = new URLSearchParams(window.location.search).get('tab');
+  if (wantedTab === 'join' || wantedTab === 'login') showTab(wantedTab);
 
   // ============================================
   // Helper: Generate 16-word phrase
@@ -197,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     showLoginBusy('Opening your dashboard…');
-    window.location.href = 'https://dashboard.gliimu.com/xplore';
+    enterApp();
   });
 
   // Handle Join Us
@@ -248,14 +277,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadRecoveryPDF(phrase, false);
   });
 
-  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', () => window.location.href = 'https://dashboard.gliimu.com/xplore');
+  document.getElementById('proceed-to-dashboard-btn').addEventListener('click', enterApp);
 
   // ============================================
-  // TERMS MODAL LOGIC
+  // TERMS — a full-screen document
   // ============================================
+  // Inside the landing slide-over, opening the terms also asks the parent to
+  // widen the drawer to the whole window: several pages of legal text in a
+  // 440px column is not easier to read than in a 500px box.
+  const termsModal = document.getElementById('terms-modal');
+  const tellParent = (message) => {
+    if (EMBEDDED) window.parent.postMessage(message, window.location.origin);
+  };
+  const closeTerms = () => {
+    tellParent('gliimu:terms-close');
+    termsModal.style.display = 'none';
+  };
+
   document.getElementById('terms-link').addEventListener('click', (e) => {
     e.preventDefault();
-    document.getElementById('terms-modal').style.display = 'flex';
+    tellParent('gliimu:terms-open');
+    termsModal.style.display = 'flex';
+  });
+
+  document.getElementById('terms-close-btn').addEventListener('click', closeTerms);
+
+  // The drawer owns the keyboard when the visitor has not clicked into the
+  // form, so Escape reaches the parent first and the parent asks back.
+  window.addEventListener('message', (e) => {
+    if (e.origin !== window.location.origin) return;
+    if (e.data === 'gliimu:close-terms') closeTerms();
   });
 
   // ============================================
@@ -310,6 +361,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('download-new-pdf-btn').addEventListener('click', () => {
     const newPhrase = document.getElementById('new-recovery-phrase').value;
     downloadRecoveryPDF(newPhrase, true);
+  });
+
+  // A reset is finished with, so the card goes back to the log-in form the
+  // member now has a password for. Going to the dashboard from inside the
+  // slide-over would only move the frame, so hand it to enterApp() as well.
+  function resetForgot() {
+    forgotModal.style.display = 'none';
+    document.getElementById('forgot-step-2').style.display = 'none';
+    document.getElementById('forgot-step-3').style.display = 'none';
+    document.getElementById('forgot-step-1').style.display = 'block';
+    ['forgot-username', 'forgot-phrase', 'forgot-new-pass', 'forgot-confirm-pass', 'new-recovery-phrase']
+      .forEach(id => { document.getElementById(id).value = ''; });
+  }
+  document.getElementById('forgot-done-btn').addEventListener('click', () => {
+    resetForgot();
+    showTab('login');
   });
 
   // ============================================

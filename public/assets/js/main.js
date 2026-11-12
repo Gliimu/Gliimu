@@ -161,6 +161,116 @@ async function initJoinButtons() {
     const label = btn.querySelector('span') || btn;
     label.textContent = 'Dashboard';
     btn.href = 'https://dashboard.gliimu.com/xplore';
+    // Someone who is already in does not need the sign-in sheet.
+    btn.removeAttribute('data-auth-sheet');
+  });
+}
+
+// ============================================
+// AUTH SHEET — sign in and join without leaving the page
+// ============================================
+// The sheet is a frame around the real /auth.html, so the password form, the
+// recovery kit and the terms exist in exactly one place in the product. The
+// frame is only given a src when somebody asks for the sheet, and loses it
+// again on close, so a visitor who never taps Join Us never loads an auth page.
+const AUTH_TABS = { join: 'join', login: 'login' };
+
+// Where a signed-in visitor is handed off to. Set when a card or the co-hort
+// strip opens the sheet, so the thing they first tapped is still waiting.
+let authReturnTo = null;
+
+// The terms page runs inside the frame, so the drawer only knows it is up
+// because auth.html says so. Escape has to close that before the drawer.
+let authTermsOpen = false;
+
+function openAuthSheet(tab, returnTo) {
+  const sheet = document.getElementById('auth-sheet');
+  const frame = document.getElementById('auth-sheet-frame');
+  if (!sheet || !frame) return;
+
+  frame.src = '/auth.html' + (AUTH_TABS[tab] ? `?tab=${AUTH_TABS[tab]}` : '');
+  authReturnTo = returnTo || null;
+  sheet.classList.remove('is-wide');
+  sheet.hidden = false;
+  document.body.classList.add('auth-sheet-open');
+  requestAnimationFrame(() => sheet.classList.add('is-open'));
+}
+
+function closeAuthSheet() {
+  const sheet = document.getElementById('auth-sheet');
+  const frame = document.getElementById('auth-sheet-frame');
+  if (!sheet || sheet.hidden) return;
+
+  sheet.classList.remove('is-open', 'is-wide');
+  document.body.classList.remove('auth-sheet-open');
+  authReturnTo = null;
+  authTermsOpen = false;
+  setTimeout(() => {
+    sheet.hidden = true;
+    if (frame) frame.src = 'about:blank';
+  }, 320);
+}
+
+function initAuthSheet() {
+  const sheet = document.getElementById('auth-sheet');
+  const frame = document.getElementById('auth-sheet-frame');
+  document.addEventListener('click', (e) => {
+    const node = e.target;
+    if (!(node instanceof Element)) return;
+    const opener = node.closest('[data-auth-sheet]');
+    if (opener) {
+      e.preventDefault();
+      openAuthSheet(opener.getAttribute('data-auth-tab'));
+      return;
+    }
+    if (node.closest('[data-auth-sheet-close]')) closeAuthSheet();
+  });
+
+  // Escape closes the topmost layer only: terms first, then the drawer. The
+  // terms live inside the frame, so the drawer has to ask the frame to drop
+  // them rather than reaching in for its DOM.
+  const dismissTopLayer = () => {
+    if (authTermsOpen) {
+      frame?.contentWindow?.postMessage('gliimu:close-terms', window.location.origin);
+      return;
+    }
+    closeAuthSheet();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') dismissTopLayer();
+  });
+
+  // Once the visitor clicks into the form, keys belong to the page inside the
+  // frame, so Escape has to be installed there too.
+  if (frame) {
+    frame.addEventListener('load', () => {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      doc.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') dismissTopLayer();
+      });
+    });
+  }
+
+  // The frame cannot move the page it sits in, so it reports back instead.
+  // Only our own origin is believed.
+  window.addEventListener('message', (e) => {
+    if (e.origin !== window.location.origin) return;
+    if (e.data === 'gliimu:signed-in') {
+      window.location.replace(authReturnTo || `${DASHBOARD}/xplore`);
+      return;
+    }
+    // Terms across the whole screen, so a reader gets a page instead of a
+    // 440px column.
+    if (e.data === 'gliimu:terms-open') {
+      authTermsOpen = true;
+      sheet.classList.add('is-wide');
+    }
+    if (e.data === 'gliimu:terms-close') {
+      authTermsOpen = false;
+      sheet.classList.remove('is-wide');
+    }
   });
 }
 
@@ -213,103 +323,322 @@ async function loadSiteSettings() {
 }
 
 // ============================================
-// DOWNLOAD SECTION (version, links, background, QR)
+// APPS ROW IN THE FOOTER (version, device picker, steps, background, QR)
 // ============================================
-function applyDownloadSection(settings) {
-  const section = document.getElementById('download-section');
-  const panel = document.getElementById('download-panel');
-  if (!section || !panel) return;
+// One list drives the picker, the button label and the steps, so a device can
+// only ever be offered the route that actually exists for it.
+//
+//   family  — which entries the picker shows at all. Nobody installs a Windows
+//             file on a phone, so a phone is never offered one.
+//   channel — how the steps are worded. A store never hands out a file and an
+//             installer never opens a store, so the two cannot share a script.
+const PLATFORMS = [
+  { key: 'windows', label: 'Windows', icon: 'fab fa-windows', family: 'desktop', channel: 'installer', source: 'Windows setup file (.exe)', place: 'your Start menu' },
+  { key: 'mac',     label: 'macOS',   icon: 'fab fa-apple',   family: 'desktop', channel: 'store',     source: 'Mac App Store',           place: 'your Applications folder' },
+  { key: 'linux',   label: 'Linux',   icon: 'fab fa-linux',   family: 'desktop', channel: 'installer', source: 'Linux package (.deb)',    place: 'your apps list' },
+  { key: 'android', label: 'Android', icon: 'fab fa-android', family: 'mobile',  channel: 'store',     source: 'Google Play',             place: 'your home screen' },
+  { key: 'ios',     label: 'iOS',     icon: 'fab fa-apple',   family: 'mobile',  channel: 'store',     source: 'App Store',               place: 'your Home Screen' },
+];
 
-  // The scrim gradients from 50% dark at the top to solid black at the bottom,
-  // and the panel adds its own 50% layer on top.
-  const bg = safeUrl(settings.app_download_bg_url);
-  if (bg) {
-    section.style.background = `linear-gradient(rgba(10, 15, 30, 0.55), rgba(10, 15, 30, 0.9)) center center / cover, url('${bg}')`;
-    section.style.backgroundSize = 'cover';
-    section.style.backgroundPosition = 'center';
-    section.classList.add('has-bg');
-  } else {
-    section.style.background = '';
-    section.style.backgroundSize = '';
-    section.style.backgroundPosition = '';
-    section.classList.remove('has-bg');
-  }
+// key -> installer or store URL, filled in from site_settings. Empty means
+// nothing has been published behind that platform yet.
+let appUrls = {};
+let selectedPlatform = null;
+let deviceFamily = 'desktop';
 
-  const versionEl = document.getElementById('dl-version');
-  const versionBadge = versionEl ? versionEl.closest('.download-version-badge') : null;
-  const versionRow = document.querySelector('#download-panel .download-version');
-  const version = (settings.app_version || '').trim();
-  const notes = (settings.app_version_notes || '').trim();
-  if (versionEl) versionEl.textContent = version;
-  if (versionBadge) versionBadge.style.display = version ? '' : 'none';
+// Pre-filling the picker from the visitor's own browser means the common case
+// is one tap: the device they are standing at is already showing.
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  const touch = navigator.maxTouchPoints > 0;
+  if (/Android/i.test(ua)) return 'android';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  if (/Mac/i.test(ua) && touch) return 'ios';
+  if (/Windows/i.test(ua)) return 'windows';
+  if (/Mac/i.test(ua)) return 'mac';
+  if (/Linux/i.test(ua)) return 'linux';
+  return null;
+}
 
-  const notesEl = document.getElementById('dl-notes');
-  if (notesEl) notesEl.textContent = notes;
-  if (versionRow) versionRow.style.display = (version || notes) ? '' : 'none';
+// When the browser says nothing useful the screen does: a wide window driven by
+// a fine pointer is a desk machine.
+function detectFamily(key) {
+  const known = platformOf(key);
+  if (known) return known.family;
+  return window.matchMedia('(min-width: 700px) and (hover: hover) and (pointer: fine)').matches
+    ? 'desktop'
+    : 'mobile';
+}
 
-  const targets = [
-    ['dl-windows', settings.app_windows_url],
-    ['dl-mac', settings.app_mac_url],
-    ['dl-linux', settings.app_linux_url],
-    ['dl-android', settings.app_android_url],
-    ['dl-ios', settings.app_ios_url],
+function platformOf(key) {
+  return PLATFORMS.find(p => p.key === key) || null;
+}
+
+function renderDeviceOptions() {
+  const menu = document.getElementById('dl-device-menu');
+  if (!menu) return;
+  menu.innerHTML = PLATFORMS.filter(p => p.family === deviceFamily).map(p => `
+    <button type="button" class="dl-option" role="option" data-platform="${p.key}" aria-selected="false">
+      <i class="${p.icon}" aria-hidden="true"></i><span>${p.label}</span>
+    </button>`).join('');
+}
+
+function selectPlatform(key) {
+  selectedPlatform = key || null;
+  const picked = platformOf(selectedPlatform);
+  const icon = document.getElementById('dl-device-icon');
+  const label = document.getElementById('dl-device-label');
+  if (icon) icon.className = picked ? picked.icon : 'fas fa-laptop';
+  if (label) label.textContent = picked ? picked.label : 'Device';
+  document.querySelectorAll('#dl-device-menu [data-platform]').forEach(opt => {
+    opt.setAttribute('aria-selected', String(opt.dataset.platform === selectedPlatform));
+  });
+  renderDownloadSteps();
+}
+
+// The whole list is written here rather than sitting in the markup, because the
+// second step of a store install and the second step of a downloaded installer
+// are different sentences, and a fixed list would be wrong for one of them.
+function renderDownloadSteps() {
+  const list = document.getElementById('dl-steps-list');
+  const osLabel = document.getElementById('dl-steps-os');
+  if (!list) return;
+
+  const picked = platformOf(selectedPlatform);
+  if (osLabel) osLabel.textContent = picked ? 'for ' + picked.label : 'on your device';
+  if (!picked) { list.innerHTML = ''; return; }
+
+  const isStore = picked.channel === 'store';
+  const href = safeUrl(appUrls[picked.key]);
+  // A device with nothing published behind it keeps the same shape and answers
+  // with the notice, rather than a link that goes nowhere.
+  const source = href
+    ? `<a class="dl-step-link" href="${escapeHtml(href)}"${isStore ? ' target="_blank" rel="noopener"' : ' download'}>${escapeHtml(picked.source)}</a>`
+    : `<button type="button" class="dl-step-link is-quiet" data-apps-notice>${escapeHtml(picked.source)}</button>`;
+
+  const steps = isStore ? [
+    {
+      name: `Get it from the ${picked.source}`,
+      text: 'Open the store, search for Gliimu, then tap Get.',
+      action: source,
+    },
+    {
+      name: 'Open the app',
+      text: `When the store finishes, Gliimu sits in ${picked.place}.`,
+    },
+  ] : [
+    {
+      name: 'Download the installer',
+      text: `Save the ${picked.source} to this machine.`,
+      action: source,
+    },
+    {
+      name: 'Run it',
+      text: `Open the file and follow it through to the end. Gliimu then appears in ${picked.place}.`,
+    },
   ];
 
-  // The buttons ship disabled in index.html; a DB URL is the only thing that
-  // switches one on, so a placeholder link can never be handed to a visitor.
-  let liveFiles = 0;
-  targets.forEach(([id, raw]) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const href = safeUrl(raw);
-    if (href) {
-      liveFiles++;
-      el.href = href;
-      el.classList.remove('is-off');
-      el.removeAttribute('aria-disabled');
+  // One way in, the same word the hero uses, and the same drawer: an account is
+  // an account whether it is opened from an app or from this page.
+  steps.push({
+    name: 'Enter your account',
+    text: 'Use the email and password you signed up with. First time here? Create your account on that screen.',
+    action: '<a class="dl-step-link" href="/auth.html?tab=login" data-auth-sheet data-auth-tab="login">Enter</a>',
+  });
+
+  list.innerHTML = steps.map((s, i) => `
+    <li class="dl-step">
+      <span class="dl-step-num">${i + 1}</span>
+      <div class="dl-step-body">
+        <h3 class="dl-step-name">${escapeHtml(s.name)}</h3>
+        <p class="dl-step-text">${escapeHtml(s.text)}</p>
+        ${s.action || ''}
+      </div>
+    </li>`).join('');
+}
+
+function initDeviceMenu() {
+  const field = document.getElementById('dl-device-field');
+  const btn = document.getElementById('dl-device-btn');
+  const menu = document.getElementById('dl-device-menu');
+  if (!field || !btn || !menu) return;
+
+  deviceFamily = detectFamily(detectPlatform());
+  renderDeviceOptions();
+
+  const close = () => {
+    menu.hidden = true;
+    field.classList.remove('is-open');
+    btn.setAttribute('aria-expanded', 'false');
+  };
+
+  btn.addEventListener('click', () => {
+    if (menu.hidden) {
+      menu.hidden = false;
+      field.classList.add('is-open');
+      btn.setAttribute('aria-expanded', 'true');
     } else {
-      el.removeAttribute('href');
-      el.classList.add('is-off');
-      el.setAttribute('aria-disabled', 'true');
+      close();
     }
   });
 
-  // Nothing installable: the five grey buttons are taken out and the plain
-  // statement that the app is on the way becomes the section. CSS does the
-  // hiding, keyed off this one class.
-  panel.classList.toggle('no-installers', liveFiles === 0);
-  const subtitle = document.getElementById('dl-subtitle');
-  if (subtitle) subtitle.style.display = liveFiles > 0 ? '' : 'none';
+  menu.addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-platform]');
+    if (!opt) return;
+    selectPlatform(opt.dataset.platform);
+    close();
+  });
 
-  // The QR only helps a visitor standing at a desk with a phone in their
-  // pocket, so it renders on a wide non-touch screen and nowhere else.
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !field.contains(e.target)) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hidden) close();
+  });
+
+  selectPlatform(detectPlatform());
+}
+
+function initDownloadSteps() {
+  const modal = document.getElementById('dl-steps');
+  const opener = document.getElementById('dl-steps-btn');
+  if (!modal || !opener) return;
+
+  const close = () => {
+    modal.classList.remove('is-open');
+    setTimeout(() => { modal.hidden = true; }, 200);
+  };
+
+  opener.addEventListener('click', () => {
+    renderDownloadSteps();
+    modal.hidden = false;
+    requestAnimationFrame(() => modal.classList.add('is-open'));
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target.closest('[data-dl-steps-close]')) close();
+    // Step 3 hands over to the sign-in drawer, which sits under this modal, so
+    // the steps have to get out of the way for it.
+    if (e.target.closest('[data-auth-sheet]')) close();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    // The notice floats above this modal, so while it is up Escape belongs to
+    // it alone.
+    if (e.key !== 'Escape' || modal.hidden) return;
+    if (!document.getElementById('apps-notice')?.hidden) return;
+    close();
+  });
+}
+
+function applyDownloadSection(settings) {
+  const footer = document.querySelector('.site-footer');
+  if (!footer) return;
+
+  // The image is the ground of the whole footer, not of a card inside it. The
+  // dark base stays in CSS underneath, so if operations never uploads a
+  // picture the white controls still have something to sit on.
+  const bg = safeUrl(settings.app_download_bg_url);
+  footer.style.backgroundImage = bg
+    ? `linear-gradient(rgba(10, 15, 30, 0.72), rgba(10, 15, 30, 0.86)), url('${bg}')`
+    : '';
+
+  const version = (settings.app_version || '').trim();
+  const notes = (settings.app_version_notes || '').trim();
+  const versionEl = document.getElementById('dl-version');
+  if (versionEl) versionEl.textContent = version;
+  const versionWrap = document.getElementById('dl-version-wrap');
+  if (versionWrap) versionWrap.hidden = !version;
+  const notesEl = document.getElementById('dl-notes');
+  if (notesEl) {
+    notesEl.textContent = notes;
+    notesEl.hidden = !notes;
+  }
+
+  appUrls = {
+    windows: safeUrl(settings.app_windows_url),
+    mac: safeUrl(settings.app_mac_url),
+    linux: safeUrl(settings.app_linux_url),
+    android: safeUrl(settings.app_android_url),
+    ios: safeUrl(settings.app_ios_url),
+  };
+  const hasInstaller = Object.values(appUrls).some(Boolean);
+  renderDownloadSteps();
+
+  // Whether this is a desk-sized screen is left to CSS alone. Two gates — one
+  // in JavaScript, one in a stylesheet — meant a wide window could un-hide a
+  // QR the other layer was still refusing to lay out.
   const qrWrap = document.getElementById('dl-qr-wrap');
+  if (!qrWrap) return;
   const qrTarget = safeUrl(settings.app_mobile_qr_url)
     || safeUrl(settings.app_android_url)
     || safeUrl(settings.app_ios_url);
-  if (!qrWrap || !qrTarget) return;
-  const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-  const isWideScreen = window.matchMedia('(min-width: 601px)').matches;
-  if (!isWideScreen || isTouchDevice) return;
+  if (!qrTarget) { qrWrap.hidden = true; return; }
 
-  // Until there is a real installer the QR opens Gliimu in the phone's browser,
-  // so say that instead of promising a download.
-  const qrLabel = liveFiles > 0
+  // Until there is a real build the QR opens Gliimu in the phone's browser, so
+  // say that instead of promising a download.
+  const qrLabel = hasInstaller
     ? 'Scan to download the Gliimu app'
     : 'Scan to open Gliimu on your phone';
   const qrHint = qrWrap.querySelector('.download-qr-hint');
-  if (qrHint) qrHint.textContent = liveFiles > 0
-    ? 'Scan with your phone to install on Android or iOS'
-    : qrLabel;
+  if (qrHint) qrHint.textContent = qrLabel;
 
-  qrWrap.style.display = 'flex';
+  qrWrap.hidden = false;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(qrTarget)}`;
   qrWrap.querySelector('.download-qr-code').innerHTML = `
     <div class="landing-qr-img">
-      <img class="qr" src="${qrSrc}" alt="${qrLabel}">
+      <img class="qr" src="${qrSrc}" alt="${escapeHtml(qrLabel)}">
       <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
     </div>
   `;
+  // The plate is drawn by a third-party endpoint, the one part of this row that
+  // can fail on its own. An empty white square reads as a broken page, so the
+  // whole block goes rather than showing one.
+  qrWrap.querySelector('.download-qr-code img.qr').addEventListener('error', () => {
+    qrWrap.hidden = true;
+  });
+}
+
+// ============================================
+// APPS NOTICE
+// ============================================
+// Every download request with no installer behind it opens this, and it goes
+// away on its own so a visitor never has to look for the close button.
+const APPS_NOTICE_MS = 5000;
+let appsNoticeTimer = null;
+
+function showAppsNotice() {
+  const el = document.getElementById('apps-notice');
+  if (!el) return;
+  clearTimeout(appsNoticeTimer);
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('is-open'));
+  appsNoticeTimer = setTimeout(hideAppsNotice, APPS_NOTICE_MS);
+}
+
+function hideAppsNotice() {
+  const el = document.getElementById('apps-notice');
+  if (!el) return;
+  clearTimeout(appsNoticeTimer);
+  el.classList.remove('is-open');
+  setTimeout(() => { el.hidden = true; }, 200);
+}
+
+function initAppsNotice() {
+  // Delegated: step 1 is rewritten whenever the device changes, so the
+  // listener is keyed off the marker rather than off an element that only
+  // exists after the settings arrive.
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-apps-notice]')) {
+      showAppsNotice();
+      return;
+    }
+    if (e.target.closest('[data-apps-notice-close]')) hideAppsNotice();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideAppsNotice();
+  });
 }
 
 // ============================================
@@ -340,10 +669,11 @@ function forceVideoAutoplay() {
 // ============================================
 const DASHBOARD = 'https://dashboard.gliimu.com';
 
-// One rule for every card and for the co-hort strip: a visitor is sent to the
-// auth page, a signed-in person is sent to the thing they tapped (or to XpLoRe
-// when there is nothing behind the tap).
+// One rule for every card and for the co-hort strip: a visitor is asked to
+// sign in on the spot, a signed-in person is sent to the thing they tapped
+// (or to XpLoRe when there is nothing behind the tap).
 async function goToDashboard(itemId) {
+  const target = itemId ? `${DASHBOARD}/post?id=${encodeURIComponent(itemId)}` : `${DASHBOARD}/xplore`;
   let authed = false;
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -351,8 +681,11 @@ async function goToDashboard(itemId) {
   } catch (e) {
     // Auth unreachable — treat the visitor as signed out.
   }
-  if (!authed) window.location.href = '/auth.html';
-  else window.location.href = itemId ? `${DASHBOARD}/post?id=${encodeURIComponent(itemId)}` : `${DASHBOARD}/xplore`;
+  if (!authed) {
+    openAuthSheet('login', target);
+    return;
+  }
+  window.location.href = target;
 }
 
 const PLAY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon></svg>';
@@ -443,7 +776,6 @@ async function loadHubHighlights() {
   });
 
   renderCohortStrip(data.top_cohort);
-  renderStepNow(data);
 }
 
 // ============================================
@@ -477,44 +809,6 @@ function renderCohortStrip(cohort) {
 
   const strip = document.getElementById('cohort-strip');
   if (strip) strip.addEventListener('click', () => goToDashboard(null));
-}
-
-// One step open at a time, so the rail reads as progress: everything before
-// the open node is already walked, everything after it is still ahead.
-function initStepsAccordion() {
-  const items = Array.from(document.querySelectorAll('.steps-accordion .step-item'));
-  if (items.length === 0) return;
-
-  const select = (openIndex) => {
-    items.forEach((item, i) => {
-      item.classList.toggle('is-open', i === openIndex);
-      item.classList.toggle('is-done', i < openIndex);
-      const head = item.querySelector('.step-head');
-      if (head) head.setAttribute('aria-expanded', i === openIndex ? 'true' : 'false');
-    });
-  };
-
-  items.forEach((item, i) => {
-    const head = item.querySelector('.step-head');
-    if (head) head.addEventListener('click', () => select(i));
-  });
-
-  select(0);
-}
-
-// The two "right now" lines inside How Gliimu works. They quote real rows, so
-// they stay hidden when the library has nothing to quote.
-function renderStepNow(data) {
-  const logEl = document.getElementById('step-now-log');
-  if (logEl && data.top_log && data.top_log.title) {
-    logEl.innerHTML = `Right now: <strong>${escapeHtml(data.top_log.title)}</strong>`;
-    logEl.hidden = false;
-  }
-  const cohortEl = document.getElementById('step-now-cohort');
-  if (cohortEl && data.top_cohort && data.top_cohort.title) {
-    cohortEl.innerHTML = `Now open: <strong>${escapeHtml(data.top_cohort.title)}</strong>`;
-    cohortEl.hidden = false;
-  }
 }
 
 // ============================================
@@ -651,8 +945,11 @@ const boot = async () => {
   if (!await initEntrySplash()) return;
 
   initJoinButtons();
+  initAuthSheet();
+  initAppsNotice();
+  initDeviceMenu();
+  initDownloadSteps();
   initScrollReveal();
-  initStepsAccordion();
   loadSiteSettings();
   loadHubHighlights();
   loadPartners();

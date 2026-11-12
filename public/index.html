@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Gliimu - Ideas that Inspire</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Master video production, design, AND code. Become a Full Stack Media Architect. Real projects, real portfolio, real independence." />
   <link rel="icon" type="image/png" href="/icons/icon.png">
 
@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=51">
+  <link rel="stylesheet" href="/assets/css/public.css?v=55">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -43,13 +43,10 @@
     </video>
     <div class="hero-scrim" aria-hidden="true"></div>
 
-    <div class="container hero-bar">
+    <div class="hero-bar">
       <a class="hero-brand" href="/" aria-label="Gliimu">
-        <img src="/icons/icon.png" alt="Gliimu">
-      </a>
-      <a href="/auth.html" class="btn-primary btn-sm js-join-link">
-        <span>Join Us</span>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        <img src="/icons/icon.png" alt="">
+        <span class="hero-brand-word">liimu</span>
       </a>
     </div>
 
@@ -58,13 +55,13 @@
         <span id="hero-title-text"></span><span class="highlight" id="hero-highlight-text"></span>
       </h1>
       <p class="hero-desc" id="hero-desc-text"></p>
-      <a class="hero-textlink" href="#how-it-works">
-        What is Gliimu?
+      <a href="/auth.html?tab=login" class="btn-primary btn-sm js-join-link hero-enter" data-auth-sheet data-auth-tab="login">
+        <span>Enter</span>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
       </a>
     </div>
 
-    <a class="hero-scroll" href="#hub-highlights" aria-label="Go to XpLoRe">
+    <a class="hero-scroll" href="#xplore" aria-label="Go to XpLoRe">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </a>
   </header>
@@ -85,169 +82,51 @@
   </div>
 
   <main>
-    <!-- XPLORE — what Gliimu is -->
-    <section class="band-section" id="hub-highlights">
+    <!-- XPLORE — the plain answer, the three kinds of gliim that prove it,
+         then the three steps. The cards belong to the first step, so they sit
+         inside it rather than in a band of their own. -->
+    <section class="how-section" id="xplore">
       <div class="container">
         <div class="section-head reveal">
           <h2 class="section-title">XpLoRe</h2>
-          <p class="section-subtitle">Great Ideas from great minds</p>
+          <p class="section-subtitle">Trending ideas.</p>
         </div>
 
-        <div class="pillar-grid reveal" id="xplore-pillars">
-          <p class="panel-note">Loading...</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- HOW IT WORKS -->
-    <section class="how-section" id="how-it-works">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2 class="section-title">How Gliimu works</h2>
-          <p class="section-subtitle">Three moves, in order.</p>
-        </div>
-
-        <!-- One rail, three nodes. Closed, a step gives you its name and a line;
-             open, it lights up and gives you the rest. The icons are the ones
-             already used in the dashboard nav. -->
-        <div class="steps-accordion reveal" id="steps-accordion">
-
-          <div class="step-item is-open">
-            <h3>
-              <button type="button" class="step-head" id="step-toggle-log" aria-expanded="true" aria-controls="step-panel-log">
-                <span class="step-icon" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-                </span>
-                <span class="step-labels">
-                  <span class="step-name">XpLoRe</span>
-                  <span class="step-teaser">Press play on a log, open a publication, take apart a bundle.</span>
-                </span>
-                <span class="step-chevron" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </span>
-              </button>
-            </h3>
-            <div class="step-panel" id="step-panel-log" role="region" aria-labelledby="step-toggle-log">
-              <div class="step-panel-inner">
-                <div class="step-panel-pad">
-                  <p>Everything on the shelf was made by somebody who is still building.</p>
-                  <p class="step-now" id="step-now-log" hidden></p>
-                </div>
-              </div>
-            </div>
+        <div class="pillar-row reveal">
+          <div class="pillar-grid" id="xplore-pillars">
+            <p class="panel-note">Loading...</p>
           </div>
-
-          <div class="step-item">
-            <h3>
-              <button type="button" class="step-head" id="step-toggle-publish" aria-expanded="false" aria-controls="step-panel-publish">
-                <span class="step-icon" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                </span>
-                <span class="step-labels">
-                  <span class="step-name">Publish</span>
-                  <span class="step-teaser">Put your own work on the shelf.</span>
-                </span>
-                <span class="step-chevron" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </span>
-              </button>
-            </h3>
-            <div class="step-panel" id="step-panel-publish" role="region" aria-labelledby="step-toggle-publish">
-              <div class="step-panel-inner">
-                <div class="step-panel-pad">
-                  <p>A gliim goes live the moment you publish it.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="step-item">
-            <h3>
-              <button type="button" class="step-head" id="step-toggle-grow" aria-expanded="false" aria-controls="step-panel-grow">
-                <span class="step-icon" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>
-                </span>
-                <span class="step-labels">
-                  <span class="step-name">Grow</span>
-                  <span class="step-teaser">Earn GP as people read your work.</span>
-                </span>
-                <span class="step-chevron" aria-hidden="true">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </span>
-              </button>
-            </h3>
-            <div class="step-panel" id="step-panel-grow" role="region" aria-labelledby="step-toggle-grow">
-              <div class="step-panel-inner">
-                <div class="step-panel-pad">
-                  <p>And build one thing with others on a deadline.</p>
-                  <p class="step-now" id="step-now-cohort" hidden></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- DOWNLOAD / RUN IN BROWSER -->
-    <section class="download-section" id="download-section">
-      <div class="container">
-        <div class="section-head reveal download-head">
-          <h2 class="section-title">eNjOy Gliimu</h2>
-          <p class="section-subtitle" id="dl-subtitle">Install the app for the best experience.</p>
         </div>
 
-        <div class="download-panel reveal" id="download-panel">
-          <div class="download-panel-body">
+        <!-- Three steps, three cards. A row on a wide screen, a swipeable rail
+             on a phone: the page never grows taller to say the same three
+             things. -->
+        <div class="step-row reveal">
 
-            <div class="download-version">
-              <span class="download-version-badge">v<span id="dl-version"></span></span>
-              <span class="download-version-notes" id="dl-notes"></span>
-            </div>
+          <article class="step-card">
+            <span class="step-icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+            </span>
+            <h3 class="step-name">XpLoRe</h3>
+            <p class="step-text">Watch, read and listen to work people put out in the open.</p>
+          </article>
 
-            <!-- main.js keeps this line visible while no installer exists. -->
-            <p class="download-soon" id="dl-soon" aria-live="polite">
-              The app is on the way. We're putting the finishing touches on installers for
-              Windows, macOS, Linux, Android and iOS. Until then, Gliimu runs right here in
-              your browser — nothing to install, and you always have the latest version.
-            </p>
+          <article class="step-card">
+            <span class="step-icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </span>
+            <h3 class="step-name">Publish</h3>
+            <p class="step-text">Write it, drop in your files, hit publish. It is live for everyone.</p>
+          </article>
 
-            <div class="download-block download-desktop">
-              <span class="download-block-label">Desktop</span>
-              <div class="download-buttons">
-                <a class="dl-btn is-off" id="dl-windows" download target="_blank" rel="noopener" aria-disabled="true">
-                  <i class="fab fa-windows"></i><span>Windows</span>
-                </a>
-                <a class="dl-btn is-off" id="dl-mac" download target="_blank" rel="noopener" aria-disabled="true">
-                  <i class="fab fa-apple"></i><span>macOS</span>
-                </a>
-                <a class="dl-btn is-off" id="dl-linux" download target="_blank" rel="noopener" aria-disabled="true">
-                  <i class="fab fa-linux"></i><span>Linux</span>
-                </a>
-              </div>
-            </div>
+          <article class="step-card">
+            <span class="step-icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+            </span>
+            <h3 class="step-name">Grow</h3>
+            <p class="step-text">When members support your gliim, you keep most of it.</p>
+          </article>
 
-            <div class="download-block download-mobile">
-              <span class="download-block-label">Mobile</span>
-              <div class="download-buttons">
-                <a class="dl-btn is-off" id="dl-android" download target="_blank" rel="noopener" aria-disabled="true">
-                  <i class="fab fa-android"></i><span>Android</span>
-                </a>
-                <a class="dl-btn is-off" id="dl-ios" download target="_blank" rel="noopener" aria-disabled="true">
-                  <i class="fab fa-apple"></i><span>iOS</span>
-                </a>
-              </div>
-            </div>
-
-            <!-- A direct child of the panel body, so it survives the buttons
-                 being hidden while there is nothing to install. -->
-            <div class="download-qr" id="dl-qr-wrap" style="display: none;">
-              <div class="download-qr-code" id="dl-qr"></div>
-              <p class="download-qr-hint">Scan with your phone to install on Android or iOS</p>
-            </div>
-
-          </div>
         </div>
       </div>
     </section>
@@ -280,24 +159,103 @@
     </section>
   </main>
 
-  <!-- FOOTER -->
-  <footer class="site-footer">
+  <!-- FOOTER — the sign-off, with the apps row that used to be a section of
+       its own. A visitor who reads to the end looks for the app here, so it
+       sits above the links instead of asking for another band of the page. -->
+  <footer class="site-footer" id="download-section">
     <div class="container">
-      <div class="footer-top">
+      <div class="footer-apps reveal">
+        <div class="footer-apps-head">
+          <h2 class="footer-apps-title">eNjOy Gliimu</h2>
+          <span class="download-version-badge" id="dl-version-wrap" hidden>v<span id="dl-version"></span></span>
+        </div>
+        <p class="download-version-notes" id="dl-notes" hidden></p>
+
+        <div class="download-row">
+          <div class="download-controls">
+            <div class="dl-field" id="dl-device-field">
+              <button type="button" class="dl-control" id="dl-device-btn" aria-haspopup="true" aria-expanded="false" aria-controls="dl-device-menu">
+                <i class="fas fa-laptop" id="dl-device-icon" aria-hidden="true"></i>
+                <span class="dl-control-label" id="dl-device-label">Device</span>
+                <svg class="dl-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="dl-menu" id="dl-device-menu" role="listbox" aria-label="Choose your device" hidden></div>
+            </div>
+
+            <button type="button" class="dl-control" id="dl-steps-btn" aria-haspopup="dialog" aria-controls="dl-steps">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span class="dl-control-label">Download</span>
+            </button>
+          </div>
+
+          <div class="download-qr" id="dl-qr-wrap" hidden>
+            <div class="download-qr-code" id="dl-qr"></div>
+            <p class="download-qr-hint"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
         <div class="footer-brand">
           <img src="/icons/icon.png" alt="">
+          <span>liimu</span>
         </div>
-        <nav class="footer-links" aria-label="Footer">
-          <a href="#hub-highlights">XpLoRe</a>
-          <a href="#how-it-works">How it works</a>
-          <button type="button" onclick="openFaqModal()">FAQs</button>
-          <button type="button" onclick="openContactModal()">Contact</button>
-          <a href="/auth.html">Sign in</a>
-        </nav>
+        <div class="footer-meta">
+          <nav class="footer-links" aria-label="Footer">
+            <a href="#xplore">XpLoRe</a>
+            <button type="button" onclick="openFaqModal()">FAQs</button>
+            <button type="button" onclick="openContactModal()">Contact</button>
+            <a href="/auth.html?tab=login" data-auth-sheet data-auth-tab="login">Enter</a>
+          </nav>
+          <p class="footer-copyright" id="copyright-text"></p>
+        </div>
       </div>
-      <p class="footer-copyright" id="copyright-text"></p>
     </div>
   </footer>
+
+  <!-- AUTH SHEET — sign in and join without leaving the page.
+       The frame is the real /auth.html, so there is exactly one password
+       form, one recovery flow and one set of terms in the whole product.
+       It stays empty until the first tap asks for it. -->
+  <div class="auth-sheet" id="auth-sheet" hidden>
+    <div class="auth-sheet-backdrop" data-auth-sheet-close></div>
+    <div class="auth-sheet-panel" role="dialog" aria-modal="true" aria-label="Sign in to Gliimu">
+      <button type="button" class="auth-sheet-close" data-auth-sheet-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <iframe class="auth-sheet-frame" id="auth-sheet-frame" title="Sign in to Gliimu"></iframe>
+    </div>
+  </div>
+
+  <!-- APPS NOTICE — what the footer buttons answer with while there is no
+       installer to hand over. It closes itself after five seconds. -->
+  <div class="apps-notice" id="apps-notice" hidden role="status" aria-live="polite">
+    <div class="apps-notice-backdrop" data-apps-notice-close></div>
+    <div class="apps-notice-panel">
+      <span class="apps-notice-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7z"></path></svg>
+      </span>
+      <p>The apps are on the way.</p>
+    </div>
+  </div>
+
+  <!-- DOWNLOAD STEPS — what the Download control answers with. Three lines in
+       the order a visitor actually works: get the file, run it, get in.
+       Step 1 is filled in by main.js from the device choice, so it can only
+       ever offer a file that operations has actually uploaded. -->
+  <div class="dl-steps" id="dl-steps" hidden role="dialog" aria-modal="true" aria-labelledby="dl-steps-title">
+    <div class="dl-steps-backdrop" data-dl-steps-close></div>
+    <div class="dl-steps-panel">
+      <button type="button" class="dl-steps-close" data-dl-steps-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <h2 class="dl-steps-title" id="dl-steps-title">Get Gliimu <span id="dl-steps-os">on your device</span></h2>
+      <!-- Every line here is written by main.js. The steps differ by device —
+           a phone is told to use a store, a desktop is told to run a file — so
+           a fixed list in the markup would be wrong for one of the two. -->
+      <ol class="dl-steps-list" id="dl-steps-list"></ol>
+    </div>
+  </div>
 
   <!-- FAQ MODAL -->
   <div class="modal-overlay" id="faq-modal" style="display: none;">
@@ -322,13 +280,13 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=45"></script>
+  <script type="module" src="/assets/js/main.js?v=51"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     // Referral capture: a guest arriving via /?ref=CODE keeps the code so the
     // signup flow can attribute them to the referrer. Same-origin localStorage
-    // carries it into auth.html (whether opened directly or in the modal frame).
+    // carries it into auth.html (whether opened directly or in the slide-over).
     (function () {
       try {
         const ref = new URLSearchParams(window.location.search).get('ref');
