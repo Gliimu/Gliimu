@@ -89,7 +89,9 @@ These tables are created by Supabase; Gliimu adds columns to them.
 
 **Purpose:** Landing page and app configuration. Gliimu adds hero, app download, and version fields.
 
-**Added columns:** `hero_video_url`, `hero_fallback_image_url`, `squad_bg_url`, `hero_title`, `hero_highlight`, `hero_desc`, `app_version`, `app_version_notes`, `app_download_bg_url`, `app_windows_url`, `app_mac_url`, `app_linux_url`, `app_android_url`, `app_ios_url`, `app_mobile_qr_url`
+**Added columns:** `hero_video_url`, `hero_fallback_image_url`, `hero_title`, `hero_highlight`, `hero_desc`, `app_version`, `app_version_notes`, `app_download_bg_url`, `app_windows_url`, `app_mac_url`, `app_linux_url`, `app_android_url`, `app_ios_url`
+
+`sql/remove_landing_deadbones.sql` drops `squad_bg_url`, `app_mobile_qr_url`, `about_title`, `about_body`, `earnings_image_url`, `terms_content` and `terms_updated_at`. Terms text lives in `legal_documents`, not here.
 
 ---
 
@@ -135,21 +137,6 @@ These tables are created by Supabase; Gliimu adds columns to them.
 
 ---
 
-### `public.partners`
-
-**Purpose:** Partner/sponsor logos displayed on the landing page wall.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | bigserial PK | |
-| `name` | text | NOT NULL |
-| `logo_url` | text | |
-| `website_url` | text | |
-| `sort_order` | integer | Default 0 |
-| `created_at` | timestamptz | Default now() |
-
----
-
 ### `public.reports`
 
 **Purpose:** User-generated content reports (posts, comments, users, library items). CRM resolves.
@@ -158,7 +145,7 @@ These tables are created by Supabase; Gliimu adds columns to them.
 |---|---|---|
 | `id` | bigserial PK | |
 | `reporter_id` | uuid | FK -> `auth.users(id)` ON DELETE CASCADE |
-| `target_type` | text | CHECK: `post`, `comment`, `user`, `library_item` |
+| `target_type` | text | CHECK: `post`, `comment`, `user` |
 | `target_id` | uuid | NOT NULL |
 | `reason` | text | NOT NULL |
 | `status` | text | CHECK: `open`, `resolved`, `dismissed`. Default `open` |
@@ -194,7 +181,7 @@ These tables are created by Supabase; Gliimu adds columns to them.
 | Column | Type | Notes |
 |---|---|---|
 | `user_id` | uuid PK | FK -> `profiles(id)` (admin.sql) or `auth.users(id)` (setup_all) ON DELETE CASCADE |
-| `role` | text | CHECK: `super`, `crm`, `registrar`, `captain`, `operations` |
+| `role` | text | CHECK: `super`, `crm`, `registrar`, `operations` — `sql/retire_captain_role.sql` removes the retired `captain` value |
 | `note` | text | (admin.sql version) |
 | `added_by` | uuid | FK -> `profiles(id)` (admin.sql version) |
 | `granted_at` | timestamptz | (setup_all version) |
@@ -892,7 +879,6 @@ auth.users(id)
   +-- reports(id, reporter_id)
   +-- faqs(id)
   +-- legal_documents(id)
-  +-- partners(id)
   +-- billing_prices / billing_cycles / billing_events  [legacy]
   +-- gliits_config  [singleton]
   +-- transactions  [externally created, extended]

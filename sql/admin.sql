@@ -10,15 +10,16 @@
 --                    the landing page contact details — see sql/contact.sql
 --        registrar   finance, ledger, members, bills, revenue and pricing
 --                    — see sql/registrar.sql
---        captain     triads and apprentice progress — see sql/captain.sql
---        operations  landing page media, the partner wall and the app
---                    release — see sql/operations.sql
+--        operations  landing page media and the app release
+--                    — see sql/remove_landing_deadbones.sql
+--        'captain' is retired: the triads screen it gated is gone, and
+--        sql/retire_captain_role.sql removes it from the role list.
 --   2. Helpers: admin_role(), admin_has_role(), current_admin_role().
 --      'super' implies every other role, so a super admin passes any
 --      role check without being listed twice.
 --   3. is_admin() widened: the legacy profiles.is_admin flag still works,
 --      and a 'super' row in admin_users now satisfies it too. Existing
---      is_admin()-gated policies (partners, site settings) keep
+--      is_admin()-gated policies (site settings) keep
 --      working unchanged — but a CRM admin does NOT gain them, which is
 --      the point: CRM gets only the CRM policies below.
 --   4. CRM read/write policies on reports, faqs, legal_documents and
@@ -69,7 +70,7 @@ do $$ begin
   ) then
     alter table public.admin_users
       add constraint admin_users_role_check
-      check (role in ('super', 'crm', 'registrar', 'captain', 'operations'));
+      check (role in ('super', 'crm', 'registrar', 'operations'));
   end if;
 end $$;
 
@@ -296,7 +297,7 @@ begin
     return jsonb_build_object('ok', false, 'code', 'NOT_SUPER');
   end if;
 
-  if p_role not in ('super', 'crm', 'registrar', 'captain', 'operations') then
+  if p_role not in ('super', 'crm', 'registrar', 'operations') then
     return jsonb_build_object('ok', false, 'code', 'BAD_ROLE');
   end if;
 

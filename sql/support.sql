@@ -27,8 +27,9 @@ begin;
 -- ============================================================
 -- 1. Staff gate for Support.
 --    ANY admin role, per the 2026-10-17 decision: the whole team must be
---    able to answer a member, so captain and registrar staff see the desk
---    too. It was previously crm + operations + super only.
+--    able to answer a member, so registrar staff see the desk too. It was
+--    previously crm + operations + super only. 'captain' was in the list
+--    until sql/retire_captain_role.sql retired the role.
 --    SECURITY DEFINER because admin_users is revoked from authenticated;
 --    this is the same trick the CRM post-review policies already use.
 -- ============================================================
@@ -41,7 +42,7 @@ security definer
 set search_path = public
 as $$
   select coalesce((
-    select a.role in ('crm', 'operations', 'super', 'registrar', 'captain')
+    select a.role in ('crm', 'operations', 'super', 'registrar')
       from public.admin_users a
      where a.user_id = p_user
   ), false);
@@ -701,11 +702,13 @@ with support_fns (name, oid) as (
                                                              (select attnum from pg_attribute
                                                               where attrelid = 'public.support_reads'::regclass and attname = 'reader_id')])
   union all
-  select 6, 'support_can_view is SECURITY DEFINER and allows all five admin roles',
+  select 6, 'support_can_view is SECURITY DEFINER and allows all four admin roles',
          exists (select 1 from pg_proc where oid = to_regprocedure('public.support_can_view(uuid)')
                   and prosecdef and proconfig @> array['search_path=public'])
          and (select prosrc from pg_proc where oid = to_regprocedure('public.support_can_view(uuid)'))
-             ilike '%crm%, %operations%, %super%, %registrar%, %captain%'
+             ilike '%crm%, %operations%, %super%, %registrar%'
+         and not (select prosrc from pg_proc where oid = to_regprocedure('public.support_can_view(uuid)'))
+             ilike '%captain%'
   union all
   select 7, 'anon can neither read support tables nor run support functions',
          not has_table_privilege('anon', 'public.support_messages', 'SELECT')

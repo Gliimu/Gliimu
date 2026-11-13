@@ -179,11 +179,11 @@ re-reads them whenever you need current numbers.
 - `profiles` — mirrors Supabase Auth users; carries `is_admin`, `total_gp` and the verification badge
 - `followed_users` — who follows whom, which feeds the Xploring ring
 - `admin_users` — staff roles: `super`, `crm`, `registrar`, `operations`.
-  The table's check constraint still accepts the retired `captain` value, so
-  a stale row can pass the database while no screen in the admin app uses it.
+  `captain` went out with the triads screen; `sql/retire_captain_role.sql`
+  removes the value from the check constraint and from the role-granting RPC.
 
 **Landing + settings**
-- `contact_info`, `faqs`, `legal_documents`, `partners`, `site_settings`
+- `contact_info`, `faqs`, `legal_documents`, `site_settings`
 
 **Row-Level Security (RLS)**
 All tables have RLS enabled. Policies enforce:
@@ -420,7 +420,7 @@ proxied DNS record automatically on a same-account zone):
 
 **CRM** (`/crm`) — members, reports, content review
 **Submissions** (`/submissions`) — every gliim, search + grid, Take down (trash)
-**Operations** (`/operations`) — site content: landing hero/partners/FAQs, contact info, app releases, Community/Arena, Cohorts (+ the XpLoRe strip card), Deleted queue
+**Operations** (`/operations`) — site content: landing hero/FAQs, contact info, app releases, Community/Arena, Cohorts (+ the XpLoRe strip card), Deleted queue
 **Finance** (`/finance`, `/ledger`, `/revenue`) — Gliits ledger, revenue analytics, adjustments
 **Support** (`/support`) — all-role support desk + staff room
 **Admins** (`/admins`) — role management (super/crm/registrar/operations)
@@ -533,12 +533,12 @@ should all read OK. Run the file, then run its self-check in the same paste.
 | Kind | Files | Notes |
 |------|-------|-------|
 | Fresh install | `setup_core.sql` | every table, base RLS and grants |
-| Feature | `account_lifecycle.sql`, `admin.sql`, `admin_all_gliims.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `landing_highlights.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql`, `cohorts.sql`, `cohorts_strip.sql` | the live features |
+| Feature | `account_lifecycle.sql`, `admin.sql`, `admin_all_gliims.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql`, `cohorts.sql`, `cohorts_strip.sql` | the live features |
 | Live (sessions) | `live_rooms.sql`, `live_v2.sql`, `live_v3.sql`, `live_on_air.sql`, `live_participants.sql`, `live_chat.sql`, `live_chat_attachments.sql`, `live_kicked_users.sql`, `live_reactions.sql`, `live_support_g10.sql` | stacked over time; the newest wins where they overlap |
 | Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql` | |
-| Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_premium.sql`, `remove_scroll_position.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
+| Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_premium.sql`, `remove_scroll_position.sql`, `remove_landing_deadbones.sql`, `retire_captain_role.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
 | Archive | `archive_*.sql` | retired definitions, kept for reference. Never run |
-| Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql` | superseded by the removal scripts above |
+| Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql`, `landing_highlights.sql`, `landing_about.sql`, `app_qr_link.sql` | superseded by the removal scripts above |
 | Diagnostic | `state.sql` | read-only: answers "what is installed right now" |
 
 Run `state.sql` before any script that drops something.

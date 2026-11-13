@@ -293,14 +293,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     tellParent('gliimu:terms-close');
     termsModal.style.display = 'none';
   };
+  const openTerms = () => {
+    tellParent('gliimu:terms-open');
+    termsModal.style.display = 'flex';
+  };
 
   document.getElementById('terms-link').addEventListener('click', (e) => {
     e.preventDefault();
-    tellParent('gliimu:terms-open');
-    termsModal.style.display = 'flex';
+    openTerms();
   });
 
   document.getElementById('terms-close-btn').addEventListener('click', closeTerms);
+
+  // /auth.html?terms=1 is the footer's Terms link: the document is the whole
+  // reason the drawer was opened, so it is up before anybody reads the form.
+  if (new URLSearchParams(window.location.search).get('terms') === '1') openTerms();
 
   // The drawer owns the keyboard when the visitor has not clicked into the
   // form, so Escape reaches the parent first and the parent asks back.

@@ -173,23 +173,29 @@ async function initJoinButtons() {
 // recovery kit and the terms exist in exactly one place in the product. The
 // frame is only given a src when somebody asks for the sheet, and loses it
 // again on close, so a visitor who never taps Join Us never loads an auth page.
+const DASHBOARD = 'https://dashboard.gliimu.com';
 const AUTH_TABS = { join: 'join', login: 'login' };
-
-// Where a signed-in visitor is handed off to. Set when a card or the co-hort
-// strip opens the sheet, so the thing they first tapped is still waiting.
-let authReturnTo = null;
 
 // The terms page runs inside the frame, so the drawer only knows it is up
 // because auth.html says so. Escape has to close that before the drawer.
 let authTermsOpen = false;
 
-function openAuthSheet(tab, returnTo) {
+// True when the sheet was asked for the terms and nothing else. For those
+// visitors the document IS the sheet, so closing it closes the drawer.
+let authOpenedForTerms = false;
+
+function openAuthSheet(tab, terms) {
   const sheet = document.getElementById('auth-sheet');
   const frame = document.getElementById('auth-sheet-frame');
   if (!sheet || !frame) return;
 
-  frame.src = '/auth.html' + (AUTH_TABS[tab] ? `?tab=${AUTH_TABS[tab]}` : '');
-  authReturnTo = returnTo || null;
+  const params = new URLSearchParams();
+  if (AUTH_TABS[tab]) params.set('tab', AUTH_TABS[tab]);
+  if (terms) params.set('terms', '1');
+  const query = params.toString();
+
+  frame.src = '/auth.html' + (query ? `?${query}` : '');
+  authOpenedForTerms = !!terms;
   sheet.classList.remove('is-wide');
   sheet.hidden = false;
   document.body.classList.add('auth-sheet-open');
@@ -203,8 +209,8 @@ function closeAuthSheet() {
 
   sheet.classList.remove('is-open', 'is-wide');
   document.body.classList.remove('auth-sheet-open');
-  authReturnTo = null;
   authTermsOpen = false;
+  authOpenedForTerms = false;
   setTimeout(() => {
     sheet.hidden = true;
     if (frame) frame.src = 'about:blank';
@@ -220,7 +226,7 @@ function initAuthSheet() {
     const opener = node.closest('[data-auth-sheet]');
     if (opener) {
       e.preventDefault();
-      openAuthSheet(opener.getAttribute('data-auth-tab'));
+      openAuthSheet(opener.getAttribute('data-auth-tab'), opener.hasAttribute('data-auth-terms'));
       return;
     }
     if (node.closest('[data-auth-sheet-close]')) closeAuthSheet();
@@ -258,7 +264,7 @@ function initAuthSheet() {
   window.addEventListener('message', (e) => {
     if (e.origin !== window.location.origin) return;
     if (e.data === 'gliimu:signed-in') {
-      window.location.replace(authReturnTo || `${DASHBOARD}/xplore`);
+      window.location.replace(`${DASHBOARD}/xplore`);
       return;
     }
     // Terms across the whole screen, so a reader gets a page instead of a
@@ -270,6 +276,9 @@ function initAuthSheet() {
     if (e.data === 'gliimu:terms-close') {
       authTermsOpen = false;
       sheet.classList.remove('is-wide');
+      // A visitor who came for the terms has nothing else in the drawer to
+      // look at, so the document closing is the drawer closing.
+      if (authOpenedForTerms) closeAuthSheet();
     }
   });
 }
@@ -291,15 +300,15 @@ function initScrollReveal() {
 }
 
 // ============================================
-// FETCH SITE SETTINGS (Video, Images, App Releases)
+// FETCH SITE SETTINGS — the hero
 // ============================================
 async function loadSiteSettings() {
   const { data, error } = await supabase.from('site_settings').select('*').single();
   if (error || !data) return;
 
-  // Hero Video
-  const videoSrc = document.getElementById('hero-video-src');
-  if (videoSrc && safeUrl(data.hero_video_url)) videoSrc.src = data.hero_video_url;
+  // Hero explainer (Operations > Landing page). No bundled stand-in: when the
+  // column is blank there is no film and no play button.
+  initHeroVideo(safeUrl(data.hero_video_url));
 
   // Hero Fallback Image (set as background of the section just in case)
   const heroSection = document.getElementById('hero-section');
@@ -318,524 +327,41 @@ async function loadSiteSettings() {
   if (highlightEl) highlightEl.textContent = (data.hero_highlight || '').trim();
   const descEl = document.getElementById('hero-desc-text');
   if (descEl) descEl.innerHTML = escapeHtml((data.hero_desc || '').trim()).replace(/\n/g, '<br>');
-
-  applyDownloadSection(data);
 }
 
 // ============================================
-// APPS ROW IN THE FOOTER (version, device picker, steps, background, QR)
+// HERO EXPLAINER — one click, sound on
 // ============================================
-// One list drives the picker, the button label and the steps, so a device can
-// only ever be offered the route that actually exists for it.
-//
-//   family  — which entries the picker shows at all. Nobody installs a Windows
-//             file on a phone, so a phone is never offered one.
-//   channel — how the steps are worded. A store never hands out a file and an
-//             installer never opens a store, so the two cannot share a script.
-const PLATFORMS = [
-  { key: 'windows', label: 'Windows', icon: 'fab fa-windows', family: 'desktop', channel: 'installer', source: 'Windows setup file (.exe)', place: 'your Start menu' },
-  { key: 'mac',     label: 'macOS',   icon: 'fab fa-apple',   family: 'desktop', channel: 'store',     source: 'Mac App Store',           place: 'your Applications folder' },
-  { key: 'linux',   label: 'Linux',   icon: 'fab fa-linux',   family: 'desktop', channel: 'installer', source: 'Linux package (.deb)',    place: 'your apps list' },
-  { key: 'android', label: 'Android', icon: 'fab fa-android', family: 'mobile',  channel: 'store',     source: 'Google Play',             place: 'your home screen' },
-  { key: 'ios',     label: 'iOS',     icon: 'fab fa-apple',   family: 'mobile',  channel: 'store',     source: 'App Store',               place: 'your Home Screen' },
-];
+// The film is the hero, so it is not a background any more. Nothing autoplays:
+// a browser only lets sound start from a click, so the click is the design
+// rather than a limitation. preload="metadata" gives frame 0 as the poster, so
+// the hero is never an empty box before someone presses play.
+function initHeroVideo(url) {
+  const video = document.getElementById('hero-video');
+  const btn = document.getElementById('hero-play');
+  const hero = document.querySelector('.hero');
+  if (!video || !btn || !hero) return;
+  if (!url) return;
 
-// key -> installer or store URL, filled in from site_settings. Empty means
-// nothing has been published behind that platform yet.
-let appUrls = {};
-let selectedPlatform = null;
-let deviceFamily = 'desktop';
+  video.src = url;
+  btn.hidden = false;
 
-// Pre-filling the picker from the visitor's own browser means the common case
-// is one tap: the device they are standing at is already showing.
-function detectPlatform() {
-  const ua = navigator.userAgent;
-  const touch = navigator.maxTouchPoints > 0;
-  if (/Android/i.test(ua)) return 'android';
-  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
-  if (/Mac/i.test(ua) && touch) return 'ios';
-  if (/Windows/i.test(ua)) return 'windows';
-  if (/Mac/i.test(ua)) return 'mac';
-  if (/Linux/i.test(ua)) return 'linux';
-  return null;
-}
-
-// When the browser says nothing useful the screen does: a wide window driven by
-// a fine pointer is a desk machine.
-function detectFamily(key) {
-  const known = platformOf(key);
-  if (known) return known.family;
-  return window.matchMedia('(min-width: 700px) and (hover: hover) and (pointer: fine)').matches
-    ? 'desktop'
-    : 'mobile';
-}
-
-function platformOf(key) {
-  return PLATFORMS.find(p => p.key === key) || null;
-}
-
-function renderDeviceOptions() {
-  const menu = document.getElementById('dl-device-menu');
-  if (!menu) return;
-  menu.innerHTML = PLATFORMS.filter(p => p.family === deviceFamily).map(p => `
-    <button type="button" class="dl-option" role="option" data-platform="${p.key}" aria-selected="false">
-      <i class="${p.icon}" aria-hidden="true"></i><span>${p.label}</span>
-    </button>`).join('');
-}
-
-function selectPlatform(key) {
-  selectedPlatform = key || null;
-  const picked = platformOf(selectedPlatform);
-  const icon = document.getElementById('dl-device-icon');
-  const label = document.getElementById('dl-device-label');
-  if (icon) icon.className = picked ? picked.icon : 'fas fa-laptop';
-  if (label) label.textContent = picked ? picked.label : 'Device';
-  document.querySelectorAll('#dl-device-menu [data-platform]').forEach(opt => {
-    opt.setAttribute('aria-selected', String(opt.dataset.platform === selectedPlatform));
-  });
-  renderDownloadSteps();
-}
-
-// The whole list is written here rather than sitting in the markup, because the
-// second step of a store install and the second step of a downloaded installer
-// are different sentences, and a fixed list would be wrong for one of them.
-function renderDownloadSteps() {
-  const list = document.getElementById('dl-steps-list');
-  const osLabel = document.getElementById('dl-steps-os');
-  if (!list) return;
-
-  const picked = platformOf(selectedPlatform);
-  if (osLabel) osLabel.textContent = picked ? 'for ' + picked.label : 'on your device';
-  if (!picked) { list.innerHTML = ''; return; }
-
-  const isStore = picked.channel === 'store';
-  const href = safeUrl(appUrls[picked.key]);
-  // A device with nothing published behind it keeps the same shape and answers
-  // with the notice, rather than a link that goes nowhere.
-  const source = href
-    ? `<a class="dl-step-link" href="${escapeHtml(href)}"${isStore ? ' target="_blank" rel="noopener"' : ' download'}>${escapeHtml(picked.source)}</a>`
-    : `<button type="button" class="dl-step-link is-quiet" data-apps-notice>${escapeHtml(picked.source)}</button>`;
-
-  const steps = isStore ? [
-    {
-      name: `Get it from the ${picked.source}`,
-      text: 'Open the store, search for Gliimu, then tap Get.',
-      action: source,
-    },
-    {
-      name: 'Open the app',
-      text: `When the store finishes, Gliimu sits in ${picked.place}.`,
-    },
-  ] : [
-    {
-      name: 'Download the installer',
-      text: `Save the ${picked.source} to this machine.`,
-      action: source,
-    },
-    {
-      name: 'Run it',
-      text: `Open the file and follow it through to the end. Gliimu then appears in ${picked.place}.`,
-    },
-  ];
-
-  // One way in, the same word the hero uses, and the same drawer: an account is
-  // an account whether it is opened from an app or from this page.
-  steps.push({
-    name: 'Enter your account',
-    text: 'Use the email and password you signed up with. First time here? Create your account on that screen.',
-    action: '<a class="dl-step-link" href="/auth.html?tab=login" data-auth-sheet data-auth-tab="login">Enter</a>',
-  });
-
-  list.innerHTML = steps.map((s, i) => `
-    <li class="dl-step">
-      <span class="dl-step-num">${i + 1}</span>
-      <div class="dl-step-body">
-        <h3 class="dl-step-name">${escapeHtml(s.name)}</h3>
-        <p class="dl-step-text">${escapeHtml(s.text)}</p>
-        ${s.action || ''}
-      </div>
-    </li>`).join('');
-}
-
-function initDeviceMenu() {
-  const field = document.getElementById('dl-device-field');
-  const btn = document.getElementById('dl-device-btn');
-  const menu = document.getElementById('dl-device-menu');
-  if (!field || !btn || !menu) return;
-
-  deviceFamily = detectFamily(detectPlatform());
-  renderDeviceOptions();
-
-  const close = () => {
-    menu.hidden = true;
-    field.classList.remove('is-open');
-    btn.setAttribute('aria-expanded', 'false');
+  const setState = (playing) => {
+    btn.classList.toggle('is-playing', playing);
+    hero.classList.toggle('is-playing', playing);
+    btn.setAttribute('aria-label', playing ? 'Pause the Gliimu film' : 'Play the Gliimu film');
   };
 
   btn.addEventListener('click', () => {
-    if (menu.hidden) {
-      menu.hidden = false;
-      field.classList.add('is-open');
-      btn.setAttribute('aria-expanded', 'true');
-    } else {
-      close();
-    }
+    if (video.paused) { video.play().catch(() => {}); } else { video.pause(); }
   });
-
-  menu.addEventListener('click', (e) => {
-    const opt = e.target.closest('[data-platform]');
-    if (!opt) return;
-    selectPlatform(opt.dataset.platform);
-    close();
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!menu.hidden && !field.contains(e.target)) close();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !menu.hidden) close();
-  });
-
-  selectPlatform(detectPlatform());
-}
-
-function initDownloadSteps() {
-  const modal = document.getElementById('dl-steps');
-  const opener = document.getElementById('dl-steps-btn');
-  if (!modal || !opener) return;
-
-  const close = () => {
-    modal.classList.remove('is-open');
-    setTimeout(() => { modal.hidden = true; }, 200);
-  };
-
-  opener.addEventListener('click', () => {
-    renderDownloadSteps();
-    modal.hidden = false;
-    requestAnimationFrame(() => modal.classList.add('is-open'));
-  });
-
-  modal.addEventListener('click', (e) => {
-    if (e.target.closest('[data-dl-steps-close]')) close();
-    // Step 3 hands over to the sign-in drawer, which sits under this modal, so
-    // the steps have to get out of the way for it.
-    if (e.target.closest('[data-auth-sheet]')) close();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    // The notice floats above this modal, so while it is up Escape belongs to
-    // it alone.
-    if (e.key !== 'Escape' || modal.hidden) return;
-    if (!document.getElementById('apps-notice')?.hidden) return;
-    close();
-  });
-}
-
-function applyDownloadSection(settings) {
-  const footer = document.querySelector('.site-footer');
-  if (!footer) return;
-
-  // The image is the ground of the whole footer, not of a card inside it. The
-  // dark base stays in CSS underneath, so if operations never uploads a
-  // picture the white controls still have something to sit on.
-  const bg = safeUrl(settings.app_download_bg_url);
-  footer.style.backgroundImage = bg
-    ? `linear-gradient(rgba(10, 15, 30, 0.72), rgba(10, 15, 30, 0.86)), url('${bg}')`
-    : '';
-
-  const version = (settings.app_version || '').trim();
-  const notes = (settings.app_version_notes || '').trim();
-  const versionEl = document.getElementById('dl-version');
-  if (versionEl) versionEl.textContent = version;
-  const versionWrap = document.getElementById('dl-version-wrap');
-  if (versionWrap) versionWrap.hidden = !version;
-  const notesEl = document.getElementById('dl-notes');
-  if (notesEl) {
-    notesEl.textContent = notes;
-    notesEl.hidden = !notes;
-  }
-
-  appUrls = {
-    windows: safeUrl(settings.app_windows_url),
-    mac: safeUrl(settings.app_mac_url),
-    linux: safeUrl(settings.app_linux_url),
-    android: safeUrl(settings.app_android_url),
-    ios: safeUrl(settings.app_ios_url),
-  };
-  const hasInstaller = Object.values(appUrls).some(Boolean);
-  renderDownloadSteps();
-
-  // Whether this is a desk-sized screen is left to CSS alone. Two gates — one
-  // in JavaScript, one in a stylesheet — meant a wide window could un-hide a
-  // QR the other layer was still refusing to lay out.
-  const qrWrap = document.getElementById('dl-qr-wrap');
-  if (!qrWrap) return;
-  const qrTarget = safeUrl(settings.app_mobile_qr_url)
-    || safeUrl(settings.app_android_url)
-    || safeUrl(settings.app_ios_url);
-  if (!qrTarget) { qrWrap.hidden = true; return; }
-
-  // Until there is a real build the QR opens Gliimu in the phone's browser, so
-  // say that instead of promising a download.
-  const qrLabel = hasInstaller
-    ? 'Scan to download the Gliimu app'
-    : 'Scan to open Gliimu on your phone';
-  const qrHint = qrWrap.querySelector('.download-qr-hint');
-  if (qrHint) qrHint.textContent = qrLabel;
-
-  qrWrap.hidden = false;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(qrTarget)}`;
-  qrWrap.querySelector('.download-qr-code').innerHTML = `
-    <div class="landing-qr-img">
-      <img class="qr" src="${qrSrc}" alt="${escapeHtml(qrLabel)}">
-      <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
-    </div>
-  `;
-  // The plate is drawn by a third-party endpoint, the one part of this row that
-  // can fail on its own. An empty white square reads as a broken page, so the
-  // whole block goes rather than showing one.
-  qrWrap.querySelector('.download-qr-code img.qr').addEventListener('error', () => {
-    qrWrap.hidden = true;
-  });
-}
-
-// ============================================
-// APPS NOTICE
-// ============================================
-// Every download request with no installer behind it opens this, and it goes
-// away on its own so a visitor never has to look for the close button.
-const APPS_NOTICE_MS = 5000;
-let appsNoticeTimer = null;
-
-function showAppsNotice() {
-  const el = document.getElementById('apps-notice');
-  if (!el) return;
-  clearTimeout(appsNoticeTimer);
-  el.hidden = false;
-  requestAnimationFrame(() => el.classList.add('is-open'));
-  appsNoticeTimer = setTimeout(hideAppsNotice, APPS_NOTICE_MS);
-}
-
-function hideAppsNotice() {
-  const el = document.getElementById('apps-notice');
-  if (!el) return;
-  clearTimeout(appsNoticeTimer);
-  el.classList.remove('is-open');
-  setTimeout(() => { el.hidden = true; }, 200);
-}
-
-function initAppsNotice() {
-  // Delegated: step 1 is rewritten whenever the device changes, so the
-  // listener is keyed off the marker rather than off an element that only
-  // exists after the settings arrive.
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('[data-apps-notice]')) {
-      showAppsNotice();
-      return;
-    }
-    if (e.target.closest('[data-apps-notice-close]')) hideAppsNotice();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideAppsNotice();
-  });
-}
-
-// ============================================
-// FORCE VIDEO AUTOPLAY ON iOS (With Fallback)
-// ============================================
-function forceVideoAutoplay() {
-  const video = document.getElementById('hero-video');
-  if (!video) return;
-
-  // Attempt to play
-  const playPromise = video.play();
-
-  if (playPromise !== undefined) {
-    playPromise.then(_ => {
-      // Autoplay started successfully! Ensure video is visible.
-      video.style.display = 'block';
-    }).catch(error => {
-      // Autoplay was blocked (Low Power Mode, iOS restrictions, etc.)
-      // Hide the video element completely so the background image shows.
-      console.log("Autoplay blocked. Showing static fallback image.");
-      video.style.display = 'none';
-    });
-  }
-}
-
-// ============================================
-// FETCH LATEST ON GLIIMU (log, publication, bundle, open co-hort)
-// ============================================
-const DASHBOARD = 'https://dashboard.gliimu.com';
-
-// One rule for every card and for the co-hort strip: a visitor is asked to
-// sign in on the spot, a signed-in person is sent to the thing they tapped
-// (or to XpLoRe when there is nothing behind the tap).
-async function goToDashboard(itemId) {
-  const target = itemId ? `${DASHBOARD}/post?id=${encodeURIComponent(itemId)}` : `${DASHBOARD}/xplore`;
-  let authed = false;
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    authed = !!session;
-  } catch (e) {
-    // Auth unreachable — treat the visitor as signed out.
-  }
-  if (!authed) {
-    openAuthSheet('login', target);
-    return;
-  }
-  window.location.href = target;
-}
-
-const PLAY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"></polygon></svg>';
-const EYE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-const COMMENT_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>';
-
-function pillarLink(itemId, label, extraClass, inner) {
-  return `<a class="pillar-link${extraClass ? ` ${extraClass}` : ''}" href="#" data-item-id="${escapeHtml(itemId || '')}" aria-label="${escapeHtml(label)}">${inner}</a>`;
-}
-
-// The three cards are the three things a gliim can be, drawn exactly as the
-// dashboard draws them: a log is a square with a play badge, a publication is
-// its cover alone, a bundle is a wide card with the writer under it.
-function logCardHtml(log) {
-  const cover = safeUrl(log.cover_url);
-  const inner = `<article class="audiolite-card${cover ? ' audiolite-cover-card' : ''}"${
-    cover ? ` style="background-image: url('${cover}');"` : ''
-  }>
-    <div class="audiolite-center-icon" aria-hidden="true">${PLAY_SVG}</div>
-    <h2 class="audiolite-title">${escapeHtml(log.title)}</h2>
-  </article>`;
-  return pillarLink(log.id, `Log: ${log.title || 'Untitled Gliim'}`, '', inner);
-}
-
-function bookCardHtml(book) {
-  const cover = safeUrl(book.cover_url);
-  if (!cover) return '';
-  const inner = `<article class="book-cover-card" style="background-image: url('${cover}');"></article>`;
-  return pillarLink(book.id, `Publication: ${book.title || 'Untitled Gliim'}`, '', inner);
-}
-
-function bundleCardHtml(b) {
-  const cover = safeUrl(b.cover_url);
-  if (!cover) return '';
-  const avatar = safeUrl(b.author_avatar);
-  const name = String(b.author || '').trim();
-  const author = (avatar || name)
-    ? `<div class="blog-author">${avatar ? `<img class="blog-avatar" src="${avatar}" alt="">` : ''}${
-        name ? `<span>${escapeHtml(name)}</span>` : ''}</div>`
-    : '';
-  const date = b.created_at
-    ? new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : '';
-  const desc = String(b.description || '').trim();
-  const inner = `<article class="blog-card bundle-card">
-    <div class="bundle-cover" style="background-image: url('${cover}');"></div>
-    <div class="blog-content">
-      <div class="blog-meta">${date ? `<span class="blog-date">${escapeHtml(date)}</span>` : ''}</div>
-      <h2 class="blog-title">${escapeHtml(b.title || 'Untitled Gliim')}</h2>
-      ${desc ? `<p class="blog-desc">${escapeHtml(desc)}</p>` : ''}
-      <div class="blog-footer">
-        ${author}
-        <div class="blog-stats">
-          <span class="blog-stat">${EYE_SVG}${Number(b.views) || 0}</span>
-          <span class="blog-stat">${COMMENT_SVG}${Number(b.comments) || 0}</span>
-        </div>
-      </div>
-    </div>
-  </article>`;
-  return pillarLink(b.id, `Bundle: ${b.title || 'Untitled Gliim'}`, 'pillar--bundle', inner);
-}
-
-async function loadHubHighlights() {
-  const container = document.getElementById('xplore-pillars');
-  if (!container) return;
-
-  const { data, error } = await supabase.rpc('landing_highlights', {});
-  if (error || !data) {
-    container.innerHTML = '<p class="panel-note">Could not load highlights.</p>';
-    return;
-  }
-
-  const cards = [
-    data.top_log && logCardHtml(data.top_log),
-    data.top_book && bookCardHtml(data.top_book),
-    data.top_bundle && bundleCardHtml(data.top_bundle),
-  ].filter(Boolean);
-
-  container.innerHTML = cards.length
-    ? cards.join('')
-    : '<p class="panel-note">Nothing is on the shelf yet.</p>';
-
-  container.querySelectorAll('[data-item-id]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.preventDefault();
-      goToDashboard(el.dataset.itemId || null);
-    });
-  });
-
-  renderCohortStrip(data.top_cohort);
-}
-
-// ============================================
-// CO-HORT STRIP — seats, title, accepted faces, one line
-// ============================================
-// Sticky under the hero. It stays hidden unless a cohort is actually open,
-// and a face only appears here once Operations has accepted that person.
-function renderCohortStrip(cohort) {
-  const bar = document.getElementById('cohort-bar');
-  if (!bar) return;
-  if (!cohort || !cohort.id) return;
-
-  const accepted = Number(cohort.accepted_count) || 0;
-  const required = Number(cohort.required_count) || 0;
-
-  const countEl = document.getElementById('cohort-count');
-  if (countEl) countEl.textContent = required ? `${accepted}/${required}` : String(accepted);
-
-  const titleEl = document.getElementById('cohort-title');
-  if (titleEl) titleEl.textContent = String(cohort.strip_label || cohort.title || '').trim();
-
-  const facesEl = document.getElementById('cohort-faces');
-  if (facesEl) {
-    facesEl.innerHTML = (Array.isArray(cohort.members) ? cohort.members : []).map(m => {
-      const url = safeUrl(m && m.avatar_url);
-      return url ? `<img class="cohort-strip-face" src="${url}" alt="">` : '';
-    }).join('');
-  }
-
-  bar.hidden = false;
-
-  const strip = document.getElementById('cohort-strip');
-  if (strip) strip.addEventListener('click', () => goToDashboard(null));
-}
-
-// ============================================
-// FETCH PARTNERS (admin managed)
-// ============================================
-async function loadPartners() {
-  const strip = document.getElementById('partners-strip');
-  const grid = document.getElementById('partners-grid');
-  if (!strip || !grid) return;
-
-  const { data: partners, error } = await supabase
-    .from('partners')
-    .select('name, logo_url')
-    .order('display_order', { ascending: true });
-
-  const usable = (error || !partners ? [] : partners).filter(p => safeUrl(p.logo_url));
-  if (usable.length === 0) return;
-
-  const logos = usable.slice(0, 6);
-
-  grid.innerHTML = logos.map(p => `
-    <span class="partner-logo">
-      <img src="${safeUrl(p.logo_url)}" alt="" loading="lazy">
-    </span>
-  `).join('');
-
-  strip.style.display = 'block';
+  video.addEventListener('play', () => setState(true));
+  // When it finishes the last frame is simply left on screen, and the button
+  // becomes a play control again so the film can be watched a second time.
+  video.addEventListener('pause', () => setState(false));
+  video.addEventListener('ended', () => setState(false));
+  // An Operations upload that 404s must not leave a dead button over the hero.
+  video.addEventListener('error', () => { btn.hidden = true; });
 }
 
 // ============================================
@@ -946,14 +472,8 @@ const boot = async () => {
 
   initJoinButtons();
   initAuthSheet();
-  initAppsNotice();
-  initDeviceMenu();
-  initDownloadSteps();
   initScrollReveal();
   loadSiteSettings();
-  loadHubHighlights();
-  loadPartners();
-  forceVideoAutoplay();
   initFaviconNotifications();
 
   // Dynamic copyright year

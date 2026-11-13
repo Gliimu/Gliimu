@@ -417,7 +417,7 @@ const UPLOAD_KINDS = {
   media:   { prefix: 'media/',            maxBytes: 500 * MB, types: allows(MEDIA_TYPES) },
   library: { prefix: 'library/',          maxBytes: 500 * MB, types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
   chat:    { prefix: 'chat_attachments/', maxBytes: 25 * MB,  types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
-  // Landing page media and partner logos. Gated on the admin app's role
+  // Landing page media. Gated on the admin app's role
   // system, not the legacy profiles.is_admin flag; 'super' implies it.
   site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' },
   // Installers behind the landing page's download buttons. The bytes go
@@ -819,9 +819,9 @@ app.post('/api/r2-sweep', async (req, res) => {
 
     // site_settings: various URL columns
     const { data: settings } = await supabaseAdmin.from('site_settings').select(`
-      hero_video_url, hero_fallback_image_url, squad_bg_url, earnings_image_url,
+      hero_video_url, hero_fallback_image_url,
       app_download_bg_url, app_windows_url, app_mac_url, app_linux_url,
-      app_android_url, app_ios_url, app_mobile_qr_url
+      app_android_url, app_ios_url
     `);
     settings?.forEach(s => {
       Object.values(s).forEach(val => {
@@ -829,12 +829,6 @@ app.post('/api/r2-sweep', async (req, res) => {
           referencedUrls.add(val);
         }
       });
-    });
-
-    // partners: logo_url
-    const { data: partners } = await supabaseAdmin.from('partners').select('logo_url');
-    partners?.forEach(p => {
-      if (p.logo_url) referencedUrls.add(p.logo_url);
     });
 
     // 3. Convert referenced URLs to R2 keys

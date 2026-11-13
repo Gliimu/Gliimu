@@ -11,7 +11,7 @@
 -- WHAT THIS CREATES:
 --   - Extensions (pgcrypto)
 --   - Column additions to Supabase-managed tables
---   - Landing content tables (faqs, legal_documents, partners, contact_info,
+--   - Landing content tables (faqs, legal_documents, contact_info,
 --     site_settings columns, reports)
 --   - Staff tables (admin_users, admin_adjustments, payment_attempts)
 --   - Feed tables (feed_gliims + its Trash columns, feed_gliim_contents,
@@ -29,7 +29,7 @@
 --   gliits_billing.sql, admin.sql, support.sql, unify_support.sql,
 --   notifications.sql, referrals.sql, community.sql, collections_sponsors.sql,
 --   follow_users.sql, polls.sql, content_trash.sql, instant_publish.sql,
---   landing_highlights.sql, contact.sql, daily_gp.sql, verification_badges.sql,
+--   contact.sql, daily_gp.sql, verification_badges.sql,
 --   xploring_unread.sql, profile_banner_social.sql, media_block.sql,
 --   account_lifecycle.sql, registrar.sql, live_*.sql
 --
@@ -85,7 +85,6 @@ alter table public.messages add column if not exists read_at timestamptz;
 -- 2c. site_settings columns
 alter table public.site_settings add column if not exists hero_video_url text;
 alter table public.site_settings add column if not exists hero_fallback_image_url text;
-alter table public.site_settings add column if not exists squad_bg_url text;
 alter table public.site_settings add column if not exists hero_title text;
 alter table public.site_settings add column if not exists hero_highlight text;
 alter table public.site_settings add column if not exists hero_desc text;
@@ -97,7 +96,6 @@ alter table public.site_settings add column if not exists app_mac_url text;
 alter table public.site_settings add column if not exists app_linux_url text;
 alter table public.site_settings add column if not exists app_android_url text;
 alter table public.site_settings add column if not exists app_ios_url text;
-alter table public.site_settings add column if not exists app_mobile_qr_url text;
 
 -- 2d. transactions columns (externally-created table)
 do $$ begin
@@ -129,17 +127,7 @@ create table if not exists public.legal_documents (
   updated_at timestamptz not null default now()
 );
 
--- 3c. partners
-create table if not exists public.partners (
-  id bigserial primary key,
-  name text not null,
-  logo_url text,
-  website_url text,
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
--- 3d. reports
+-- 3c. reports
 create table if not exists public.reports (
   id bigserial primary key,
   reporter_id uuid references auth.users(id) on delete cascade,
@@ -152,7 +140,7 @@ create table if not exists public.reports (
   resolved_by uuid
 );
 
--- 3e. payment_attempts
+-- 3d. payment_attempts
 create table if not exists public.payment_attempts (
   id bigserial primary key,
   user_id uuid references auth.users(id) on delete cascade,
@@ -164,10 +152,10 @@ create table if not exists public.payment_attempts (
   created_at timestamptz not null default now()
 );
 
--- 3f. admin_users
+-- 3e. admin_users
 create table if not exists public.admin_users (
   user_id uuid primary key references public.profiles(id) on delete cascade,
-  role text not null check (role in ('super','crm','registrar','captain','operations')),
+  role text not null check (role in ('super','crm','registrar','operations')),
   note text,
   added_by uuid references public.profiles(id),
   created_at timestamptz not null default now()
@@ -176,7 +164,7 @@ create table if not exists public.admin_users (
 alter table public.admin_users enable row level security;
 revoke all on public.admin_users from anon, authenticated;
 
--- 3g. admin_adjustments
+-- 3f. admin_adjustments
 create table if not exists public.admin_adjustments (
   id bigserial primary key,
   user_id uuid references auth.users(id) on delete cascade,
@@ -188,7 +176,7 @@ create table if not exists public.admin_adjustments (
   created_by uuid references auth.users(id) not null
 );
 
--- 3h. contact_info
+-- 3g. contact_info
 create table if not exists public.contact_info (
   id bigserial primary key,
   user_id uuid references auth.users(id) on delete cascade unique,

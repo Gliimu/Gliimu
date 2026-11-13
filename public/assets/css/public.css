@@ -102,7 +102,7 @@ body { background: var(--bg-primary); }
   background-size: cover;
   background-position: center;
 }
-.hero-background-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
 .hero-scrim {
   position: absolute;
   inset: 0;
@@ -110,24 +110,63 @@ body { background: var(--bg-primary); }
   background:
     linear-gradient(180deg, rgba(10, 15, 30, 0.62) 0%, rgba(10, 15, 30, 0.38) 40%, rgba(10, 15, 30, 0.86) 100%),
     radial-gradient(90% 70% at 50% 45%, rgba(10, 15, 30, 0) 0%, rgba(10, 15, 30, 0.55) 100%);
+  transition: opacity 0.45s ease;
 }
-/* The brand row sits absolutely over the top of the hero, so the copy below
-   stays centred in the remaining space instead of being pushed down by a bar.
-   It is not fixed: it scrolls away with the hero, and the co-hort strip takes
-   its place at the top of the window.
-   Deliberately outside .container — the mark and the call to action belong to
-   the edges of the screen, not to the text column, so they only carry a small
-   gutter. */
-.hero-bar {
+/* While the film runs the scrim lifts so the picture is not darkened, but it
+   never goes to zero: the copy stays where it is and still has to read. */
+.hero.is-playing .hero-scrim { opacity: 0.45; }
+/* One control, in the middle of the empty space above the copy. It dims rather
+   than vanishes while playing, so pause is still findable. */
+.hero-play {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  width: clamp(64px, 9vw, 84px);
+  height: clamp(64px, 9vw, 84px);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  background: rgba(10, 15, 30, 0.42);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.3s ease, transform 0.25s ease, background 0.25s ease;
+}
+.hero-play[hidden] { display: none; }
+.hero-play svg { width: 42%; height: 42%; margin-left: 2px; }
+.hero-play.is-playing svg { margin-left: 0; }
+.hero-play:hover, .hero-play:focus-visible {
+  opacity: 1;
+  background: rgba(10, 15, 30, 0.62);
+  transform: translate(-50%, -50%) scale(1.05);
+}
+.hero-play:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.hero.is-playing .hero-play { opacity: 0.4; }
+.hero.is-playing .hero-play:hover,
+.hero.is-playing .hero-play:focus-visible { opacity: 1; }
+.hero-play .hero-pause-icon { display: none; }
+.hero-play.is-playing .hero-play-icon { display: none; }
+.hero-play.is-playing .hero-pause-icon { display: block; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-scrim, .hero-play { transition: none; }
+  .hero-play:hover, .hero-play:focus-visible { transform: translate(-50%, -50%); }
+}
+/* The wordmark sits at the top of the page and scrolls away with it. Pinned
+   here rather than inside .hero so the hero's own overflow and stacking can
+   never clip it. The bar is click-through — only the mark is live. */
+.brand-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 2;
+  z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-4);
+  justify-content: center;
+  pointer-events: none;
   /* The notch and the punch-hole camera live in this band, so the brand is
      pushed below it rather than under it. Same for the rounded corners in
      landscape. */
@@ -138,18 +177,25 @@ body { background: var(--bg-primary); }
     calc(clamp(14px, 2.5vw, 22px) + env(safe-area-inset-left, 0px));
 }
 /* The mark and the word: the artwork is the G, so "liimu" beside it spells the
-   name out. No plate, no theme inversion — the scrim keeps the top of the hero
-   dark in both themes, so the white G reads either way.
-   No gap: the plate and the letters are one wordmark, not an icon with a
-   caption, and any space between them reads as two separate things. */
-.hero-brand { display: inline-flex; align-items: center; gap: 0; text-decoration: none; }
-.hero-brand img { width: 40px; height: 40px; display: block; }
-.hero-brand-word {
+   name out. The word is pulled back over the plate by 8.4% of its width and
+   painted on top of it, so the two read as one wordmark rather than an icon
+   with a caption. */
+.brand-mark { display: inline-flex; align-items: center; gap: 0; text-decoration: none; pointer-events: auto; }
+.brand-mark img { width: 40px; height: 40px; display: block; }
+.brand-word {
+  position: relative;
+  z-index: 1;
+  max-width: 120px;
+  overflow: hidden;
+  margin-left: calc(40px * -0.084);
   font-size: 26px;
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
   line-height: 1;
   color: #fff;
+  /* The plate is dark, so a hair of shadow is what keeps the first letter legible
+     where it lands on the G. */
+  text-shadow: 0 1px 3px rgba(6, 9, 20, 0.55);
 }
 .hero-inner { width: 100%; text-align: left; }
 .hero-title {
@@ -203,110 +249,19 @@ body { background: var(--bg-primary); }
 }
 
 /* ============================================
-   CO-HORT STRIP
-   ============================================
-   One line, sitting under the hero and pinned to the top of the window the
-   moment it reaches it. Seats, title and faces always share the same line,
-   phones included — the title is the only part allowed to truncate, because
-   the number and the faces are what make a visitor stop reading.
-   It sits on the page ground with a hairline under it rather than on the brand
-   gradient: it is a pointer to one open cohort, not a banner, and a sticky bar
-   that shouts follows a visitor down every screen.
-   */
-.cohort-bar {
-  position: sticky;
-  top: 0;
-  z-index: 120;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border);
-}
-.cohort-bar[hidden] { display: none; }
-.cohort-strip {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 0;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.cohort-strip-count {
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: var(--fw-bold);
-  color: var(--brand-primary);
-  background: var(--brand-primary-light);
-  padding: 4px 11px;
-  border-radius: var(--radius-full);
-}
-.cohort-strip-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Stacked, not gridded — each face overlaps the one before it. The border is
-   the bar's own ground, which is what makes the stack read as separate faces. */
-.cohort-strip-faces { flex-shrink: 0; display: flex; align-items: center; }
-.cohort-strip-face {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--bg-primary);
-  margin-left: -9px;
-}
-.cohort-strip-face:first-child { margin-left: 0; }
-.cohort-strip-chevron { flex-shrink: 0; display: inline-flex; color: var(--text-muted); transition: transform var(--transition-fast); }
-.cohort-strip-chevron svg { width: 16px; height: 16px; }
-.cohort-strip:hover .cohort-strip-chevron { transform: translateX(3px); }
-@media (max-width: 520px) {
-  .cohort-strip { gap: 10px; }
-  .cohort-strip-face:nth-child(n+4) { display: none; }
-}
-
-/* ============================================
    SECTIONS
    ============================================ */
 /* Sections open generously and close a little tighter, so the page reads as a
    rhythm rather than as a stack of identical blocks. */
 section { padding: clamp(76px, 11vw, 120px) 0 clamp(64px, 9vw, 104px); }
-.section-head { text-align: center; margin-bottom: clamp(var(--space-10), 6vw, var(--space-16)); }
-/* The steps are an editorial column, so its heading sits flush with them. */
-.how-section .section-head,
-.how-section .section-title { text-align: left; }
-.how-section .section-subtitle { text-align: left; margin-left: 0; }
-.section-title {
-  font-size: clamp(1.75rem, 1.3rem + 2vw, 3rem);
-  font-weight: var(--fw-extrabold);
-  letter-spacing: var(--ls-tight);
-  margin-bottom: var(--space-4);
-  text-align: center;
-}
-.section-subtitle {
-  font-size: clamp(var(--fs-base), 0.95rem + 0.35vw, var(--fs-lg));
-  color: var(--text-secondary);
-  max-width: 60ch;
-  margin: 0 auto;
-  text-align: center;
-}
 
-/* What Gliimu is — the answer, the cards that prove it, then the steps. */
+/* The summary: three cards on the page's own ground, and nothing above them. */
 .how-section { background: var(--bg-primary); }
 
-/* Three steps, one row. On a wide screen the three share the line; on a phone
+/* Three cards, one row. On a wide screen the three share the line; on a phone
    the row becomes a rail you swipe, so the page never grows taller to say the
    same three things — and the next card's edge stays in view as the hint that
-   there is one. */
+   there is one. Nothing follows them, so the row owns no bottom margin. */
 .step-row {
   display: flex;
   gap: clamp(12px, 1.6vw, 20px);
@@ -314,9 +269,17 @@ section { padding: clamp(76px, 11vw, 120px) 0 clamp(64px, 9vw, 104px); }
   scroll-snap-type: x mandatory;
   overscroll-behavior-x: contain;
   padding-bottom: 10px;
-  scrollbar-width: none;
 }
-.step-row::-webkit-scrollbar { display: none; }
+/* A finger swipes a rail without being told; a mouse needs to see that the row
+   scrolls at all, so only touch devices lose the bar. Fine pointers get the
+   system's slim brand scrollbar, plus room for it to sit clear of the cards. */
+@media (pointer: coarse) {
+  .step-row { scrollbar-width: none; }
+  .step-row::-webkit-scrollbar { display: none; }
+}
+@media (pointer: fine) {
+  .step-row { padding-bottom: 18px; }
+}
 .step-card {
   flex: 1 1 0;
   min-width: 260px;
@@ -361,229 +324,70 @@ section { padding: clamp(76px, 11vw, 120px) 0 clamp(64px, 9vw, 104px); }
   .step-card { min-width: min(78%, 300px); }
 }
 
-/* XpLoRe pillar cards
-   These are copies of the dashboard's feed card rules (views/gliims.css), not
-   an import — a www page must never request a /dashboard/ asset. Keep them in
-   sync by hand when the dashboard cards change.
-   Narrow screens match the XpLoRe page: a publication and a log share one row,
-   a bundle takes the full width. */
-.pillar-row { margin: 0 0 clamp(40px, 6vw, 72px); }
-.pillar-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  align-items: start;
-}
-.pillar--bundle { grid-column: 1 / -1; }
-/* Loading and empty notices span the row, as they do on the dashboard. */
-.pillar-grid > p { grid-column: 1 / -1; }
-@media (min-width: 900px) {
-  .pillar-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.2vw, 24px); }
-  .pillar--bundle { grid-column: auto; }
-}
-.pillar-link {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-  border-radius: 16px;
-}
-.pillar-link:focus-visible {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: 3px;
-}
-
-.blog-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
-  break-inside: avoid;
-  display: inline-block;
-  width: 100%;
-  box-sizing: border-box;
-}
-.blog-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.blog-content { padding: 24px; }
-.blog-meta { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
-.blog-date { font-size: 12px; color: var(--text-muted); }
-.blog-title { font-size: 24px; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; line-height: 1.3; letter-spacing: -0.5px; }
-.blog-desc { font-size: 15px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.blog-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
-.blog-author { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); min-width: 0; }
-[data-theme="light"] .blog-author { color: #000; }
-.blog-author span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.blog-avatar { width: 32px; height: 32px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; object-fit: cover; }
-.blog-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-muted); font-weight: 500; flex-shrink: 0; }
-.blog-stat { display: flex; align-items: center; gap: 4px; }
-
-/* Log: square cover tile, play badge dead centre, title pinned to the bottom. */
-.audiolite-card {
-  position: relative;
-  aspect-ratio: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  padding: 18px;
-  border-radius: 16px;
-  cursor: pointer;
-  overflow: hidden;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: var(--shadow-sm);
-  break-inside: avoid;
-}
-.audiolite-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.audiolite-title { font-size: 19px; font-weight: 800; line-height: 1.25; margin: 10px 0 14px; text-align: left; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
-.audiolite-card .audiolite-center-icon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: color-mix(in srgb, #000000 50%, #868686bd);
-  color: #fff;
-  box-shadow: var(--shadow-md);
-  z-index: 1;
-}
-.audiolite-center-icon svg { width: 28px; height: 28px; }
-.audiolite-center-icon + .audiolite-title { margin: auto 0 0; -webkit-line-clamp: 2; color: inherit; }
-
-.audiolite-cover-card { background-size: cover; background-position: center; color: #fff; }
-.audiolite-cover-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgb(255 255 255 / 76%) 0%, rgb(204 198 198 / 0%) 40%, rgb(0 0 0 / 10%) 100%);
-  border-radius: inherit;
-  pointer-events: none;
-}
-[data-theme="dark"] .audiolite-cover-card::before {
-  background: linear-gradient(to top, rgb(0 0 0 / 61%) 0%, rgb(204 198 198 / 0%) 40%, rgb(0 0 0 / 10%) 100%);
-}
-.audiolite-cover-card > * { position: relative; z-index: 1; }
-[data-theme="light"] .audiolite-cover-card .audiolite-title { color: #000; text-shadow: 0 1px 4px rgba(255,255,255,.4); }
-[data-theme="dark"] .audiolite-cover-card .audiolite-title { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
-
-/* Publication: the cover alone, nothing else. */
-.book-cover-card {
-  position: relative;
-  aspect-ratio: 3 / 4;
-  background-size: cover;
-  background-position: center;
-  background-color: var(--bg-tertiary);
-  border-radius: 16px;
-  cursor: pointer;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: var(--shadow-sm);
-  break-inside: avoid;
-}
-.book-cover-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-
-/* Bundle: plain surface, cover on top, title + creator below. */
-.bundle-card .bundle-cover {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background-size: cover;
-  background-position: center;
-  background-color: var(--bg-tertiary);
-}
-.bundle-card .blog-content { padding: 16px 18px 18px; }
-.bundle-card .blog-meta { margin-bottom: 10px; }
-.bundle-card .blog-title { font-size: 17px; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.bundle-card .blog-desc { font-size: 14px; margin-bottom: 18px; -webkit-line-clamp: 2; }
-.bundle-card .blog-author { font-size: 13px; min-width: 0; }
-
-/* Contact / FAQ */
-.contact-faq-section { background: var(--bg-primary); }
-.cf-grid { display: grid; grid-template-columns: 1fr; gap: clamp(16px, 2.4vw, 28px); max-width: 800px; margin: 0 auto; }
-@media (min-width: 600px) {
-  .cf-grid { grid-template-columns: 1fr 1fr; }
-}
-.cf-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: clamp(var(--space-6), 3vw, var(--space-10)); text-align: center; cursor: pointer; transition: transform var(--transition-fast); display: flex; flex-direction: column; align-items: center; }
-.cf-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--brand-primary-soft); }
-.cf-card i { font-size: clamp(28px, 3vw, 40px); color: var(--brand-primary); margin-bottom: var(--space-4); }
-.cf-card h3 { font-size: var(--fs-xl); font-weight: var(--fw-bold); margin-bottom: var(--space-2); color: var(--text-primary); }
-.cf-card p { color: var(--text-secondary); font-size: var(--fs-sm); margin: 0; }
-
 /* Footer */
-/* The footer is one ground, not a card standing on a strip of it. Operations
-   paints a single image across the whole sign-off, so everything below — the
-   controls, the links, the copyright — sits on the same picture.
-   The dark base colour stays whether or not an image arrives, because every
-   word on this ground is drawn in white. */
+/* The sign-off is the flat ground and nothing else. No picture and no scan
+   plate: a phone visitor types the address like anyone else, and the only
+   thing operations could set here was a photograph nobody needed. Every word
+   on this ground is white, so the dark base is not a fallback, it is the plan. */
 .site-footer {
   background-color: #0A0F1E;
-  background-position: center;
-  background-size: cover;
   border-top: 1px solid var(--border);
   padding:
-    clamp(26px, 3.6vw, 40px)
+    clamp(30px, 4vw, 46px)
     calc(clamp(0px, 1vw, 12px) + env(safe-area-inset-right, 0px))
-    calc(clamp(16px, 2vw, 22px) + env(safe-area-inset-bottom, 0px))
+    calc(clamp(20px, 2.4vw, 28px) + env(safe-area-inset-bottom, 0px))
     calc(clamp(0px, 1vw, 12px) + env(safe-area-inset-left, 0px));
   color: #fff;
 }
 
-/* The apps row is now only a column of content on that ground, so it carries
-   no card of its own: no fill, no border, no lift. */
-.footer-apps {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(16px, 2.4vw, 22px);
-  margin-bottom: clamp(20px, 3vw, 30px);
-  padding: clamp(8px, 1.4vw, 14px) 0;
-  text-align: center;
+/* Mark top-left, links one line lower and flush right. Two rows on purpose:
+   the wordmark gets its own corner instead of sharing a line with the exits,
+   which is what makes a four-item footer read as deliberate rather than
+   crowded. */
+.footer-inner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: clamp(18px, 2.6vw, 26px) 24px;
 }
-.footer-apps-head { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.footer-apps-title {
-  margin: 0;
-  font-size: clamp(1.15rem, 1rem + 0.7vw, 1.55rem);
-  font-weight: var(--fw-extrabold);
-  letter-spacing: var(--ls-tight);
-  color: #fff;
-}
-.footer-bottom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: clamp(14px, 2.5vw, 28px);
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  padding-top: clamp(16px, 2.4vw, 22px);
-}
-/* The same mark the hero uses: the artwork is the G, "liimu" finishes the word.
-   Tight against the plate for the same reason — it is one wordmark. */
-.footer-brand { display: inline-flex; align-items: center; gap: 0; }
-.footer-brand img { width: 32px; height: 32px; display: block; }
+/* The same mark the hero uses: the artwork is the G, "liimu" finishes the word,
+   pulled 8.4% of the plate back over it for the same reason — it is one
+   wordmark, not a picture standing next to a word. */
+.footer-brand { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 0; text-decoration: none; }
+.footer-brand img { width: 34px; height: 34px; display: block; }
 .footer-brand span {
-  font-size: 21px;
+  position: relative;
+  z-index: 1;
+  margin-left: calc(34px * -0.084);
+  font-size: 22px;
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
   line-height: 1;
   color: #fff;
 }
-/* The links and the copyright share one right-hand column, so the last line
-   of the page lands under the last of the navigation rather than centred
-   beneath both marks. */
-.footer-meta {
+
+.footer-links {
+  grid-area: 2 / 2;
+  justify-self: end;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  text-align: right;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: clamp(14px, 2.4vw, 28px);
 }
-.footer-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: clamp(16px, 3vw, 32px); }
+@media (max-width: 600px) {
+  /* One column, and the links become a two-by-two block: four links in one
+     line at 360px wraps into a ragged three-then-one, and a grid never does. */
+  .footer-inner { grid-template-columns: 1fr; }
+  .footer-links {
+    grid-area: 2 / 1;
+    justify-self: start;
+    display: grid;
+    grid-template-columns: repeat(2, min-content);
+    gap: 14px 40px;
+  }
+}
+/* <button> and <a> have to be one row of words, so the button is told to
+   stop looking like a control. */
 .footer-links a, .footer-links button {
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
@@ -593,16 +397,22 @@ section { padding: clamp(76px, 11vw, 120px) 0 clamp(64px, 9vw, 104px); }
   padding: 0;
   cursor: pointer;
   text-decoration: none;
+  text-align: left;
   transition: color var(--transition-fast);
 }
 .footer-links a:hover, .footer-links button:hover { color: #fff; }
+
+/* The year sits in a band of its own under the rule, so it reads as the
+   record of the site rather than as a fifth link. */
+.footer-legal {
+  margin-top: clamp(26px, 4vw, 40px);
+  padding-top: clamp(14px, 2vw, 18px);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
 .footer-copyright {
   margin: 0;
   font-size: var(--fs-xs);
   color: rgba(255, 255, 255, 0.5);
-}
-@media (max-width: 600px) {
-  .footer-bottom { flex-direction: column; align-items: flex-end; }
 }
 
 /* ============================================
@@ -726,358 +536,6 @@ body.auth-sheet-open { overflow: hidden; }
   .entry-splash-dots span { animation: none; opacity: 0.6; }
   .hero-scroll { animation: none; }
   .reveal, .reveal-left, .reveal-right { opacity: 1; transform: none; transition: none; }
-}
-
-/* ============================================
-   PARTNERS STRIP (inside Get in Touch)
-   ============================================ */
-.partners-strip {
-  margin-bottom: clamp(28px, 4vw, 44px);
-}
-
-.partners-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: clamp(16px, 2.4vw, 24px);
-  align-items: center;
-  justify-items: center;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.partners-grid .partner-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.partners-grid .partner-logo img {
-  height: clamp(28px, 3.4vw, 40px);
-  width: auto;
-  max-width: 120px;
-  object-fit: contain;
-  display: block;
-  filter: grayscale(100%);
-  opacity: 0.5;
-}
-
-/* ============================================
-   APPS ROW — the device picker, the steps and the QR, inside the footer card.
-   The card itself is styled with the footer, above.
-   ============================================ */
-.download-version-badge {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-}
-
-.download-version-notes {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  max-width: 520px;
-}
-
-/* Two controls instead of five chips: say which device you are on, then read
-   how it comes down. The platforms live one tap deep because a footer is not a
-   download page, and the QR only appears on a desk-sized screen. */
-.download-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(18px, 3vw, 34px);
-  width: 100%;
-}
-
-.download-controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  flex: 1 1 320px;
-  max-width: 460px;
-}
-
-.dl-field { position: relative; flex: 1 1 190px; }
-
-.dl-control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex: 1 1 190px;
-  padding: 13px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: var(--radius-md);
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-/* The picker's button fills its wrapper so the menu can sit flush above it. */
-.dl-field > .dl-control { width: 100%; flex: 1 1 auto; }
-.dl-control:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.4); }
-.dl-control:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 3px; }
-.dl-control i { width: 20px; font-size: 17px; text-align: center; }
-.dl-control svg { width: 17px; height: 17px; flex-shrink: 0; }
-.dl-control-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dl-control .dl-chevron { transition: transform var(--transition-fast); }
-.dl-field.is-open .dl-chevron { transform: rotate(180deg); }
-
-/* Opens upwards: the card sits at the foot of the page, so a menu that dropped
-   down would run off the bottom of the window. */
-.dl-menu {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 40;
-  display: grid;
-  gap: 2px;
-  padding: 6px;
-  background: #0F172A;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-}
-.dl-menu[hidden] { display: none; }
-.dl-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.82);
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  text-align: left;
-  cursor: pointer;
-}
-.dl-option:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-.dl-option[aria-selected="true"] { background: rgba(255, 255, 255, 0.15); color: #fff; font-weight: var(--fw-semibold); }
-.dl-option i { width: 20px; font-size: 17px; text-align: center; }
-
-.download-qr { display: none; flex-direction: column; align-items: center; gap: 10px; }
-.download-qr-code { width: clamp(130px, 12vw, 168px); height: clamp(130px, 12vw, 168px); padding: 10px; background: #fff; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
-.download-qr-code img { width: 100%; height: 100%; display: block; }
-.download-qr-hint { font-size: var(--fs-xs); color: rgba(255, 255, 255, 0.6); text-align: center; margin: 0; }
-/* 700px, not 900px: a QR is useless to the person already holding the phone,
-   so the only test is whether there is room beside it. Narrow laptops and
-   tablets in landscape are the case 900px silently threw away. */
-@media (min-width: 700px) {
-  .download-qr:not([hidden]) { display: flex; }
-}
-
-/* ============================================
-   DOWNLOAD STEPS — what the Download control answers with.
-   Three numbered lines, the same shape as the notice it hands over to when a
-   device has no installer behind it yet.
-   ============================================ */
-/* The panel is inset by the notches as well as by the 24px, so on a phone in
-   landscape the close button and the last step never hide behind a cutout. */
-.dl-steps {
-  position: fixed;
-  inset: 0;
-  z-index: 1250;
-  display: grid;
-  place-items: center;
-  padding: calc(24px + env(safe-area-inset-top))
-           calc(24px + env(safe-area-inset-right))
-           calc(24px + env(safe-area-inset-bottom))
-           calc(24px + env(safe-area-inset-left));
-}
-.dl-steps[hidden] { display: none; }
-.dl-steps-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(2, 6, 18, 0.72);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-.dl-steps-panel {
-  position: relative;
-  width: min(520px, 100%);
-  max-height: min(82vh, 620px);
-  overflow-y: auto;
-  padding: clamp(22px, 4vw, 30px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-xl);
-  opacity: 0;
-  transform: translateY(10px) scale(0.98);
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-.dl-steps.is-open .dl-steps-backdrop { opacity: 1; }
-.dl-steps.is-open .dl-steps-panel { opacity: 1; transform: none; }
-.dl-steps-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.dl-steps-close svg { width: 16px; height: 16px; }
-.dl-steps-title {
-  margin: 0 0 var(--space-5);
-  font-size: var(--fs-lg);
-  font-weight: var(--fw-extrabold);
-  letter-spacing: var(--ls-tight);
-  color: var(--text-primary);
-}
-.dl-steps-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
-.dl-step { display: flex; gap: 14px; }
-.dl-step-num {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-full);
-  background: var(--brand-primary-light);
-  color: var(--brand-primary);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: var(--fw-bold);
-}
-.dl-step-body { min-width: 0; }
-.dl-step-name {
-  margin: 0 0 3px;
-  font-size: var(--fs-base);
-  font-weight: var(--fw-bold);
-  color: var(--text-primary);
-}
-.dl-step-text {
-  margin: 0;
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-.dl-step-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 10px 16px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--brand-primary);
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  text-decoration: none;
-  cursor: pointer;
-}
-.dl-step-link:hover { filter: brightness(1.07); }
-.dl-step-link[hidden] { display: none; }
-.dl-step-link.is-quiet { background: transparent; color: var(--brand-primary); border: 1px solid var(--brand-primary-soft); }
-.dl-step-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-@media (prefers-reduced-motion: reduce) {
-  .dl-steps-backdrop, .dl-steps-panel { transition: none; }
-}
-
-/* Landing QR with the Gliimu icon in the center (same look as profile page) */
-.landing-qr-img { position: relative; width: 100%; height: 100%; }
-.landing-qr-img img.qr { width: 100%; height: 100%; border-radius: 6px; background: #fff; object-fit: contain; }
-.landing-qr-img .qr-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; background: #fff; border-radius: 50%; padding: 3px; object-fit: contain; }
-
-/* ============================================
-   APPS NOTICE
-   ============================================
-   There is no installer to hand over yet, so a download request says so in a
-   card that removes itself after five seconds rather than a dead link or a
-   store badge for a product that does not exist.
-   ============================================ */
-.apps-notice {
-  position: fixed;
-  inset: 0;
-  z-index: 1300;
-  display: grid;
-  place-items: center;
-  padding: calc(24px + env(safe-area-inset-top, 0px))
-           calc(24px + env(safe-area-inset-right, 0px))
-           calc(24px + env(safe-area-inset-bottom, 0px))
-           calc(24px + env(safe-area-inset-left, 0px));
-}
-.apps-notice[hidden] { display: none; }
-.apps-notice-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-.apps-notice-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 28px 34px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
-  text-align: center;
-  opacity: 0;
-  transform: translateY(10px) scale(0.98);
-  transition: opacity 200ms ease, transform 200ms ease;
-}
-.apps-notice.is-open .apps-notice-backdrop { opacity: 1; }
-.apps-notice.is-open .apps-notice-panel { opacity: 1; transform: none; }
-.apps-notice-icon {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--brand-primary-light);
-  color: var(--brand-primary);
-}
-.apps-notice-icon svg { width: 22px; height: 22px; }
-.apps-notice p {
-  margin: 0;
-  font-size: var(--fs-md);
-  font-weight: var(--fw-semibold);
-  color: var(--text-primary);
-}
-@media (prefers-reduced-motion: reduce) {
-  .apps-notice-backdrop, .apps-notice-panel { transition: none; }
-}
-
-/* Ensure video ignores pointer events so iOS doesn't make it clickable */
-.hero-background-video {
-  pointer-events: none !important;
-}
-
-/* Hide native iOS video controls overlay */
-.hero-background-video::-webkit-media-controls-panel,
-.hero-background-video::-webkit-media-controls-play-button,
-.hero-background-video::-webkit-media-controls-start-playback-button {
-  display: none !important;
-  -webkit-appearance: none !important;
 }
 
 /* 404 Error Page */

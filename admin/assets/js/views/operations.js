@@ -1,11 +1,10 @@
 import { supabase, API_BASE_URL } from '../config.js';
-import { escapeHtml, empty, rpcError, openDrawer } from '../ui.js?v=2';
+import { escapeHtml, empty, rpcError } from '../ui.js?v=2';
 import { appAlert, appConfirm } from '../dialog.js';
 import { uploadFile } from '../upload.js';
 
 const TABS = [
   { id: 'landing', label: 'Landing page' },
-  { id: 'partners', label: 'Partners' },
   { id: 'release', label: 'App release' },
   { id: 'cohorts', label: 'Cohorts' },
   { id: 'deleted', label: 'Deleted' }
@@ -28,14 +27,14 @@ function trashCode(data) {
 // mean "leave this column alone" and an empty string to mean "clear it", so
 // each screen always sends the fields it actually shows.
 const LANDING = [
-  { key: 'hero_video_url', param: 'p_hero_video_url', label: 'Hero video', asset: true, video: true,
-    note: 'Plays behind the headline on gliimu.com.' },
-  { key: 'hero_fallback_image_url', param: 'p_hero_fallback_image_url', label: 'Hero fallback image', asset: true,
-    note: 'Shown behind the headline while the video loads, or where autoplay is blocked.' }
+  { key: 'hero_video_url', param: 'p_hero_video_url', label: 'Hero explainer video', asset: true, video: true,
+    note: 'The film visitors play from the hero on gliimu.com — one click, sound on, open to anyone signed in or not. Blank means no film and no play button.' },
+  { key: 'hero_fallback_image_url', param: 'p_hero_fallback_image_url', label: 'Hero background image', asset: true,
+    note: 'The still behind the hero words. Shows when there is no film, and around it on wide screens.' }
 ];
 
-// The hero headline and paragraph. Blank on all three keeps the copy that
-// ships in public/index.html, so a fresh install reads exactly as before.
+// The hero headline and paragraph. index.html ships the hero with no words of
+// its own, so a blank here means a blank headline there.
 const HERO_TEXTS = [
   { key: 'hero_title', param: 'p_hero_title', label: 'Headline lead-in', maxlength: 120,
     placeholder: 'We are',
@@ -56,11 +55,12 @@ const RELEASE = [
 ];
 
 const RELEASE_BG = { key: 'app_download_bg_url', param: 'p_app_download_bg_url',
-  label: 'App download & auth page background', asset: true,
-  note: 'Background image behind the download panel on gliimu.com and the auth page.' };
+  label: 'Auth page background', asset: true,
+  note: 'Background image behind the sign-in and sign-up page.' };
 
-// The five platform files are what the landing page's download buttons point
-// at: Operations uploads the build itself and the column stores its R2 URL.
+// The five platform files are the builds themselves: Operations uploads one
+// and the column stores its R2 URL. Nothing on gliimu.com points at them yet,
+// because the desktop app is not packaged — but the storage is set up for it.
 // A pasted link still works, which is the only way iOS can ever behave.
 const RELEASE_FILES = [
   { key: 'app_windows_url', param: 'p_app_windows_url', label: 'Windows file', file: true,
@@ -70,14 +70,11 @@ const RELEASE_FILES = [
   { key: 'app_linux_url', param: 'p_app_linux_url', label: 'Linux file', file: true,
     accept: '.appimage,.deb,.rpm,.zip,.tar.gz', note: 'An .AppImage, .deb or .rpm.' },
   { key: 'app_android_url', param: 'p_app_android_url', label: 'Android file', file: true,
-    accept: '.apk,.aab,.zip', note: 'The signed .apk. The desktop QR encodes this file by default.' },
+    accept: '.apk,.aab,.zip', note: 'The signed .apk.' },
   { key: 'app_ios_url', param: 'p_app_ios_url', label: 'iOS file or link', file: true,
     accept: '.ipa,.zip',
     note: 'iPhones will not install a downloaded file, so this is normally an App Store or TestFlight link.' }
 ];
-
-const QR_LINK = { key: 'app_mobile_qr_url', param: 'p_app_mobile_qr_url', label: 'Desktop QR link',
-  note: 'Leave blank to encode the Android file, or iOS if there is no Android file.' };
 
 const GRID = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 16px;';
 
@@ -95,7 +92,6 @@ export default {
   async init() {
     this.tab = 'landing';
     this.settings = null;
-    this.partners = null;
     this.deleted = null;
     this.cohortState = null;
 
@@ -121,8 +117,7 @@ export default {
       return;
     }
 
-    pane.innerHTML = this.tab === 'partners' ? this.partnersHtml()
-      : this.tab === 'release' ? this.releaseHtml()
+    pane.innerHTML = this.tab === 'release' ? this.releaseHtml()
       : this.tab === 'cohorts' ? this.cohortsHtml()
       : this.tab === 'deleted' ? this.deletedHtml()
       : this.landingHtml();
@@ -132,15 +127,6 @@ export default {
   // The tabs read different tables, so a failure on one side still lets
   // the other render instead of blanking the whole screen.
   async fetch() {
-    if (this.tab === 'partners') {
-      if (this.partners) return null;
-      const { data, error } = await supabase.rpc('operations_partners');
-      if (error) return error.message;
-      if (!data || data.ok === false) return rpcError(data);
-      this.partners = data.partners || [];
-      return null;
-    }
-
     if (this.tab === 'deleted') {
       const { data, error } = await supabase.rpc('admin_list_deleted_gliims', {
         p_limit: 200, p_offset: 0
@@ -170,7 +156,6 @@ export default {
 
   invalidate() {
     this.settings = null;
-    this.partners = null;
     this.deleted = null;
   },
 
@@ -196,16 +181,6 @@ export default {
         ${f.textarea
           ? `<textarea id="in-${f.key}" class="input" data-key="${f.key}"${max} placeholder="${escapeHtml(f.placeholder || '')}">${escapeHtml(value)}</textarea>`
           : `<input type="text" id="in-${f.key}" class="input" data-key="${f.key}" value="${escapeHtml(value)}"${max} placeholder="${escapeHtml(f.placeholder || '')}" autocomplete="off">`}
-        ${f.note ? `<div class="card-sub">${escapeHtml(f.note)}</div>` : ''}
-      </div>`;
-  },
-
-  linkField(f) {
-    return `
-      <div class="form-group">
-        <label for="in-${f.key}">${escapeHtml(f.label)}</label>
-        <input type="text" id="in-${f.key}" class="input" data-key="${f.key}" value="${escapeHtml(this.value(f.key))}"
-               placeholder="https:// — leave blank to switch it off" autocomplete="off">
         ${f.note ? `<div class="card-sub">${escapeHtml(f.note)}</div>` : ''}
       </div>`;
   },
@@ -259,9 +234,9 @@ export default {
           <div class="card-sub">Everything here goes live on gliimu.com the moment you save.${escapeHtml(note)}</div>
         </div></div>
         <div class="section-title">Hero texts</div>
-        <div class="card-sub">Leave all three blank to keep the copy that ships with the site.</div>
+        <div class="card-sub">Over the film. Blank means no word appears there.</div>
         <div style="${GRID}">${HERO_TEXTS.map(f => this.textField(f)).join('')}</div>
-        <div class="section-title">Hero and squad media</div>
+        <div class="section-title">Hero media</div>
         ${LANDING.map(f => this.assetField(f)).join('')}
         <div class="card-actions" style="margin-left:0;margin-top:6px;">
           <button class="btn-primary btn-small" data-save="landing">Save landing page</button>
@@ -270,43 +245,7 @@ export default {
   },
 
   // ============================================
-  // TAB 2 — the partner wall
-  // ============================================
-  partnersHtml() {
-    const rows = this.partners || [];
-    return `
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="card-title">Trusted By wall</div>
-            <div class="card-sub">Logos on the landing page, lowest position first. Editing a position saves it straight away.</div>
-          </div>
-          <div class="card-actions"><button class="btn-primary btn-small" data-add-partner>Add partner</button></div>
-        </div>
-        ${rows.length ? `
-          <div class="table-wrap"><table class="table">
-            <thead><tr><th style="width:64px;">Logo</th><th>Partner</th><th class="num" style="width:110px;">Position</th><th class="num" style="width:180px;"></th></tr></thead>
-            <tbody>${rows.map(p => `
-              <tr data-partner="${escapeHtml(p.id)}">
-                <td>${p.logo_url
-                  ? `<img src="${escapeHtml(p.logo_url)}" alt="" style="width:44px;height:30px;object-fit:contain;border-radius:6px;background:var(--bg-tertiary);">`
-                  : '<span class="muted small">none</span>'}</td>
-                <td>${escapeHtml(p.name || '—')}</td>
-                <td class="num"><input type="number" class="input" min="0" max="999" step="1" data-order
-                       value="${Number(p.display_order || 0)}" style="width:84px;padding:5px 8px;text-align:right;"></td>
-                <td class="num" style="white-space:nowrap;">
-                  <button class="btn-quiet btn-small" data-edit="${escapeHtml(p.id)}">Edit</button>
-                  <button class="btn-danger btn-small" data-remove="${escapeHtml(p.id)}"
-                          data-name="${escapeHtml(p.name || 'that partner')}">Remove</button>
-                </td>
-              </tr>`).join('')}
-            </tbody>
-          </table></div>` : empty('No partners yet. Add the first logo.')}
-      </div>`;
-  },
-
-  // ============================================
-  // TAB 3 — the app release
+  // TAB 2 — the app release
   // ============================================
   releaseHtml() {
     return `
@@ -320,8 +259,6 @@ export default {
         <div class="section-title">App files</div>
         <div class="card-sub">Upload each build once and its button on gliimu.com downloads that file. A platform with nothing uploaded shows a switched-off button.</div>
         <div style="${GRID}">${RELEASE_FILES.map(f => this.assetField(f)).join('')}</div>
-        <div class="section-title">QR code</div>
-        ${this.linkField(QR_LINK)}
         <div class="card-actions" style="margin-left:0;margin-top:6px;">
           <button class="btn-primary btn-small" data-save="release">Save release</button>
         </div>
@@ -329,7 +266,7 @@ export default {
   },
 
   // ============================================
-  // TAB 4 — the Trash Operations must finalise
+  // TAB 3 — the Trash Operations must finalise
   // ============================================
   deletedHtml() {
     const queue = this.deleted || { count: 0, items: [] };
@@ -700,7 +637,7 @@ export default {
   async save(which, btn) {
     const fields = which === 'landing'
       ? [...HERO_TEXTS, ...LANDING]
-      : [...RELEASE, RELEASE_BG, ...RELEASE_FILES, QR_LINK];
+      : [...RELEASE, RELEASE_BG, ...RELEASE_FILES];
     const rpc = which === 'landing' ? 'operations_set_landing' : 'operations_set_release';
 
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -746,118 +683,6 @@ export default {
   },
 
   // ============================================
-  // Partner drawer — one builder for add and edit
-  // ============================================
-  partnerDrawer(existing) {
-    const editing = !!existing;
-    const logo = editing ? (existing.logo_url || '') : '';
-
-    const { overlay, close } = openDrawer({
-      title: editing ? `Edit ${escapeHtml(existing.name || 'partner')}` : 'Add a partner',
-      sub: 'The logo appears in the "Trusted By" section of the landing page.',
-      body: `
-        <div class="form-group">
-          <label for="pt-name">Partner name</label>
-          <input type="text" id="pt-name" class="input" maxlength="80" autocomplete="off"
-                 value="${escapeHtml(editing ? (existing.name || '') : '')}" placeholder="e.g. Northwind Studios">
-        </div>
-        <div class="form-group">
-          <label for="pt-logo">Logo</label>
-          <input type="text" id="pt-logo" class="input" value="${escapeHtml(logo)}"
-                 placeholder="https://cdn.gliimu.com/… — optional" autocomplete="off">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-            <label class="btn-quiet btn-small" for="pt-file" style="cursor:pointer;">Upload a file</label>
-            <input type="file" id="pt-file" accept="image/*" hidden>
-            <span class="muted small" id="pt-status"></span>
-          </div>
-          <div id="pt-preview" style="margin-top:10px;">${logo
-            ? `<img class="cover-preview" src="${escapeHtml(logo)}" alt="">`
-            : '<span class="muted small">No logo yet.</span>'}</div>
-        </div>`,
-      foot: `
-        <button class="btn-quiet" data-cancel>Cancel</button>
-        <button class="btn-primary" id="pt-save">${editing ? 'Save changes' : 'Add partner'}</button>`
-    });
-
-    const nameEl = overlay.querySelector('#pt-name');
-    const logoEl = overlay.querySelector('#pt-logo');
-    const statusEl = overlay.querySelector('#pt-status');
-    const previewEl = overlay.querySelector('#pt-preview');
-    const saveBtn = overlay.querySelector('#pt-save');
-    nameEl.focus();
-
-    overlay.querySelector('[data-cancel]').addEventListener('click', close);
-
-    overlay.querySelector('#pt-file').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      statusEl.textContent = 'Uploading…';
-      try {
-        const url = await uploadFile(file, 'site');
-        logoEl.value = url;
-        previewEl.innerHTML = `<img class="cover-preview" src="${escapeHtml(url)}" alt="">`;
-        statusEl.textContent = '';
-      } catch (err) {
-        statusEl.textContent = '';
-        await appAlert(err.message || 'That upload failed.');
-      }
-    });
-
-    saveBtn.addEventListener('click', async () => {
-      const name = nameEl.value.trim();
-      if (name.length < 2) return appAlert('Give the partner a name of at least 2 characters.');
-
-      const params = { p_name: name, p_logo_url: logoEl.value.trim() };
-      saveBtn.disabled = true;
-
-      const call = editing
-        ? supabase.rpc('operations_update_partner', { p_id: existing.id, ...params })
-        : supabase.rpc('operations_add_partner', params);
-      const { data, error } = await call;
-
-      saveBtn.disabled = false;
-      if (error || !data || data.ok === false) {
-        return appAlert(error ? `Could not save that partner: ${error.message}` : rpcError(data));
-      }
-
-      close();
-      this.partners = null;
-      await this.render();
-    });
-
-    nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
-  },
-
-  async setOrder(id, value) {
-    const order = parseInt(value, 10);
-    if (!Number.isFinite(order) || order < 0 || order > 999) {
-      await appAlert('The position must be a whole number from 0 to 999.');
-      return this.render();
-    }
-
-    const { data, error } = await supabase.rpc('operations_set_partner_order', { p_id: id, p_order: order });
-    if (error || !data || data.ok === false) {
-      await appAlert(error ? `Could not move that partner: ${error.message}` : rpcError(data));
-    }
-    this.partners = null;
-    await this.render();
-  },
-
-  async removePartner(id, name) {
-    const ok = await appConfirm(
-      `${name} comes off the "Trusted By" wall immediately.`,
-      { title: 'Remove partner', okText: 'Remove', danger: true });
-    if (!ok) return;
-
-    const { data, error } = await supabase.rpc('operations_remove_partner', { p_id: id });
-    if (error || !data || data.ok === false) {
-      await appAlert(error ? `Could not remove that partner: ${error.message}` : rpcError(data));
-    }
-    this.partners = null;
-    await this.render();
-  },
-
-  // ============================================
   // Wiring
   // ============================================
   wire(pane) {
@@ -881,27 +706,6 @@ export default {
         if (preview) preview.innerHTML = '<span class="muted small">Nothing set.</span>';
         const status = document.querySelector(`[data-status="${key}"]`);
         if (status) status.textContent = 'Cleared — press Save to publish it.';
-      });
-    });
-
-    const add = pane.querySelector('[data-add-partner]');
-    if (add) add.addEventListener('click', () => this.partnerDrawer(null));
-
-    pane.querySelectorAll('[data-edit]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const row = (this.partners || []).find(p => p.id === btn.dataset.edit);
-        if (row) this.partnerDrawer(row);
-      });
-    });
-
-    pane.querySelectorAll('[data-remove]').forEach((btn) => {
-      btn.addEventListener('click', () => this.removePartner(btn.dataset.remove, btn.dataset.name));
-    });
-
-    pane.querySelectorAll('[data-order]').forEach((input) => {
-      input.addEventListener('change', () => {
-        const row = input.closest('[data-partner]');
-        if (row) this.setOrder(row.dataset.partner, input.value);
       });
     });
 

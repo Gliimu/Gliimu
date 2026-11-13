@@ -1,35 +1,41 @@
--- sql/app_qr_link.sql — put the desktop QR code back, pointing at the website
+-- sql/app_qr_link.sql — clear the footer QR link that pointed at the download band
 -- Run once on Supabase. Idempotent: running it twice leaves the same value.
 --
--- Why: sql/app_download_placeholders.sql blanked app_mobile_qr_url along with
--- the five installer columns, because all six held the same "https://gliimu.com"
--- stand-in. With every QR source column blank the landing page hides the QR
--- block entirely — so a visitor at a laptop has nothing to scan with their phone.
+-- Why: the landing footer used to encode 'https://www.gliimu.com/#download-section'
+-- in its desktop QR plate. That section is gone — the footer no longer carries a
+-- download control, because there is no installer to hand over — so the anchor
+-- would leave a phone staring at a fragment that scrolls to nothing.
 --
--- The QR column is a LINK column, not a FILE column, so a real Gliimu URL is the
--- correct value here (it is exactly what was wrong for the five file columns).
--- It points at the download section itself, which is where a phone visitor wants
--- to land.
+-- The plate still shows, and main.js now encodes 'https://www.gliimu.com/' when
+-- this column is blank. So blank is the correct value: the column says "no
+-- override", and Operations can put a real target in it (a store page, a signup
+-- link) from Operations > App release whenever one exists.
 --
--- Order-independent: safe to run before or after app_download_placeholders.sql,
--- because that script only clears values equal to 'https://gliimu.com' and this
--- one writes 'https://www.gliimu.com/#download-section'.
+-- Guard: the update only matches the dead placeholder string, so a target that
+-- Operations sets by hand is never wiped by running this script.
 
 update public.site_settings
-set app_mobile_qr_url = 'https://www.gliimu.com/#download-section'
-where id = 1;
+set app_mobile_qr_url = null
+where id = 1
+  and app_mobile_qr_url = 'https://www.gliimu.com/#download-section';
 
 -- ============================================================
 -- SELF CHECK — run alone, reads nothing, changes nothing.
 -- Every row must say PASS.
 -- ============================================================
-select 'Desktop QR link' as setting,
+select 'Footer QR link' as setting,
        coalesce(app_mobile_qr_url, '(blank)') as value,
-       case when app_mobile_qr_url = 'https://www.gliimu.com/#download-section'
+       case when app_mobile_qr_url is null
+              or app_mobile_qr_url <> 'https://www.gliimu.com/#download-section'
             then 'PASS' else 'CHECK' end as result
   from public.site_settings where id = 1
 union all
--- The five installer links must STAY blank until a real build exists.
+-- The footer still paints with this, so it must survive.
+select 'Footer background', coalesce(app_download_bg_url, '(blank)'),
+       case when app_download_bg_url is not null then 'PASS' else 'CHECK' end
+  from public.site_settings where id = 1
+union all
+-- Nothing is installable yet, so every platform link stays blank.
 select 'Windows link', coalesce(app_windows_url, '(blank)'),
        case when app_windows_url is null then 'PASS' else 'CHECK' end
   from public.site_settings where id = 1
@@ -50,16 +56,10 @@ select 'iOS link', coalesce(app_ios_url, '(blank)'),
        case when app_ios_url is null then 'PASS' else 'CHECK' end
   from public.site_settings where id = 1
 union all
--- No build means no version number to print.
 select 'Version badge', coalesce(app_version, '(blank)'),
        case when app_version is null then 'PASS' else 'CHECK' end
   from public.site_settings where id = 1
 union all
 select 'Release notes', coalesce(app_version_notes, '(blank)'),
        case when app_version_notes is null then 'PASS' else 'CHECK' end
-  from public.site_settings where id = 1
-union all
--- The only value that must SURVIVE: a real background image on R2.
-select 'Download background', coalesce(app_download_bg_url, '(blank)'),
-       case when app_download_bg_url is not null then 'PASS' else 'CHECK' end
   from public.site_settings where id = 1;
