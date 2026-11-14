@@ -29,6 +29,8 @@ function trashCode(data) {
 const LANDING = [
   { key: 'hero_video_url', param: 'p_hero_video_url', label: 'Hero explainer video', asset: true, video: true,
     note: 'The film visitors play from the hero on gliimu.com — one click, sound on, open to anyone signed in or not. Blank means no film and no play button.' },
+  { key: 'hero_mobile_video_url', param: 'p_hero_mobile_video_url', label: 'Mobile hero video', asset: true, video: true,
+    note: 'A separate film for phones. Leave it blank to show every visitor the video above. The background image only appears when both are blank.' },
   { key: 'hero_fallback_image_url', param: 'p_hero_fallback_image_url', label: 'Hero background image', asset: true,
     note: 'The still behind the hero words. Shows when there is no film, and around it on wide screens.' }
 ];

@@ -284,19 +284,53 @@ function initAuthSheet() {
 }
 
 // ============================================
-// SCROLL REVEAL ANIMATIONS
+// TOP BAR MENU — the three exits the footer used to print on the ground
 // ============================================
-function initScrollReveal() {
-  const reveals = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
-  reveals.forEach(el => observer.observe(el));
+// The panel is told to stop before anything it launches opens, so a visitor
+// never finds the FAQ sheet sitting behind an open menu.
+function setSiteMenu(open) {
+  const btn = document.getElementById('menu-toggle');
+  const menu = document.getElementById('site-menu');
+  if (!btn || !menu) return;
+  if (open) {
+    menu.hidden = false;
+    requestAnimationFrame(() => menu.classList.add('is-open'));
+  } else {
+    menu.classList.remove('is-open');
+    // A reopen inside the fade leaves .is-open set, and that is the only thing
+    // standing between this timer and a panel that vanished while visible.
+    setTimeout(() => { if (!menu.classList.contains('is-open')) menu.hidden = true; }, 180);
+  }
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function initSiteMenu() {
+  const btn = document.getElementById('menu-toggle');
+  const menu = document.getElementById('site-menu');
+  if (!btn || !menu) return;
+  const isOpen = () => btn.getAttribute('aria-expanded') === 'true';
+
+  document.addEventListener('click', (e) => {
+    const node = e.target;
+    if (!(node instanceof Element)) return;
+    if (node.closest('#menu-toggle')) {
+      setSiteMenu(!isOpen());
+      return;
+    }
+    if (!isOpen()) return;
+    const action = node.closest('[data-site-action]');
+    if (action) {
+      setSiteMenu(false);
+      if (action.dataset.siteAction === 'faq') openFaqModal();
+      if (action.dataset.siteAction === 'contact') openContactModal();
+      return;
+    }
+    if (node.closest('[data-auth-sheet]') || !node.closest('.site-menu')) setSiteMenu(false);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen()) setSiteMenu(false);
+  });
 }
 
 // ============================================
@@ -307,8 +341,10 @@ async function loadSiteSettings() {
   if (error || !data) return;
 
   // Hero explainer (Operations > Landing page). No bundled stand-in: when the
-  // column is blank there is no film and no play button.
-  initHeroVideo(safeUrl(data.hero_video_url));
+  // column is blank there is no film and no play button. Phones get their own
+  // upload when one exists, and the all-devices film when the mobile one is
+  // blank.
+  initHeroVideo(pickHeroVideoUrl(data));
 
   // Hero Fallback Image (set as background of the section just in case)
   const heroSection = document.getElementById('hero-section');
@@ -327,6 +363,15 @@ async function loadSiteSettings() {
   if (highlightEl) highlightEl.textContent = (data.hero_highlight || '').trim();
   const descEl = document.getElementById('hero-desc-text');
   if (descEl) descEl.innerHTML = escapeHtml((data.hero_desc || '').trim()).replace(/\n/g, '<br>');
+}
+
+// Phones take their own upload when Operations set one, and the film every
+// device gets when the mobile column is blank. (pointer: coarse) is the touch
+// signal, so it still holds with the phone turned sideways.
+function pickHeroVideoUrl(settings) {
+  const mobile = safeUrl(settings.hero_mobile_video_url);
+  const every = safeUrl(settings.hero_video_url);
+  return window.matchMedia('(pointer: coarse)').matches ? (mobile || every) : every;
 }
 
 // ============================================
@@ -433,21 +478,19 @@ async function loadContact() {
 async function loadFaqs() {
   const el = document.getElementById('faq-accordion');
   if (!el || el.dataset.loaded) return;
-  el.dataset.loaded = '1';
-  const fallback = [
-    { q: 'What is Gliimu?', a: 'Gliimu is a full stack media platform where you publish, read, listen, and build your portfolio.' },
-    { q: 'How do I earn GP?', a: 'Post content, get referrals, complete reading, and participate in contests to earn GP.' },
-    { q: 'How do payments work?', a: 'We accept bank transfers and Paystack. Wallet top-ups are instant.' },
-    { q: 'Can I publish my own content?', a: 'Yes. Open the Publish page in your dashboard, write your gliim and it goes live the moment you publish it.' },
-    { q: 'How do referrals work?', a: 'Share your referral link from the Billing page. When your friend signs up and makes a purchase, you earn GP.' },
-    { q: 'Is there a mobile app?', a: 'The app is on the way. We are finishing installers for Android, iOS, Windows, macOS and Linux; until then Gliimu runs in your browser on any device.' },
-    { q: 'How do I contact support?', a: 'Use the Support tab in your dashboard or email support@gliimu.com.' }
-  ];
-  let faqs = fallback;
+  let faqs = [];
   try {
-    const { data } = await supabase.from('faqs').select('question, answer').order('display_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
+    const { data } = await supabase.from('faqs')
+      .select('question, answer')
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true });
     if (data && data.length) faqs = data;
   } catch {}
+  if (!faqs.length) {
+    el.innerHTML = '<p style="color:var(--text-muted); text-align:center;">No questions on file yet.</p>';
+    return;
+  }
+  el.dataset.loaded = '1';
   el.innerHTML = faqs.map((f, i) => `
     <div class="faq-acc-item" onclick="this.classList.toggle('active')">
       <div class="faq-acc-header">
@@ -459,9 +502,6 @@ async function loadFaqs() {
   `).join('');
 }
 
-window.openFaqModal = openFaqModal;
-window.openContactModal = openContactModal;
-
 // ============================================
 // INITIALIZE
 // ============================================
@@ -472,7 +512,7 @@ const boot = async () => {
 
   initJoinButtons();
   initAuthSheet();
-  initScrollReveal();
+  initSiteMenu();
   loadSiteSettings();
   initFaviconNotifications();
 

@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=61">
+  <link rel="stylesheet" href="/assets/css/public.css?v=64">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -36,17 +36,35 @@
     <span class="entry-splash-dots"><span></span><span></span><span></span></span>
   </div>
 
-  <!-- The wordmark opens the page at the top edge, centred, and scrolls away
-       with the hero like everything else on it. -->
-  <div class="brand-bar">
-    <a class="brand-mark" href="/" aria-label="Gliimu">
-      <img src="/icons/icon.png" alt="">
-      <span class="brand-word">liimu</span>
+  <!-- The whole page is one screen, so this bar is its only chrome: the menu on
+       the left edge, the wordmark beside it, Enter on the right edge. What the
+       footer used to carry now opens from the menu. -->
+  <header class="site-bar">
+    <div class="site-bar-start">
+      <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Menu">
+        <svg class="menu-open-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+        <svg class="menu-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <a class="brand-mark" href="/" aria-label="Gliimu">
+        <img src="/icons/icon.png" alt="">
+        <span class="brand-word">liimu</span>
+      </a>
+    </div>
+
+    <nav class="site-menu" id="site-menu" aria-label="Site" hidden>
+      <button type="button" data-site-action="faq">FAQs</button>
+      <button type="button" data-site-action="contact">Contact</button>
+      <button type="button" data-auth-sheet data-auth-terms>Terms</button>
+    </nav>
+
+    <a href="/auth.html?tab=login" class="btn-primary btn-sm js-join-link site-enter" data-auth-sheet data-auth-tab="login">
+      <span>Enter</span>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
     </a>
-  </div>
+  </header>
 
   <!-- HERO -->
-  <header class="hero" id="hero-section">
+  <main class="hero" id="hero-section">
     <!-- The explainer. Operations uploads it and anyone can watch it, signed in
          or not. Nothing autoplays and nothing is bundled as a stand-in: a
          browser only allows sound after a click, so the click is the design. -->
@@ -62,79 +80,12 @@
         <span id="hero-title-text"></span><span class="highlight" id="hero-highlight-text"></span>
       </h1>
       <p class="hero-desc" id="hero-desc-text"></p>
-      <a href="/auth.html?tab=login" class="btn-primary btn-sm js-join-link hero-enter" data-auth-sheet data-auth-tab="login">
-        <span>Enter</span>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-      </a>
     </div>
 
-    <a class="hero-scroll" href="#about" aria-label="Read about Gliimu">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </a>
-  </header>
+    <!-- The one record the page keeps of itself, centred on the bottom edge. -->
+    <p class="hero-copyright" id="copyright-text"></p>
 
-  <main>
-    <!-- ABOUT — three cards and nothing else. No heading and no paragraph: the
-         three lines are the summary, and the film in the hero is the detail for
-         anyone who wants more than a summary. -->
-    <section class="how-section" id="about">
-      <div class="container">
-        <!-- Three cards, one line each: learn, share, earn. -->
-        <div class="step-row reveal">
-
-          <article class="step-card">
-            <span class="step-icon" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-            </span>
-            <h3 class="step-name">XpLoRe</h3>
-            <p class="step-text">Watch, read and listen to what other people publish. That is how you learn here.</p>
-          </article>
-
-          <article class="step-card">
-            <span class="step-icon" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            </span>
-            <h3 class="step-name">Publish</h3>
-            <p class="step-text">Write it, drop in your files, hit publish. Your ideas and your work go out in the open.</p>
-          </article>
-
-          <article class="step-card">
-            <span class="step-icon" aria-hidden="true">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
-            </span>
-            <h3 class="step-name">Earn</h3>
-            <p class="step-text">When members support your gliim, you keep most of what they pay.</p>
-          </article>
-
-        </div>
-      </div>
-    </section>
   </main>
-
-  <!-- FOOTER — the sign-off, and nothing it cannot keep honest: the mark, the
-       four ways back in, and the year. No picture and no scan plate; a phone
-       visitor types the address like anyone else. -->
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-inner reveal">
-        <a class="footer-brand" href="/" aria-label="Gliimu">
-          <img src="/icons/icon.png" alt="">
-          <span>liimu</span>
-        </a>
-
-        <nav class="footer-links" aria-label="Footer">
-          <button type="button" onclick="openFaqModal()">FAQs</button>
-          <button type="button" onclick="openContactModal()">Contact</button>
-          <button type="button" data-auth-sheet data-auth-terms>Terms</button>
-          <a href="/auth.html?tab=login" data-auth-sheet data-auth-tab="login">Enter</a>
-        </nav>
-      </div>
-
-      <div class="footer-legal">
-        <p class="footer-copyright" id="copyright-text"></p>
-      </div>
-    </div>
-  </footer>
 
   <!-- AUTH SHEET — sign in and join without leaving the page.
        The frame is the real /auth.html, so there is exactly one password
@@ -173,7 +124,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=56"></script>
+  <script type="module" src="/assets/js/main.js?v=59"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

@@ -18,13 +18,12 @@ const routes = {
   '/admin-room': { role: STAFF, title: 'Admins Room', load: () => import('./views/admin-room.js?v=8').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js?v=2').then(m => m.default) },
   '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=2').then(m => m.default) },
-  '/operations': { role: 'operations', title: 'Site Content', load: () => import('./views/operations.js?v=18').then(m => m.default) },
-  '/arena': { role: 'operations', title: 'XpLoRe', load: () => import('./views/updates.js?v=14').then(m => m.default) },
+  '/operations': { role: 'operations', title: 'Site Content', load: () => import('./views/operations.js?v=19').then(m => m.default) },
   '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=20').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js').then(m => m.default) }
 };
 
-const order = ['/dashboard', '/submissions', '/reports', '/content', '/support', '/admin-room', '/finance', '/revenue', '/operations', '/arena', '/members', '/admins'];
+const order = ['/dashboard', '/submissions', '/reports', '/content', '/support', '/admin-room', '/finance', '/revenue', '/operations', '/members', '/admins'];
 
 export function firstRoute() {
   return order.find(path => {

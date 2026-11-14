@@ -154,10 +154,14 @@ body { background: var(--bg-primary); }
   .hero-scrim, .hero-play { transition: none; }
   .hero-play:hover, .hero-play:focus-visible { transform: translate(-50%, -50%); }
 }
-/* The wordmark sits at the top of the page and scrolls away with it. Pinned
-   here rather than inside .hero so the hero's own overflow and stacking can
-   never clip it. The bar is click-through — only the mark is live. */
-.brand-bar {
+/* ============================================
+   TOP BAR
+   ============================================
+   The page is one screen, so this row is its entire navigation: the menu at the
+   left edge, the wordmark next to it, Enter at the right edge. Pinned here
+   rather than inside .hero so the hero's own overflow and stacking can never
+   clip it. The bar is click-through — only its controls are live. */
+.site-bar {
   position: absolute;
   top: 0;
   left: 0;
@@ -165,9 +169,10 @@ body { background: var(--bg-primary); }
   z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: var(--space-4);
   pointer-events: none;
-  /* The notch and the punch-hole camera live in this band, so the brand is
+  /* The notch and the punch-hole camera live in this band, so the controls are
      pushed below it rather than under it. Same for the rounded corners in
      landscape. */
   padding:
@@ -176,6 +181,69 @@ body { background: var(--bg-primary); }
     0
     calc(clamp(14px, 2.5vw, 22px) + env(safe-area-inset-left, 0px));
 }
+.site-bar-start { display: flex; align-items: center; gap: clamp(10px, 1.6vw, 16px); }
+.site-enter { pointer-events: auto; }
+/* Menu and close are the same square: the bar cannot afford to grow a control
+   every time the panel opens. */
+.menu-toggle {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(10, 15, 30, 0.35);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.menu-toggle:hover { background: rgba(10, 15, 30, 0.62); border-color: rgba(255, 255, 255, 0.5); }
+.menu-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.menu-toggle svg { width: 18px; height: 18px; }
+.menu-toggle .menu-close-icon { display: none; }
+.menu-toggle[aria-expanded="true"] .menu-open-icon { display: none; }
+.menu-toggle[aria-expanded="true"] .menu-close-icon { display: block; }
+/* The three exits the footer used to print on the ground. The panel hangs off
+   the bar's own bottom edge, so it always lands under the toggle whatever the
+   notch height does to the padding above it. */
+.site-menu {
+  position: absolute;
+  top: 100%;
+  left: calc(clamp(14px, 2.5vw, 22px) + env(safe-area-inset-left, 0px));
+  margin-top: 12px;
+  min-width: 172px;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  background: rgba(10, 15, 30, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 40px -12px rgba(6, 9, 20, 0.7);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+.site-menu[hidden] { display: none; }
+.site-menu.is-open { opacity: 1; transform: none; }
+/* Three words in a column, each one a full row, so a thumb does not have to
+   aim between neighbours. */
+.site-menu button {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.82);
+  background: none;
+  border: none;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.site-menu button:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.site-menu button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
 /* The mark and the word: the artwork is the G, so "liimu" beside it spells the
    name out. The word is pulled back over the plate by 8.4% of its width and
    painted on top of it, so the two read as one wordmark rather than an icon
@@ -215,37 +283,17 @@ body { background: var(--bg-primary); }
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.5;
 }
-/* The only call to action on the page, and it sits under the words rather than
-   in a corner: a visitor reads the sentence, then finds the door beneath it. */
-.hero-enter {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.hero-enter svg { width: 16px; height: 16px; }
-.hero-scroll {
+/* The record of the site, centred on the bottom edge of the only screen the
+   page has. Absolute so it never shoves the copy around when the year renders. */
+.hero-copyright {
   position: absolute;
-  left: 50%;
-  /* The copy moved into the band this cue used to sit above, so the cue comes
-     down to the edge of the screen and keeps just its own height clear — plus
-     the home indicator, which occupies exactly that strip on a phone. */
-  bottom: max(clamp(2px, 0.8vh, 8px), calc(env(safe-area-inset-bottom, 0px) + 6px));
-  transform: translateX(-50%);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  color: rgba(255, 255, 255, 0.8);
-  animation: hero-nudge 2.4s ease-in-out infinite;
-}
-.hero-scroll:hover { border-color: rgba(255, 255, 255, 0.5); color: #fff; }
-.hero-scroll svg { width: 20px; height: 20px; }
-@keyframes hero-nudge {
-  0%, 100% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, 6px); }
+  left: 0;
+  right: 0;
+  bottom: calc(clamp(14px, 2.4vh, 22px) + env(safe-area-inset-bottom, 0px));
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: rgba(255, 255, 255, 0.52);
 }
 
 /* ============================================
@@ -254,166 +302,6 @@ body { background: var(--bg-primary); }
 /* Sections open generously and close a little tighter, so the page reads as a
    rhythm rather than as a stack of identical blocks. */
 section { padding: clamp(76px, 11vw, 120px) 0 clamp(64px, 9vw, 104px); }
-
-/* The summary: three cards on the page's own ground, and nothing above them. */
-.how-section { background: var(--bg-primary); }
-
-/* Three cards, one row. On a wide screen the three share the line; on a phone
-   the row becomes a rail you swipe, so the page never grows taller to say the
-   same three things — and the next card's edge stays in view as the hint that
-   there is one. Nothing follows them, so the row owns no bottom margin. */
-.step-row {
-  display: flex;
-  gap: clamp(12px, 1.6vw, 20px);
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
-  padding-bottom: 10px;
-}
-/* A finger swipes a rail without being told; a mouse needs to see that the row
-   scrolls at all, so only touch devices lose the bar. Fine pointers get the
-   system's slim brand scrollbar, plus room for it to sit clear of the cards. */
-@media (pointer: coarse) {
-  .step-row { scrollbar-width: none; }
-  .step-row::-webkit-scrollbar { display: none; }
-}
-@media (pointer: fine) {
-  .step-row { padding-bottom: 18px; }
-}
-.step-card {
-  flex: 1 1 0;
-  min-width: 260px;
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: clamp(20px, 2.4vw, 28px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
-  text-align: center;
-}
-.step-icon {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-lg);
-  background: var(--brand-primary-light);
-  color: var(--brand-primary);
-}
-.step-icon svg { width: 22px; height: 22px; }
-.step-name {
-  margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: var(--fw-extrabold);
-  letter-spacing: var(--ls-tight);
-  color: var(--text-primary);
-}
-.step-text {
-  margin: 0;
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  color: var(--text-secondary);
-}
-@media (max-width: 600px) {
-  /* 78% leaves a sliver of the next card on a 360px screen and a whole third
-     of one on a large phone — enough to read as a rail, not as a grid. */
-  .step-card { min-width: min(78%, 300px); }
-}
-
-/* Footer */
-/* The sign-off is the flat ground and nothing else. No picture and no scan
-   plate: a phone visitor types the address like anyone else, and the only
-   thing operations could set here was a photograph nobody needed. Every word
-   on this ground is white, so the dark base is not a fallback, it is the plan. */
-.site-footer {
-  background-color: #0A0F1E;
-  border-top: 1px solid var(--border);
-  padding:
-    clamp(30px, 4vw, 46px)
-    calc(clamp(0px, 1vw, 12px) + env(safe-area-inset-right, 0px))
-    calc(clamp(20px, 2.4vw, 28px) + env(safe-area-inset-bottom, 0px))
-    calc(clamp(0px, 1vw, 12px) + env(safe-area-inset-left, 0px));
-  color: #fff;
-}
-
-/* Mark top-left, links one line lower and flush right. Two rows on purpose:
-   the wordmark gets its own corner instead of sharing a line with the exits,
-   which is what makes a four-item footer read as deliberate rather than
-   crowded. */
-.footer-inner {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: start;
-  gap: clamp(18px, 2.6vw, 26px) 24px;
-}
-/* The same mark the hero uses: the artwork is the G, "liimu" finishes the word,
-   pulled 8.4% of the plate back over it for the same reason — it is one
-   wordmark, not a picture standing next to a word. */
-.footer-brand { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 0; text-decoration: none; }
-.footer-brand img { width: 34px; height: 34px; display: block; }
-.footer-brand span {
-  position: relative;
-  z-index: 1;
-  margin-left: calc(34px * -0.084);
-  font-size: 22px;
-  font-weight: var(--fw-bold);
-  letter-spacing: var(--ls-tight);
-  line-height: 1;
-  color: #fff;
-}
-
-.footer-links {
-  grid-area: 2 / 2;
-  justify-self: end;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: clamp(14px, 2.4vw, 28px);
-}
-@media (max-width: 600px) {
-  /* One column, and the links become a two-by-two block: four links in one
-     line at 360px wraps into a ragged three-then-one, and a grid never does. */
-  .footer-inner { grid-template-columns: 1fr; }
-  .footer-links {
-    grid-area: 2 / 1;
-    justify-self: start;
-    display: grid;
-    grid-template-columns: repeat(2, min-content);
-    gap: 14px 40px;
-  }
-}
-/* <button> and <a> have to be one row of words, so the button is told to
-   stop looking like a control. */
-.footer-links a, .footer-links button {
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  color: rgba(255, 255, 255, 0.74);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: none;
-  text-align: left;
-  transition: color var(--transition-fast);
-}
-.footer-links a:hover, .footer-links button:hover { color: #fff; }
-
-/* The year sits in a band of its own under the rule, so it reads as the
-   record of the site rather than as a fifth link. */
-.footer-legal {
-  margin-top: clamp(26px, 4vw, 40px);
-  padding-top: clamp(14px, 2vw, 18px);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-.footer-copyright {
-  margin: 0;
-  font-size: var(--fs-xs);
-  color: rgba(255, 255, 255, 0.5);
-}
 
 /* ============================================
    AUTH SHEET
@@ -511,31 +399,17 @@ body.auth-sheet-open { overflow: hidden; }
 .faq-acc-header h4 { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); margin: 0; }
 .faq-acc-header i { color: var(--text-muted); transition: transform 0.2s ease; flex-shrink: 0; }
 .faq-acc-item.active .faq-acc-header i { transform: rotate(180deg); }
-.faq-acc-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
-.faq-acc-item.active .faq-acc-content { max-height: 300px; padding-bottom: 16px; }
-.faq-acc-content p { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.6; margin: 0; }
-
-/* Scroll Reveal Animations */
-.reveal, .reveal-left, .reveal-right { opacity: 0; transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-.reveal { transform: translateY(40px); }
-.reveal-left { transform: translateX(-40px); }
-.reveal-right { transform: translateX(40px); }
-.visible { opacity: 1 !important; transform: translateY(0) translateX(0) !important; }
-
-@media (max-width: 600px) {
-  .reveal { transform: translateY(24px); }
-  .reveal-left, .reveal-right { transform: none; }
-  .hero-actions { flex-direction: column; }
-  .hero-actions .btn-lg { width: 100%; }
-  /* Half a viewport height of room is all a phone has left under the copy. */
-  .hero-scroll { display: none; }
-}
+/* 0fr -> 1fr rather than a max-height cap, so an answer of any length opens
+   fully instead of being cut at 300px once the CRM writes a longer one. */
+.faq-acc-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease, padding 0.3s ease; }
+.faq-acc-item.active .faq-acc-content { grid-template-rows: 1fr; padding-bottom: 16px; }
+.faq-acc-content p { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.6; margin: 0; min-height: 0; overflow: hidden; white-space: pre-line; }
 
 @media (prefers-reduced-motion: reduce) {
   .entry-splash { transition: none; }
   .entry-splash-dots span { animation: none; opacity: 0.6; }
-  .hero-scroll { animation: none; }
-  .reveal, .reveal-left, .reveal-right { opacity: 1; transform: none; transition: none; }
+  .site-menu, .menu-toggle { transition: none; }
+  .faq-acc-content { transition: none; }
 }
 
 /* 404 Error Page */

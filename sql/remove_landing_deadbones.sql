@@ -17,12 +17,18 @@
 --   REWRITTEN           operations_settings(), operations_set_landing(),
 --                       operations_set_release() — same job, fewer keys.
 --
+-- hero_mobile_video_url (added by sql/landing_mobile_video.sql) is a LIVE key
+-- and stays. If that script has already run, operations_set_landing() takes six
+-- parameters and this file's section 2 replaces it with the same six; running
+-- either order works, because both overloads are dropped before the new one is
+-- created.
+--
 -- RUN ORDER MATTERS. The three Operations RPCs name the dead columns inside
 -- their bodies, so they are rebuilt FIRST; if you drop the columns before the
 -- functions, the admin Operations screen breaks the moment anyone presses Save.
 --
 -- Precondition: the deployed admin app must already be the version that sends
--- 5 landing fields and 8 release fields. If it is not, the new RPCs get called
+-- 6 landing fields and 8 release fields. If it is not, the new RPCs get called
 -- with parameters they no longer declare and PostgREST rejects the call.
 --
 -- Everything here is idempotent — running it twice is safe. Section 1 prints
@@ -52,6 +58,7 @@ select about_title, about_body, squad_bg_url, earnings_image_url,
 -- The old overloads take the dead parameters. Drop them so PostgREST cannot
 -- pick one by accident, then create the surviving shape.
 drop function if exists public.operations_set_landing(text,text,text,text,text,text,text,text);
+drop function if exists public.operations_set_landing(text,text,text,text,text);
 drop function if exists public.operations_set_release(text,text,text,text,text,text,text,text,text);
 
 create or replace function public.operations_settings()
@@ -64,7 +71,8 @@ declare
   uid       uuid := auth.uid();
   v_has_row boolean;
   v_landing jsonb := jsonb_build_object(
-    'hero_video_url', null::text, 'hero_fallback_image_url', null::text,
+    'hero_video_url', null::text, 'hero_mobile_video_url', null::text,
+    'hero_fallback_image_url', null::text,
     'hero_title', null::text, 'hero_highlight', null::text, 'hero_desc', null::text);
   v_release jsonb := jsonb_build_object(
     'app_version', null::text, 'app_version_notes', null::text, 'app_download_bg_url', null::text,
@@ -87,6 +95,7 @@ begin
   if v_has_row then
     select jsonb_build_object(
              'hero_video_url', s.hero_video_url,
+             'hero_mobile_video_url', s.hero_mobile_video_url,
              'hero_fallback_image_url', s.hero_fallback_image_url,
              'hero_title', s.hero_title,
              'hero_highlight', s.hero_highlight,
@@ -114,11 +123,12 @@ $fn$;
 
 
 create or replace function public.operations_set_landing(
-  p_hero_video_url         text default null,
+  p_hero_video_url          text default null,
+  p_hero_mobile_video_url   text default null,
   p_hero_fallback_image_url text default null,
-  p_hero_title             text default null,
-  p_hero_highlight         text default null,
-  p_hero_desc              text default null
+  p_hero_title              text default null,
+  p_hero_highlight          text default null,
+  p_hero_desc               text default null
 )
  returns jsonb
  language plpgsql
@@ -144,6 +154,7 @@ begin
   select f.field into v_bad
     from (values
       ('Hero video',          p_hero_video_url),
+      ('Mobile hero video',   p_hero_mobile_video_url),
       ('Hero fallback image', p_hero_fallback_image_url)
     ) as f(field, url)
    where f.url is not null and not public.is_safe_url(f.url)
@@ -185,6 +196,9 @@ begin
      set hero_video_url = case when p_hero_video_url is null
                                then hero_video_url
                                else nullif(btrim(p_hero_video_url), '') end,
+         hero_mobile_video_url = case when p_hero_mobile_video_url is null
+                               then hero_mobile_video_url
+                               else nullif(btrim(p_hero_mobile_video_url), '') end,
          hero_fallback_image_url = case when p_hero_fallback_image_url is null
                                then hero_fallback_image_url
                                else nullif(btrim(p_hero_fallback_image_url), '') end,
@@ -307,10 +321,10 @@ $fn$;
 -- used to be the one public landing RPC; it is gone below, so nothing here
 -- needs anon access.
 revoke execute on function public.operations_settings()                          from public;
-revoke execute on function public.operations_set_landing(text,text,text,text,text) from public;
+revoke execute on function public.operations_set_landing(text,text,text,text,text,text) from public;
 revoke execute on function public.operations_set_release(text,text,text,text,text,text,text,text) from public;
 grant  execute on function public.operations_settings()                          to authenticated, service_role;
-grant  execute on function public.operations_set_landing(text,text,text,text,text) to authenticated, service_role;
+grant  execute on function public.operations_set_landing(text,text,text,text,text,text) to authenticated, service_role;
 grant  execute on function public.operations_set_release(text,text,text,text,text,text,text,text) to authenticated, service_role;
 
 
@@ -391,12 +405,12 @@ union all select 5, 'old 8-arg set_landing overload gone',
 union all select 6, 'old 9-arg set_release overload gone',
        case when to_regprocedure('public.operations_set_release(text,text,text,text,text,text,text,text,text)') is null
             then 'OK' else 'STILL EXISTS' end
-union all select 7, 'set_landing takes 5 params',
+union all select 7, 'set_landing takes 6 params',
        case when (select count(*) from pg_proc p
                   join pg_namespace n on n.oid = p.pronamespace
                  where n.nspname = 'public' and p.proname = 'operations_set_landing') = 1
                  and array_length((select proargnames from pg_proc
-                                   where oid = 'public.operations_set_landing(text,text,text,text,text)'::regprocedure), 1) = 5
+                                   where oid = 'public.operations_set_landing(text,text,text,text,text,text)'::regprocedure), 1) = 6
             then 'OK' else 'CHECK' end
 union all select 8, 'set_release takes 8 params',
        case when (select count(*) from pg_proc p
@@ -415,8 +429,9 @@ union all select 9, 'no RPC body names a dead column',
 union all select 10, 'surviving landing columns intact',
        case when (select count(*) from information_schema.columns
                    where table_schema = 'public' and table_name = 'site_settings'
-                     and column_name in ('hero_video_url','hero_fallback_image_url',
-                                         'hero_title','hero_highlight','hero_desc')) = 5
+                     and column_name in ('hero_video_url','hero_mobile_video_url',
+                                         'hero_fallback_image_url',
+                                         'hero_title','hero_highlight','hero_desc')) = 6
             then 'OK' else 'MISSING' end
 union all select 11, 'surviving release columns intact',
        case when (select count(*) from information_schema.columns
@@ -427,7 +442,7 @@ union all select 11, 'surviving release columns intact',
             then 'OK' else 'MISSING' end
 union all select 12, 'settings columns still there',
        case when (select count(*) from information_schema.columns
-                   where table_schema = 'public' and table_name = 'site_settings') = 14
+                   where table_schema = 'public' and table_name = 'site_settings') = 15
             then 'OK' else 'CHECK: ' || (
               select count(*)::text from information_schema.columns
                where table_schema = 'public' and table_name = 'site_settings') end

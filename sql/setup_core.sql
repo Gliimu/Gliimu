@@ -84,6 +84,7 @@ alter table public.messages add column if not exists read_at timestamptz;
 
 -- 2c. site_settings columns
 alter table public.site_settings add column if not exists hero_video_url text;
+alter table public.site_settings add column if not exists hero_mobile_video_url text;
 alter table public.site_settings add column if not exists hero_fallback_image_url text;
 alter table public.site_settings add column if not exists hero_title text;
 alter table public.site_settings add column if not exists hero_highlight text;
@@ -111,11 +112,11 @@ exception when others then raise notice 'transactions column check skipped: %', 
 
 -- 3a. faqs
 create table if not exists public.faqs (
-  id bigserial primary key,
+  id uuid primary key default gen_random_uuid(),
   question text not null,
   answer text not null,
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now()
+  display_order integer not null default 0,
+  created_at timestamptz default now()
 );
 
 -- 3b. legal_documents

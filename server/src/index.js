@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: ['https://www.gliimu.com', 'https://gliimu.com'],
+  origin: ['https://www.gliimu.com', 'https://gliimu.com', 'https://admin.gliimu.com'],
   credentials: true
 }));
 
@@ -819,7 +819,7 @@ app.post('/api/r2-sweep', async (req, res) => {
 
     // site_settings: various URL columns
     const { data: settings } = await supabaseAdmin.from('site_settings').select(`
-      hero_video_url, hero_fallback_image_url,
+      hero_video_url, hero_mobile_video_url, hero_fallback_image_url,
       app_download_bg_url, app_windows_url, app_mac_url, app_linux_url,
       app_android_url, app_ios_url
     `);
