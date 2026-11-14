@@ -81,7 +81,46 @@ body { background: var(--bg-primary); }
    to fake the same thing), sized in svh so a mobile browser's URL bar cannot
    hide the buttons behind it. The scrim is a single element so the video,
    the fallback image and the copy always agree on contrast.
-*/
+   ============================================
+   HERO INK AND WASH
+   A pair of locals rather than plain tokens, because all of this sits on a
+   photograph or a film and not on the page ground. Dark pushes the picture
+   toward navy and paints white on it; light pushes it toward white and paints
+   the text tokens on it. The scrim lifts while the film runs, but less in the
+   light theme, where the copy is the first thing to lose its ground. Every
+   value in the dark block is what the hero used to hardcode.
+   ============================================ */
+:root {
+  --hero-wash:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.72) 40%, rgba(255, 255, 255, 0.95) 100%),
+    radial-gradient(90% 70% at 50% 45%, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.5) 100%);
+  --hero-wash-playing: 0.72;
+  --hero-ink: var(--text-primary);
+  --hero-ink-soft: var(--text-secondary);
+  --hero-ink-quiet: var(--text-secondary);
+  --hero-ink-faint: rgba(148, 163, 184, 0.85);
+  --hero-plate: rgba(15, 23, 42, 0.7);
+  --hero-plate-hover: rgba(15, 23, 42, 0.86);
+  --hero-ring: rgba(255, 255, 255, 0.62);
+  --hero-glyph: #fff;
+  --hero-word-shadow: 0 1px 3px rgba(255, 255, 255, 0.55);
+}
+[data-theme="dark"] {
+  --hero-wash:
+    linear-gradient(180deg, rgba(10, 15, 30, 0.62) 0%, rgba(10, 15, 30, 0.38) 40%, rgba(10, 15, 30, 0.86) 100%),
+    radial-gradient(90% 70% at 50% 45%, rgba(10, 15, 30, 0) 0%, rgba(10, 15, 30, 0.55) 100%);
+  --hero-wash-playing: 0.45;
+  --hero-ink: #fff;
+  --hero-ink-soft: rgba(255, 255, 255, 0.8);
+  --hero-ink-quiet: rgba(255, 255, 255, 0.58);
+  --hero-ink-faint: rgba(255, 255, 255, 0.42);
+  --hero-plate: rgba(10, 15, 30, 0.42);
+  --hero-plate-hover: rgba(10, 15, 30, 0.62);
+  --hero-ring: rgba(255, 255, 255, 0.55);
+  --hero-glyph: #fff;
+  --hero-word-shadow: 0 1px 3px rgba(6, 9, 20, 0.55);
+}
+
 .hero {
   position: relative;
   z-index: 0;
@@ -106,14 +145,12 @@ body { background: var(--bg-primary); }
   position: absolute;
   inset: 0;
   z-index: -1;
-  background:
-    linear-gradient(180deg, rgba(10, 15, 30, 0.62) 0%, rgba(10, 15, 30, 0.38) 40%, rgba(10, 15, 30, 0.86) 100%),
-    radial-gradient(90% 70% at 50% 45%, rgba(10, 15, 30, 0) 0%, rgba(10, 15, 30, 0.55) 100%);
+  background: var(--hero-wash);
   transition: opacity 0.45s ease;
 }
 /* While the film runs the scrim lifts so the picture is not darkened, but it
    never goes to zero: the copy stays where it is and still has to read. */
-.hero.is-playing .hero-scrim { opacity: 0.45; }
+.hero.is-playing .hero-scrim { opacity: var(--hero-wash-playing); }
 /* One control, in the middle of the empty space above the copy. It dims rather
    than vanishes while playing, so pause is still findable. */
 .hero-play {
@@ -126,10 +163,10 @@ body { background: var(--bg-primary); }
   height: clamp(64px, 9vw, 84px);
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--hero-ring);
   border-radius: 50%;
-  background: rgba(10, 15, 30, 0.42);
-  color: #fff;
+  background: var(--hero-plate);
+  color: var(--hero-glyph);
   cursor: pointer;
   opacity: 0.9;
   transition: opacity 0.3s ease, transform 0.25s ease, background 0.25s ease;
@@ -139,10 +176,10 @@ body { background: var(--bg-primary); }
 .hero-play.is-playing svg { margin-left: 0; }
 .hero-play:hover, .hero-play:focus-visible {
   opacity: 1;
-  background: rgba(10, 15, 30, 0.62);
+  background: var(--hero-plate-hover);
   transform: translate(-50%, -50%) scale(1.05);
 }
-.hero-play:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.hero-play:focus-visible { outline: 2px solid var(--hero-ink); outline-offset: 4px; }
 .hero.is-playing .hero-play { opacity: 0.4; }
 .hero.is-playing .hero-play:hover,
 .hero.is-playing .hero-play:focus-visible { opacity: 1; }
@@ -186,7 +223,12 @@ body { background: var(--bg-primary); }
    painted on top of it, so the two read as one wordmark rather than an icon
    with a caption. */
 .brand-mark { display: inline-flex; align-items: center; gap: 0; text-decoration: none; pointer-events: auto; }
-.brand-mark img { width: 40px; height: 40px; display: block; }
+/* The mark ships as dark artwork. The word is pulled over its right edge, so
+   the plate swallows the "l" whenever the ink is dark too — hence the invert
+   in the light theme only. This is not the splash rule above: the hero sits on
+   a photograph behind a wash, so the plate has to change, not the page ground. */
+.brand-mark img { width: 40px; height: 40px; display: block; filter: invert(1); }
+[data-theme="dark"] .brand-mark img { filter: none; }
 .brand-word {
   position: relative;
   z-index: 1;
@@ -197,10 +239,11 @@ body { background: var(--bg-primary); }
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
   line-height: 1;
-  color: #fff;
-  /* The plate is dark, so a hair of shadow is what keeps the first letter legible
-     where it lands on the G. */
-  text-shadow: 0 1px 3px rgba(6, 9, 20, 0.55);
+  color: var(--hero-ink);
+  /* The first letter always lands on the plate, so it needs a ground there:
+     the light theme gets one from the inverted plate, the dark theme from a
+     shadow under the white ink. */
+  text-shadow: var(--hero-word-shadow);
 }
 .hero-inner { width: 100%; text-align: left; }
 .hero-title {
@@ -210,14 +253,14 @@ body { background: var(--bg-primary); }
   font-weight: var(--fw-bold);
   line-height: 1.45;
   letter-spacing: var(--ls-normal);
-  color: #fff;
+  color: var(--hero-ink);
 }
 .highlight { background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .hero-desc {
   max-width: 600px;
   margin: 4px 0 var(--space-5);
   font-size: var(--fs-base);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--hero-ink-soft);
   line-height: 1.5;
 }
 /* The bottom-right corner of the only screen the page has: the links, then the
@@ -246,7 +289,7 @@ body { background: var(--bg-primary); }
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
   letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--hero-ink-quiet);
   background: none;
   border: none;
   padding: 3px 1px;
@@ -254,10 +297,10 @@ body { background: var(--bg-primary); }
   text-decoration: none;
   transition: color var(--transition-fast);
 }
-.hero-links button:hover, .hero-links a:hover { color: #fff; }
+.hero-links button:hover, .hero-links a:hover { color: var(--hero-ink); }
 .hero-links button:focus-visible, .hero-links a:focus-visible {
-  color: #fff;
-  outline: 1px solid rgba(255, 255, 255, 0.65);
+  color: var(--hero-ink);
+  outline: 1px solid var(--hero-ink);
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -280,7 +323,7 @@ body { background: var(--bg-primary); }
   margin: 0;
   text-align: right;
   font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--hero-ink-faint);
 }
 
 /* ============================================
