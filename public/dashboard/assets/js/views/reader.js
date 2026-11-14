@@ -1,9 +1,9 @@
 import { supabase } from '/shared/js/config.js?v=2';
-import { store, tierClass, tierIcon } from '../store.js?v=2';
-import { renderFileInto } from '../secure-reader.js?v=37';
-import * as heartbeat from '../heartbeat.js?v=5';
-import { minimizePlaying } from '../audiolite-minimizer.js?v=8';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=128';
+import { store, tierClass, tierIcon } from '../store.js?v=3';
+import { renderFileInto } from '../secure-reader.js?v=38';
+import * as heartbeat from '../heartbeat.js?v=6';
+import { minimizePlaying } from '../audiolite-minimizer.js?v=9';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=129';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

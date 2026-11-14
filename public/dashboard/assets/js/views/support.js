@@ -4,9 +4,9 @@
 // derived in the database (gliimpa_paused), so nobody has to press a button to
 // hand the conversation back.
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
-import { store } from '../store.js?v=2';
+import { store } from '../store.js?v=3';
 import { kbAnswer } from '../gliim-pa-kb.js?v=32';
-import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js?v=4';
+import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder } from '../media.js?v=5';
 
 // Answers are rendered from a small markdown subset. Everything is escaped
 // first, so model output can never inject markup.

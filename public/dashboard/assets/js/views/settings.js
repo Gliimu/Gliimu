@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js?v=2';
-import { store } from '../store.js?v=2';
+import { store } from '../store.js?v=3';
 import { uploadFile } from '../upload.js?v=1';
 import { notify } from '../notify.js?v=33';
 

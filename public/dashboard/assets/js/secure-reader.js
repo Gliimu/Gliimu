@@ -1,5 +1,5 @@
 import { supabase } from '/shared/js/config.js?v=2';
-import { store } from './store.js?v=2';
+import { store } from './store.js?v=3';
 
 // ============================================================
 // Gliimu MVP reader — client-side, responsive, deterrence-only.

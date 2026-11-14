@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=69">
+  <link rel="stylesheet" href="/assets/css/public.css?v=70">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -107,7 +107,9 @@
   <!-- FAQ MODAL -->
   <div class="modal-overlay" id="faq-modal" style="display: none;">
     <div class="modal-content modal-lg">
-      <button class="modal-close" onclick="document.getElementById('faq-modal').style.display='none'">&times;</button>
+      <button type="button" class="modal-close" onclick="document.getElementById('faq-modal').style.display='none'" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
       <h2 class="modal-title">Frequently Asked Questions</h2>
       <p class="modal-subtitle">Everything you need to know about Gliimu.</p>
       <div class="faq-accordion-container" id="faq-accordion"></div>
@@ -117,7 +119,9 @@
   <!-- CONTACT MODAL -->
   <div class="modal-overlay" id="contact-modal" style="display: none;">
     <div class="modal-content modal-lg">
-      <button class="modal-close" onclick="document.getElementById('contact-modal').style.display='none'">&times;</button>
+      <button type="button" class="modal-close" onclick="document.getElementById('contact-modal').style.display='none'" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
       <h2 class="modal-title">Contact Us</h2>
       <p class="modal-subtitle">We would love to hear from you.</p>
       <div id="contact-body">

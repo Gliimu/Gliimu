@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js?v=2';
-import { store } from '../store.js?v=2';
-import { getBalance } from '../heartbeat.js?v=5';
+import { store } from '../store.js?v=3';
+import { getBalance } from '../heartbeat.js?v=6';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')

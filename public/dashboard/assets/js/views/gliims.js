@@ -1,9 +1,9 @@
 import { supabase } from '/shared/js/config.js?v=2';
-import { store, tierClass, tierIcon } from '../store.js?v=2';
+import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { uploadFile } from '../upload.js?v=1';
-import { renderFileInto } from '../secure-reader.js?v=37';
+import { renderFileInto } from '../secure-reader.js?v=38';
 import { notify } from '../notify.js?v=33';
-import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=8';
+import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=9';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

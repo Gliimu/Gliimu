@@ -377,12 +377,16 @@ body.auth-sheet-open { overflow: hidden; }
 }
 .auth-sheet.is-open .auth-sheet-backdrop { opacity: 1; }
 .auth-sheet.is-open .auth-sheet-panel { transform: none; }
-/* No head any more — the drawer is only a frame, so the close control floats
-   over the top-right corner of the auth page it wraps. */
+/* ONE CLOSE BUTTON FOR EVERY OVERLAY — the FAQ modal, the Contact modal and
+   the sign-in drawer all close with the same 34px square holding an 18px
+   stroke X, inset 16px from the panel edge. The modals used to carry a bare
+   30px typographic ×: no hit area, no hover, no focus ring, and a mark that
+   read much lighter than the drawer's.
+   --bg-tertiary is the ground because it is the only one that shows against
+   both a white modal and the drawer's panel, in either theme. */
+.modal-close,
 .auth-sheet-close {
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top, 0px));
-  right: calc(14px + env(safe-area-inset-right, 0px));
   z-index: 1;
   width: 34px;
   height: 34px;
@@ -395,13 +399,26 @@ body.auth-sheet-open { overflow: hidden; }
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
-.auth-sheet-close:hover { background: var(--surface-hover); color: var(--text-primary); }
+.modal-close:hover,
+.auth-sheet-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.modal-close:focus-visible,
 .auth-sheet-close:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
   color: var(--text-primary);
 }
+.modal-close svg,
 .auth-sheet-close svg { width: 18px; height: 18px; }
+/* The drawer has no head — the panel is only a frame — so its close floats in
+   the top-right corner of the auth page inside it, and the embedded page keeps
+   58px of top padding so nothing lands underneath.
+   The drawer is pinned to the viewport edges, so it pays for the notch itself;
+   the modal overlay already pads its whole box, so its inset stays bare. */
+.modal-close { top: var(--space-4); right: var(--space-4); }
+.auth-sheet-close {
+  top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
+  right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+}
 /* The frame fills whatever is left, so the auth page scrolls inside the sheet
    instead of the sheet growing past the viewport. */
 .auth-sheet-frame { flex: 1 1 auto; width: 100%; border: 0; display: block; background: var(--bg-primary); }
@@ -413,7 +430,6 @@ body.auth-sheet-open { overflow: hidden; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: calc(var(--space-4) + env(safe-area-inset-top, 0px)) calc(var(--space-4) + env(safe-area-inset-right, 0px)) calc(var(--space-4) + env(safe-area-inset-bottom, 0px)) calc(var(--space-4) + env(safe-area-inset-left, 0px)); }
 .modal-content { background: var(--surface); border-radius: var(--radius-xl); padding: var(--space-8); width: 100%; max-width: 500px; position: relative; box-shadow: var(--shadow-2xl); max-height: 90vh; overflow-y: auto; }
 .modal-lg { max-width: 700px; }
-.modal-close { position: absolute; top: var(--space-4); right: var(--space-4); background: none; border: none; font-size: var(--fs-2xl); cursor: pointer; color: var(--text-muted); }
 .modal-title { font-size: var(--fs-2xl); font-weight: var(--fw-bold); text-align: center; margin-bottom: var(--space-2); }
 .modal-subtitle { color: var(--text-secondary); text-align: center; margin-bottom: var(--space-8); }
 

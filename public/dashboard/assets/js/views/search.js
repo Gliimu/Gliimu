@@ -1,7 +1,7 @@
-import hubView from './gliims.js?v=128';
-import feedView from './xplore.js?v=122';
+import hubView from './gliims.js?v=129';
+import feedView from './xplore.js?v=123';
 import { supabase } from '/shared/js/config.js?v=2';
-import { store } from '../store.js?v=2';
+import { store } from '../store.js?v=3';
 import { renderCollectionCard } from '../collections.js?v=2';
 
 const SEARCH_HISTORY_KEY = 'gliimu_search_history';

@@ -9,7 +9,7 @@
 // take the page's node. It clones the same source into a node of its own and
 // picks the clock up where the page left off.
 
-import * as heartbeat from './heartbeat.js?v=5';
+import * as heartbeat from './heartbeat.js?v=6';
 
 let _player = null;
 let _refs = null;

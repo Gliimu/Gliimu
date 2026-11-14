@@ -1,6 +1,6 @@
-import hubView from './gliims.js?v=128';
+import hubView from './gliims.js?v=129';
 import { supabase } from '/shared/js/config.js?v=2';
-import { store, tierClass, badgeIcon } from '../store.js?v=2';
+import { store, tierClass, badgeIcon } from '../store.js?v=3';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=2';
 
 function escapeHtml(value) {

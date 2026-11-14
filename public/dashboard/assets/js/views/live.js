@@ -1,7 +1,7 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
-import { store } from '../store.js?v=2';
-import * as heartbeat from '../heartbeat.js?v=5';
-import { uploadAttachment } from '../media.js?v=4';
+import { store } from '../store.js?v=3';
+import * as heartbeat from '../heartbeat.js?v=6';
+import { uploadAttachment } from '../media.js?v=5';
 
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
 
