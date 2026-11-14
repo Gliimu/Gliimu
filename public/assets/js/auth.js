@@ -19,6 +19,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // The landing page's slide-over is the only place this form exists now. A
+  // standalone visit is a stale bookmark or a guess, so it goes back to the
+  // landing, where Enter opens the sheet.
+  if (!EMBEDDED) {
+    window.location.replace('/');
+    return;
+  }
+
   try {
     const ref = new URLSearchParams(window.location.search).get('ref');
     if (ref) localStorage.setItem('gliimu_ref', ref.trim().toUpperCase());
@@ -57,8 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     tab.addEventListener('click', () => showTab(tab.getAttribute('data-tab')));
   });
 
-  // /auth.html?tab=join is what the landing page's "Join Us" link and the
-  // slide-over ask for; anything unknown keeps the default Log In view.
+  // /auth.html?tab=join is what the landing page's slide-over asks for;
+  // anything unknown keeps the default Log In view.
   const wantedTab = new URLSearchParams(window.location.search).get('tab');
   if (wantedTab === 'join' || wantedTab === 'login') showTab(wantedTab);
 

@@ -65,7 +65,7 @@
       <p class="hero-desc" id="hero-desc-text"></p>
       <!-- One call to action on the whole page, and it sits at the end of the
            argument rather than floating in a corner of the screen. -->
-      <a href="/auth.html?tab=login" class="btn-primary btn-sm js-join-link hero-enter" data-auth-sheet data-auth-tab="login">
+      <a href="#" class="btn-primary btn-sm js-join-link hero-enter" data-auth-sheet data-auth-tab="login">
         <span>Enter</span>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
       </a>
@@ -133,7 +133,7 @@
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
     // Referral capture: a guest arriving via /?ref=CODE keeps the code so the
     // signup flow can attribute them to the referrer. Same-origin localStorage
-    // carries it into auth.html (whether opened directly or in the slide-over).
+    // carries it into the auth page the slide-over frames.
     (function () {
       try {
         const ref = new URLSearchParams(window.location.search).get('ref');

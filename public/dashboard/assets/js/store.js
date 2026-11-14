@@ -62,6 +62,6 @@ export const store = {
 
   async signOut() {
     await supabase.auth.signOut();
-    window.location.href = '/auth.html';
+    window.location.href = '/';
   }
 };

@@ -103,24 +103,26 @@
 .app-offline-title { font-size: var(--fs-lg); font-weight: 700; color: var(--text-primary); }
 .app-offline-hint { font-size: var(--fs-sm); color: var(--text-secondary); max-width: 42ch; }
 
-.brand-logo {
+/* The landing's wordmark: the G plate with "liimu" pulled back over its right
+   edge by 8.4% of the plate width, so the two read as one mark. The rail keeps
+   the plate alone; the word only exists in the expanded state. The artwork
+   ships dark, and the light theme inverts it so the overlapping "l" never
+   lands dark-on-dark — same treatment as the landing's hero mark. */
+.brand-logo { display: flex; align-items: center; text-decoration: none; }
+.brand-logo img { width: 32px; height: 32px; display: block; filter: invert(1); }
+[data-theme="dark"] .brand-logo img { filter: none; }
+.brand-word {
+  position: relative;
+  z-index: 1;
+  display: none;
+  margin-left: calc(32px * -0.084);
   font-family: var(--font-sans);
-  font-size: var(--fs-2xl);
-  font-weight: var(--fw-extrabold);
+  font-size: 21px;
+  font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
+  line-height: 1;
+  color: var(--text-primary);
 }
-.brand-logo-img { height: 32px; width: auto; }
-.brand-logo-rect { display: block; }
-.brand-logo-square { display: none; }
-
-[data-theme="light"] .brand-logo-rect { filter: brightness(0); }
-[data-theme="dark"] .brand-logo-rect { filter: brightness(0) invert(1); }
 
 .sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; display: flex; flex-direction: column; justify-content: center; }
 
@@ -719,8 +721,7 @@ html { overscroll-behavior-y: none; }
   }
 
   body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: flex-start; }
-  body.sidebar-open .brand-logo-rect { display: block; }
-  body.sidebar-open .brand-logo-square { display: none; }
+  body.sidebar-open .brand-word { display: inline-block; }
   body.sidebar-open .sidebar-nav { padding: var(--space-4); }
 
   body.sidebar-open .nav-label,
