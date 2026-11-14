@@ -1,8 +1,8 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=3';
-import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=5';
+import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=6';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import supportView from './support.js?v=44';
+import supportView from './support.js?v=45';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')

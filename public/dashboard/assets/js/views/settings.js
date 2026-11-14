@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store } from '../store.js?v=3';
-import { uploadFile } from '../upload.js?v=1';
+import { uploadFile } from '../upload.js?v=2';
 import { notify } from '../notify.js?v=33';
 
 const APP_VERSION_KEY = 'gliimu_app_version';

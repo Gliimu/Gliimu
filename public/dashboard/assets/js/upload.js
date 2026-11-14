@@ -46,6 +46,27 @@ async function presign(kind, file) {
   return data;
 }
 
+// R2 answers a PUT it rejects with an XML error body and *no* CORS headers, so
+// the browser treats the rejection as a CORS failure: `status` 0 and nothing
+// readable. Both shapes are reported here, with the evidence in the console.
+function storageError(xhr, signed) {
+  const body = String(xhr.responseText || '');
+  const code = (body.match(/<Code>([^<]*)<\/Code>/) || [])[1];
+  const detail = (body.match(/<Message>([^<]*)<\/Message>/) || [])[1];
+  console.error('[upload] storage rejected the PUT', {
+    key: signed.key,
+    status: xhr.status,
+    code: code || '(hidden by CORS)',
+    message: detail || ''
+  });
+  if (code) return new Error(`Storage rejected the file: ${code}${detail ? ` — ${detail}` : ''}`);
+  if (!xhr.status) {
+    return new Error('Storage rejected the file and hid the reason from the browser. '
+      + 'Try again; if it repeats, the console names the failed request.');
+  }
+  return new Error(`Storage rejected the file (HTTP ${xhr.status}).`);
+}
+
 // Uploads a file and resolves with its public URL.
 // kind: 'media' | 'library' | 'avatar' | 'chat' | 'site'
 // onProgress: optional callback(percent) where percent is 0-100
@@ -74,11 +95,11 @@ export async function uploadFile(file, kind = 'media', onProgress = null) {
         if (onProgress) onProgress(100);
         resolve(signed.publicUrl);
       } else {
-        reject(new Error('The upload did not complete. Please try again.'));
+        reject(storageError(xhr, signed));
       }
     };
     
-    xhr.onerror = () => reject(new Error('The upload failed. Please try again.'));
+    xhr.onerror = () => reject(storageError(xhr, signed));
     xhr.send(file);
   });
 }
