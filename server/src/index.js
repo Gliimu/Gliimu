@@ -365,7 +365,12 @@ function r2S3() {
     r2Client = new S3Client({
       region: 'auto',
       endpoint: `https://${R2.accountId}.r2.cloudflarestorage.com`,
-      credentials: { accessKeyId: R2.keyId, secretAccessKey: R2.secret }
+      credentials: { accessKeyId: R2.keyId, secretAccessKey: R2.secret },
+      // The SDK computes a CRC32 over the request body, but a presigned PUT has
+      // no body here — the browser supplies it later — so it stamps the checksum
+      // of an empty string and R2 rejects every upload. R2's rejection carries no
+      // CORS headers, so the browser blames CORS instead of the checksum.
+      requestChecksumCalculation: 'WHEN_REQUIRED'
     });
   }
   return r2Client;
@@ -419,7 +424,7 @@ const UPLOAD_KINDS = {
   chat:    { prefix: 'chat_attachments/', maxBytes: 25 * MB,  types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
   // Landing page media. Gated on the admin app's role
   // system, not the legacy profiles.is_admin flag; 'super' implies it.
-  site:    { prefix: 'site_assets/',      maxBytes: 25 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' },
+  site:    { prefix: 'site_assets/',      maxBytes: 50 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' },
   // Installers behind the landing page's download buttons. The bytes go
   // browser → R2, so the cap only guards against a mistaken huge file; R2
   // itself refuses a single PUT over 5GB.
