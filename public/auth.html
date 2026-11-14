@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/auth.css?v=16">
+  <link rel="stylesheet" href="/assets/css/auth.css?v=17">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -70,7 +70,7 @@
         </div>
         <div class="form-check">
           <input type="checkbox" id="agree-terms" required>
-          <label for="agree-terms">I agree to the <a href="#" id="terms-link">Terms and Policy</a></label>
+          <label for="agree-terms">I agree to the <a href="/terms.html" target="_blank" rel="noopener" id="terms-link">Terms and Policy</a></label>
         </div>
         <button type="submit" class="btn-primary w-full" style="margin-top: 16px;">Create account</button>
       </form>
@@ -140,19 +140,6 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
-  <script type="module" src="/assets/js/auth.js?v=24"></script>
-
-  <div class="modal-overlay modal-fullscreen" id="terms-modal" style="display: none;">
-    <div class="modal-content">
-      <button type="button" class="modal-close" id="terms-close-btn" aria-label="Close terms">&times;</button>
-      <h2 class="modal-title">Terms &amp; Policy</h2>
-      <p class="modal-subtitle" id="terms-updated">Loading...</p>
-
-      <div class="terms-content" id="terms-content-container" style="text-align: left;">
-        <p style="color: var(--text-muted);">Loading terms...</p>
-      </div>
-    </div>
-  </div>
+  <script type="module" src="/assets/js/auth.js?v=25"></script>
 </body>
 </html>

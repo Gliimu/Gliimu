@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Terms &amp; Policy - Gliimu</title>
+  <link rel="icon" type="image/png" href="/icons/icon.png">
+  <meta name="description" content="The terms and policy that apply to every Gliimu account.">
+  <script>
+    (function() {
+      const saved = localStorage.getItem('gliimu-theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = saved || (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
+  <link rel="stylesheet" href="/assets/css/terms.css?v=1">
+</head>
+<body class="terms-body">
+
+  <!-- The same header the app's document pages use: one arrow that goes back
+       to where the visitor came from, and the name of what they are reading.
+       No close control — a page has a way out, not an ×. -->
+  <header class="terms-bar">
+    <a class="terms-back" href="/" id="terms-back" aria-label="Back" title="Back">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+    </a>
+    <span class="terms-heading">Terms &amp; Policy</span>
+  </header>
+
+  <main class="terms-main">
+    <p class="terms-updated" id="terms-updated"></p>
+    <article class="terms-prose" id="terms-content-container">
+      <p class="terms-note">Loading...</p>
+    </article>
+  </main>
+
+  <!-- Converts the uploaded .docx into HTML; only this page needs it. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+  <script type="module" src="/assets/js/terms.js?v=1"></script>
+</body>
+</html>

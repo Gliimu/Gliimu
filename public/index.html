@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/assets/css/public.css?v=64">
+  <link rel="stylesheet" href="/assets/css/public.css?v=67">
 
   <!-- Branded dialogs; must load before anything that can call alert/confirm/prompt -->
   <script src="/shared/js/dialog.js?v=2"></script>
@@ -36,30 +36,13 @@
     <span class="entry-splash-dots"><span></span><span></span><span></span></span>
   </div>
 
-  <!-- The whole page is one screen, so this bar is its only chrome: the menu on
-       the left edge, the wordmark beside it, Enter on the right edge. What the
-       footer used to carry now opens from the menu. -->
+  <!-- The page is one screen, so this bar carries a single thing: the wordmark,
+       centred. Enter has moved down into the hero beside the copy it follows,
+       and the links the footer used to carry sit at the bottom edge. -->
   <header class="site-bar">
-    <div class="site-bar-start">
-      <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Menu">
-        <svg class="menu-open-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
-        <svg class="menu-close-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-      <a class="brand-mark" href="/" aria-label="Gliimu">
-        <img src="/icons/icon.png" alt="">
-        <span class="brand-word">liimu</span>
-      </a>
-    </div>
-
-    <nav class="site-menu" id="site-menu" aria-label="Site" hidden>
-      <button type="button" data-site-action="faq">FAQs</button>
-      <button type="button" data-site-action="contact">Contact</button>
-      <button type="button" data-auth-sheet data-auth-terms>Terms</button>
-    </nav>
-
-    <a href="/auth.html?tab=login" class="btn-primary btn-sm js-join-link site-enter" data-auth-sheet data-auth-tab="login">
-      <span>Enter</span>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    <a class="brand-mark" href="/" aria-label="Gliimu">
+      <img src="/icons/icon.png" alt="">
+      <span class="brand-word">liimu</span>
     </a>
   </header>
 
@@ -80,16 +63,36 @@
         <span id="hero-title-text"></span><span class="highlight" id="hero-highlight-text"></span>
       </h1>
       <p class="hero-desc" id="hero-desc-text"></p>
+      <!-- One call to action on the whole page, and it sits at the end of the
+           argument rather than floating in a corner of the screen. -->
+      <a href="/auth.html?tab=login" class="btn-primary btn-sm js-join-link hero-enter" data-auth-sheet data-auth-tab="login">
+        <span>Enter</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </a>
     </div>
 
-    <!-- The one record the page keeps of itself, centred on the bottom edge. -->
-    <p class="hero-copyright" id="copyright-text"></p>
+    <!-- The page's whole bottom-right corner: the links, then the one record it
+         keeps of itself. Both travel as a single stack so the gap between them
+         never depends on the viewport height. -->
+    <div class="hero-foot">
+      <nav class="hero-links" aria-label="Site">
+        <button type="button" data-site-action="faq">FAQs</button>
+        <button type="button" data-site-action="contact">Contact</button>
+        <a href="/terms.html">Terms</a>
+        <button type="button" class="theme-toggle" data-site-action="theme" aria-label="Switch colour theme" title="Switch colour theme">
+          <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="4"></line><line x1="12" y1="20" x2="12" y2="22"></line><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"></line><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"></line><line x1="2" y1="12" x2="4" y2="12"></line><line x1="20" y1="12" x2="22" y2="12"></line><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"></line><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"></line></svg>
+          <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"></path></svg>
+        </button>
+      </nav>
+      <p class="hero-copyright" id="copyright-text"></p>
+    </div>
 
   </main>
 
   <!-- AUTH SHEET — sign in and join without leaving the page.
-       The frame is the real /auth.html, so there is exactly one password
-       form, one recovery flow and one set of terms in the whole product.
+       The frame is the real /auth.html, so there is exactly one password form
+       and one recovery flow in the whole product. The terms are not in here:
+       they are a page of their own, linked from the row under the hero.
        It stays empty until the first tap asks for it. -->
   <div class="auth-sheet" id="auth-sheet" hidden>
     <div class="auth-sheet-backdrop" data-auth-sheet-close></div>
@@ -124,7 +127,7 @@
   </div>
 
   <script src="/shared/js/theme.js?v=2"></script>
-  <script type="module" src="/assets/js/main.js?v=59"></script>
+  <script type="module" src="/assets/js/main.js?v=62"></script>
   <script>
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }

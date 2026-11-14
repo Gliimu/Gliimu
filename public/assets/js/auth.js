@@ -41,75 +41,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!EMBEDDED) loadAuthBackground();
 
   // ============================================
-  // Terms & Policy (from legal_documents)
-  // The content column is either a URL to an uploaded .docx or inline HTML
-  // from before the file upload existed. A .docx is converted to HTML via
-  // mammoth; anything else that is not HTML shows a download link.
-  // ============================================
-  async function loadTermsAndPolicy() {
-    const container = document.getElementById('terms-content-container');
-    const updatedEl = document.getElementById('terms-updated');
-    if (!container) return;
-
-    const { data, error } = await supabase
-      .from('legal_documents')
-      .select('content, updated_at')
-      .eq('type', 'terms')
-      .single();
-
-    if (error || !data || !data.content) {
-      container.innerHTML = '<p>The terms of service are unavailable right now. Please reload this page before continuing.</p>';
-      if (updatedEl) updatedEl.textContent = '';
-      return;
-    }
-
-    // The stored document opens with a hand-typed "Last Updated" line, and the
-    // modal already prints the row's own updated_at below it. Two dates, one of
-    // them stale, so the copy inside the body is dropped and the real timestamp
-    // stays the single source of truth.
-    let hasDateLine = false;
-    if (updatedEl && data.updated_at) {
-      const d = new Date(data.updated_at);
-      updatedEl.textContent = 'Last Updated: ' + d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-      hasDateLine = true;
-    }
-
-    const dropDateLine = () => {
-      if (!hasDateLine) return;
-      const first = container.firstElementChild;
-      if (first && /^last updated/i.test(first.textContent.trim())) first.remove();
-    };
-
-    const raw = data.content.trim();
-    const isUrl = /^https?:\/\//.test(raw);
-
-    if (isUrl && /\.docx(\?|$)/i.test(raw)) {
-      try {
-        const resp = await fetch(raw);
-        const buf = await resp.arrayBuffer();
-        const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-        container.innerHTML = result.value || '<p>The document is empty.</p>';
-        dropDateLine();
-      } catch (err) {
-        container.innerHTML = `<p>Could not load the terms document.</p>
-          <p><a href="${raw}" target="_blank" rel="noopener" class="link-muted">Download the document instead</a></p>`;
-      }
-      return;
-    }
-
-    if (isUrl) {
-      const name = raw.split('/').pop() || 'document';
-      container.innerHTML = `<p>The terms are stored as a file.</p>
-        <p><a href="${raw}" download rel="noopener" class="link-muted">Download ${name}</a></p>`;
-      return;
-    }
-
-    container.innerHTML = data.content;
-    dropDateLine();
-  }
-  loadTermsAndPolicy();
-
-  // ============================================
   // Tab Switching
   // ============================================
   const tabs = document.querySelectorAll('.auth-tab');
@@ -278,43 +209,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('proceed-to-dashboard-btn').addEventListener('click', enterApp);
-
-  // ============================================
-  // TERMS — a full-screen document
-  // ============================================
-  // Inside the landing slide-over, opening the terms also asks the parent to
-  // widen the drawer to the whole window: several pages of legal text in a
-  // 440px column is not easier to read than in a 500px box.
-  const termsModal = document.getElementById('terms-modal');
-  const tellParent = (message) => {
-    if (EMBEDDED) window.parent.postMessage(message, window.location.origin);
-  };
-  const closeTerms = () => {
-    tellParent('gliimu:terms-close');
-    termsModal.style.display = 'none';
-  };
-  const openTerms = () => {
-    tellParent('gliimu:terms-open');
-    termsModal.style.display = 'flex';
-  };
-
-  document.getElementById('terms-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    openTerms();
-  });
-
-  document.getElementById('terms-close-btn').addEventListener('click', closeTerms);
-
-  // /auth.html?terms=1 is the footer's Terms link: the document is the whole
-  // reason the drawer was opened, so it is up before anybody reads the form.
-  if (new URLSearchParams(window.location.search).get('terms') === '1') openTerms();
-
-  // The drawer owns the keyboard when the visitor has not clicked into the
-  // form, so Escape reaches the parent first and the parent asks back.
-  window.addEventListener('message', (e) => {
-    if (e.origin !== window.location.origin) return;
-    if (e.data === 'gliimu:close-terms') closeTerms();
-  });
 
   // ============================================
   // FORGOT PASSWORD MODAL LOGIC

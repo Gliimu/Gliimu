@@ -90,14 +90,13 @@ body { background: var(--bg-primary); }
   flex-direction: column;
   /* The copy is a caption to the video, so it sits at the foot of the screen
      rather than floating in the middle of it. The top padding stays for short
-     viewports, where it keeps the words clear of the brand row; the bottom one
-     is half what it was, since the empty band under the words read as dead
-     space rather than as breathing room. */
+     viewports, where it keeps the words clear of the brand row. */
   justify-content: flex-end;
-  /* Only the bottom grows: the home indicator sits in that strip on a phone,
-     and the Enter button now lives at the foot of the copy. The sides stay at
-     zero so the words line up with every section heading below. */
-  padding: clamp(96px, 16vh, 150px) 0 calc(clamp(44px, 6vh, 65px) + env(safe-area-inset-bottom, 0px));
+  /* Only the bottom grows. It has to clear the link row and the copyright that
+     are pinned to the bottom edge of this screen, so the copy never lands on
+     top of them on a short viewport. The sides stay at zero so the words line
+     up with every section heading below. */
+  padding: clamp(96px, 16vh, 150px) 0 calc(clamp(84px, 12vh, 112px) + env(safe-area-inset-bottom, 0px));
   overflow: hidden;
   background-size: cover;
   background-position: center;
@@ -157,10 +156,11 @@ body { background: var(--bg-primary); }
 /* ============================================
    TOP BAR
    ============================================
-   The page is one screen, so this row is its entire navigation: the menu at the
-   left edge, the wordmark next to it, Enter at the right edge. Pinned here
-   rather than inside .hero so the hero's own overflow and stacking can never
-   clip it. The bar is click-through — only its controls are live. */
+   One item, centred: the wordmark. Enter lives in the hero under the copy it
+   follows, and the links sit at the bottom edge, so this row has nothing left
+   to arrange. It is still pinned here rather than inside .hero so the hero's
+   own overflow and stacking can never clip it, and it stays click-through —
+   only the wordmark itself is live. */
 .site-bar {
   position: absolute;
   top: 0;
@@ -169,7 +169,7 @@ body { background: var(--bg-primary); }
   z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: var(--space-4);
   pointer-events: none;
   /* The notch and the punch-hole camera live in this band, so the controls are
@@ -181,69 +181,6 @@ body { background: var(--bg-primary); }
     0
     calc(clamp(14px, 2.5vw, 22px) + env(safe-area-inset-left, 0px));
 }
-.site-bar-start { display: flex; align-items: center; gap: clamp(10px, 1.6vw, 16px); }
-.site-enter { pointer-events: auto; }
-/* Menu and close are the same square: the bar cannot afford to grow a control
-   every time the panel opens. */
-.menu-toggle {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: var(--radius-md);
-  background: rgba(10, 15, 30, 0.35);
-  color: #fff;
-  cursor: pointer;
-  pointer-events: auto;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
-}
-.menu-toggle:hover { background: rgba(10, 15, 30, 0.62); border-color: rgba(255, 255, 255, 0.5); }
-.menu-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-.menu-toggle svg { width: 18px; height: 18px; }
-.menu-toggle .menu-close-icon { display: none; }
-.menu-toggle[aria-expanded="true"] .menu-open-icon { display: none; }
-.menu-toggle[aria-expanded="true"] .menu-close-icon { display: block; }
-/* The three exits the footer used to print on the ground. The panel hangs off
-   the bar's own bottom edge, so it always lands under the toggle whatever the
-   notch height does to the padding above it. */
-.site-menu {
-  position: absolute;
-  top: 100%;
-  left: calc(clamp(14px, 2.5vw, 22px) + env(safe-area-inset-left, 0px));
-  margin-top: 12px;
-  min-width: 172px;
-  padding: 6px;
-  display: grid;
-  gap: 2px;
-  background: rgba(10, 15, 30, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 18px 40px -12px rgba(6, 9, 20, 0.7);
-  pointer-events: auto;
-  opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-.site-menu[hidden] { display: none; }
-.site-menu.is-open { opacity: 1; transform: none; }
-/* Three words in a column, each one a full row, so a thumb does not have to
-   aim between neighbours. */
-.site-menu button {
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  color: rgba(255, 255, 255, 0.82);
-  background: none;
-  border: none;
-  padding: 11px 14px;
-  border-radius: var(--radius-md);
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.site-menu button:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
-.site-menu button:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
 /* The mark and the word: the artwork is the G, so "liimu" beside it spells the
    name out. The word is pulled back over the plate by 8.4% of its width and
    painted on top of it, so the two read as one wordmark rather than an icon
@@ -283,17 +220,67 @@ body { background: var(--bg-primary); }
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.5;
 }
-/* The record of the site, centred on the bottom edge of the only screen the
-   page has. Absolute so it never shoves the copy around when the year renders. */
-.hero-copyright {
+/* The bottom-right corner of the only screen the page has: the links, then the
+   one record the site keeps of itself. They travel as a single stack so the gap
+   between the two never depends on the viewport, and absolute so neither shoves
+   the hero copy around when the year renders. The right inset matches the top
+   bar's so the two edges of the page line up. */
+.hero-foot {
   position: absolute;
-  left: 0;
-  right: 0;
+  right: calc(clamp(14px, 2.5vw, 22px) + env(safe-area-inset-right, 0px));
   bottom: calc(clamp(14px, 2.4vh, 22px) + env(safe-area-inset-bottom, 0px));
-  margin: 0;
-  text-align: center;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+/* Quiet rather than boxed: small type, low contrast, an air-sized gap, and the
+   row only brightens under someone who aims at it. No separators, no plates. */
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: clamp(22px, 4.5vw, 38px);
+  row-gap: 4px;
+}
+.hero-links button, .hero-links a {
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
-  color: rgba(255, 255, 255, 0.52);
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.58);
+  background: none;
+  border: none;
+  padding: 3px 1px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.hero-links button:hover, .hero-links a:hover { color: #fff; }
+.hero-links button:focus-visible, .hero-links a:focus-visible {
+  color: #fff;
+  outline: 1px solid rgba(255, 255, 255, 0.65);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+/* The theme control is one of the links, not a button among them, so it takes
+   their size, their colour and their brightness on hover. Which half of it
+   shows is decided by the theme that the head script already put on
+   <html>, not by JS, so it is never the wrong icon while the page paints. */
+.hero-links .theme-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+.hero-links .theme-toggle svg { width: 13px; height: 13px; }
+#sun-icon { display: none; }
+[data-theme="dark"] #sun-icon { display: block; }
+#moon-icon { display: block; }
+[data-theme="dark"] #moon-icon { display: none; }
+/* A step smaller than the links, so the legal line reads as a footnote to them
+   rather than as a fourth one. */
+.hero-copyright {
+  margin: 0;
+  text-align: right;
+  font-size: 0.6875rem;
+  color: rgba(255, 255, 255, 0.42);
 }
 
 /* ============================================
@@ -308,16 +295,24 @@ section { padding: clamp(76px, 11vw, 120px) 0 clamp(64px, 9vw, 104px); }
    ============================================
    A slide-over rather than a new page: a visitor who is curious about Gliimu
    should not lose the place they were reading. The panel is only a frame — the
-   form inside it is the real /auth.html, so the password flow, the recovery
-   kit and the terms exist in exactly one place.
-   */
+   form inside it is the real /auth.html, so the password flow and the recovery
+   kit exist in exactly one place.
+   The terms are not in here. Legal text is a page of its own (/terms.html)
+   with the app's own back arrow, because a document that runs to several pages
+   does not belong inside a sign-in drawer.
+   ============================================ */
+/* The scrim behind the drawer: dark enough to park the page, in whichever
+   theme the visitor is reading it in. */
+:root { --sheet-scrim: rgba(15, 23, 42, 0.42); }
+[data-theme="dark"] { --sheet-scrim: rgba(6, 9, 20, 0.62); }
+
 .auth-sheet { position: fixed; inset: 0; z-index: 1200; }
 .auth-sheet[hidden] { display: none; }
 body.auth-sheet-open { overflow: hidden; }
 .auth-sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--sheet-scrim);
   opacity: 0;
   transition: opacity var(--transition-base);
 }
@@ -329,20 +324,16 @@ body.auth-sheet-open { overflow: hidden; }
   width: min(440px, 100%);
   display: flex;
   flex-direction: column;
-  /* Matches the ground of /auth.html exactly. The auth page has one fixed dark
-     design of its own, so a themed head above a navy frame would read as two
-     panels rather than one drawer. */
-  background: #0A0F1E;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  /* The same ground /auth.html paints on, so the frame and the page inside it
+     read as one drawer rather than two panels — in either theme. */
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border);
   box-shadow: var(--shadow-xl);
   transform: translateX(100%);
   transition: transform 320ms cubic-bezier(.4, 0, .2, 1);
 }
 .auth-sheet.is-open .auth-sheet-backdrop { opacity: 1; }
 .auth-sheet.is-open .auth-sheet-panel { transform: none; }
-/* The terms page is unreadable in a 440px column, so opening it widens the
-   drawer to the whole viewport. auth.js posts the message both ways. */
-.auth-sheet.is-wide .auth-sheet-panel { width: 100%; }
 /* No head any more — the drawer is only a frame, so the close control floats
    over the top-right corner of the auth page it wraps. */
 .auth-sheet-close {
@@ -357,15 +348,20 @@ body.auth-sheet-open { overflow: hidden; }
   border: none;
   border-radius: var(--radius-md);
   background: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
-.auth-sheet-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.auth-sheet-close:hover { background: var(--surface-hover); color: var(--text-primary); }
+.auth-sheet-close:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  color: var(--text-primary);
+}
 .auth-sheet-close svg { width: 18px; height: 18px; }
 /* The frame fills whatever is left, so the auth page scrolls inside the sheet
    instead of the sheet growing past the viewport. */
-.auth-sheet-frame { flex: 1 1 auto; width: 100%; border: 0; display: block; background: #0A0F1E; }
+.auth-sheet-frame { flex: 1 1 auto; width: 100%; border: 0; display: block; background: var(--bg-primary); }
 @media (prefers-reduced-motion: reduce) {
   .auth-sheet-backdrop, .auth-sheet-panel { transition: none; }
 }
@@ -408,7 +404,7 @@ body.auth-sheet-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .entry-splash { transition: none; }
   .entry-splash-dots span { animation: none; opacity: 0.6; }
-  .site-menu, .menu-toggle { transition: none; }
+  .hero-links button { transition: none; }
   .faq-acc-content { transition: none; }
 }
 

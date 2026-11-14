@@ -169,34 +169,22 @@ async function initJoinButtons() {
 // ============================================
 // AUTH SHEET — sign in and join without leaving the page
 // ============================================
-// The sheet is a frame around the real /auth.html, so the password form, the
-// recovery kit and the terms exist in exactly one place in the product. The
-// frame is only given a src when somebody asks for the sheet, and loses it
-// again on close, so a visitor who never taps Join Us never loads an auth page.
+// The sheet is a frame around the real /auth.html, so the password form and the
+// recovery kit exist in exactly one place in the product. The terms are not in
+// it: legal text is a page of its own (/terms.html), not a corner of a drawer.
+// The frame is only given a src when somebody asks for the sheet, and loses it
+// again on close, so a visitor who never taps Enter never loads an auth page.
 const DASHBOARD = 'https://dashboard.gliimu.com';
 const AUTH_TABS = { join: 'join', login: 'login' };
 
-// The terms page runs inside the frame, so the drawer only knows it is up
-// because auth.html says so. Escape has to close that before the drawer.
-let authTermsOpen = false;
-
-// True when the sheet was asked for the terms and nothing else. For those
-// visitors the document IS the sheet, so closing it closes the drawer.
-let authOpenedForTerms = false;
-
-function openAuthSheet(tab, terms) {
+function openAuthSheet(tab) {
   const sheet = document.getElementById('auth-sheet');
   const frame = document.getElementById('auth-sheet-frame');
   if (!sheet || !frame) return;
 
-  const params = new URLSearchParams();
-  if (AUTH_TABS[tab]) params.set('tab', AUTH_TABS[tab]);
-  if (terms) params.set('terms', '1');
-  const query = params.toString();
+  const query = AUTH_TABS[tab] ? `?tab=${AUTH_TABS[tab]}` : '';
 
-  frame.src = '/auth.html' + (query ? `?${query}` : '');
-  authOpenedForTerms = !!terms;
-  sheet.classList.remove('is-wide');
+  frame.src = '/auth.html' + query;
   sheet.hidden = false;
   document.body.classList.add('auth-sheet-open');
   requestAnimationFrame(() => sheet.classList.add('is-open'));
@@ -207,10 +195,8 @@ function closeAuthSheet() {
   const frame = document.getElementById('auth-sheet-frame');
   if (!sheet || sheet.hidden) return;
 
-  sheet.classList.remove('is-open', 'is-wide');
+  sheet.classList.remove('is-open');
   document.body.classList.remove('auth-sheet-open');
-  authTermsOpen = false;
-  authOpenedForTerms = false;
   setTimeout(() => {
     sheet.hidden = true;
     if (frame) frame.src = 'about:blank';
@@ -218,7 +204,6 @@ function closeAuthSheet() {
 }
 
 function initAuthSheet() {
-  const sheet = document.getElementById('auth-sheet');
   const frame = document.getElementById('auth-sheet-frame');
   document.addEventListener('click', (e) => {
     const node = e.target;
@@ -226,25 +211,14 @@ function initAuthSheet() {
     const opener = node.closest('[data-auth-sheet]');
     if (opener) {
       e.preventDefault();
-      openAuthSheet(opener.getAttribute('data-auth-tab'), opener.hasAttribute('data-auth-terms'));
+      openAuthSheet(opener.getAttribute('data-auth-tab'));
       return;
     }
     if (node.closest('[data-auth-sheet-close]')) closeAuthSheet();
   });
 
-  // Escape closes the topmost layer only: terms first, then the drawer. The
-  // terms live inside the frame, so the drawer has to ask the frame to drop
-  // them rather than reaching in for its DOM.
-  const dismissTopLayer = () => {
-    if (authTermsOpen) {
-      frame?.contentWindow?.postMessage('gliimu:close-terms', window.location.origin);
-      return;
-    }
-    closeAuthSheet();
-  };
-
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') dismissTopLayer();
+    if (e.key === 'Escape') closeAuthSheet();
   });
 
   // Once the visitor clicks into the form, keys belong to the page inside the
@@ -254,7 +228,7 @@ function initAuthSheet() {
       const doc = frame.contentDocument;
       if (!doc) return;
       doc.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') dismissTopLayer();
+        if (e.key === 'Escape') closeAuthSheet();
       });
     });
   }
@@ -267,69 +241,25 @@ function initAuthSheet() {
       window.location.replace(`${DASHBOARD}/xplore`);
       return;
     }
-    // Terms across the whole screen, so a reader gets a page instead of a
-    // 440px column.
-    if (e.data === 'gliimu:terms-open') {
-      authTermsOpen = true;
-      sheet.classList.add('is-wide');
-    }
-    if (e.data === 'gliimu:terms-close') {
-      authTermsOpen = false;
-      sheet.classList.remove('is-wide');
-      // A visitor who came for the terms has nothing else in the drawer to
-      // look at, so the document closing is the drawer closing.
-      if (authOpenedForTerms) closeAuthSheet();
-    }
   });
 }
 
 // ============================================
-// TOP BAR MENU — the three exits the footer used to print on the ground
+// HERO LINK ROW — FAQs, Contact, theme
 // ============================================
-// The panel is told to stop before anything it launches opens, so a visitor
-// never finds the FAQ sheet sitting behind an open menu.
-function setSiteMenu(open) {
-  const btn = document.getElementById('menu-toggle');
-  const menu = document.getElementById('site-menu');
-  if (!btn || !menu) return;
-  if (open) {
-    menu.hidden = false;
-    requestAnimationFrame(() => menu.classList.add('is-open'));
-  } else {
-    menu.classList.remove('is-open');
-    // A reopen inside the fade leaves .is-open set, and that is the only thing
-    // standing between this timer and a panel that vanished while visible.
-    setTimeout(() => { if (!menu.classList.contains('is-open')) menu.hidden = true; }, 180);
-  }
-  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-function initSiteMenu() {
-  const btn = document.getElementById('menu-toggle');
-  const menu = document.getElementById('site-menu');
-  if (!btn || !menu) return;
-  const isOpen = () => btn.getAttribute('aria-expanded') === 'true';
+// Terms is not here because it needs no script: it is a link to /terms.html.
+// toggleTheme() comes from /shared/js/theme.js, which loads before this module.
+function initHeroLinks() {
+  if (!document.querySelector('.hero-links')) return;
 
   document.addEventListener('click', (e) => {
     const node = e.target;
     if (!(node instanceof Element)) return;
-    if (node.closest('#menu-toggle')) {
-      setSiteMenu(!isOpen());
-      return;
-    }
-    if (!isOpen()) return;
     const action = node.closest('[data-site-action]');
-    if (action) {
-      setSiteMenu(false);
-      if (action.dataset.siteAction === 'faq') openFaqModal();
-      if (action.dataset.siteAction === 'contact') openContactModal();
-      return;
-    }
-    if (node.closest('[data-auth-sheet]') || !node.closest('.site-menu')) setSiteMenu(false);
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen()) setSiteMenu(false);
+    if (!action) return;
+    if (action.dataset.siteAction === 'faq') openFaqModal();
+    if (action.dataset.siteAction === 'contact') openContactModal();
+    if (action.dataset.siteAction === 'theme') toggleTheme();
   });
 }
 
@@ -512,7 +442,7 @@ const boot = async () => {
 
   initJoinButtons();
   initAuthSheet();
-  initSiteMenu();
+  initHeroLinks();
   loadSiteSettings();
   initFaviconNotifications();
 
