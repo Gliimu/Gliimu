@@ -32,7 +32,23 @@
 .wallet-actions {
   display: flex;
   justify-content: center;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.wallet-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.wallet-action-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--text-inverse);
+  opacity: 0.92;
 }
 
 /* Circular light buttons on the gradient card */
@@ -56,61 +72,8 @@
   transform: translateY(-1px);
 }
 
-.icon-btn-light img {
-  width: 22px;
-  height: 22px;
-  filter: brightness(0) invert(1);
-  opacity: 0.95;
-}
-
-/* Transfer dropdown */
-.wallet-transfer-wrap {
-  position: relative;
-}
-
 .wallet-filter-wrap {
   position: relative;
-}
-
-.wallet-transfer-menu {
-  display: none;
-  position: absolute;
-  top: 115%;
-  right: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-lg);
-  min-width: 215px;
-  z-index: 1000;
-  overflow: hidden;
-  text-align: left;
-}
-
-.wallet-transfer-menu.active {
-  display: block;
-}
-
-.wallet-transfer-item {
-  padding: 13px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.wallet-transfer-item:last-child {
-  border-bottom: none;
-}
-
-.wallet-transfer-item:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
 }
 
 /* In-page view filter (Summary / Trxn / Subscription) */
@@ -596,104 +559,11 @@
   color: var(--error);
 }
 
-/* Top Up Modal */
-.bank-details-box {
-  background: var(--bg-tertiary);
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.bd-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  font-size: 15px;
-}
-
-.bd-row:last-child {
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-  padding-top: 16px;
-}
-
-.bd-row.highlight strong {
-  color: var(--brand-primary);
-}
-
 /* Fund Wallet Modal */
 .fund-subtitle {
   font-size: 14px;
   color: var(--text-muted);
   margin-bottom: 4px;
-}
-
-.pay-methods {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: var(--space-4);
-}
-
-.pay-method {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.pay-method:hover {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-light);
-}
-
-.pay-method-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  background: var(--brand-primary-light);
-  color: var(--brand-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.pay-method-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pay-method-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.pay-method-note {
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-
-.pay-method-chevron {
-  color: var(--text-muted);
-  font-size: 20px;
-  line-height: 1;
-}
-
-.fund-back {
-  background: none;
-  border: none;
-  color: var(--brand-primary);
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0 0 12px 0;
 }
 
 /* Responsive */
@@ -706,8 +576,5 @@
   }
   .plan-list {
     grid-template-columns: 1fr;
-  }
-  .wallet-transfer-menu {
-    min-width: 190px;
   }
 }

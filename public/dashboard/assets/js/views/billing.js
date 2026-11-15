@@ -24,7 +24,38 @@ const TX_TYPE_LABELS = {
   reward: 'GP reward',
   bill_payment: 'Bill payment',
   refund: 'Refund',
+  withdrawal: 'Payout to bank',
+  withdrawal_refund: 'Payout returned',
   adjustment: 'Adjustment'
+};
+
+// Mirrors the SQL comparison in request_withdrawal, so the client's verdict is
+// the same one the database will reach when the payout is queued.
+const samePayoutName = (a, b) => String(a || '').toLowerCase().replace(/\s+/g, ' ').trim()
+  === String(b || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+// Every payout RPC answers {ok:false, code} instead of raising, so the codes
+// are the contract with the member.
+const PAYOUT_ERRORS = {
+  NOT_AUTHENTICATED: 'Your session expired. Please open this again.',
+  MISSING_CONFIG: 'Withdrawals are not switched on yet.',
+  INVALID_AMOUNT: 'Enter a valid amount.',
+  BELOW_MINIMUM: 'That is below the smallest payout we can send.',
+  ABOVE_MAXIMUM: 'That is more than one payout can carry. Ask Support if you need it split.',
+  INSUFFICIENT_FUNDS: 'Your wallet does not hold that much.',
+  NO_PAYOUT_DETAILS: 'Add the bank account to receive it first.',
+  NEED_BANK_VERIFICATION: 'Your bank account still needs confirming with the bank.',
+  PAYOUT_IN_FLIGHT: 'A payout is already on its way to your account.',
+  ONE_PER_DAY: 'One payout a day. Please try again tomorrow.',
+  RECENT_TOPUP: 'Gliims you bought very recently are still on hold.',
+  BAD_NAME: 'Set the full name on your bank account in Settings first.',
+  BAD_PHONE: 'Enter a valid phone number.',
+  BAD_ACCOUNT: 'Enter the 10-digit account number.',
+  BAD_BANK: 'Pick your bank.',
+  ACCOUNT_IN_USE: 'Another member already receives payouts on that account number.',
+  NOT_FOUND: 'We could not load your account.',
+  NOT_RESOLVED: 'The bank did not answer for that account number. Check it and try again.',
+  CANNOT_CANCEL: 'That payout is already with the bank.'
 };
 
 const PLAN_LABELS = {
@@ -44,10 +75,8 @@ export default {
     window.walletInstance = {
       switchTab: (tab) => this.switchTab(tab),
       openTopUpModal: () => this.openTopUpModal(),
-      choosePaymentMethod: (m) => this.choosePaymentMethod(m),
-      toggleTransferMenu: () => this.toggleTransferMenu(),
-      transferToBank: () => this.transferToBank(),
       openTransferModal: () => this.openTransferModal(),
+      openWithdrawModal: () => this.openWithdrawModal(),
       toggleFilterMenu: () => this.toggleFilterMenu(),
       selectTransferUser: (id) => this.selectTransferUser(id),
       clearTransferUser: () => this.clearTransferUser(),
@@ -70,7 +99,6 @@ export default {
     this.transferSearchTimer = null;
 
     document.addEventListener('click', () => {
-      document.getElementById('wallet-transfer-menu')?.classList.remove('active');
       document.getElementById('billing-filter-menu')?.classList.remove('active');
     });
 
@@ -141,27 +169,30 @@ export default {
         <h1 class="balance-amount">G${this.balance.toLocaleString()}</h1>
         <div style="font-size: 13px; opacity: 0.85; margin-bottom: 16px;">Plan: ${escapeHtml(planLabel)}</div>
         <div class="wallet-actions">
-          <button class="icon-btn-light" title="Add Funds" onclick="walletInstance.openTopUpModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
-          <div class="wallet-transfer-wrap" onclick="event.stopPropagation();">
-            <button class="icon-btn-light" title="Transfer" onclick="walletInstance.toggleTransferMenu()">
-              <img src="/icons/share.svg" alt="Transfer">
+          <div class="wallet-action">
+            <button class="icon-btn-light" title="Add funds" onclick="walletInstance.openTopUpModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
-            <div class="wallet-transfer-menu" id="wallet-transfer-menu">
-              <div class="wallet-transfer-item" onclick="walletInstance.transferToBank()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-4h6v4"></path></svg>
-                Transfer to Bank
-              </div>
-              <div class="wallet-transfer-item" onclick="walletInstance.openTransferModal()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                Transfer to Another User
-              </div>
-            </div>
+            <span class="wallet-action-label">Fund</span>
           </div>
-          <button class="icon-btn-light" title="Refer & Earn" onclick="walletInstance.openReferralModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-          </button>
+          <div class="wallet-action">
+            <button class="icon-btn-light" title="Send Gliits to another member" onclick="walletInstance.openTransferModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="10.49"></line><line x1="15.41" y1="14.51" x2="8.59" y2="11.49"></line></svg>
+            </button>
+            <span class="wallet-action-label">Share</span>
+          </div>
+          <div class="wallet-action">
+            <button class="icon-btn-light" title="Withdraw to your bank account" onclick="walletInstance.openWithdrawModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-4h6v4"></path></svg>
+            </button>
+            <span class="wallet-action-label">Withdraw</span>
+          </div>
+          <div class="wallet-action">
+            <button class="icon-btn-light" title="Refer & Earn" onclick="walletInstance.openReferralModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+            </button>
+            <span class="wallet-action-label">Refer</span>
+          </div>
         </div>
       </div>
 
@@ -463,18 +494,7 @@ export default {
     document.getElementById('wallet-tab-content').innerHTML = this.renderTabContent();
   },
 
-  toggleTransferMenu() {
-    document.getElementById('billing-filter-menu')?.classList.remove('active');
-    document.getElementById('wallet-transfer-menu')?.classList.toggle('active');
-  },
-
-  transferToBank() {
-    document.getElementById('wallet-transfer-menu')?.classList.remove('active');
-    appAlert('Bank transfers are coming soon!');
-  },
-
   toggleFilterMenu() {
-    document.getElementById('wallet-transfer-menu')?.classList.remove('active');
     document.getElementById('billing-filter-menu')?.classList.toggle('active');
   },
 
@@ -519,7 +539,6 @@ export default {
   // TRANSFER TO ANOTHER USER
   // ============================================
   openTransferModal() {
-    document.getElementById('wallet-transfer-menu')?.classList.remove('active');
     this.transferTarget = null;
 
     const modal = document.createElement('div');
@@ -653,12 +672,351 @@ export default {
   },
 
   // ============================================
-  // FUND WALLET (top-up via Paystack / bank transfer)
+  // WITHDRAW TO A BANK ACCOUNT
+  // ============================================
+  // The member never types the name the payout is paid against: the database
+  // reads it from the profile and the bank confirms whose account it is. So
+  // the only way through is to hold an account the bank records under the
+  // member's own name.
+  async openWithdrawModal() {
+    if (document.getElementById('wallet-withdraw-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'wallet-withdraw-modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" id="withdraw-close-btn">×</button>
+        <h2 style="margin-bottom: 6px;">Withdraw to your bank</h2>
+        <p class="fund-subtitle">Gliims leave the platform as naira, into an account held in your own name.</p>
+        <div id="withdraw-body">
+          <p class="fund-subtitle" style="margin-top: var(--space-4);">Checking your bank details…</p>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('withdraw-close-btn').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    this.withdraw = { loading: true, banks: [], details: null, inflight: null, notice: null, editing: false };
+
+    const [details, queued, banks] = await Promise.all([
+      supabase.from('payout_details')
+        .select('full_name, phone, bank_code, bank_name, account_number, account_name')
+        .eq('user_id', store.user.id).maybeSingle()
+        .then((r) => r.data),
+      supabase.from('withdrawals')
+        .select('id, amount_gliits, status, bank_code, account_number, created_at')
+        .eq('user_id', store.user.id).in('status', ['requested', 'processing'])
+        .order('created_at', { ascending: false }).limit(1)
+        .then((r) => (r.data || [])[0]),
+      this.fetchPayoutBanks()
+    ]);
+
+    Object.assign(this.withdraw, {
+      loading: false,
+      details: details || null,
+      inflight: queued || null,
+      banks,
+      editing: !details || !details.account_name
+    });
+    this.renderWithdraw();
+  },
+
+  async fetchPayoutBanks() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+      const res = await fetch(`${API_BASE_URL}/api/payout/banks`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (!res.ok) return [];
+      const json = await res.json();
+      return Array.isArray(json.banks) ? json.banks : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  payoutBankName(code) {
+    const bank = (this.withdraw?.banks || []).find((b) => Number(b.code) === Number(code));
+    return bank ? bank.name : '';
+  },
+
+  renderWithdraw() {
+    const body = document.getElementById('withdraw-body');
+    const s = this.withdraw;
+    if (!body || !s) return;
+
+    if (s.inflight) {
+      body.innerHTML = this.payoutQueuedHtml(s.inflight);
+      body.querySelector('[data-cancel-payout]')
+        ?.addEventListener('click', () => this.cancelPayout(s.inflight.id));
+      return;
+    }
+
+    const confirmed = Boolean(s.details && s.details.account_name);
+    const matches = confirmed && samePayoutName(s.details.account_name, s.details.full_name);
+
+    const notice = s.notice ? `
+      <div style="margin-top: var(--space-4); padding: 10px 12px; border-radius: var(--radius-md);
+                  background: var(--${s.notice.tone}-light); color: var(--${s.notice.tone}-text);
+                  font-size: 13px;">${escapeHtml(s.notice.text)}</div>` : '';
+
+    body.innerHTML = `
+      ${confirmed && !s.editing ? this.payoutSavedHtml(s.details, matches) : this.payoutFormHtml()}
+      ${notice}
+      ${matches ? this.payoutAmountHtml() : ''}
+    `;
+    this.wireWithdraw(body);
+  },
+
+  payoutFormHtml() {
+    const s = this.withdraw;
+    if (!s.banks.length) {
+      return `<p class="fund-subtitle" style="margin-top: var(--space-4);">
+        The bank list could not be loaded from the payment provider. Close this and try again in a minute.</p>`;
+    }
+
+    const d = s.details || {};
+    const isChange = Boolean(s.details);
+    const options = s.banks.map((b) => `<option value="${escapeHtml(b.code)}"${Number(b.code) === Number(d.bank_code) ? ' selected' : ''}>${escapeHtml(b.name)}</option>`).join('');
+
+    return `
+      <div class="form-group" style="margin-top: var(--space-4);">
+        <label>Your bank</label>
+        <select id="withdraw-bank" class="input">
+          <option value="">Select your bank</option>
+          ${options}
+        </select>
+      </div>
+      <div class="form-group" style="margin-top: var(--space-3);">
+        <label>Account number</label>
+        <input type="text" id="withdraw-account" class="input" inputmode="numeric" maxlength="10"
+               placeholder="10 digits" value="${escapeHtml(d.account_number || '')}">
+      </div>
+      <div class="form-group" style="margin-top: var(--space-3);">
+        <label>Phone number</label>
+        <input type="text" id="withdraw-phone" class="input" inputmode="tel" maxlength="15"
+               placeholder="e.g. 08012345678" value="${escapeHtml(d.phone || '')}">
+      </div>
+      <p class="fund-subtitle" style="margin-top: var(--space-3);">
+        We pay against <strong>${escapeHtml(store.profile?.full_name || '')}</strong> — the name on your
+        Gliimu profile. ${isChange ? 'A new account has to be confirmed by the bank again.' : 'Your bank will be asked to confirm the account.'}
+      </p>
+      <button class="btn-primary" id="withdraw-save-btn" data-save-payout style="width: 100%; margin-top: var(--space-4);">
+        ${isChange ? 'Update and confirm' : 'Confirm with my bank'}
+      </button>
+    `;
+  },
+
+  payoutSavedHtml(d, matches) {
+    const tail = String(d.account_number || '').slice(-4);
+    return `
+      <div style="margin-top: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4);">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-3);">
+          <div>
+            <div style="font-weight: var(--fw-semibold);">${escapeHtml(d.bank_name || this.payoutBankName(d.bank_code))}</div>
+            <div class="fund-subtitle">••••${escapeHtml(tail)}</div>
+          </div>
+          <button class="btn-secondary" data-edit-payout style="padding: 6px 12px; font-size: 13px;">Change</button>
+        </div>
+        <div style="margin-top: var(--space-3); font-size: 13px; color: var(--${matches ? 'success' : 'error'}-text);">
+          ${matches
+            ? `Confirmed by the bank as ${escapeHtml(d.account_name)}.`
+            : `The bank holds this account as ${escapeHtml(d.account_name)}, but we pay against ${escapeHtml(d.full_name)}. Use an account in your own name.`}
+        </div>
+      </div>`;
+  },
+
+  payoutAmountHtml() {
+    const min = Number(this.config?.min_withdrawal_gliits || 0);
+    const max = Number(this.config?.max_withdrawal_gliits || 0);
+    const hold = Number(this.config?.withdrawal_hold_hours || 0);
+    const prefill = min > 0 && min <= this.balance ? min : '';
+
+    return `
+      <div class="form-group" style="margin-top: var(--space-4);">
+        <label>Amount (G)</label>
+        <input type="number" id="withdraw-amount" class="input" min="${min}" max="${max}" step="1"
+               placeholder="e.g. ${min}" value="${prefill}">
+        <div id="withdraw-naira" class="fund-subtitle" style="margin-top: 6px;"></div>
+      </div>
+      <div class="form-group" style="margin-top: var(--space-3);">
+        <label>Your password</label>
+        <input type="password" id="withdraw-password" class="input" autocomplete="current-password"
+               placeholder="Confirm it is you">
+      </div>
+      <button class="btn-primary" id="withdraw-send-btn" style="width: 100%; margin-top: var(--space-4);" disabled>Withdraw</button>
+      <p class="fund-subtitle" style="margin-top: 10px;">
+        Balance G${this.balance.toLocaleString()} · G${min.toLocaleString()} to G${max.toLocaleString()} a time ·
+        one payout a day${hold ? ` · Gliims bought in the last ${hold} hours are held back` : ''}
+      </p>
+    `;
+  },
+
+  payoutQueuedHtml(row) {
+    const sent = row.status === 'processing';
+    return `
+      <div style="margin-top: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4);">
+        <div style="font-weight: var(--fw-semibold);">G${Number(row.amount_gliits).toLocaleString()} on its way</div>
+        <p class="fund-subtitle" style="margin-top: 4px;">
+          ${sent
+            ? 'The bank has the transfer now. It clears into your account without any action from you.'
+            : `Held out of your wallet while we send it to ${escapeHtml(this.payoutBankName(row.bank_code))} ••••${escapeHtml(String(row.account_number || '').slice(-4))}.`}
+        </p>
+        ${row.status === 'requested'
+          ? '<button class="btn-secondary" data-cancel-payout style="margin-top: var(--space-3); padding: 6px 12px; font-size: 13px;">Cancel payout</button>'
+          : ''}
+      </div>`;
+  },
+
+  wireWithdraw(body) {
+    const s = this.withdraw;
+    body.querySelector('[data-save-payout]')?.addEventListener('click', () => this.savePayoutDetails());
+    body.querySelector('[data-edit-payout]')?.addEventListener('click', () => {
+      s.editing = true;
+      s.notice = null;
+      this.renderWithdraw();
+    });
+
+    const amount = body.querySelector('#withdraw-amount');
+    const send = body.querySelector('#withdraw-send-btn');
+    if (!amount || !send) return;
+
+    const naira = body.querySelector('#withdraw-naira');
+    const rate = Number(this.config?.exchange_rate_naira_to_gliits || 1) || 1;
+    const min = Number(this.config?.min_withdrawal_gliits || 0);
+    const max = Number(this.config?.max_withdrawal_gliits || 0);
+
+    const sync = () => {
+      const value = parseInt(amount.value, 10);
+      if (!(value > 0)) { naira.textContent = ''; send.disabled = true; return; }
+      if (min && value < min) { naira.textContent = `The smallest payout is G${min.toLocaleString()}.`; send.disabled = true; return; }
+      if (max && value > max) { naira.textContent = `The largest payout at one time is G${max.toLocaleString()}.`; send.disabled = true; return; }
+      if (value > this.balance) { naira.textContent = `Your wallet holds G${this.balance.toLocaleString()}.`; send.disabled = true; return; }
+      naira.textContent = `= ₦${(value / rate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} into your account.`;
+      send.disabled = false;
+    };
+
+    amount.addEventListener('input', sync);
+    sync();
+    send.addEventListener('click', () => this.submitWithdrawal());
+  },
+
+  async savePayoutDetails() {
+    const s = this.withdraw;
+    const bankCode = document.getElementById('withdraw-bank')?.value || '';
+    const account = String(document.getElementById('withdraw-account')?.value || '').replace(/\D/g, '');
+    const phone = String(document.getElementById('withdraw-phone')?.value || '').replace(/\D/g, '');
+
+    const btn = document.getElementById('withdraw-save-btn');
+    if (btn) { btn.disabled = true; btn.innerText = 'Checking with your bank…'; }
+
+    const { data, error } = await supabase.rpc('save_payout_details', {
+      p_phone: phone,
+      p_bank_code: bankCode ? Number(bankCode) : null,
+      p_account_number: account
+    });
+    if (error || !data || data.ok === false) {
+      s.notice = { tone: 'error', text: (data && PAYOUT_ERRORS[data.code]) || error?.message || 'That did not save. Please try again.' };
+      return this.renderWithdraw();
+    }
+
+    const out = await this.resolvePayoutAccount();
+    if (!out || out.ok !== true) {
+      s.details = { ...s.details, full_name: data.full_name, account_name: null, bank_name: null, bank_code: Number(bankCode), account_number: account, phone };
+      s.notice = { tone: 'error', text: (out && (PAYOUT_ERRORS[out.code] || out.error)) || 'The bank could not be reached. Your account is saved — open this again to confirm it.' };
+      return this.renderWithdraw();
+    }
+
+    s.details = {
+      ...s.details,
+      full_name: data.full_name,
+      bank_code: Number(bankCode),
+      account_number: account,
+      phone,
+      account_name: out.account_name,
+      bank_name: out.bank_name
+    };
+    s.editing = !out.name_match;
+    s.notice = out.name_match
+      ? { tone: 'success', text: 'Confirmed. Choose how much to withdraw.' }
+      : { tone: 'error', text: `The bank holds that account as ${out.account_name}, not as ${data.full_name}.` };
+    this.renderWithdraw();
+  },
+
+  async resolvePayoutAccount() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+      const res = await fetch(`${API_BASE_URL}/api/payout/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }
+      });
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async submitWithdrawal() {
+    const s = this.withdraw;
+    const amount = parseInt(document.getElementById('withdraw-amount')?.value, 10);
+    const password = document.getElementById('withdraw-password')?.value || '';
+
+    if (!amount || amount <= 0) return appAlert('Enter the amount you want to withdraw.');
+    if (!password) return appAlert('Enter your password so we know it is you.');
+
+    const fakeEmail = `${store.profile.username}@gliimu.app`;
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
+    if (signInError) {
+      s.notice = { tone: 'error', text: 'Incorrect password. Nothing was sent.' };
+      return this.renderWithdraw();
+    }
+
+    const btn = document.getElementById('withdraw-send-btn');
+    if (btn) { btn.disabled = true; btn.innerText = 'Sending…'; }
+
+    const { data, error } = await supabase.rpc('request_withdrawal', { p_amount: amount });
+    if (error || !data || data.ok === false) {
+      s.notice = { tone: 'error', text: (data && PAYOUT_ERRORS[data.code]) || error?.message || 'That payout could not be queued.' };
+      return this.renderWithdraw();
+    }
+
+    document.getElementById('wallet-withdraw-modal')?.remove();
+    await this.fetchData();
+    this.render();
+    await appAlert(`G${amount.toLocaleString()} is on its way to your bank account.`);
+  },
+
+  async cancelPayout(id) {
+    const ok = await appConfirm('Cancel this payout? The Gliims go straight back to your wallet.', {
+      okText: 'Cancel payout',
+      danger: true
+    });
+    if (!ok) return;
+
+    const { data, error } = await supabase.rpc('cancel_withdrawal', { p_id: id });
+    if (error || !data || data.ok === false) {
+      return appAlert((data && PAYOUT_ERRORS[data.code]) || 'That payout can no longer be cancelled.');
+    }
+
+    document.getElementById('wallet-withdraw-modal')?.remove();
+    await this.fetchData();
+    this.render();
+    await appAlert('Cancelled — the Gliims are back in your wallet.');
+  },
+
+  // ============================================
+  // FUND WALLET (Paystack)
   // ============================================
   openTopUpModal() {
     if (document.getElementById('wallet-fund-modal')) return;
 
     const minTopup = Number(this.config?.min_topup_gliits || 100);
+    const exchangeRate = Number(this.config?.exchange_rate_naira_to_gliits || 1.0);
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -666,87 +1024,54 @@ export default {
     modal.innerHTML = `
       <div class="modal-content">
         <button class="modal-close" id="fund-close-btn">×</button>
+        <h2 style="margin-bottom: 6px;">Top Up Wallet</h2>
+        <p class="fund-subtitle">Add Gliits (G) to your balance. Minimum G${minTopup}.</p>
 
-        <div id="fund-picker-screen">
-          <h2 style="margin-bottom: 6px;">Top Up Wallet</h2>
-          <p class="fund-subtitle">Add Gliits (G) to your balance. Minimum G${minTopup}.</p>
-
-          <div class="form-group" style="margin-top: var(--space-4);">
-            <label>Amount (G)</label>
-            <input type="number" id="topup-amount" class="input" placeholder="e.g. 500" min="${minTopup}">
-            <div id="naira-equivalent" class="muted small" style="margin-top: 6px; font-size: 0.9em;"></div>
-          </div>
-
-          <div class="pay-methods">
-            <div class="pay-method" onclick="walletInstance.choosePaymentMethod('bank')">
-              <div class="pay-method-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-4h6v4"></path></svg>
-              </div>
-              <div class="pay-method-info">
-                <span class="pay-method-name">Direct Bank Transfer</span>
-                <span class="pay-method-note">Manual verification · up to 24 hours</span>
-              </div>
-              <span class="pay-method-chevron">›</span>
-            </div>
-
-            <div class="pay-method" onclick="walletInstance.choosePaymentMethod('paystack')">
-              <div class="pay-method-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-              </div>
-              <div class="pay-method-info">
-                <span class="pay-method-name">Paystack</span>
-                <span class="pay-method-note">Card, bank or USSD · instant</span>
-              </div>
-              <span class="pay-method-chevron">›</span>
-            </div>
-          </div>
+        <div class="form-group" style="margin-top: var(--space-4);">
+          <label>Amount (G)</label>
+          <input type="number" id="topup-amount" class="input" placeholder="e.g. 500" min="${minTopup}">
+          <div id="naira-equivalent" class="muted small" style="margin-top: 6px; font-size: 0.9em;"></div>
         </div>
 
-        <div id="fund-bank-screen" style="display: none;">
-          <button class="fund-back" id="fund-back-btn">← All methods</button>
-          <h2 style="margin-bottom: var(--space-4);">Bank Transfer</h2>
-
-          <div class="info-banner" style="margin-bottom: var(--space-4); padding: 16px; background: var(--brand-primary-light); border-radius: 8px;">
-            <p style="color: var(--text-secondary); font-size: 14px;">Transfer <strong id="bd-amount"></strong> exactly to the account below. Use the <strong>Reference Code</strong> as the narration. Your wallet will be credited after confirmation.</p>
-          </div>
-
-          <div class="bank-details-box">
-            <div class="bd-row"><span>Bank:</span> <strong id="bd-bank"></strong></div>
-            <div class="bd-row"><span>Account No:</span> <strong id="bd-acct"></strong></div>
-            <div class="bd-row"><span>Account Name:</span> <strong>Gliimu ltd</strong></div>
-            <div class="bd-row highlight"><span>Reference:</span> <strong id="bd-ref"></strong></div>
-          </div>
-
-          <button id="confirm-sent-btn" class="btn-secondary" style="width: 100%; margin-top: var(--space-4);">I Have Sent the Cash</button>
-        </div>
+        <button class="btn-primary" id="fund-paystack-btn" style="width: 100%; margin-top: var(--space-4);" disabled>
+          Pay with Paystack
+        </button>
+        <p class="muted small" style="margin-top: 10px; text-align: center;">Card, bank or USSD · credited instantly</p>
       </div>
     `;
     document.body.appendChild(modal);
 
     document.getElementById('fund-close-btn').addEventListener('click', () => modal.remove());
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-    document.getElementById('fund-back-btn').addEventListener('click', () => this.backToMethods());
-    document.getElementById('confirm-sent-btn').addEventListener('click', (e) => this.confirmBankSent(e.target));
-    
-    // Live Naira conversion
+
     const amountInput = document.getElementById('topup-amount');
     const nairaDisplay = document.getElementById('naira-equivalent');
-    const exchangeRate = Number(this.config?.exchange_rate_naira_to_gliits || 1.0);
-    
-    amountInput.addEventListener('input', () => {
-      const gliitsAmount = Number(amountInput.value);
-      if (gliitsAmount > 0) {
-        const nairaAmount = gliitsAmount / exchangeRate;
-        nairaDisplay.textContent = `= ₦${nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (at ₦${exchangeRate} = G1)`;
-      } else {
-        nairaDisplay.textContent = '';
-      }
-    });
-  },
+    const payBtn = document.getElementById('fund-paystack-btn');
 
-  backToMethods() {
-    document.getElementById('fund-bank-screen').style.display = 'none';
-    document.getElementById('fund-picker-screen').style.display = 'block';
+    amountInput.addEventListener('input', () => {
+      const amount = Number(amountInput.value);
+      if (!(amount > 0)) {
+        nairaDisplay.textContent = '';
+        payBtn.disabled = true;
+        return;
+      }
+      if (amount < minTopup) {
+        nairaDisplay.textContent = `Minimum top-up is G${minTopup}.`;
+        payBtn.disabled = true;
+        return;
+      }
+      const naira = amount / exchangeRate;
+      nairaDisplay.textContent = `= ₦${naira.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (at ₦${exchangeRate} = G1)`;
+      payBtn.disabled = false;
+    });
+
+    payBtn.addEventListener('click', () => {
+      const amount = this.readTopUpAmount();
+      if (!amount) return;
+      this.logPaymentAttempt('paystack');
+      this.startPaystack(amount);
+    });
+    amountInput.focus();
   },
 
   readTopUpAmount() {
@@ -763,41 +1088,6 @@ export default {
     supabase.from('payment_attempts')
       .insert({ user_id: store.user.id, method })
       .then(() => {}, () => {});
-  },
-
-  choosePaymentMethod(method) {
-    const amount = this.readTopUpAmount();
-    if (!amount) return;
-
-    if (method === 'bank') {
-      this.logPaymentAttempt('bank_transfer');
-      const banks = [
-        { name: 'Opay', acct: '7058929080' },
-        { name: 'Moniepoint', acct: '7058929080' }
-      ];
-      const selectedBank = banks[Math.floor(Math.random() * banks.length)];
-      const username = store.profile.username || 'GLII';
-      const ref = `GLI-${username.substring(0, 4).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-      this.pendingTopUp = { amount, bank: selectedBank, ref };
-
-      const exchangeRate = Number(this.config?.exchange_rate_naira_to_gliits || 1.0);
-      const nairaAmount = amount / exchangeRate;
-      document.getElementById('bd-amount').innerHTML = `G${amount.toLocaleString()} <span style="color: var(--text-secondary); font-weight: normal;">(₦${nairaAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })})</span>`;
-      document.getElementById('bd-bank').innerText = selectedBank.name;
-      document.getElementById('bd-acct').innerText = selectedBank.acct;
-      document.getElementById('bd-ref').innerText = ref;
-
-      document.getElementById('fund-picker-screen').style.display = 'none';
-      document.getElementById('fund-bank-screen').style.display = 'block';
-      return;
-    }
-
-    if (method === 'paystack') {
-      this.logPaymentAttempt('paystack');
-      this.startPaystack(amount);
-      return;
-    }
   },
 
   async startPaystack(gliitsAmount) {
@@ -848,34 +1138,6 @@ export default {
     } catch (err) {
       await appAlert("Payment confirmation is taking longer than usual. If you were debited, your wallet will be credited automatically.");
     }
-  },
-
-  async confirmBankSent(btn) {
-    btn.innerText = 'Logging...';
-    btn.disabled = true;
-
-    const { amount, ref } = this.pendingTopUp;
-
-    const { error } = await supabase.from('transactions').insert({
-      user_id: store.user.id,
-      amount: amount,
-      type: 'topup',
-      status: 'pending',
-      reference: ref,
-      description: 'Wallet Top-up'
-    });
-
-    if (error) {
-      await appAlert("Error logging transaction.");
-      btn.innerText = 'I Have Sent the Cash';
-      btn.disabled = false;
-      return;
-    }
-
-    await appAlert("Transaction received! Your wallet will be credited once the payment is verified.");
-    document.getElementById('wallet-fund-modal')?.remove();
-    await this.fetchData();
-    this.render();
   },
 
   // ============================================

@@ -101,7 +101,9 @@ export const TXN_LABEL = {
   transfer_out: 'Transfer out',
   adjustment: 'Admin adjustment',
   reward: 'Reward',
-  creator_credit: 'Creator earnings'
+  creator_credit: 'Creator earnings',
+  withdrawal: 'Payout to bank',
+  withdrawal_refund: 'Payout returned'
 };
 
 // Turns an unknown RPC result into one readable line. Every admin RPC answers
@@ -130,8 +132,6 @@ const RPC_ERRORS = {
   ALREADY_PAID: 'That bill is already settled.',
   NOTE_REQUIRED: 'A reason is required.',
   REASON_REQUIRED: 'A reason is required — it goes on the audit log.',
-  NOT_A_TOPUP: 'That ledger row is not a wallet top-up.',
-  ALREADY_VERIFIED: 'That transfer has already been dealt with.',
   BAD_ACTION: 'Unknown review action.',
   BAD_STATUS: 'Unknown status.',
   BAD_ROLE: 'Unknown role.',
@@ -151,6 +151,27 @@ const RPC_ERRORS = {
   NO_USER: 'That member account does not exist.',
   NO_AUTHOR_PROFILE: 'The submitter no longer has a profile, so the item cannot be attributed.',
   LAST_SUPER: 'There has to be at least one super admin.',
+
+  // Payout queue (sql/withdrawals.sql)
+  MISSING_CONFIG: 'The Gliits pricing row is missing, so payout limits cannot be checked. Run sql/setup_core.sql, then sql/withdrawals.sql.',
+  INVALID_AMOUNT: 'Enter a Gliits amount the payout rules allow.',
+  BELOW_MINIMUM: 'That amount is below the minimum withdrawal.',
+  ABOVE_MAXIMUM: 'That amount is above the maximum for one payout.',
+  INSUFFICIENT_FUNDS: 'The wallet no longer holds that much.',
+  NO_PAYOUT_DETAILS: 'That member has not saved a bank account yet, so there is nothing to pay into.',
+  NEED_BANK_VERIFICATION: 'The bank has not confirmed that account name yet. Open the member and check the account details.',
+  PAYOUT_IN_FLIGHT: 'That member already has a payout that has not settled. Settle it before sending another.',
+  ONE_PER_DAY: 'Only one payout per member per 24 hours has been sent already.',
+  RECENT_TOPUP: 'That member topped up too recently. The anti-fraud hold has not expired.',
+  ACCOUNT_IN_USE: 'That bank account already belongs to another member.',
+  BAD_ACCOUNT: 'That is not a valid Nigerian account number.',
+  BAD_BANK: 'Pick the bank the account really belongs to.',
+  ALREADY_SENT_OR_CLOSED: 'That payout has already been sent or closed.',
+  NOT_RESOLVED: 'The bank name for that account has not been fetched yet. Send again after the account is resolved.',
+  NAME_MISMATCH: 'The name the bank has for that account does not match the name on the payout details.',
+  ALREADY_CLOSED: 'That payout is already closed.',
+  CANNOT_CANCEL: 'That payout can no longer be cancelled.',
+
   MISSING_TABLE: 'This screen needs a table your database does not have yet. Run sql/setup_core.sql first, then the feature scripts (gliits_billing.sql, admin.sql, etc.).',
   SCHEMA_MISMATCH: 'The database shape does not match what this build expects. Send the developer the detail below.'
 };

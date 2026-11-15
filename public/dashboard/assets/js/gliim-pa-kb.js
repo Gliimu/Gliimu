@@ -59,12 +59,13 @@ You earn GP by posting, going live, and engaging with the community. Your curren
     keys: ['wallet', 'top up', 'topup', 'fund', 'funds', 'payment', 'pay', 'bank', 'transfer', 'paystack', 'naira', 'money', 'balance', 'withdraw', 'withdrawal', 'add money', 'cash'],
     answer: `Your **Billing** tab holds your wallet.
 
-- **Top up** — tap the add-fund button and choose a bank transfer or a card payment (Paystack). Bank transfers are verified by the registrar, usually with one click.
+- **Top up** — tap the add-fund button and pay by card, bank transfer or USSD through Paystack. The wallet is credited as soon as the payment succeeds.
 - **Balance** — your live naira balance shows at the top of Billing.
-- **Send to another Gliimait** — use transfer-to-user. For security you must confirm with your password.
-- **History** — every top-up, purchase and transfer is listed with its status.
+- **Share** — send Gliits to another Gliimait. For security you must confirm with your password.
+- **Withdraw** — move your Gliits into your own bank account once your balance reaches the minimum shown on the Withdraw screen.
+- **History** — every top-up, purchase, share and payout is listed with its status.
 
-Withdrawals and revenue share follow the terms you accepted at sign-up. If a top-up is still pending, give the registrar a moment to verify it.`
+Payouts go to the bank account registered against your own name, and a short hold applies after a top-up before money can leave.`
   },
   {
     title: 'Plans and pricing',

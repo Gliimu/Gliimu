@@ -1,5 +1,5 @@
 import { supabase, API_BASE_URL } from '../config.js';
-import { escapeHtml, empty, rpcError } from '../ui.js?v=2';
+import { escapeHtml, empty, rpcError } from '../ui.js?v=3';
 import { appAlert, appConfirm } from '../dialog.js';
 import { uploadFile } from '../upload.js';
 

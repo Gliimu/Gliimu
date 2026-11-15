@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: ['https://www.gliimu.com', 'https://gliimu.com', 'https://admin.gliimu.com'],
+  origin: ['https://www.gliimu.com', 'https://gliimu.com', 'https://dashboard.gliimu.com', 'https://admin.gliimu.com'],
   credentials: true
 }));
 
@@ -49,6 +49,25 @@ app.post('/api/paystack/webhook', express.raw({ type: '*/*' }), async (req, res)
       } else if (userId && amountNaira >= 100 && tx.reference) {
         const result = await topupGliitsWallet(userId, amountNaira, tx.reference);
         console.log('Paystack webhook credit:', tx.reference, JSON.stringify(result));
+      }
+    }
+
+    // Payouts settle on their own timeline, sometimes minutes later, so the
+    // Send button only reports "accepted". These events close the row: paid,
+    // or failed with the Gliims returned to the member's wallet. The payout
+    // reference is ours (glw…), passed to Paystack when the transfer began.
+    if (event.event === 'transfer.success' || event.event === 'transfer.failed' || event.event === 'transfer.reversed') {
+      const tx = event.data || {};
+      const reference = String(tx.reference || '');
+      if (reference.startsWith('glw')) {
+        const result = await supabaseAdmin.rpc('settle_withdrawal', {
+          p_reference: reference,
+          p_status: event.event === 'transfer.success' ? 'paid' : 'failed',
+          p_transfer_code: tx.transfer_code || tx.transfer_reference || null,
+          p_reason: event.event === 'transfer.success' ? null
+            : (event.event === 'transfer.reversed' ? 'The bank reversed the transfer.' : null)
+        });
+        console.log('Paystack webhook transfer:', event.event, reference, JSON.stringify(result.data || result.error));
       }
     }
 
@@ -336,6 +355,244 @@ app.post('/api/gliits/topup-init', async (req, res) => {
     res.json({ authorization_url: init.authorization_url, reference: init.reference, amountNaira, gliitsAmount: amount });
   } catch (error) {
     console.error('Topup init error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ==========================================
+// PAYOUTS — PAYSTACK TRANSFERS
+// ==========================================
+// Money leaves the platform in exactly one direction: a member asks for a
+// payout, a registrar presses Send, and only this server talks to Paystack.
+// The account holder's name is never typed by a member — it is read back from
+// the bank here and stored, so a payout can only be sent to an account whose
+// name the bank agrees with. Transfers run off the Paystack balance.
+
+const asUser = (token) => createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  }
+);
+
+function payoutBearer(req) {
+  const header = String(req.headers.authorization || '');
+  return header.startsWith('Bearer ') ? header.slice(7) : null;
+}
+
+async function payoutUser(req) {
+  const token = payoutBearer(req);
+  if (!token) return null;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data || !data.user) return null;
+  return { token, userId: data.user.id };
+}
+
+async function paystack(path, { method = 'GET', body } = {}) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) return { http: 0, ok: false, data: null, meta: null, message: 'Paystack is not configured.' };
+
+  const response = await fetch(`${PAYSTACK_API}${path}`, {
+    method,
+    headers: { 'Authorization': `Bearer ${secret}`, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const out = await response.json().catch(() => ({}));
+  return {
+    http: response.status,
+    ok: Boolean(out.status),
+    data: out.data || null,
+    meta: out.meta || null,
+    message: String(out.message || '')
+  };
+}
+
+const sameName = (a, b) => String(a || '').toLowerCase().replace(/\s+/g, ' ').trim()
+  === String(b || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+// Paystack bank codes are three characters ("044" for Access Bank) but the
+// column is an integer, so the leading zero is gone by the time we read it
+// back. Every call out to Paystack has to put it back on.
+const paystackBankCode = (code) => String(code || '').padStart(3, '0');
+
+let bankList = { rows: [], at: 0 };
+
+// Paystack pages its bank list, so walk the cursors and cache the result —
+// the list changes about as often as banks do.
+async function listBanks() {
+  const rows = [];
+  let cursor = null;
+  for (let page = 0; page < 10; page += 1) {
+    const query = `?perPage=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const out = await paystack(`/bank${query}`);
+    if (!out.ok) return null;
+    for (const bank of out.data || []) {
+      if (bank && bank.code && bank.name && bank.active !== false) {
+        rows.push({ code: String(bank.code), name: String(bank.name) });
+      }
+    }
+    if (!out.meta || !out.meta.has_more || !out.meta.next_cursor) break;
+    cursor = out.meta.next_cursor;
+  }
+  rows.sort((a, b) => a.name.localeCompare(b.name));
+  return rows;
+}
+
+app.get('/api/payout/banks', async (req, res) => {
+  try {
+    if (!await payoutUser(req)) return res.status(401).json({ error: 'Missing access token.' });
+    if (bankList.rows.length && Date.now() - bankList.at < 6 * 60 * 60 * 1000) {
+      return res.json({ banks: bankList.rows });
+    }
+    const rows = await listBanks();
+    if (!rows) return res.status(502).json({ error: 'Paystack did not return a bank list.' });
+    bankList = { rows, at: Date.now() };
+    res.json({ banks: rows });
+  } catch (error) {
+    console.error('Payout bank list error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// Confirm the account the member saved and record whose name the bank has
+// for it. Nothing is returned that lets a caller probe arbitrary accounts —
+// this only ever resolves the row the caller owns.
+app.post('/api/payout/resolve', async (req, res) => {
+  try {
+    const caller = await payoutUser(req);
+    if (!caller) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: saved } = await supabaseAdmin
+      .from('payout_details')
+      .select('bank_code, account_number, full_name')
+      .eq('user_id', caller.userId)
+      .maybeSingle();
+    if (!saved) return res.json({ ok: false, code: 'NO_PAYOUT_DETAILS' });
+
+    const out = await paystack(
+      `/bank/resolve?account_number=${encodeURIComponent(saved.account_number)}&bank_code=${encodeURIComponent(paystackBankCode(saved.bank_code))}`
+    );
+    if (!out.ok || !out.data || !out.data.account_name) {
+      return res.json({
+        ok: false,
+        code: 'NOT_RESOLVED',
+        error: out.message || 'The bank did not answer for that account number.'
+      });
+    }
+
+    const accountName = String(out.data.account_name);
+    const bankName = String(out.data.bank_name || '');
+    const { error: saveError } = await supabaseAdmin
+      .from('payout_details')
+      .update({ account_name: accountName, bank_name: bankName, updated_at: new Date().toISOString() })
+      .eq('user_id', caller.userId);
+    if (saveError) {
+      console.error('Payout resolve save error:', saveError.message);
+      return res.status(500).json({ error: 'Could not store the bank answer.' });
+    }
+
+    res.json({
+      ok: true,
+      account_name: accountName,
+      bank_name: bankName,
+      name_match: sameName(accountName, saved.full_name)
+    });
+  } catch (error) {
+    console.error('Payout resolve error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// The only path that moves real money. registrar_begin_payout is what
+// enforces the role, the name match and the anti-fraud hold, so it runs with
+// the staff JWT — never with the service role.
+app.post('/api/payout/disburse', async (req, res) => {
+  try {
+    const caller = await payoutUser(req);
+    if (!caller) return res.status(401).json({ error: 'Missing access token.' });
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      return res.status(500).json({ error: 'Paystack is not configured yet.' });
+    }
+
+    const id = String((req.body || {}).id || '');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(400).json({ error: 'Unknown payout.' });
+    }
+
+    const { data: began, error: beginError } = await asUser(caller.token)
+      .rpc('registrar_begin_payout', { p_id: id });
+    if (beginError) {
+      return res.json({ ok: false, code: beginError.code || 'SEND_FAILED', error: beginError.message });
+    }
+    if (!began || began.ok !== true) {
+      return res.json(began || { ok: false, code: 'SEND_FAILED' });
+    }
+
+    const payout = began.withdrawal;
+    const amountKobo = Math.round(Number(payout.amount_naira) * 100);
+    const settle = (status, extra) => supabaseAdmin.rpc('settle_withdrawal', {
+      p_reference: payout.reference,
+      p_status: status,
+      p_transfer_code: (extra && extra.transfer_code) || null,
+      p_recipient_code: (extra && extra.recipient_code) || null,
+      p_reason: (extra && extra.reason) || null
+    });
+
+    let recipient = payout.recipient_code || null;
+    if (!recipient) {
+      const made = await paystack('/transferrecipient', {
+        method: 'POST',
+        body: {
+          type: 'nuban',
+          name: payout.account_name,
+          description: `Gliimu payout ${payout.reference}`,
+          account_number: payout.account_number,
+          bank_code: paystackBankCode(payout.bank_code),
+          currency: 'NGN'
+        }
+      });
+      if (!made.ok || !made.data || !made.data.recipient_code) {
+        await settle('failed', { reason: made.message || 'Paystack refused that bank account.' });
+        return res.json({ ok: false, code: 'RECIPIENT_FAILED', error: made.message || 'Paystack refused that bank account.' });
+      }
+      recipient = made.data.recipient_code;
+      await settle('processing', { recipient_code: recipient });
+    }
+
+    const sent = await paystack('/transfer', {
+      method: 'POST',
+      body: { amount: amountKobo, recipient, reference: payout.reference, source: 'balance' }
+    });
+
+    if (!sent.ok || !sent.data || !sent.data.transfer_code) {
+      // A clear rejection means nothing was created, so the Gliims go back.
+      if ([400, 401, 403, 404, 422].includes(sent.http)) {
+        await settle('failed', { reason: sent.message || 'Paystack rejected the transfer.' });
+        return res.json({ ok: false, code: 'TRANSFER_REJECTED', error: sent.message || 'Paystack rejected the transfer.' });
+      }
+      // Ambiguous — the transfer may exist. Leave it in flight so nobody can
+      // press Send twice, and make the operator check Paystack first.
+      return res.json({
+        ok: false,
+        code: 'SEND_UNCONFIRMED',
+        error: 'Paystack did not answer. This payout stays marked in-flight so it cannot be sent twice — check the Paystack transfers list before trying again.'
+      });
+    }
+
+    const transferCode = String(sent.data.transfer_code || sent.data.id || '');
+    const status = String(sent.data.status || 'pending');
+
+    if (status === 'success') {
+      await settle('paid', { transfer_code: transferCode });
+      return res.json({ ok: true, paid: true, status, transfer_code: transferCode, amount_naira: Number(payout.amount_naira) });
+    }
+
+    await settle('pending', { transfer_code: transferCode });
+    res.json({ ok: true, paid: false, status, transfer_code: transferCode, amount_naira: Number(payout.amount_naira) });
+  } catch (error) {
+    console.error('Payout disburse error:', error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

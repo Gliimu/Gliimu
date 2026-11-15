@@ -1,5 +1,5 @@
-import { supabase } from '../config.js';
-import { escapeHtml, gliits, badge, empty, timeAgo, rpcError } from '../ui.js?v=2';
+import { supabase, API_BASE_URL } from '../config.js';
+import { escapeHtml, gliits, badge, empty, timeAgo, rpcError } from '../ui.js?v=3';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const TABS = [
@@ -7,7 +7,8 @@ const TABS = [
   { id: 'creators', label: 'Creator payouts' },
   { id: 'charges', label: 'Usage charges' },
   { id: 'config', label: 'Config' },
-  { id: 'funding', label: 'Funding queue' },
+  { id: 'payouts', label: 'Payouts' },
+  { id: 'funding', label: 'Funding intents' },
   { id: 'audit', label: 'Audit log' }
 ];
 
@@ -18,6 +19,9 @@ const CONFIG_FIELDS = [
   { key: 'plan_yearly_price_gliits', label: 'Yearly plan price', step: '100', unit: 'G/year' },
   { key: 'signup_credit_gliits', label: 'Signup credit', step: '10', unit: 'G' },
   { key: 'min_topup_gliits', label: 'Minimum topup', step: '10', unit: 'G' },
+  { key: 'min_withdrawal_gliits', label: 'Minimum withdrawal', step: '500', unit: 'G', help: 'The threshold a member must reach before Gliims can leave the platform.' },
+  { key: 'max_withdrawal_gliits', label: 'Maximum withdrawal', step: '1000', unit: 'G per payout', help: 'Ceiling for one payout. It raises the per-request limit, not the member total.' },
+  { key: 'withdrawal_hold_hours', label: 'Top-up hold', step: '1', unit: 'hours', help: 'How long after a top-up a payout can be requested or sent. Anti-fraud window.' },
   { key: 'creator_rate_per_minute', label: 'Creator rate', step: '0.1', unit: 'G/min' },
   { key: 'creator_cap_per_post_session', label: 'Creator cap per post/24h', step: '1', unit: 'G' },
   { key: 'idle_timeout_minutes', label: 'Idle timeout', step: '1', unit: 'min' },
@@ -68,13 +72,14 @@ export default {
       creators: () => this.creatorsHtml(this.cache.revenue),
       charges: () => this.chargesHtml(this.cache.revenue),
       config: () => this.configHtml(this.cache.config),
+      payouts: () => this.payoutsHtml(this.cache.payouts),
       funding: () => this.fundingHtml(this.cache.funding),
       audit: () => this.auditHtml(this.cache.audit)
     }[this.tab]();
 
     pane.innerHTML = html;
     if (this.tab === 'config') this.wireConfig(pane);
-    if (this.tab === 'funding') this.wireFunding(pane);
+    if (this.tab === 'payouts') this.wirePayouts(pane);
   },
 
   async fetchFor(key) {
@@ -93,14 +98,12 @@ export default {
     }
 
     if (key === 'funding') {
-      const [queue, attempts] = await Promise.all([
-        supabase.rpc('registrar_pending_topups', { p_limit: 200 }),
-        supabase.rpc('registrar_payment_attempts', { p_limit: 200 })
-      ]);
-      const q = unwrap(queue);
-      if (q.failed) return q;
-      const a = unwrap(attempts);
-      return { ...q, attempts: a.failed ? null : a.attempts, attemptsFailed: a.failed || null };
+      const a = unwrap(await supabase.rpc('registrar_payment_attempts', { p_limit: 200 }));
+      return a.failed ? { attempts: [], attemptsFailed: a.failed } : a;
+    }
+
+    if (key === 'payouts') {
+      return unwrap(await supabase.rpc('registrar_withdrawals', { p_status: null, p_limit: 200 }));
     }
   },
 
@@ -255,47 +258,219 @@ export default {
     });
   },
 
-  fundingHtml(d) {
+  payoutsHtml(d) {
     const rows = d.rows || [];
-    const attempts = d.attempts || [];
-    const claimed = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+    const totals = d.totals || {};
+    const isOpen = (r) => r.status === 'requested' || r.status === 'processing';
+    const open = rows.filter(isOpen);
+    const paid = rows.filter(r => r.status === 'paid');
+    const blocked = open.filter(r => r.name_match !== true);
+    const paidNaira = paid.reduce((s, r) => s + Number(r.amount_naira || 0), 0);
+    const filter = this.payoutFilter || 'open';
+
+    const shown = filter === 'open' ? open
+      : filter === 'paid' ? paid
+      : filter === 'blocked' ? blocked
+      : rows;
+
+    const chips = [
+      { id: 'open', label: `Waiting (${open.length})` },
+      { id: 'blocked', label: `Name check (${blocked.length})` },
+      { id: 'paid', label: `Paid (${paid.length})` },
+      { id: 'all', label: `All (${rows.length})` }
+    ];
 
     return `
       <div class="stat-grid">
-        <div class="stat"><div class="stat-label">Awaiting verification</div>
-          <div class="stat-value">${Number(d.total || rows.length)}</div>
-          <div class="stat-note">${gliits(claimed)} claimed</div></div>
+        <div class="stat"><div class="stat-label">Owed to members</div>
+          <div class="stat-value">${gliits(Number(d.pending_gliits || 0))}</div>
+          <div class="stat-note">${open.length} payout${open.length === 1 ? '' : 's'} not settled</div></div>
+        <div class="stat"><div class="stat-label">Paid out (last ${rows.length})</div>
+          <div class="stat-value">${paid.length}</div>
+          <div class="stat-note">${paidNaira ? `₦${paidNaira.toLocaleString()}` : 'Nothing paid yet'}</div></div>
+        <div class="stat"><div class="stat-label">Payout rules</div>
+          <div class="stat-value">${gliits(Number(d.min_withdrawal || 0))}</div>
+          <div class="stat-note">Max ${gliits(Number(d.max_withdrawal || 0))} · ${Number(d.hold_hours || 0)}h top-up hold</div></div>
       </div>
 
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Bank transfers to verify</div>
-        <div class="card-sub">Match the reference against the bank statement, then press Verify. The amount is what the member claimed — correct it in the row if the bank says otherwise. You are recorded as the approver.</div></div></div>
-        <div class="form-group">
-          <label for="funding-reason">Reason (optional to verify, required to reject)</label>
-          <input type="text" id="funding-reason" class="input" placeholder="e.g. Matches the Opay statement, 07/10">
+        <div class="card-head"><div><div class="card-title">Payout queue</div>
+        <div class="card-sub">Gliims already left the wallet when the member asked. Send pays through Paystack; Paid by hand records a transfer you settled outside the app. Reject returns the Gliims.</div></div></div>
+
+        <div class="filters" style="margin-bottom: 12px;">
+          ${chips.map(c => `<button class="filter-btn${filter === c.id ? ' active' : ''}" data-payout-filter="${c.id}">${escapeHtml(c.label)}</button>`).join('')}
         </div>
-        ${rows.length ? `
+
+        <div class="form-group">
+          <label for="payout-note">Receipt or reason (written to the audit log)</label>
+          <input type="text" id="payout-note" class="input" value="Paid by hand from the Paystack dashboard">
+        </div>
+
+        ${shown.length ? `
           <div class="table-wrap"><table class="table">
-            <thead><tr><th>Waiting</th><th>Member</th><th>Reference</th><th class="num">Credit (G)</th><th class="num">Naira</th><th></th></tr></thead>
-            <tbody>${rows.map(r => `
-              <tr data-txn="${escapeHtml(r.id)}" data-name="${escapeHtml(r.name)}">
-                <td class="muted small" style="white-space: nowrap;">${escapeHtml(timeAgo(r.created_at))}<div>${escapeHtml(new Date(r.created_at).toLocaleString())}</div></td>
-                <td>${escapeHtml(r.name)}${r.username ? `<div class="muted small">@${escapeHtml(r.username)}</div>` : ''}</td>
-                <td class="mono small">${escapeHtml(r.reference || '—')}</td>
-                <td class="num"><input type="number" min="1" step="1" class="input" style="width: 100px; padding: 6px 10px;" data-amount="${escapeHtml(r.id)}" value="${Number(r.amount || 0)}"></td>
-                <td class="num muted small">${r.amount_naira ? `₦${Number(r.amount_naira).toLocaleString()}` : '—'}</td>
-                <td style="text-align: right; white-space: nowrap;">
-                  <button class="btn-primary btn-small" data-verify="${escapeHtml(r.id)}">Verify</button>
-                  <button class="btn-quiet btn-small" data-reject="${escapeHtml(r.id)}">Reject</button>
-                </td>
-              </tr>`).join('')}
-            </tbody>
-          </table></div>` : empty('Nothing waiting — every claimed bank transfer has been settled.')}
+            <thead><tr><th>Asked</th><th>Member</th><th class="num">Gliits</th><th>Bank account</th><th>State</th><th></th></tr></thead>
+            <tbody>${shown.map(r => this.payoutRowHtml(r)).join('')}</tbody>
+          </table></div>` : empty(filter === 'open' ? 'Nothing waiting — every payout has been settled.' : 'Nothing in this view.')}
       </div>
 
+      ${totals.failed ? `<div class="card"><div class="card-head"><div><div class="card-title">Failed at the bank</div>
+        <div class="card-sub">${Number(totals.failed)} transfer${Number(totals.failed) === 1 ? '' : 's'} came back. The Gliims went back to the wallet on their own.</div></div></div></div>` : ''}`;
+  },
+
+  payoutRowHtml(r) {
+    const id = escapeHtml(r.id);
+    const open = r.status === 'requested' || r.status === 'processing';
+    const resolvable = Boolean(r.account_name);
+    const sendable = r.status === 'requested' && r.name_match === true && resolvable;
+
+    let identity = '';
+    if (!resolvable) identity = '<div class="muted small">Account not resolved with the bank yet</div>';
+    else if (r.name_match !== true) identity = `<div class="muted small">Bank says: ${escapeHtml(r.account_name)}</div>`;
+
+    const state = {
+      requested: badge('Waiting', 'warning'),
+      processing: badge('At Paystack', 'brand'),
+      paid: badge('Paid', 'success'),
+      failed: badge('Failed', 'danger'),
+      rejected: badge('Rejected', 'neutral'),
+      cancelled: badge('Cancelled', 'neutral')
+    }[r.status] || escapeHtml(r.status);
+
+    const trail = r.status === 'failed' && r.failure_reason
+      ? `<div class="muted small">${escapeHtml(r.failure_reason)}</div>`
+      : r.reviewer ? `<div class="muted small">By ${escapeHtml(r.reviewer)}</div>` : '';
+
+    const buttons = []
+      if (sendable) buttons.push(`<button class="btn-primary btn-small" data-send="${id}">Send</button>`);
+      if (r.status === 'requested' && !sendable) buttons.push(`<button class="btn-primary btn-small" disabled>Send</button>`);
+      if (open) buttons.push(`<button class="btn-quiet btn-small" data-hand="${id}" data-name="${escapeHtml(r.name)}">Paid by hand</button>`);
+      if (r.status === 'requested') buttons.push(`<button class="btn-quiet btn-small" data-decline="${id}" data-name="${escapeHtml(r.name)}">Reject</button>`);
+
+    return `
+      <tr>
+        <td class="muted small" style="white-space: nowrap;">${escapeHtml(timeAgo(r.created_at))}<div>${escapeHtml(new Date(r.created_at).toLocaleString())}</div></td>
+        <td>${escapeHtml(r.name)}${r.username ? `<div class="muted small">@${escapeHtml(r.username)}</div>` : ''}
+          <div class="mono small">${escapeHtml(r.reference || '')}</div></td>
+        <td class="num">${gliits(r.amount_gliits)}<div class="muted small">${r.amount_naira ? `₦${Number(r.amount_naira).toLocaleString()}` : ''}</div></td>
+        <td>${escapeHtml(r.bank_name || 'Bank not named')}<div class="mono small">${escapeHtml(r.account_number)}</div>
+          <div class="small">${escapeHtml(r.account_name || '')}</div>${identity}</td>
+        <td>${state}${trail}${r.transfer_code ? `<div class="muted small mono">${escapeHtml(r.transfer_code)}</div>` : ''}</td>
+        <td style="text-align: right; white-space: nowrap;">${buttons.join(' ')}</td>
+      </tr>`;
+  },
+
+  async payoutToken() {
+    const { data } = await supabase.auth.getSession();
+    const token = data && data.session && data.session.access_token;
+    if (!token) throw new Error('Your session expired. Please sign in again.');
+    return token;
+  },
+
+  wirePayouts(pane) {
+    const reload = async (message) => {
+      this.cache.payouts = null;
+      await this.render();
+      await appAlert(message);
+    };
+
+    const readNote = () => {
+      const el = document.getElementById('payout-note');
+      return (el ? el.value : '').trim();
+    };
+
+    pane.querySelectorAll('[data-payout-filter]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.payoutFilter = btn.dataset.payoutFilter;
+        this.render();
+      });
+    });
+
+    pane.querySelectorAll('[data-send]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.send;
+        const row = this.cache.payouts.rows.find(r => r.id === id);
+        if (!row) return;
+
+        const ok = await appConfirm(
+          `Pay ${escapeHtml(row.name)} ₦${Number(row.amount_naira).toLocaleString()} into ` +
+          `${escapeHtml(row.bank_name || 'their bank')} ${escapeHtml(row.account_number)} ` +
+          `(${escapeHtml(row.account_name)}). This moves real money and cannot be undone.`,
+          { title: 'Send this payout?', okText: 'Send now' }
+        );
+        if (!ok) return;
+
+        btn.disabled = true;
+        try {
+          const token = await this.payoutToken();
+          const res = await fetch(`${API_BASE_URL}/api/payout/disburse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ id })
+          });
+          const out = await res.json();
+          if (!res.ok || out.ok === false) {
+            btn.disabled = false;
+            return appAlert(out.error || 'Paystack did not take the transfer. Nothing was sent twice — reload the queue.');
+          }
+          await reload(`Sent ₦${Number(out.amount_naira || row.amount_naira).toLocaleString()} to ${row.account_name}.`);
+        } catch (err) {
+          btn.disabled = false;
+          await appAlert('Could not reach the payout service: ' + err.message);
+        }
+      });
+    });
+
+    pane.querySelectorAll('[data-hand]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.hand;
+        const note = readNote();
+        if (note.length < 5) return appAlert('Write the receipt or the reason first — it is the only proof this payout happened.');
+
+        const ok = await appConfirm(
+          `${btn.dataset.name}'s payout will be marked paid with no transfer sent by Gliimu. ${note}`,
+          { title: 'Record a hand-settled payout?', okText: 'Mark paid' }
+        );
+        if (!ok) return;
+
+        const { data, error } = await supabase.rpc('registrar_mark_withdrawal_paid', {
+          p_id: id, p_reason: note, p_transfer_ref: null
+        });
+        if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Could not record it: ' + error.message));
+        if (!data || data.ok === false) return appAlert(rpcError(data));
+
+        await reload(`Marked paid — ${btn.dataset.name} was told in Alerts.`);
+      });
+    });
+
+    pane.querySelectorAll('[data-decline]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.decline;
+        const note = readNote();
+        const meaningful = note.length >= 5 && !note.startsWith('Paid by hand');
+        if (!meaningful) return appAlert('Write why you are declining this payout — the member is told exactly this.');
+
+        const ok = await appConfirm(
+          `${btn.dataset.name} will not be paid, and the Gliims go back to their wallet. ${note}`,
+          { title: 'Reject this payout?', okText: 'Reject', danger: true }
+        );
+        if (!ok) return;
+
+        const { data, error } = await supabase.rpc('registrar_reject_withdrawal', { p_id: id, p_reason: note });
+        if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Could not reject it: ' + error.message));
+        if (!data || data.ok === false) return appAlert(rpcError(data));
+
+        await reload(`Rejected — ${gliits(data.balance)} is back in ${btn.dataset.name}'s wallet.`);
+      });
+    });
+  },
+
+  fundingHtml(d) {
+    const attempts = d.attempts || [];
+
+    return `
       <div class="card">
         <div class="card-head"><div><div class="card-title">Funding intents</div>
-        <div class="card-sub">Every time a member opened the add-fund flow. Paystack rows credit themselves, so only bank_transfer needs a person.</div></div></div>
+        <div class="card-sub">Every time a member opened the add-fund flow. Wallets are credited by Paystack, so nobody verifies a transfer by hand any more.</div></div></div>
         ${d.attemptsFailed ? empty(d.attemptsFailed) : attempts.length ? `
           <div class="table-wrap"><table class="table">
             <thead><tr><th>When</th><th>Member</th><th>Method</th></tr></thead>
@@ -308,65 +483,6 @@ export default {
             </tbody>
           </table></div>` : empty('No funding intents recorded yet.')}
       </div>`;
-  },
-
-  wireFunding(pane) {
-    const reload = async (message) => {
-      const typed = pane.querySelector('#funding-reason')?.value || '';
-      this.cache.funding = null;
-      await this.render();
-      const again = document.getElementById('funding-reason');
-      if (again) again.value = typed;
-      await appAlert(message);
-    };
-
-    const readReason = () => pane.querySelector('#funding-reason').value.trim();
-
-    pane.querySelectorAll('[data-verify]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.verify;
-        const row = pane.querySelector(`[data-txn="${id}"]`);
-        const amount = Number(pane.querySelector(`[data-amount="${id}"]`).value);
-        if (!Number.isFinite(amount) || amount <= 0) return appAlert('Enter an amount above zero.');
-
-        const ok = await appConfirm(
-          `${row.dataset.name} will be credited ${gliits(amount)}. You will be recorded as the approver.`,
-          { title: 'Verify this transfer?', okText: 'Credit wallet' }
-        );
-        if (!ok) return;
-
-        const { data, error } = await supabase.rpc('registrar_verify_topup', {
-          p_txn: id, p_amount: amount, p_reason: readReason() || null
-        });
-        if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Could not verify: ' + error.message));
-        if (!data || data.ok === false) return appAlert(rpcError(data));
-
-        await reload(`${row.dataset.name} now has ${gliits(data.balance)}.`);
-      });
-    });
-
-    pane.querySelectorAll('[data-reject]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.reject;
-        const row = pane.querySelector(`[data-txn="${id}"]`);
-        const reason = readReason();
-        if (reason.length < 5) {
-          return appAlert('Write a reason of at least 5 characters — it goes on the audit log.');
-        }
-
-        const ok = await appConfirm(
-          `${row.dataset.name}'s claim will be marked failed. Nothing is credited.`,
-          { title: 'Reject this transfer?', okText: 'Reject', danger: true }
-        );
-        if (!ok) return;
-
-        const { data, error } = await supabase.rpc('registrar_reject_topup', { p_txn: id, p_reason: reason });
-        if (error) return appAlert(rpcError({ code: error.code, detail: error.message }, 'Could not reject: ' + error.message));
-        if (!data || data.ok === false) return appAlert(rpcError(data));
-
-        await reload(`Rejected — ${row.dataset.name} was not credited.`);
-      });
-    });
   },
 
   auditHtml(d) {

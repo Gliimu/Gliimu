@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml } from '../ui.js?v=2';
+import { escapeHtml } from '../ui.js?v=3';
 
 export default {
   template: `
