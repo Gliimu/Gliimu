@@ -363,41 +363,10 @@ $$;
 grant execute on function public.gliits_heartbeat(uuid) to authenticated;
 
 
--- Top up wallet
-create or replace function public.gliits_topup_wallet(p_amount_gliits integer, p_reference text default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_min_topup integer;
-  v_balance numeric;
-begin
-  select min_topup_gliits into v_min_topup
-  from public.gliits_config
-  where id = 1;
-
-  if p_amount_gliits < v_min_topup then
-    raise exception 'MIN_TOPUP_REQUIRED';
-  end if;
-
-  update public.profiles
-  set wallet_balance = wallet_balance + p_amount_gliits
-  where id = auth.uid()
-  returning wallet_balance into v_balance;
-
-  insert into public.gliits_topups (user_id, amount_gliits, payment_reference, payment_status)
-  values (auth.uid(), p_amount_gliits, p_reference, 'success');
-
-  return jsonb_build_object(
-    'balance', v_balance,
-    'credited', p_amount_gliits
-  );
-end;
-$$;
-
-grant execute on function public.gliits_topup_wallet(integer, text) to authenticated;
+-- No member-callable top-up function lives here. A wallet credit must carry a
+-- Paystack reference that only the server knows, so it is written by
+-- public.credit_wallet_topup (sql/topup_once.sql), which is service_role-only
+-- and refuses a reference it has already paid out. See sql/topup_once.sql.
 
 
 -- Set/upgrade plan
@@ -787,7 +756,7 @@ begin
   raise notice '   - All user balances: reset to G100';
   raise notice '   - All users: payngo plan created';
   raise notice '   - Trigger: auto GP→Gliits conversion on total_gp update';
-  raise notice '   - RPCs: gliits_get_balance, gliits_heartbeat, gliits_topup_wallet,';
+  raise notice '   - RPCs: gliits_get_balance, gliits_heartbeat,';
   raise notice '            gliits_set_plan, gliits_get_config, gliits_set_config,';
   raise notice '            gliits_adjust_balance, gliits_gp_to_gliits, gliits_onboard_new_user';
 end $$;

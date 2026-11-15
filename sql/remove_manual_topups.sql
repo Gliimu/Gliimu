@@ -13,8 +13,9 @@
 --     have zero references in sql/, server/, public/ and admin/.
 --   * public.gliits_topups held 0 rows, so no member is left with a top-up
 --     that can never be verified.
---   * The table itself STAYS: gliits_topup_wallet credits through it, and
---     registrar_overview + registrar_member read their top-up totals from it.
+--   * The table itself STAYS: the server writes each fulfilled Paystack
+--     top-up into it, and registrar_overview + registrar_member read their
+--     top-up totals from it.
 --
 -- Two things ride along because the removal exposes them:
 --   * Members used to be able to INSERT their own top-up row and UPDATE it
@@ -22,7 +23,8 @@
 --     a hole in the revenue numbers the registrar reads, so member write
 --     access and its two policies are closed here.
 --   * The server writes the fulfilled Paystack top-up with the service role
---     (server/src/index.js, topupGliitsWallet), but service_role had no grant
+--     (public.credit_wallet_topup, called from server/src/index.js), but
+--     service_role had no grant
 --     on this table at all, so that insert has been failing silently into a
 --     console.warn. It is granted here.
 --

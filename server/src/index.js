@@ -41,14 +41,17 @@ app.post('/api/paystack/webhook', express.raw({ type: '*/*' }), async (req, res)
 
       if (tx.metadata && tx.metadata.kind === 'gliits_topup' && userId) {
         const gliitsAmount = tx.metadata.gliits_amount || amountNaira;
-        const result = await topupGliitsWallet(userId, gliitsAmount, tx.reference);
+        const result = await creditTopupOnce(userId, gliitsAmount, tx.reference);
         console.log('Paystack webhook gliits topup:', tx.reference, JSON.stringify(result));
-        if (result && result.ok && userId) {
+        if (result.reason === 'retry') return res.status(500).json({ error: 'Credit not applied yet.' });
+        // Only the arrival that actually moved money gets to tell the member.
+        if (result.credited) {
           await sendAiNotice(userId, `Wallet credited with G${Number(gliitsAmount).toLocaleString()}. Happy browsing!`);
         }
       } else if (userId && amountNaira >= 100 && tx.reference) {
-        const result = await topupGliitsWallet(userId, amountNaira, tx.reference);
+        const result = await creditTopupOnce(userId, amountNaira, tx.reference);
         console.log('Paystack webhook credit:', tx.reference, JSON.stringify(result));
+        if (result.reason === 'retry') return res.status(500).json({ error: 'Credit not applied yet.' });
       }
     }
 
@@ -96,31 +99,34 @@ const supabaseAdmin = createClient(
 // ==========================================
 const PAYSTACK_API = 'https://api.paystack.co';
 
-// Direct wallet credit via service role — webhooks have no auth context,
-// so the gliits_topup_wallet RPC (which uses auth.uid()) can't be called here.
-async function topupGliitsWallet(userId, amountGliits, reference) {
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('wallet_balance')
-    .eq('id', userId)
-    .maybeSingle();
-  if (profileError) throw new Error(`profile lookup failed: ${profileError.message}`);
-  if (!profile) throw new Error(`user ${userId} not found`);
-
-  const newBalance = Number(profile.wallet_balance || 0) + Number(amountGliits);
-
-  const { error: updateError } = await supabaseAdmin
-    .from('profiles')
-    .update({ wallet_balance: newBalance })
-    .eq('id', userId);
-  if (updateError) throw new Error(`wallet update failed: ${updateError.message}`);
-
-  const { error: logError } = await supabaseAdmin
-    .from('gliits_topups')
-    .insert({ user_id: userId, amount_gliits: amountGliits, payment_reference: reference, payment_status: 'success' });
-  if (logError) console.warn('gliits_topups log failed:', logError.message);
-
-  return { ok: true, balance: newBalance, credited: amountGliits };
+// Exactly-once wallet credit, claimed by the database.
+//
+// Paystack delivers every successful charge twice: this server verifies the
+// reference when the browser comes back from checkout, and the charge.success
+// webhook lands seconds later for the same payment. The old helper read
+// profiles.wallet_balance, added the amount in JavaScript and wrote the total
+// back, so whichever arrival lost the race still saw the pre-payment balance
+// and added the money a second time. ₦100 became G200.
+//
+// credit_wallet_topup takes an advisory lock on the reference, refuses one that
+// already produced a successful top-up row, and does the addition in SQL.
+async function creditTopupOnce(userId, amountGliits, reference) {
+  const { data, error } = await supabaseAdmin.rpc('credit_wallet_topup', {
+    p_user: userId,
+    // gliits_amount arrives inside metadata a client built, so it can be a
+    // string or a float; the column and the parameter are both integers.
+    p_amount: Math.round(Number(amountGliits) || 0),
+    p_reference: reference
+  });
+  if (error) {
+    console.error('credit_wallet_topup rejected:', reference, error.message);
+    // A rejected argument will never succeed on retry. Anything else is a
+    // database blip, and answering the webhook with 5xx makes Paystack send it
+    // again — safe now because the reference can only ever be credited once.
+    const permanent = /INVALID_(AMOUNT|REFERENCE|USER)/.test(error.message || '');
+    return { credited: false, reason: permanent ? 'rejected' : 'retry' };
+  }
+  return data || { credited: false, reason: 'retry' };
 }
 
 // Billing notices land in each user's Gliim-PA thread.
@@ -234,18 +240,29 @@ app.post('/api/paystack/verify', async (req, res) => {
 
     if (tx.metadata && tx.metadata.kind === 'gliits_topup' && userId) {
       const gliitsAmount = tx.metadata.gliits_amount || amountNaira;
-      const result = await topupGliitsWallet(userId, gliitsAmount, tx.reference || reference);
-      return res.json({ credited: !!(result && result.ok), amount: gliitsAmount, gliits: gliitsAmount });
+      const result = await creditTopupOnce(userId, gliitsAmount, tx.reference || reference);
+      if (result.reason === 'retry') {
+        return res.json({ credited: false, reason: 'retry' });
+      }
+      return res.json({
+        credited: !!result.credited,
+        amount: gliitsAmount,
+        gliits: gliitsAmount,
+        reason: result.credited ? null : (result.reason || 'not_credited'),
+        balance: result.balance ?? null
+      });
     }
 
     if (!userId || amountNaira < 100) {
       return res.status(400).json({ error: 'Payment metadata is incomplete.' });
     }
 
-    const result = await topupGliitsWallet(userId, amountNaira, tx.reference || reference);
+    const result = await creditTopupOnce(userId, amountNaira, tx.reference || reference);
     res.json({
-      credited: !!(result && result.ok),
-      amount: amountNaira
+      credited: !!result.credited,
+      amount: amountNaira,
+      reason: result.credited ? null : (result.reason || 'not_credited'),
+      balance: result.balance ?? null
     });
   } catch (error) {
     console.error('Paystack verify error:', error);
