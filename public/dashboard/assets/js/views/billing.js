@@ -896,7 +896,7 @@ export default {
       if (min && value < min) { naira.textContent = `The smallest payout is G${min.toLocaleString()}.`; send.disabled = true; return; }
       if (max && value > max) { naira.textContent = `The largest payout at one time is G${max.toLocaleString()}.`; send.disabled = true; return; }
       if (value > this.balance) { naira.textContent = `Your wallet holds G${this.balance.toLocaleString()}.`; send.disabled = true; return; }
-      naira.textContent = `= ₦${(value / rate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} into your account.`;
+      naira.textContent = `= ₦${(value * rate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} into your account.`;
       send.disabled = false;
     };
 
@@ -1060,7 +1060,7 @@ export default {
         payBtn.disabled = true;
         return;
       }
-      const naira = amount / exchangeRate;
+      const naira = amount * exchangeRate;
       nairaDisplay.textContent = `= ₦${naira.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (at ₦${exchangeRate} = G1)`;
       payBtn.disabled = false;
     });

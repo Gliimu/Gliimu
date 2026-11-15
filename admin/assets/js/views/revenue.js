@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 const CONFIG_FIELDS = [
-  { key: 'exchange_rate_naira_to_gliits', label: 'Exchange rate', step: '0.01', unit: 'G per ₦1', help: 'How many Gliits a user gets for 1 Naira. Default is 1.0 (G1 = ₦1). Lower = more expensive, higher = cheaper.' },
+  { key: 'exchange_rate_naira_to_gliits', label: 'Exchange rate', step: '1', unit: '₦ per G1', help: 'Naira a user pays for one Glit. 100 means G1 costs ₦100, so G200 tops up at ₦20,000. Default is 1.0 (G1 = ₦1). Higher = more expensive, lower = cheaper. Payouts use the same figure in reverse: a G100 withdrawal sends ₦100 at rate 1, or ₦10,000 at rate 100.' },
   { key: 'per_minute_rate_gliits', label: 'Per-minute charge', step: '0.5', unit: 'G/min' },
   { key: 'plan_monthly_price_gliits', label: 'Monthly plan price', step: '100', unit: 'G/month' },
   { key: 'plan_yearly_price_gliits', label: 'Yearly plan price', step: '100', unit: 'G/year' },
