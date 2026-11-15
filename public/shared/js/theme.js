@@ -1,9 +1,25 @@
-// Prevent FOUC (Flash of Unstyled Content) - Run this immediately in HTML head
+// The choice lives in a .gliimu.com cookie as well as localStorage: storage is
+// per-origin, so gliimu.com and dashboard.gliimu.com would each keep their own.
+const THEME_KEY = 'gliimu-theme';
+
+function readCookieTheme() {
+  const hit = document.cookie.match(/(?:^|;\s*)gliimu-theme=([^;]*)/);
+  return hit ? decodeURIComponent(hit[1]) : '';
+}
+
+function currentTheme() {
+  const saved = readCookieTheme() || localStorage.getItem(THEME_KEY);
+  if (saved === 'dark' || saved === 'light') return saved;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function saveTheme(theme) {
+  localStorage.setItem(THEME_KEY, theme);
+  document.cookie = `${THEME_KEY}=${theme}; path=/; domain=.gliimu.com; max-age=31536000; SameSite=Lax`;
+}
+
 (function() {
-  const saved = localStorage.getItem('gliimu-theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme = saved || (prefersDark ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-theme', currentTheme());
 })();
 
 // Helper to swap icons
@@ -27,9 +43,8 @@ document.addEventListener('DOMContentLoaded', updateThemeIcon);
 
 // Toggle function
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('gliimu-theme', next);
+  saveTheme(next);
   updateThemeIcon();
 }

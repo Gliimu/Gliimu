@@ -1,7 +1,7 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { uploadFile } from '../upload.js?v=2';
-import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './gliims.js?v=130';
+import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './gliims.js?v=131';
 import feedView from './xplore.js?v=124';
 import { notify } from '../notify.js?v=33';
 

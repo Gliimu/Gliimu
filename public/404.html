@@ -7,9 +7,10 @@
   <link rel="icon" type="image/png" href="/icons/icon.png">
   <script>
     (function() {
-      const saved = localStorage.getItem('gliimu-theme');
+      const hit = document.cookie.match(/(?:^|;\s*)gliimu-theme=([^;]*)/);
+      const saved = (hit && hit[1]) || localStorage.getItem('gliimu-theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = saved || (prefersDark ? 'dark' : 'light');
+      const theme = saved === 'dark' || saved === 'light' ? saved : (prefersDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', theme);
     })();
   </script>

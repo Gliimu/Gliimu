@@ -3,6 +3,7 @@
     "AllowedOrigins": [
       "https://www.gliimu.com",
       "https://gliimu.com",
+      "https://dashboard.gliimu.com",
       "https://admin.gliimu.com"
     ],
     "AllowedMethods": ["GET", "HEAD", "PUT", "POST"],

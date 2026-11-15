@@ -358,6 +358,37 @@ const R2 = {
 
 const r2Ready = () => Boolean(R2.accountId && R2.keyId && R2.secret && R2.publicBase);
 
+// Signing a URL happens entirely in this process, so a 200 presign proves
+// nothing about the token. A dead token only fails in the browser's PUT, and
+// R2 sends no CORS headers with a rejection, so Chrome reports it as a CORS
+// error. Probe once with an authenticated call to get the honest reason.
+// Only 401-class errors count: a write-only token legitimately gets 403 on a
+// bucket-level read, and uploads must not be blocked on that.
+let r2AuthOk = null;
+let r2AuthCheckedAt = 0;
+
+async function r2CredentialsWork() {
+  if (r2AuthOk === true) return true;
+  if (r2AuthOk === false && Date.now() - r2AuthCheckedAt < 60_000) return false;
+  const { HeadBucketCommand } = require('@aws-sdk/client-s3');
+  try {
+    await r2S3().send(new HeadBucketCommand({ Bucket: R2.bucket }));
+    r2AuthOk = true;
+    return true;
+  } catch (error) {
+    const status = error && error.$metadata ? error.$metadata.httpStatusCode : undefined;
+    const name = String((error && error.name) || '');
+    if (status === 401 || name === 'InvalidAccessKeyId' || name === 'SignatureDoesNotMatch') {
+      r2AuthOk = false;
+      r2AuthCheckedAt = Date.now();
+      console.error('R2 credentials rejected:', status, name);
+      return false;
+    }
+    console.error('R2 credential probe inconclusive:', status, name, error && error.message);
+    return true;
+  }
+}
+
 let r2Client = null;
 function r2S3() {
   if (!r2Client) {
@@ -482,6 +513,9 @@ app.post('/api/upload/presign', async (req, res) => {
 
     const { PutObjectCommand } = require('@aws-sdk/client-s3');
     const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+    if (!await r2CredentialsWork()) {
+      return res.status(503).json({ error: "Uploads are blocked: the server's Cloudflare R2 key was rejected by Cloudflare. The R2 API token on Render needs renewing." });
+    }
     const url = await getSignedUrl(r2S3(), new PutObjectCommand({
       Bucket: R2.bucket,
       Key: key,
