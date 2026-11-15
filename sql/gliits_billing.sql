@@ -451,6 +451,9 @@ grant execute on function public.gliits_get_config() to authenticated;
 
 
 -- Update config (registrar only)
+-- NOTE: sql/gliits_rate_guard.sql replaces this body with the same checks
+-- plus a call to public.gliits_config_guard, which refuses a rate that makes
+-- the top-up and payout formulas disagree. Run that script after this one.
 create or replace function public.gliits_set_config(p_key text, p_value numeric)
 returns jsonb
 language plpgsql

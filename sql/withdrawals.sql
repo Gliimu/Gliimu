@@ -350,7 +350,7 @@ begin
     end if;
   end if;
 
-  v_naira := round(p_amount / v_rate, 2);
+  v_naira := round(p_amount * v_rate, 2);
   v_ref   := 'glw' || replace(gen_random_uuid()::text, '-', '');
   v_match := (lower(regexp_replace(pd.full_name, '\s+', ' ', 'g'))
               = lower(regexp_replace(pd.account_name, '\s+', ' ', 'g')));
@@ -822,7 +822,11 @@ grant execute on function public.registrar_mark_withdrawal_paid(uuid, text, text
 -- 12. registrar_set_config — teach the pricing editor the new keys
 --     The function keeps a hard allowlist, so without this the Config
 --     tab shows the three withdrawal prices but refuses to save them.
---     Body is the live one, unchanged apart from the allowlist.
+--
+--     NOTE: sql/gliits_rate_guard.sql replaces this body with the same
+--     one plus a save-time pricing guard. Run that script AFTER this file
+--     so the guard is live; on a fresh install this unguarded copy is only
+--     the intermediate step.
 -- ============================================================
 create or replace function public.registrar_set_config(
   p_key text,
