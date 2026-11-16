@@ -208,11 +208,12 @@
 /* ============================================
    LIVE SESSION — STUDIO CONTAINER
    ============================================ */
-/* The studio is a long page: video at the top, then everything the host adds
-   to the gliim below it. So the window scrolls rather than being pinned. */
+/* The studio is one fixed screen: header, stage, controls. Nothing here
+   scrolls the page — only the rail and the chat scroll inside themselves. */
 body.live-studio-active {
-  background: #0a0a0a;
+  background: #07070c;
   padding-bottom: 0 !important;
+  overflow: hidden;
 }
 
 body.live-studio-active .bottom-bar {
@@ -240,22 +241,23 @@ body.live-studio-active .topbar {
 .live-studio-container {
   position: relative;
   width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-top: var(--safe-top, 0px);
-  background: #0a0a0a;
-  display: flex;
-  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(1100px 520px at 18% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
+    radial-gradient(900px 480px at 100% 110%, rgba(251, 191, 36, 0.05), transparent 55%),
+    #07070c;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .live-video-area {
-  flex: 0 0 auto;
-  height: clamp(320px, 56vh, 620px);
+  min-height: 0;
   display: flex;
   flex-direction: row;
-  gap: 10px;
-  padding: 12px;
-  min-height: 0;
+  gap: 12px;
+  padding: 12px 16px;
   position: relative;
 }
 
@@ -265,13 +267,13 @@ body.live-studio-active .topbar {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  background: #111;
-  border-radius: 16px;
+  background: #0d0d14;
+  border-radius: 18px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 48px rgba(0, 0, 0, 0.45);
 }
 .live-stage video {
   width: 100%;
@@ -281,17 +283,31 @@ body.live-studio-active .topbar {
 }
 .live-stage video.speaking {
   box-shadow: inset 0 0 0 3px #22c55e;
-  border-radius: 16px;
+  border-radius: 18px;
 }
 .live-stage-empty {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.5);
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   pointer-events: none;
+}
+.live-stage-empty svg {
+  width: 30px;
+  height: 30px;
+  color: rgba(139, 92, 246, 0.65);
+  animation: live-empty-breathe 2.6s ease-in-out infinite;
+}
+@keyframes live-empty-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 .live-stage-info {
   position: absolute;
@@ -316,22 +332,29 @@ body.live-studio-active .topbar {
 
 /* Participant rail — vertical (right) on wide, horizontal (bottom) on mobile */
 .live-participant-rail {
-  flex: 0 0 132px;
+  flex: 0 0 148px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
   padding-right: 2px;
   scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.45) transparent;
 }
 .live-participant-rail::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+}
+.live-participant-rail::-webkit-scrollbar-track {
+  background: transparent;
 }
 .live-participant-rail::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(139, 92, 246, 0.45);
   border-radius: 3px;
+}
+.live-participant-rail::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.75);
 }
 
 .live-participant-tile {
@@ -418,20 +441,31 @@ body.live-studio-active .topbar {
   flex-shrink: 0;
 }
 
-/* Session header bar (inside video area) */
+/* Session header — one glass line: LIVE pill, title, room count, clock */
 .live-session-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.8);
+  padding: calc(10px + var(--safe-top, 0px)) 16px 10px;
+  background: rgba(10, 10, 16, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   gap: 12px;
-  flex-wrap: wrap;
+  min-width: 0;
+}
+.live-session-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 .live-session-header h3 {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: 0.01em;
   color: white;
   flex: 1;
   min-width: 0;
@@ -440,57 +474,95 @@ body.live-studio-active .topbar {
   white-space: nowrap;
 }
 
+.live-onair-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.live-onair-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: live-recording-pulse 1.4s ease-in-out infinite;
+}
+@keyframes live-recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
 .live-session-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 .live-session-meta span {
-  background: rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: 999px;
   color: rgba(255, 255, 255, 0.85);
-  font-weight: 500;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+.live-session-meta svg {
+  width: 13px;
+  height: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.live-meta-viewers b {
+  font-weight: 700;
 }
 
 /* ============================================
    CONTROLS BAR
    ============================================ */
-.live-studio-top {
-  position: sticky;
-  top: var(--safe-top, 0px);
-  z-index: 12;
-  background: #0a0a0a;
-}
-
 .live-controls-bar {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  background: rgba(0, 0, 0, 0.92);
-  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(10, 10, 16, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .live-ctrl-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: white;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.12s ease;
   flex-shrink: 0;
 }
 .live-ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.16);
+}
+.live-ctrl-btn:active {
+  transform: scale(0.92);
 }
 .live-ctrl-btn svg {
   width: 20px;
@@ -595,6 +667,21 @@ body.live-studio-active .topbar {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.45) transparent;
+}
+.live-chat-messages::-webkit-scrollbar {
+  width: 5px;
+}
+.live-chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.live-chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.45);
+  border-radius: 3px;
+}
+.live-chat-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.75);
 }
 
 .live-chat-message {
@@ -880,26 +967,28 @@ body.live-studio-active .topbar {
     border-radius: 12px;
   }
   .live-participant-rail {
-    flex: 0 0 auto;
+    flex: 0 0 122px;
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
     width: 100%;
     padding-bottom: 2px;
     scroll-snap-type: x proximity;
+    scrollbar-color: rgba(139, 92, 246, 0.45) transparent;
   }
   .live-participant-rail::-webkit-scrollbar {
     width: auto;
-    height: 5px;
+    height: 4px;
   }
   .live-participant-tile {
-    width: 108px;
-    aspect-ratio: 3 / 4;
+    width: 96px;
+    height: 118px;
+    aspect-ratio: auto;
     scroll-snap-align: start;
   }
 
   .live-controls-bar {
-    padding: 10px 12px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
     gap: 8px;
   }
   .live-ctrl-btn {
@@ -935,21 +1024,26 @@ body.live-studio-active .topbar {
   }
 
   .live-session-header {
-    flex-direction: column;
-    align-items: flex-start;
+    padding: calc(8px + var(--safe-top, 0px)) 12px 8px;
     gap: 8px;
-    padding: 8px 12px;
   }
   .live-session-header h3 {
     font-size: 14px;
   }
+  .live-session-head-left {
+    gap: 8px;
+  }
+  .live-onair-pill {
+    padding: 3px 8px;
+    font-size: 9px;
+  }
   .live-session-meta {
-    font-size: 12px;
-    flex-wrap: wrap;
+    font-size: 11px;
     gap: 6px;
   }
   .live-session-meta span {
     padding: 3px 8px;
+    gap: 4px;
   }
 }
 
@@ -973,6 +1067,29 @@ body.live-studio-active .topbar {
   .live-ctrl-btn svg {
     width: 16px;
     height: 16px;
+  }
+}
+
+/* Landscape phones: keep everything inside the short viewport */
+@media (max-height: 480px) and (max-width: 900px) {
+  .live-video-area {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .live-participant-rail {
+    flex-basis: 88px;
+  }
+  .live-participant-tile {
+    height: 84px;
+    width: 112px;
+  }
+  .live-controls-bar {
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .live-ctrl-btn {
+    width: 38px;
+    height: 38px;
   }
 }
 
@@ -1159,63 +1276,63 @@ body.live-studio-active .topbar {
   animation: live-recording-pulse 1.2s ease-in-out infinite;
 }
 
-/* Support button in controls bar — same gold as the reader engagement support icon */
+/* Support button — one tap = reaction ladder stage + G10 to the host.
+   Gold ring marks it as the money button; the icon inside mirrors the
+   like -> heart -> bolt stage the database reports. */
 .live-ctrl-btn#live-support-btn {
   color: var(--gold, #fbbf24);
+  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.1);
 }
 .live-ctrl-btn#live-support-btn:hover {
-  background: rgba(251, 191, 36, 0.18);
-  border-color: rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.65);
+}
+.live-support-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.live-support-cost {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  color: #1a1400;
+  background: var(--gold, #fbbf24);
+  border-radius: 999px;
+  padding: 3px 6px;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.live-ctrl-btn#live-support-btn.stage-like { color: #60a5fa; }
+.live-ctrl-btn#live-support-btn.stage-heart { color: #f472b6; }
+.live-ctrl-btn#live-support-btn.stage-bolt {
+  color: var(--gold, #fbbf24);
+  background: rgba(251, 191, 36, 0.22);
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+}
+.live-ctrl-btn#live-support-btn.pop {
+  animation: live-support-pop 0.28s ease-out;
+}
+@keyframes live-support-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.16); }
+  100% { transform: scale(1); }
 }
 .live-ctrl-btn.is-busy {
   opacity: 0.55;
   pointer-events: none;
 }
 
-/* Reaction button — its icon mirrors the current stage of the ladder */
-.live-ctrl-btn#live-react-btn.is-bolt {
-  color: var(--gold, #fbbf24);
-  background: rgba(251, 191, 36, 0.16);
-  border-color: rgba(251, 191, 36, 0.45);
-}
-
-/* Floating confirmation bolt over the video stage */
-.live-support-fly {
-  position: absolute;
-  left: 50%;
-  bottom: 84px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--gold, #fbbf24);
-  background: rgba(10, 10, 10, 0.78);
-  border: 1px solid rgba(251, 191, 36, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  pointer-events: none;
-  z-index: 20;
-  animation: live-support-rise 1.5s ease-out forwards;
-}
-.live-support-fly svg {
-  width: 16px;
-  height: 16px;
-}
-@keyframes live-support-rise {
-  0% { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.9); }
-  18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-  75% { opacity: 1; }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(1.04); }
-}
-
 /* ============================================
    FLOATING REACTIONS + MOBILE CHAT MODAL
    ============================================ */
-/* Every viewer gets the tapper's profile and the emoji of their stage. */
+/* Every viewer — the tapper included — gets the supporter's avatar, name,
+   stage emoji, the exact G amount sent and any GP earned, from one row. */
 .live-react-fly {
   position: absolute;
   bottom: 74px;
@@ -1261,6 +1378,22 @@ body.live-studio-active .topbar {
   font-size: 12px;
   font-weight: 700;
   color: var(--gold, #fbbf24);
+}
+.live-react-support {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.16);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--gold, #fbbf24);
+}
+.live-react-support svg {
+  width: 11px;
+  height: 11px;
 }
 .emoji-like .live-react-ico { color: #60a5fa; }
 .emoji-heart .live-react-ico { color: #f472b6; }
