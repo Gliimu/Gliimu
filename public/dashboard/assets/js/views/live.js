@@ -678,7 +678,7 @@ const liveView = {
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-          ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn stage-like" id="live-support-btn" title="Support the host — G10 per tap" aria-label="Support the host, 10 Gliits per tap"><span class="live-support-ico">${ICONS.like}</span><span class="live-support-cost">G10</span></button>`}
+          ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn stage-like" id="live-support-btn" title="Support the host — G10 per tap" aria-label="Support the host, 10 Gliits per tap"><span class="live-support-ico">${ICONS.like}</span>${this._supportTappedSession === this.activeSession?.id ? '' : '<span class="live-support-cost">G10</span>'}</button>`}
           ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -1499,6 +1499,10 @@ const liveView = {
       }
 
       this._setReactIcon(data.emoji);
+      // The G10 hint is a first-tap affordance; once a tap lands the button
+      // carries only the stage icon, and re-renders keep the badge gone.
+      this._supportTappedSession = this.activeSession.id;
+      btn?.querySelector('.live-support-cost')?.remove();
       const gp = Number(data.gp_awarded || 0);
       if (gp > 0 && store.profile) {
         store.profile.total_gp = Number(store.profile.total_gp || 0) + gp;
