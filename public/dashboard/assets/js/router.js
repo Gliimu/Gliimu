@@ -7,7 +7,7 @@ const routes = {
   '/wallet': () => import('./views/billing.js?v=52').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=11').then(m => m.default),
   '/terms': () => import('./views/terms.js?v=1').then(m => m.default),
-  '/live': () => import('./views/live.js?v=59').then(m => m.default),
+  '/live': () => import('./views/live.js?v=60').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=28').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=104').then(m => m.default),

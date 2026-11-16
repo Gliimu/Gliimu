@@ -1331,8 +1331,8 @@ body.live-studio-active .topbar {
 /* ============================================
    FLOATING REACTIONS + MOBILE CHAT MODAL
    ============================================ */
-/* Every viewer — the tapper included — gets the supporter's avatar, name,
-   stage emoji, the exact G amount sent and any GP earned, from one row. */
+/* Every viewer — the tapper included — gets the supporter's avatar, name and
+   stage emoji from one row. Money stays in the ledger, never on the card. */
 .live-react-fly {
   position: absolute;
   bottom: 74px;
@@ -1373,27 +1373,6 @@ body.live-studio-active .topbar {
   font-size: 12px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-}
-.live-react-gp {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--gold, #fbbf24);
-}
-.live-react-support {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(251, 191, 36, 0.16);
-  border: 1px solid rgba(251, 191, 36, 0.45);
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--gold, #fbbf24);
-}
-.live-react-support svg {
-  width: 11px;
-  height: 11px;
 }
 .emoji-like .live-react-ico { color: #60a5fa; }
 .emoji-heart .live-react-ico { color: #f472b6; }

@@ -1535,14 +1535,10 @@ const liveView = {
     fly.className = 'live-react-fly emoji-' + row.emoji;
     fly.style.left = (6 + Math.random() * 58).toFixed(1) + '%';
     const pic = row.avatar_url ? esc(row.avatar_url) : esc(initialsAvatar(row.user_name));
-    const gp = Number(row.gp_awarded || 0);
-    const sent = Number(row.support_amount || 0);
     fly.innerHTML = `
       <img class="live-react-avatar" src="${pic}" alt="">
       <span class="live-react-ico">${ICONS[row.emoji]}</span>
       ${row.user_name ? `<span class="live-react-name">${esc(row.user_name)}</span>` : ''}
-      ${sent > 0 ? `<span class="live-react-support">${ICONS.bolt}G${sent}</span>` : ''}
-      ${gp > 0 ? `<span class="live-react-gp">+${gp} GP${Number(row.cycle) > 1 ? ' &middot; cycle ' + Number(row.cycle) : ''}</span>` : ''}
     `;
     stage.appendChild(fly);
     setTimeout(() => fly.remove(), 2400);
