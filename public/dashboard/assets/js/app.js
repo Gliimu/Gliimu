@@ -1,6 +1,6 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=235';
-import { initPullToRefresh } from './pull-to-refresh.js?v=23';
+import { router } from './router.js?v=236';
+import { initPullToRefresh } from './pull-to-refresh.js?v=24';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';

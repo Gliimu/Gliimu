@@ -1763,7 +1763,10 @@ const liveView = {
   },
 
   showAttachmentPreview(attachment) {
-    this.clearAttachmentPreview();
+    // Detach the old chip directly: clearAttachmentPreview() also nulls
+    // _pendingAttachment, which is the state sendChatMessage() reads.
+    const stale = document.getElementById('live-attach-preview');
+    if (stale) stale.remove();
     const inputRow = document.querySelector('.live-chat-input');
     if (!inputRow) return;
 
