@@ -221,35 +221,6 @@ async function checkGpTiers() {
   }
 }
 
-// ============================================
-// SIDEBAR AUTO-CLOSE
-// ============================================
-function initSidebarAutoClose() {
-  const sidebar = document.getElementById('sidebar');
-  if (!sidebar) return;
-
-  const collapse = () => {
-    document.body.classList.remove('sidebar-open');
-    const toggle = document.getElementById('rail-toggle');
-    if (!toggle) return;
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Expand menu');
-    toggle.setAttribute('title', 'Expand menu');
-  };
-
-  // Navigating from the rail slides it back to icon width
-  sidebar.addEventListener('click', (e) => {
-    if (e.target.closest('.nav-item') || e.target.closest('.rail-person')) collapse();
-  });
-
-  // Tapping anywhere outside the expanded rail unpins it
-  document.addEventListener('click', (e) => {
-    if (!document.body.classList.contains('sidebar-open')) return;
-    if (sidebar.contains(e.target)) return;
-    collapse();
-  });
-}
-
 function escapeHtml(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -411,7 +382,6 @@ async function initApp() {
 
   Presence.init();
   window.GliimuPresence = Presence;
-  initSidebarAutoClose();
   initAccountMenu();
   initTeamUp();
 

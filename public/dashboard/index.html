@@ -20,12 +20,12 @@
 
   <!-- Absolute paths starting with / so assets resolve under any clean-URL route -->
   <link rel="stylesheet" href="/shared/css/design-system.css?v=9">
-  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=85">
+  <link rel="stylesheet" href="/dashboard/assets/css/dashboard.css?v=87">
   <link rel="stylesheet" href="/dashboard/assets/css/views/profile.css?v=16">
   <link rel="stylesheet" href="/dashboard/assets/css/views/gliims.css?v=88">
   <link rel="stylesheet" href="/dashboard/assets/css/views/settings.css?v=5">
   <link rel="stylesheet" href="/dashboard/assets/css/views/ping.css?v=51">
-  <link rel="stylesheet" href="/dashboard/assets/css/views/live.css?v=30">
+  <link rel="stylesheet" href="/dashboard/assets/css/views/live.css?v=31">
   <link rel="stylesheet" href="/dashboard/assets/css/views/billing.css?v=5">
   <link rel="stylesheet" href="/dashboard/assets/css/views/xplore.css?v=92">
   <link rel="stylesheet" href="/dashboard/assets/css/views/search.css?v=6">
@@ -59,9 +59,6 @@
             </span>
             <span class="nav-text">You</span>
           </button>
-          <button type="button" class="rail-toggle" id="rail-toggle" aria-expanded="false" aria-label="Expand menu" title="Expand menu" onclick="toggleSidebar()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M29,16c0,1.104-0.896,2-2,2H11c-1.104,0-2-0.896-2-2s0.896-2,2-2h16C28.104,14,29,14.896,29,16z"></path><path d="M29,6c0,1.104-0.896,2-2,2H11C9.896,8,9,7.104,9,6s0.896-2,2-2h16C28.104,4,29,4.896,29,6z"></path><path d="M29,26c0,1.104-0.896,2-2,2H11c-1.104,0-2-0.896-2-2s0.896-2,2-2h16C28.104,24,29,24.896,29,26z"></path><path d="M3,6c0,1.103,0.897,2,2,2s2-0.897,2-2S6.103,4,5,4S3,4.897,3,6z"></path><path d="M3,16c0,1.103,0.897,2,2,2s2-0.897,2-2s-0.897-2-2-2S3,14.897,3,16z"></path><path d="M3,26c0,1.103,0.897,2,2,2s2-0.897,2-2s-0.897-2-2-2S3,24.897,3,26z"></path></svg>
-          </button>
         </div>
       </aside>
 
@@ -78,17 +75,20 @@
       </main>
 
       <nav class="bottom-bar" id="bottom-bar" aria-label="Main">
-        <button type="button" class="bottom-item bottom-item--team" data-team-trigger aria-haspopup="true" aria-expanded="false" title="Team" aria-label="Team">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <button type="button" class="bottom-item bottom-item--team" data-team-trigger aria-haspopup="true" aria-expanded="false">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span class="bottom-label">Team</span>
         </button>
-        <a href="/xplore" class="bottom-item bottom-item--home" data-route="xplore" title="XpLoRe" aria-label="XpLoRe">
+        <a href="/xplore" class="bottom-item bottom-item--home" data-route="xplore">
           <img class="bottom-mark bottom-logo" src="/icons/icon.png" alt="" aria-hidden="true">
+          <span class="bottom-label">XpLoRe</span>
         </a>
-        <button type="button" class="bottom-item bottom-item--account" data-account-trigger aria-haspopup="menu" aria-expanded="false" title="Your account" aria-label="Your account">
+        <button type="button" class="bottom-item bottom-item--account" data-account-trigger aria-haspopup="menu" aria-expanded="false">
           <span class="nav-avatar nav-avatar--sm">
             <img class="nav-avatar-img" data-user-avatar src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23F1F5F9'/%3E%3C/svg%3E" alt="">
             <span class="unread-dot" data-dot="any" hidden></span>
           </span>
+          <span class="bottom-label">You</span>
         </button>
       </nav>
   </div>
@@ -96,18 +96,6 @@
   <!-- Use absolute paths for JS as well -->
   <script src="/shared/js/theme.js?v=3"></script>
   <script src="https://unpkg.com/@daily-co/daily-js@0.94.0"></script>
-  <script type="module" src="/dashboard/assets/js/app.js?v=243"></script>
-
-  <script>
-    function toggleSidebar() {
-      const open = document.body.classList.toggle('sidebar-open');
-      const toggle = document.getElementById('rail-toggle');
-      if (toggle) {
-        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-        toggle.setAttribute('aria-label', open ? 'Collapse menu' : 'Expand menu');
-        toggle.setAttribute('title', open ? 'Collapse menu' : 'Expand menu');
-      }
-    }
-  </script>
+  <script type="module" src="/dashboard/assets/js/app.js?v=244"></script>
 </body>
 </html>

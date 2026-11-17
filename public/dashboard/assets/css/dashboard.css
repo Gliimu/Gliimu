@@ -21,8 +21,8 @@
 }
 @media (max-width: 768px) {
   :root {
-    /* The 56px centre button plus bar padding floats 10px off the bottom. */
-    --bottom-bar-h: calc(80px + env(safe-area-inset-bottom));
+    /* 58px of tabs, plus the inset the bar itself pads for. */
+    --bottom-bar-h: calc(58px + env(safe-area-inset-bottom));
     --pad-x: 8px;
     --pad-top: calc(16px + var(--safe-top));
   }
@@ -220,8 +220,9 @@
   font-weight: var(--fw-semibold);
   color: var(--text-muted);
   letter-spacing: var(--ls-widest);
-  text-align: center;
-  padding: 0 var(--space-2) var(--space-2);
+  text-transform: uppercase;
+  text-align: left;
+  padding: 0 var(--space-3) var(--space-2);
 }
 
 .rail-person {
@@ -247,14 +248,14 @@
 }
 .rail-person-name {
   display: none;
-  max-width: 100%;
-  font-size: var(--fs-xs);
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: center;
-  min-width: 0;
+  text-align: left;
 }
 
 .team-up-person {
@@ -277,26 +278,6 @@
 }
 .sidebar-account .nav-item { margin-bottom: 0; }
 
-.rail-toggle {
-  flex-shrink: 0;
-  align-self: center;
-  width: 32px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 2px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.rail-toggle:hover { background: var(--surface-hover); color: var(--text-primary); }
-.rail-toggle svg { flex-shrink: 0; }
-
 /* Unread indicator — rides the nav row it belongs to (Ping) and the profile
    avatar, which carries alerts on every screen */
 .unread-dot {
@@ -314,93 +295,97 @@
 .unread-dot[hidden] { display: none; }
 
 /* ============================================
-   BOTTOM BAR — three overlapping controls under 769px
+   BOTTOM BAR — three equal tabs, only under 769px
    ============================================ */
 .bottom-bar {
   display: none;
   position: fixed;
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 9000;
-  width: max-content;
-  max-width: calc(100vw - 28px);
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  padding: 6px 10px;
-  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.16);
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  max-width: 100vw;
+  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  /* The hairline is an inset shadow rather than a border so the bar measures
+     exactly the 58px the shell reserves for it. */
+  border: none;
+  box-shadow: inset 0 1px 0 var(--border);
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 
 .bottom-item {
   position: relative;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+  flex: 1 1 0;
   min-width: 0;
+  height: auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  gap: 3px;
+  padding: 7px 4px 6px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-full);
+  border-radius: 10px;
   color: var(--text-muted);
   font-family: var(--font-sans);
   text-decoration: none;
   cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
 }
-.bottom-item--team,
-.bottom-item--home {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+.bottom-item:active { background: var(--surface-hover); }
+.bottom-item.active,
+.bottom-item.is-open { color: var(--brand-primary); }
+
+/* Every tab carries the same mark: 22px glyph, then a 10px word under it. The
+   active tab only changes colour — no pill, no ring, no badge-shaped button. */
+.bottom-item svg { width: 22px; height: 22px; flex-shrink: 0; }
+.bottom-label {
+  font-size: 10px;
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.1px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
-.bottom-item--team,
-.bottom-item--account { z-index: 1; }
-.bottom-item--home {
-  z-index: 3;
-  flex-basis: 56px;
-  width: 56px;
-  height: 56px;
-  margin: 0 -8px;
-}
-.bottom-item--team:active,
-.bottom-item--home:active { background: var(--surface-hover); }
-.bottom-item.active { color: var(--brand-primary); }
-.bottom-item--home.active { border-color: var(--brand-primary); }
 
 .bottom-mark {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   display: block;
 }
 .bottom-logo {
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   filter: invert(1);
 }
 [data-theme="dark"] .bottom-logo { filter: none; }
 
 .bottom-item .nav-avatar { margin-right: 0; }
-.nav-avatar--sm { width: 32px; height: 32px; }
+.nav-avatar--sm { width: 22px; height: 22px; }
 .bottom-item--account .nav-avatar {
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
 }
+.bottom-item--account.active .nav-avatar,
 .bottom-item--account.is-open .nav-avatar { border-color: var(--brand-primary); }
-.bottom-item .nav-avatar .unread-dot { top: -3px; right: -3px; width: 9px; height: 9px; }
-.bottom-item.is-open { color: var(--brand-primary); }
+.bottom-item .nav-avatar .unread-dot { top: -3px; right: -3px; width: 8px; height: 8px; }
 
 .team-dropup {
   position: fixed;
   left: 14px;
   right: 14px;
-  bottom: calc(90px + env(safe-area-inset-bottom));
+  bottom: calc(66px + env(safe-area-inset-bottom));
   z-index: 10040;
   padding: 10px;
   background: var(--surface);
@@ -860,13 +845,15 @@ html { overscroll-behavior-y: none; }
    RESPONSIVE SHELL
    ============================================ */
 
-/* Desktop (769px and up) — icon rail, widened only by the menu button */
+/* Desktop (769px and up) — an icon rail that opens itself when the pointer
+   arrives on it. There is no toggle button: the rail is either 64px of marks
+   or, while you are on it, a full menu with the team's names. */
 @media (min-width: 769px) {
   .bottom-bar { display: none !important; }
 
   .sidebar {
     width: 64px;
-    transition: width 0.25s ease;
+    transition: width 0.22s ease;
   }
 
   .main-content {
@@ -875,7 +862,6 @@ html { overscroll-behavior-y: none; }
   }
 
   .sidebar-header { padding: var(--space-4) 3px; justify-content: center; }
-  .rail-toggle { width: 32px; }
   .brand-logo-rect { display: none; }
   .brand-logo-square { display: block; }
   .nav-label, .nav-text { display: none; }
@@ -887,29 +873,53 @@ html { overscroll-behavior-y: none; }
   .rail-person { justify-content: center; padding: var(--space-1) 0; }
   .rail-person-avatar { width: 34px; height: 34px; }
 
-  /* Expanded: pinned open by the menu button (body.sidebar-open). Hovering the
-     rail used to preview this and it fought with everything on screen. */
-  body.sidebar-open .sidebar {
-    width: 190px;
+  /* The opened rail is painted over the page, not beside it. The content
+     column keeps its 64px gutter, so nothing on screen moves while the rail
+     grows — which is what made the old hover preview fight with the layout. */
+  .sidebar:hover,
+  .sidebar:focus-within {
+    width: 232px;
     box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
   }
 
-  body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: center; }
-  body.sidebar-open .rail-toggle { width: 32px; }
-  body.sidebar-open .brand-word { display: inline-block; }
+  .sidebar:hover .sidebar-header,
+  .sidebar:focus-within .sidebar-header {
+    padding: var(--space-5) var(--space-5);
+    justify-content: flex-start;
+  }
+  .sidebar:hover .brand-word,
+  .sidebar:focus-within .brand-word { display: inline-block; }
 
-  body.sidebar-open .nav-label,
-  body.sidebar-open .nav-text { display: inline; }
+  .sidebar:hover .nav-label,
+  .sidebar:hover .nav-text,
+  .sidebar:focus-within .nav-label,
+  .sidebar:focus-within .nav-text { display: inline; }
 
-  body.sidebar-open .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
-  body.sidebar-open .nav-item svg { margin-right: 12px; }
-  body.sidebar-open .nav-avatar { margin-right: 12px; }
-  body.sidebar-open .sidebar-account .nav-item { justify-content: flex-start; padding: var(--space-2) var(--space-4); }
-  body.sidebar-open .sidebar-account .rail-toggle { align-self: flex-start; margin-left: 13px; }
+  .sidebar:hover .nav-item,
+  .sidebar:focus-within .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
+  .sidebar:hover .nav-item svg,
+  .sidebar:focus-within .nav-item svg { margin-right: 12px; }
+  .sidebar:hover .nav-avatar,
+  .sidebar:focus-within .nav-avatar { margin-right: 12px; }
+  .sidebar:hover .sidebar-account .nav-item,
+  .sidebar:focus-within .sidebar-account .nav-item { justify-content: flex-start; padding: var(--space-2) var(--space-4); }
 
-  body.sidebar-open .rail-people-heading { display: block; }
-  body.sidebar-open .rail-person { flex-direction: column; justify-content: center; gap: 4px; padding: var(--space-2); }
-  body.sidebar-open .rail-person-name { display: block; }
+  /* Each teammate reads as a row: face on the left, name beside it. */
+  .sidebar:hover .rail-people,
+  .sidebar:focus-within .rail-people { padding: var(--space-3) var(--space-3); }
+  .sidebar:hover .rail-people-heading,
+  .sidebar:focus-within .rail-people-heading { display: block; }
+  .sidebar:hover .rail-person,
+  .sidebar:focus-within .rail-person {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    padding: 6px var(--space-3);
+  }
+  .sidebar:hover .rail-person-avatar,
+  .sidebar:focus-within .rail-person-avatar { width: 30px; height: 30px; }
+  .sidebar:hover .rail-person-name,
+  .sidebar:focus-within .rail-person-name { display: block; }
 }
 
 /* Mobile (768px and down) — no sidebar at all, the bottom bar is the navigation */
@@ -919,14 +929,13 @@ html { overscroll-behavior-y: none; }
   /* Hide topbar (moved to bottom) */
   .topbar { display: none !important; }
 
-  /* The rail and its toggle have no job here — the bottom bar replaces them */
-  .sidebar,
-  body.sidebar-open .sidebar { display: none; }
+  /* The rail has no job here — the bottom bar replaces it */
+  .sidebar { display: none; }
   .sidebar-backdrop { display: none; }
 
-  .bottom-bar { display: flex; align-items: center; justify-content: center; gap: 0; }
+  .bottom-bar { display: flex; }
 
-  /* Keep scrolling content clear of the fixed bar */
+  /* Keep scrolling content clear of the bar */
   body { padding-bottom: var(--bottom-bar-h); }
 }
 

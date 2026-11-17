@@ -221,7 +221,7 @@ body.live-studio-active .bottom-bar {
 }
 
 body.live-studio-active .sidebar {
-  display: none;
+  display: none !important;
 }
 
 body.live-studio-active .main-content {
@@ -238,6 +238,14 @@ body.live-studio-active .view-container {
 }
 
 body.live-studio-active .topbar {
+  display: none !important;
+}
+
+/* The shell paints a --safe-top strip across the top of every route so a page
+   header can never hide behind a phone's camera cut-out. The studio has its own
+   header and starts at the viewport edge, so on a notched screen that strip
+   looked like a pale margin sitting above the session. */
+body.live-studio-active .view-container::before {
   display: none;
 }
 
@@ -249,10 +257,15 @@ body.live-studio-active .page-header {
 }
 
 .live-studio-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  /* Painted onto the viewport instead of inside the page flow. As a flow child
+     it inherited everything sitting above it — the route's page header and the
+     shell's top padding — and a 100dvh box starting below them is exactly the
+     overflow that let the whole page scroll. inset also follows a mobile
+     browser's shrinking URL bar, which 100vh never did. Kept under the tile
+     menu (9999), the minimized tile (1100) and every dialog (9000+). */
+  position: fixed;
+  inset: 0;
+  z-index: 800;
   overflow: hidden;
   background:
     radial-gradient(1100px 520px at 18% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
