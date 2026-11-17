@@ -1,7 +1,8 @@
-import hubView from './gliims.js?v=131';
+import hubView from './gliims.js?v=132';
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, badgeIcon } from '../store.js?v=3';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=2';
+import { createSearchEngine } from '../search-engine.js?v=2';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -12,37 +13,12 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// XpLoRe is pure browse: the category tabs, then every published work. Publish,
-// Search and Billing all live in the navigation now, and the brand mark sits in
-// the sidebar header, so nothing on this page duplicates a door the rail or the
-// bottom bar already opens. Data, cards and the composer still belong to hubView.
-export default {
+const LIVE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>';
+const PUBLISH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+
+const feedView = {
   title: 'XpLoRe',
-  template: `
-    <div class="xplore-page">
-      <div class="libmerge hub-layout" id="library-container">
-        <div class="hub-top-band">
-          <div class="hub-category-tabs" id="hub-category-tabs">
-            <button class="hub-category-tab active" data-category="all">For You</button>
-            <button class="hub-category-tab" data-category="xploring">Xploring</button>
-            <button class="hub-category-tab" data-category="collections">Collections</button>
-            <button class="hub-category-tab" data-category="Media">Media</button>
-            <button class="hub-category-tab" data-category="Tech">Tech</button>
-            <button class="hub-category-tab" data-category="Business">Business</button>
-            <button class="hub-category-tab" data-category="Personal">Personal</button>
-            <button class="hub-category-tab" data-category="Education">Education</button>
-          </div>
-          <button class="cohort-strip" id="cohort-strip" hidden type="button"></button>
-        </div>
-
-        <div class="xplore-ring" id="xplore-ring" hidden></div>
-
-        <div class="libmerge-feed" id="library-feed">
-          <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
-        </div>
-      </div>
-    </div>
-  `,
+  template: '',
 
   init() {
     this.currentTab = 'all';
@@ -50,14 +26,10 @@ export default {
     this.disposed = false;
     this._collections = null;
     this._ringCreator = null;
-    // Re-read which gliims I have opened, so views made elsewhere count here too.
     this._viewedIds = null;
 
     this.setupCategoryTabs();
-    this.setupCohortStrip();
     this.setupRing();
-    this.bindFollowButtons();
-
     hubView.onFeedChange = () => this.renderFeed();
 
     if (!this._masonryResize) {
@@ -69,67 +41,35 @@ export default {
     }
 
     hubView.init();
+    search.init();
+    this.syncSearchState(false);
     window.feedInstance = this;
   },
 
   destroy() {
     this.disposed = true;
     this.requestId++;
+    search.destroy();
     document.removeEventListener('click', this._followClick);
     window.removeEventListener('gliimu-post-viewed', this._viewedListener);
+    if (hubView.onFeedChange) hubView.onFeedChange = null;
   },
 
-  /* ------------------------------- co-hort strip ---------------------------- */
-
-  // Operations starts one co-hort at a time; the strip sits over the filter
-  // tabs and reads "2/9 Full Stack Media Architecture". Tapping it records
-  // interest, then hands the member to Support in Ping with a pre-arranged
-  // message they can send, edit or add to. Anything failing keeps it hidden.
-  async setupCohortStrip() {
-    const requestId = this.requestId;
-    const { data, error } = await supabase.rpc('get_active_cohort');
-    if (this.disposed || requestId !== this.requestId) return;
-    if (error || !data || data.ok !== true || !data.cohort) return;
-    this.cohort = data.cohort;
-    this.renderCohortStrip();
-  },
-
-  renderCohortStrip() {
-    const strip = document.getElementById('cohort-strip');
-    const c = this.cohort;
-    if (!strip || !c) return;
-    strip.innerHTML = `
-      <span class="cohort-strip-count">${Number(c.interested_count || 0)}/${Number(c.required_count || 0)}</span>
-      <span class="cohort-strip-title">${escapeHtml(c.strip_label || c.title || '')}</span>
-      <svg class="cohort-strip-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-        <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-    strip.hidden = false;
-    if (!this._cohortClick) {
-      this._cohortClick = () => this.onCohortTap();
-      strip.addEventListener('click', this._cohortClick);
+  syncSearchState(active) {
+    const band = document.getElementById('hub-top-band');
+    const feed = document.getElementById('library-feed');
+    if (band) band.hidden = active;
+    if (feed) feed.hidden = active;
+    if (!active) {
+      this.renderRing();
+      this.layoutMasonry();
     }
-  },
-
-  async onCohortTap() {
-    const c = this.cohort;
-    if (!c) return;
-    const { data, error } = await supabase.rpc('cohort_show_interest', { p_cohort: c.id });
-    if (!error && data && data.ok === true) {
-      this.cohort.interested_count = data.interested_count;
-      this.cohort.my_status = data.my_status;
-      this.renderCohortStrip();
-    }
-    sessionStorage.setItem('cohortSupportPrefill', 'I would like to join the co-hort, how do I register?');
-    window.location.hash = '#/ping';
   },
 
   async collections() {
     if (!this._collections) this._collections = await loadCollections();
     return this._collections;
   },
-
-  /* --------------------------------- people -------------------------------- */
 
   profileHref(id) {
     return id === store.user?.id ? '#/profile' : `#/profile?u=${encodeURIComponent(id)}`;
@@ -167,8 +107,6 @@ export default {
     </div>`;
   },
 
-  // A person's follow state comes from one cached read of followed_users, so
-  // every follow button on the page renders from the same truth.
   async loadFollowedIds() {
     if (this._followedIds) return this._followedIds;
     if (!store.user?.id) {
@@ -191,33 +129,29 @@ export default {
     return this._followedPromise;
   },
 
-  /* -------------------------------- xploring ------------------------------- */
-  // Xploring opens with the faces it is about: one pill per followed creator
-  // who has published, each badged with the number of their gliims this member
-  // has never opened. Tapping a face narrows the list below to that creator
-  // while the row stays put; tapping it again lets everyone back in.
-
   setupRing() {
     const el = document.getElementById('xplore-ring');
     if (!el) return;
-    this._ringClick = event => {
+    el.addEventListener('click', event => {
       const face = event.target.closest('[data-ring]');
       if (!face) return;
       const creator = face.dataset.ring;
       this._ringCreator = this._ringCreator === creator ? null : creator;
+      this.currentTab = 'all';
+      hubView.currentFilter = 'all';
+      document.querySelectorAll('.xplore-page .hub-category-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.category === 'all');
+      });
       this.renderRing();
       this.renderFeed();
-    };
-    el.addEventListener('click', this._ringClick);
+    });
 
     window.removeEventListener('gliimu-post-viewed', this._viewedListener);
     this._viewedListener = event => {
       const postId = event.detail?.postId;
-      // Only clear a badge once the read history is already in memory; otherwise
-      // the next render fetches the truth from the database anyway.
       if (postId && this._viewedIds) {
         this._viewedIds.add(postId);
-        if (this.currentTab === 'xploring') this.renderRing();
+        this.renderRing();
       }
     };
     window.addEventListener('gliimu-post-viewed', this._viewedListener);
@@ -242,17 +176,12 @@ export default {
   async renderRing() {
     const el = document.getElementById('xplore-ring');
     if (!el) return;
-    if (this.currentTab !== 'xploring') {
-      el.hidden = true;
-      el.innerHTML = '';
-      return;
-    }
-
+    const requestId = this.requestId;
     const [followed, viewed] = await Promise.all([
       this.loadFollowedIds().catch(() => new Set()),
       this.loadViewedIds()
     ]);
-    if (el.isConnected === false || this.currentTab !== 'xploring') return;
+    if (!el.isConnected || this.disposed || requestId !== this.requestId) return;
 
     const creators = new Map();
     for (const post of hubView.currentPosts || []) {
@@ -260,12 +189,11 @@ export default {
       const entry = creators.get(post.user_id) || {
         name: post.profiles?.full_name || '',
         avatar: post.profiles?.avatar_url || '',
-        badge: post.profiles?.verification_badge || null,
         latest: 0,
-        unread: 0
+        unread: false
       };
       entry.latest = Math.max(entry.latest, Date.parse(post.created_at) || 0);
-      if (!viewed.has(post.id)) entry.unread++;
+      if (!viewed.has(post.id)) entry.unread = true;
       creators.set(post.user_id, entry);
     }
 
@@ -281,15 +209,12 @@ export default {
 
     el.hidden = false;
     el.innerHTML = list.map(creator => `
-      <button type="button" class="xplore-ring-person${creator.id === this._ringCreator ? ' is-active' : ''}"
-              data-ring="${escapeHtml(creator.id)}" aria-pressed="${creator.id === this._ringCreator}">
-        <span class="xplore-ring-face">
-          ${creator.avatar
-            ? `<img class="xplore-ring-avatar" src="${escapeHtml(creator.avatar)}" alt="" loading="lazy">`
-            : '<span class="xplore-ring-avatar"></span>'}
-          ${creator.unread ? `<span class="xplore-ring-count">${creator.unread > 9 ? '9+' : creator.unread}</span>` : ''}
-        </span>
-        <span class="xplore-ring-name">${escapeHtml(creator.name)}${creator.badge ? badgeIcon(creator.badge) : ''}</span>
+      <button type="button" class="xplore-ring-person${creator.id === this._ringCreator ? ' is-active' : ''}${creator.unread ? ' has-unread' : ''}"
+              data-ring="${escapeHtml(creator.id)}" aria-pressed="${creator.id === this._ringCreator}"
+              aria-label="${escapeHtml(creator.name)}${creator.unread ? ', new gliims' : ''}" title="${escapeHtml(creator.name)}">
+        ${creator.avatar
+          ? `<img class="xplore-ring-avatar" src="${escapeHtml(creator.avatar)}" alt="" loading="lazy">`
+          : '<span class="xplore-ring-avatar"></span>'}
       </button>`).join('');
   },
 
@@ -315,32 +240,27 @@ export default {
       button.classList.toggle('is-following', !following);
       button.textContent = following ? 'Follow' : 'Following';
       button.title = following ? '' : 'Unfollow';
-      // The avatar rail in the sidebar listens for this so faces appear and
-      // leave the moment the follow list changes.
       window.dispatchEvent(new CustomEvent('gliimu-follow-changed'));
+      this.renderRing();
     } catch (error) {
       console.error('Follow failed:', error);
       button.disabled = false;
     }
   },
 
-  /* ------------------------------- the feed -------------------------------- */
-
   setupCategoryTabs() {
-    const tabs = document.querySelectorAll('.hub-category-tab');
+    const tabs = document.querySelectorAll('.xplore-page .hub-category-tab');
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         this.currentTab = tab.dataset.category;
-        // Re-tapping Xploring drops a creator filter without a second control.
-        if (tab.dataset.category === 'xploring') this._ringCreator = null;
+        this._ringCreator = null;
         this.renderRing();
-        if (tab.dataset.category === 'collections') {
+        if (this.currentTab === 'collections') {
           this.renderCollections();
         } else {
-          hubView.currentFilter = tab.dataset.category;
-          hubView.renderPosts(hubView.currentPosts);
+          hubView.currentFilter = this.currentTab;
           this.renderFeed();
         }
       });
@@ -367,13 +287,13 @@ export default {
 
   async renderFeed() {
     const container = document.getElementById('library-feed');
-    if (!container || this.currentTab === 'collections') return;
+    if (!container || this.currentTab === 'collections' || search.isActive()) return;
     this.renderRing();
 
     const filtered = await hubView.filterPosts();
-    if (!container.isConnected || this.currentTab === 'collections') return;
+    if (!container.isConnected || this.currentTab === 'collections' || search.isActive()) return;
 
-    const shown = this.currentTab === 'xploring' && this._ringCreator
+    const shown = this._ringCreator
       ? filtered.filter(post => post.user_id === this._ringCreator)
       : filtered;
 
@@ -398,9 +318,6 @@ export default {
     return `<div class="feed-item feed-item--${kind}">${html}</div>`;
   },
 
-  // Pinterest masonry: each item spans exactly its own height in 8px row
-  // slices (plus its bottom gap), so short tiles tuck under tall cards with
-  // no row-sized dead space. Re-run whenever widths change.
   layoutMasonry(scope = '#library-feed') {
     const feed = document.querySelector(`${scope} .library-feed`);
     if (!feed) return;
@@ -417,3 +334,36 @@ export default {
     });
   }
 };
+
+const search = createSearchEngine({
+  feedView,
+  embedded: true,
+  actionsHtml: `<nav class="xplore-actions" aria-label="Create and live">
+    <a class="xplore-action" href="/live">${LIVE_ICON}<span>Live</span></a>
+    <a class="xplore-action xplore-action-primary" href="/publish">${PUBLISH_ICON}<span>Publish</span></a>
+  </nav>`,
+  onStateChange: ({ active }) => feedView.syncSearchState(active)
+});
+
+feedView.template = `
+  <div class="xplore-page">
+    <div class="libmerge hub-layout" id="library-container">
+      <div class="xplore-command" id="xplore-command">${search.template}</div>
+      <div class="hub-top-band" id="hub-top-band">
+        <div class="xplore-tab-row">
+          <div class="hub-category-tabs" id="hub-category-tabs" aria-label="XpLoRe sections">
+            <button class="hub-category-tab active" data-category="all">XpLoRe</button>
+            <button class="hub-category-tab" data-category="collections">Collections</button>
+            <button class="hub-category-tab" data-category="saved">Saved</button>
+          </div>
+          <div class="xplore-ring" id="xplore-ring" aria-label="Followed creators" hidden></div>
+        </div>
+      </div>
+      <div class="libmerge-feed" id="library-feed">
+        <p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Loading the Feed...</p>
+      </div>
+    </div>
+  </div>
+`;
+
+export default feedView;

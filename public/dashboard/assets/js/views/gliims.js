@@ -292,9 +292,9 @@ const hubView = {
     // Check balance on XpLoRe page and show G0 modal if needed
     this.checkBalanceAndShowModal();
 
-    this.fetchPosts().then(() => {
-      this.checkPersistedModal();
-    });
+    this.feedPromise = this.fetchPosts()
+      .then(() => this.checkPersistedModal())
+      .finally(() => { this.feedPromise = null; });
   },
 
   async checkBalanceAndShowModal() {

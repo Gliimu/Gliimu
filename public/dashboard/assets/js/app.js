@@ -1,11 +1,12 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=229';
-import { initPullToRefresh } from './pull-to-refresh.js?v=20';
+import { router } from './router.js?v=231';
+import { initPullToRefresh } from './pull-to-refresh.js?v=21';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=6';
-import { initAccountMenu } from './account-menu.js?v=5';
+import { initAccountMenu } from './account-menu.js?v=6';
+import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=1';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -140,7 +141,8 @@ const NotificationManager = {
 
   initRealtimeListeners() {
     supabase.channel('app-global-notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${store.user.id}` }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `receiver_id=eq.${store.user.id}` }, payload => {
+        if (payload.eventType === 'INSERT') handleTeamUpMessage(payload.new);
         this.refreshUnread();
       })
       .on('postgres_changes', {
@@ -247,37 +249,6 @@ function initSidebarAutoClose() {
   });
 }
 
-// ============================================
-// FOLLOWED PEOPLE RAIL — wide screens only. Avatars of everyone you follow,
-// names revealed when the rail expands.
-// ============================================
-async function loadFollowedRail() {
-  const rail = document.getElementById('rail-people');
-  if (!rail || !store.user?.id) return;
-  try {
-    const { data: rows, error } = await supabase.from('followed_users')
-      .select('followed_id').eq('follower_id', store.user.id)
-      .order('created_at', { ascending: false }).limit(12);
-    if (error) throw error;
-    const ids = (rows || []).map(row => row.followed_id);
-    if (!ids.length) { rail.innerHTML = ''; return; }
-    const { data: people, error: profileError } = await supabase.from('profiles')
-      .select('id, full_name, avatar_url').in('id', ids);
-    if (profileError) throw profileError;
-    const byId = new Map((people || []).map(person => [person.id, person]));
-    rail.innerHTML = `<div class="rail-people-heading">Following</div>` + ids
-      .map(id => byId.get(id))
-      .filter(person => person?.avatar_url)
-      .map(person => `<a class="rail-person" href="/profile?u=${person.id}" title="${escapeHtml(person.full_name || '')}">
-        <img class="rail-person-avatar" src="${escapeHtml(person.avatar_url)}" alt="">
-        <span class="rail-person-name">${escapeHtml(person.full_name || '')}</span>
-      </a>`)
-      .join('');
-  } catch (error) {
-    console.warn('Followed rail could not load:', error.message);
-  }
-}
-
 function escapeHtml(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -303,6 +274,75 @@ function renderOfflineNotice() {
       <p class="app-offline-hint">You are signed in, but the connection failed. Check your network and try again.</p>
       <button type="button" class="btn-primary" onclick="window.location.reload()">Retry</button>
     </div>`;
+}
+
+const COHORT_CLOSE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"></path></svg>';
+
+function closeCohortModal() {
+  document.getElementById('cohort-modal')?.remove();
+}
+
+async function showCohortModal() {
+  if (document.getElementById('cohort-modal')) return;
+  try {
+    const { data, error } = await supabase.rpc('get_active_cohort');
+    if (error || !data?.ok || !data.cohort || !['/xplore', '/feed'].includes(window.gliimRoute?.path())) return;
+    const cohort = data.cohort;
+    const members = Array.isArray(cohort.accepted_members) ? cohort.accepted_members : [];
+    const description = String(cohort.description || '').trim();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'cohort-modal-backdrop';
+    backdrop.id = 'cohort-modal';
+    backdrop.innerHTML = `
+      <section class="cohort-modal" role="dialog" aria-modal="true" aria-labelledby="cohort-modal-title">
+        <button type="button" class="cohort-modal-close" data-cohort-close aria-label="Close cohort">${COHORT_CLOSE_ICON}</button>
+        <div class="cohort-modal-head">
+          <p class="cohort-modal-kicker">Current cohort</p>
+          <h2 class="cohort-modal-title" id="cohort-modal-title">${escapeHtml(cohort.title || '')}</h2>
+        </div>
+        ${description ? `<p class="cohort-modal-description">${escapeHtml(description)}</p>` : ''}
+        ${members.length ? `<div class="cohort-modal-members" aria-label="Accepted members">${members.map(member => `
+          ${member.avatar_url
+            ? `<img class="cohort-modal-avatar" src="${escapeHtml(member.avatar_url)}" alt="${escapeHtml(member.full_name || '')}" title="${escapeHtml(member.full_name || '')}">`
+            : `<span class="cohort-modal-avatar" role="img" aria-label="${escapeHtml(member.full_name || '')}"></span>`}
+        `).join('')}</div>` : ''}
+        <button type="button" class="btn-primary cohort-modal-apply" data-cohort-apply>Apply</button>
+      </section>`;
+    document.body.appendChild(backdrop);
+
+    const onKeydown = event => {
+      if (event.key === 'Escape') {
+        document.removeEventListener('keydown', onKeydown);
+        closeCohortModal();
+      }
+    };
+    document.addEventListener('keydown', onKeydown);
+    backdrop.addEventListener('click', async event => {
+      if (event.target === backdrop || event.target.closest('[data-cohort-close]')) {
+        document.removeEventListener('keydown', onKeydown);
+        closeCohortModal();
+        return;
+      }
+      const apply = event.target.closest('[data-cohort-apply]');
+      if (!apply || apply.disabled) return;
+      apply.disabled = true;
+      apply.textContent = 'Applying…';
+      const { data: result, error: applyError } = await supabase.rpc('cohort_show_interest', { p_cohort: cohort.id });
+      if (applyError || !result?.ok) {
+        apply.disabled = false;
+        apply.textContent = 'Apply';
+        await appAlert(applyError?.message || 'Could not send your application. Please try again.');
+        return;
+      }
+      sessionStorage.setItem('cohortSupportPrefill', 'I would like to join the co-hort, how do I register?');
+      document.removeEventListener('keydown', onKeydown);
+      closeCohortModal();
+      window.location.hash = '#/ping';
+    });
+    backdrop.querySelector('[data-cohort-close]')?.focus();
+  } catch (error) {
+    console.warn('Cohort modal could not load:', error.message);
+  }
 }
 
 async function initApp() {
@@ -372,13 +412,14 @@ async function initApp() {
   window.GliimuPresence = Presence;
   initSidebarAutoClose();
   initAccountMenu();
-  loadFollowedRail();
-  window.addEventListener('gliimu-follow-changed', () => loadFollowedRail());
+  initTeamUp();
 
   setInterval(checkGpTiers, 45000);
 
   window.addEventListener('hashchange', router);
-  router();
+  const initialPath = window.gliimRoute?.path();
+  await router();
+  if (initialPath === '/xplore' || initialPath === '/feed') showCohortModal();
 }
 
 initApp();

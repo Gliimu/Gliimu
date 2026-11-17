@@ -1,27 +1,26 @@
 const routes = {
   '/alerts': () => import('./views/alerts.js?v=17').then(m => m.default),
-  '/search': () => import('./views/search.js?v=21').then(m => m.default),
-  '/xplore': () => import('./views/xplore.js?v=125').then(m => m.default),
-  '/feed': () => import('./views/xplore.js?v=125').then(m => m.default),
-  '/ping': () => import('./views/ping.js?v=71').then(m => m.default),
+  '/search': () => import('./views/search.js?v=22').then(m => m.default),
+  '/xplore': () => import('./views/xplore.js?v=127').then(m => m.default),
+  '/feed': () => import('./views/xplore.js?v=127').then(m => m.default),
+  '/ping': () => import('./views/ping.js?v=72').then(m => m.default),
   '/wallet': () => import('./views/billing.js?v=52').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=11').then(m => m.default),
   '/terms': () => import('./views/terms.js?v=1').then(m => m.default),
   '/live': () => import('./views/live.js?v=61').then(m => m.default),
-  '/publish': () => import('./views/publish.js?v=28').then(m => m.default),
+  '/publish': () => import('./views/publish.js?v=29').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
-  '/profile': () => import('./views/profile.js?v=104').then(m => m.default),
-  '/post': () => import('./views/reader.js?v=74').then(m => m.default),
-  '/read': () => import('./views/reader.js?v=74').then(m => m.default),
-  '/collection': () => import('./views/collection.js?v=39').then(m => m.default),
+  '/profile': () => import('./views/profile.js?v=105').then(m => m.default),
+  '/post': () => import('./views/reader.js?v=75').then(m => m.default),
+  '/read': () => import('./views/reader.js?v=75').then(m => m.default),
+  '/collection': () => import('./views/collection.js?v=40').then(m => m.default),
 };
 
 // Routes with no tab of their own borrow another tab's highlight
 const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
 
-// The rail carries XpLoRe, Live, the Publish disc, Search and your face, and the
-// pages outside it open with their own title plus one arrow back to wherever the
-// user came from. XpLoRe is excluded because its logo line is its header; the
+// Pages outside the logo and Billing navigation open with their own title plus
+// one arrow back. XpLoRe is excluded because its logo line is its header; the
 // reader and the collection page render their own bar. The old topbar is hidden
 // at both breakpoints, which is why this lives in the router instead.
 const PAGE_TITLES = {

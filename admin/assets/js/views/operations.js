@@ -424,7 +424,7 @@ export default {
         <div class="card">
           <div class="card-head"><div>
             <div class="card-title">Start a co-hort</div>
-            <div class="card-sub">One co-hort runs at a time. Starting one puts a strip over the XpLoRe filter tabs reading "0/9 {title}"; members tap it to raise their hand through Support, and you accept them here.</div>
+            <div class="card-sub">One co-hort runs at a time. It opens as a modal when a member fully refreshes XpLoRe; Apply raises their hand through Support, and you accept them here.</div>
           </div></div>
           <div class="form-group">
             <label for="in-cohort-title">Cohort title</label>
@@ -432,9 +432,13 @@ export default {
                    placeholder="e.g. Full Stack Media Architecture">
           </div>
           <div class="form-group">
+            <label for="in-cohort-description">Brief description (optional)</label>
+            <textarea id="in-cohort-description" class="input" maxlength="500" rows="3" placeholder="What members should know before applying"></textarea>
+          </div>
+          <div class="form-group">
             <label for="in-cohort-count">Members to accept</label>
             <input type="number" id="in-cohort-count" class="input" min="1" max="999" step="1" value="9">
-            <div class="card-sub">The strip counts every hand raised against this total.</div>
+            <div class="card-sub">The modal shows accepted members as avatars; this total tracks how many places remain.</div>
           </div>
           <div class="form-group">
             <label for="in-cohort-due">Deadline (optional)</label>
@@ -459,7 +463,6 @@ export default {
     }
 
     const members = active.members || [];
-    const stripOn = active.strip_visible !== false;
     const rows = members.map(m => `
       <tr data-cohort-member="${escapeHtml(m.user_id)}">
         <td>
@@ -499,25 +502,20 @@ export default {
         ${active.requirements_url ? `<div class="card-sub" style="margin-bottom:10px;">Requirements: <a href="${escapeHtml(active.requirements_url)}" target="_blank" rel="noopener">open the PDF</a></div>` : ''}
         <div class="card" style="margin-top:16px;">
           <div class="card-head"><div>
-            <div class="card-title">XpLoRe strip</div>
-            <div class="card-sub">Members tap the strip under the XpLoRe tabs to raise a hand. Hide it without ending the cohort, or give the strip its own wording.</div>
+            <div class="card-title">XpLoRe cohort modal</div>
+            <div class="card-sub">The title, this description and accepted-member avatars appear when a member fully refreshes XpLoRe. Apply raises their hand through Support.</div>
           </div></div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-            <button class="${stripOn ? 'btn-quiet btn-small' : 'btn-primary btn-small'}" data-strip-toggle="${stripOn ? 'hide' : 'show'}">${stripOn ? 'Hide strip' : 'Show strip'}</button>
-            <span class="muted small">${stripOn ? 'Visible on XpLoRe' : 'Hidden from members'}</span>
+          <div class="form-group">
+            <label for="in-cohort-description">Brief description</label>
+            <textarea id="in-cohort-description" class="input" maxlength="500" rows="3" placeholder="No description is shown while this is blank">${escapeHtml(active.description || '')}</textarea>
           </div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <input type="text" id="in-strip-label" class="input" maxlength="120" autocomplete="off"
-                   style="max-width:420px;" placeholder="Leave blank to use the cohort title"
-                   value="${escapeHtml(active.strip_label || '')}">
-            <button class="btn-primary btn-small" data-strip-save data-strip-visible="${stripOn}">Save strip text</button>
-          </div>
+          <button class="btn-primary btn-small" data-cohort-description>Save description</button>
         </div>
         ${members.length ? `
           <div class="table-wrap"><table class="table">
             <thead><tr><th>Member</th><th>Raised hand</th><th>Status</th><th class="num" style="width:190px;"></th></tr></thead>
             <tbody>${rows}</tbody>
-          </table></div>` : empty('No one has tapped the strip yet.')}
+          </table></div>` : empty('No one has applied yet.')}
       </div>
       ${this.pastHtml(past)}`;
   },
@@ -546,17 +544,19 @@ export default {
 
   async startCohort(btn) {
     const title = document.getElementById('in-cohort-title')?.value.trim() || '';
+    const description = document.getElementById('in-cohort-description')?.value.trim() || null;
     const count = Number(document.getElementById('in-cohort-count')?.value || 0);
     const url = document.getElementById('in-cohort-url')?.value.trim() || null;
     const due = document.getElementById('in-cohort-due')?.value || null;
-    if (!title) return appAlert('Give the cohort a title — the strip on XpLoRe shows it.');
+    if (!title) return appAlert('Give the cohort a title — the XpLoRe modal shows it.');
     if (!Number.isInteger(count) || count < 1 || count > 999) {
       return appAlert('Members to accept must be a whole number between 1 and 999.');
     }
 
     if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
     const { data, error } = await supabase.rpc('operations_start_cohort', {
-      p_title: title, p_required_count: count, p_requirements_url: url, p_due_date: due
+      p_title: title, p_required_count: count, p_requirements_url: url, p_due_date: due,
+      p_description: description
     });
     if (btn) { btn.disabled = false; btn.textContent = 'Start cohort'; }
     if (error) return appAlert(`Could not start it: ${error.message}`);
@@ -564,7 +564,7 @@ export default {
 
     this.cohortState = null;
     await this.render();
-    return appAlert('The cohort is live — members see the strip over the XpLoRe filter tabs.');
+    return appAlert('The cohort is live — it opens when members fully refresh XpLoRe.');
   },
 
   async decideCohortMember(cohortId, userId, name, decision) {
@@ -589,7 +589,7 @@ export default {
 
   async endCohort(id, title) {
     const ok = await appConfirm(
-      `"${title}" closes: the strip comes off XpLoRe and no new hands can be raised. Members already accepted keep their place.`,
+      `"${title}" closes: the modal stops appearing on XpLoRe and no new hands can be raised. Members already accepted keep their place.`,
       { title: 'End this cohort?', okText: 'End cohort' });
     if (!ok) return;
     const { data, error } = await supabase.rpc('operations_end_cohort', { p_id: id });
@@ -600,28 +600,24 @@ export default {
     await this.render();
   },
 
-  async setCohortStrip(btn, visible) {
-    const label = (document.getElementById('in-strip-label')?.value || '').trim() || null;
-    if (btn) { btn.disabled = true; }
-    const { data, error } = await supabase.rpc('operations_set_cohort_strip', { p_visible: visible, p_label: label });
-    if (btn) { btn.disabled = false; }
-    if (error) return appAlert(`Could not save the strip: ${error.message}`);
+  async setCohortDescription(btn) {
+    const description = document.getElementById('in-cohort-description')?.value.trim() || null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    const { data, error } = await supabase.rpc('operations_set_cohort_description', { p_description: description });
+    if (btn) { btn.disabled = false; btn.textContent = 'Save description'; }
+    if (error) return appAlert(`Could not save the description: ${error.message}`);
     if (!data || data.ok === false) {
       const codes = {
-        NOT_OPERATIONS: 'Only operations (or super) admins manage the strip.',
+        NOT_OPERATIONS: 'Only operations (or super) admins manage cohorts.',
         COHORT_CLOSED: 'No active cohort — start one first.',
-        BAD_LABEL: 'Strip text is too long (120 characters max).',
-        BAD_VISIBLE: 'Pick show or hide.'
+        BAD_DESCRIPTION: 'The description is too long (500 characters max).'
       };
       return appAlert(codes[data?.code] || rpcError(data));
     }
 
     this.cohortState = null;
     await this.render();
-    if (btn?.dataset.stripToggle !== undefined) {
-      return appAlert(visible ? 'The XpLoRe strip is back on for members.' : 'The XpLoRe strip is now hidden from members.');
-    }
-    return appAlert('Strip text saved — XpLoRe shows it under the filter tabs now.');
+    return appAlert('Description saved — the XpLoRe cohort modal shows it on the next full refresh.');
   },
 
   // ============================================
@@ -762,11 +758,8 @@ export default {
     const endCohortBtn = pane.querySelector('[data-end-cohort]');
     if (endCohortBtn) endCohortBtn.addEventListener('click', () => this.endCohort(endCohortBtn.dataset.endCohort, endCohortBtn.dataset.title));
 
-    pane.querySelectorAll('[data-strip-toggle]').forEach((btn) => {
-      btn.addEventListener('click', () => this.setCohortStrip(btn, btn.dataset.stripToggle === 'show'));
-    });
-    const stripSaveBtn = pane.querySelector('[data-strip-save]');
-    if (stripSaveBtn) stripSaveBtn.addEventListener('click', () => this.setCohortStrip(stripSaveBtn, stripSaveBtn.dataset.stripVisible !== 'false'));
+    const cohortDescriptionBtn = pane.querySelector('[data-cohort-description]');
+    if (cohortDescriptionBtn) cohortDescriptionBtn.addEventListener('click', () => this.setCohortDescription(cohortDescriptionBtn));
 
     const sweep = pane.querySelector('[data-sweep]');
     if (sweep) sweep.addEventListener('click', () => this.sweepStorage(sweep));

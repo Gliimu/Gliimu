@@ -124,7 +124,7 @@
   color: var(--text-primary);
 }
 
-.sidebar-nav { flex: 1; padding: var(--space-4); overflow-y: auto; display: flex; flex-direction: column; justify-content: center; }
+.sidebar-nav { flex: 0; padding: var(--space-4); overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-start; }
 
 .nav-section { margin-bottom: var(--space-6); }
 
@@ -202,7 +202,7 @@
   height: 10px;
 }
 
-/* Rail people — the avatars of everyone you follow (wide screens only) */
+/* Team-up avatars (wide screens only) */
 .rail-people {
   display: flex;
   flex-direction: column;
@@ -258,6 +258,23 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+
+.team-up-person {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.team-up-person[aria-expanded="true"] { background: var(--surface-hover); color: var(--text-primary); }
+
+.sidebar-account {
+  flex-shrink: 0;
+  padding: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+.sidebar-account .nav-item { margin-bottom: 0; }
 
 /* Rail toggle — pinned to the bottom of the sidebar */
 .rail-toggle {
@@ -354,6 +371,140 @@
 .bottom-item .nav-avatar { margin-right: 0; }
 .nav-avatar--sm { width: 24px; height: 24px; }
 .bottom-item .nav-avatar .unread-dot { top: -1px; right: -1px; width: 9px; height: 9px; }
+.bottom-label { font-size: 10px; line-height: 1; font-weight: var(--fw-medium); }
+.bottom-item.is-open { color: var(--brand-primary); }
+
+.team-dropup {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 10040;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-xl);
+}
+.team-dropup-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding: 2px 2px 6px;
+}
+.team-dropup-person {
+  flex: 0 0 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.team-dropup-person:hover,
+.team-dropup-person[aria-expanded="true"] { background: var(--surface-hover); }
+.team-dropup-avatar {
+  display: block;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+}
+.team-dropup-name {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+}
+.team-dropup-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  text-align: center;
+  width: 100%;
+}
+
+.team-member-menu {
+  position: fixed;
+  z-index: 10070;
+  min-width: 190px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+}
+.team-member-action {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.team-member-action:hover { background: var(--surface-hover); }
+.team-member-action svg { flex-shrink: 0; color: var(--text-muted); }
+.team-member-action--danger,
+.team-member-action--danger svg { color: var(--error); }
+.team-member-action--danger:hover { background: var(--error-light); }
+
+.team-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 10100;
+  max-width: calc(100vw - 28px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--text-primary);
+  color: var(--surface);
+  box-shadow: var(--shadow-xl);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+.team-toast button {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--fw-bold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+@media (max-width: 768px) {
+  .team-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
 
 /* ============================================
    PULL TO REFRESH — the chip that drops in when you drag the page down
