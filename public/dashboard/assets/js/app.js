@@ -1,10 +1,10 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=233';
+import { router } from './router.js?v=235';
 import { initPullToRefresh } from './pull-to-refresh.js?v=23';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
-import { previewText } from './media.js?v=6';
+import { previewText } from './media.js?v=7';
 import { initAccountMenu } from './account-menu.js?v=7';
 import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=2';
 

@@ -1,9 +1,9 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=3';
-import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=6';
+import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=7';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
 import { addToTeamUp, isTeamUpMember } from '../team-up.js?v=2';
-import supportView from './support.js?v=46';
+import supportView from './support.js?v=47';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -579,7 +579,11 @@ export default {
     const contactId = this.activeChat.id;
 
     let uploaded;
-    try { uploaded = await uploadAttachment(file); } catch (err) { return alert("Upload failed."); }
+    try {
+      uploaded = await uploadAttachment(file);
+    } catch (err) {
+      return appAlert('File not shared: ' + (err?.message || 'upload failed.'));
+    }
 
     const { data, error } = await supabase.from('messages').insert({
       sender_id: store.user.id,
@@ -589,7 +593,7 @@ export default {
       content: '',
       is_ai: false
     }).select('*').single();
-    if (error) return alert("Failed to send file: " + error.message);
+    if (error) return appAlert('File not shared: ' + error.message);
     this.appendSentMessage(data, contactId);
     event.target.value = '';
   },

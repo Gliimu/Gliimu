@@ -1,7 +1,8 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store } from '../store.js?v=3';
 import * as heartbeat from '../heartbeat.js?v=6';
-import { uploadAttachment } from '../media.js?v=6';
+import { uploadAttachment, chatAttachmentProblem } from '../media.js?v=7';
+import { renderFileInto } from '../secure-reader.js?v=38';
 
 const MAX_SESSION_DURATION = 60 * 60 * 1000; // 1 hour in ms
 
@@ -25,7 +26,18 @@ const ICONS = {
   users: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
   onAir: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"></path><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"></path><circle cx="12" cy="12" r="2"></circle><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"></path><path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"></path></svg>',
   like: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"></path><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>',
-  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l8.84 8.84 8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
+  heart: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l8.84 8.84 8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+  file: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+  eye: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+  download: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>'
+};
+
+// The forum opens these three in-app. A legacy .doc is a binary format no
+// browser renderer reads, so it only ever downloads.
+const CHAT_PREVIEWABLE = new Set(['image', 'pdf', 'docx']);
+const CHAT_KIND_LABELS = {
+  image: 'Photo', pdf: 'PDF', docx: 'Word document', doc: 'Word document',
+  video: 'Video', audio: 'Audio'
 };
 
 
@@ -391,6 +403,7 @@ const liveView = {
   destroy() {
     this.chatOpen = false;
     this._closeChatOverlay();
+    this.closeAttachmentPreview();
 
     // If minimized, preserve the session — only clean up DOM artifacts
     if (this.minimized) {
@@ -710,7 +723,7 @@ const liveView = {
         </div>
         <div id="live-chat-messages" class="live-chat-messages"></div>
         <div class="live-chat-input">
-          <input type="file" id="live-chat-file" style="display:none" accept="image/*,.pdf,.epub,.doc,.docx" onchange="liveInstance.handleChatFile(event)">
+          <input type="file" id="live-chat-file" style="display:none" accept="image/*,.pdf,.doc,.docx" onchange="liveInstance.handleChatFile(event)">
           <button class="live-chat-attach-btn" onclick="document.getElementById('live-chat-file').click()" title="Attach file">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
           </button>
@@ -1106,12 +1119,10 @@ const liveView = {
     }
   },
 
-  showTileMenu(sessionId, x, y) {
-    const entry = this.participantTiles.get(sessionId);
-    if (!entry) return;
-    const viewerIsHost = this.sessionRole === 'host';
-    const tileIsHost = entry.isHost;
-
+  // Shared floating menu used by the participant tiles and chat attachments.
+  // Closes on any item click before running the item, so callers only describe
+  // what the action does.
+  openStudioMenu(x, y, items) {
     document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
 
     const overlay = document.createElement('div');
@@ -1122,53 +1133,51 @@ const liveView = {
     menu.className = 'live-tile-menu';
     menu.addEventListener('click', (ev) => ev.stopPropagation());
 
-    const items = [];
-    if (viewerIsHost && !entry.local) {
-      items.push({
-        icon: ICONS.micOff,
-        label: 'Mute',
-        action: () => { this.muteParticipant(sessionId); overlay.remove(); }
-      });
-      items.push({
-        icon: ICONS.userX,
-        label: 'Kick out',
-        danger: true,
-        action: () => { this.kickParticipant(sessionId); overlay.remove(); }
-      });
-    }
-    if (!viewerIsHost && tileIsHost) {
-      items.push({
-        icon: ICONS.message,
-        label: 'Chat me up',
-        action: () => { overlay.remove(); this.chatMeUp(); }
-      });
-    }
-    items.push({
-      icon: ICONS.flag,
-      label: 'Report',
-      action: () => { overlay.remove(); this.reportLiveSession(); }
-    });
-
     for (const item of items) {
       const btn = document.createElement('button');
       btn.className = 'live-tile-menu-item' + (item.danger ? ' danger' : '');
       btn.innerHTML = `${item.icon} <span>${item.label}</span>`;
-      btn.addEventListener('click', item.action);
+      btn.addEventListener('click', () => { overlay.remove(); item.action(); });
       menu.appendChild(btn);
     }
 
     overlay.appendChild(menu);
     document.body.appendChild(overlay);
 
-    const rect = menu.getBoundingClientRect();
+    // offsetWidth, not getBoundingClientRect(): the menu opens with a
+    // scale(0.95) animation, and the animated rect is smaller than the box the
+    // clamp has to keep on screen.
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    let left = Math.min(x, vw - rect.width - 12);
-    let top = Math.min(y, vh - rect.height - 12);
+    let left = Math.min(x, vw - width - 12);
+    let top = Math.min(y, vh - height - 12);
     left = Math.max(12, left);
     top = Math.max(12, top);
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
+
+    return overlay;
+  },
+
+  showTileMenu(sessionId, x, y) {
+    const entry = this.participantTiles.get(sessionId);
+    if (!entry) return;
+    const viewerIsHost = this.sessionRole === 'host';
+    const tileIsHost = entry.isHost;
+
+    const items = [];
+    if (viewerIsHost && !entry.local) {
+      items.push({ icon: ICONS.micOff, label: 'Mute', action: () => this.muteParticipant(sessionId) });
+      items.push({ icon: ICONS.userX, label: 'Kick out', danger: true, action: () => this.kickParticipant(sessionId) });
+    }
+    if (!viewerIsHost && tileIsHost) {
+      items.push({ icon: ICONS.message, label: 'Chat me up', action: () => this.chatMeUp() });
+    }
+    items.push({ icon: ICONS.flag, label: 'Report', action: () => this.reportLiveSession() });
+
+    this.openStudioMenu(x, y, items);
   },
 
   chatMeUp() {
@@ -1700,6 +1709,7 @@ const liveView = {
       if (attachment) {
         body.attachment_url = attachment.url;
         body.attachment_type = attachment.type;
+        body.attachment_name = attachment.name;
       }
 
       const response = await fetch(`${API_BASE_URL}/api/live/chat`, {
@@ -1734,10 +1744,13 @@ const liveView = {
     if (!file) return;
     event.target.value = '';
 
+    const problem = chatAttachmentProblem(file);
+    if (problem) return appAlert(problem);
+
     try {
       const uploaded = await uploadAttachment(file);
       this._pendingAttachment = uploaded;
-      this.showAttachmentPreview(uploaded, file.name);
+      this.showAttachmentPreview(uploaded);
     } catch (err) {
       console.error('File upload failed:', err);
       const msg = err?.message || '';
@@ -1749,7 +1762,7 @@ const liveView = {
     }
   },
 
-  showAttachmentPreview(attachment, fileName) {
+  showAttachmentPreview(attachment) {
     this.clearAttachmentPreview();
     const inputRow = document.querySelector('.live-chat-input');
     if (!inputRow) return;
@@ -1758,19 +1771,18 @@ const liveView = {
     preview.className = 'live-chat-attachment-preview';
     preview.id = 'live-attach-preview';
 
-    const isImage = attachment.type === 'image';
-    if (isImage) {
+    const remove = '<button class="live-attach-remove" onclick="liveInstance.clearAttachmentPreview()">&times;</button>';
+    if (attachment.type === 'image') {
       preview.innerHTML = `
         <img src="${esc(attachment.url)}" alt="">
-        <span>${esc(fileName)}</span>
-        <button class="live-attach-remove" onclick="liveInstance.clearAttachmentPreview()">&times;</button>
+        <span>${esc(attachment.name)}</span>
+        ${remove}
       `;
     } else {
-      const ext = fileName.split('.').pop().toUpperCase();
       preview.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-        <span>${esc(fileName)} (${ext})</span>
-        <button class="live-attach-remove" onclick="liveInstance.clearAttachmentPreview()">&times;</button>
+        ${ICONS.file}
+        <span>${esc(attachment.name)} · ${esc(CHAT_KIND_LABELS[attachment.type] || 'File')}</span>
+        ${remove}
       `;
     }
 
@@ -1836,17 +1848,6 @@ const liveView = {
       const isOwn = msg.user_id === store.user.id;
       const name = msg.profiles?.full_name || 'Participant';
       const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      let attachmentHtml = '';
-      if (msg.attachment_url) {
-        if (msg.attachment_type === 'image') {
-          attachmentHtml = `<div class="live-chat-attachment"><img src="${esc(msg.attachment_url)}" alt="Shared image" loading="lazy"></div>`;
-        } else {
-          const label = msg.content || 'Download file';
-          attachmentHtml = `<div class="live-chat-attachment"><a href="${esc(msg.attachment_url)}" target="_blank" class="live-chat-file-link"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>${esc(label)}</a></div>`;
-        }
-      }
-
       const contentHtml = msg.content ? `<div class="live-chat-message-content">${esc(msg.content)}</div>` : '';
 
       return `
@@ -1856,12 +1857,150 @@ const liveView = {
             <span class="live-chat-message-time">${time}</span>
           </div>
           ${contentHtml}
-          ${attachmentHtml}
+          ${this.chatAttachmentHtml(msg)}
         </div>
       `;
     }).join('');
 
+    this.bindChatAttachments(container);
     container.scrollTop = container.scrollHeight;
+  },
+
+  // A shared file becomes a chip carrying the sender's own filename. The name
+  // is only ever what the server stored for that row, so a message from
+  // before the column existed shows its kind and nothing else.
+  chatAttachmentHtml(msg) {
+    const kind = msg.attachment_type || '';
+    const name = msg.attachment_name || '';
+    const attrs = [
+      `data-attachment-url="${esc(msg.attachment_url)}"`,
+      `data-attachment-name="${esc(name)}"`,
+      `data-attachment-kind="${esc(kind)}"`,
+      CHAT_PREVIEWABLE.has(kind) ? 'data-attachment-preview="1"' : ''
+    ].join(' ');
+
+    if (kind === 'image') {
+      return `<div class="live-chat-attachment" ${attrs}><img src="${esc(msg.attachment_url)}" alt="" loading="lazy"></div>`;
+    }
+
+    const label = CHAT_KIND_LABELS[kind] || 'File';
+    return `
+      <div class="live-chat-attachment" ${attrs}>
+        <button class="live-chat-file" type="button">
+          ${ICONS.file}
+          <span class="live-chat-file-meta">
+            ${name ? `<span class="live-chat-file-name">${esc(name)}</span>` : ''}
+            <span class="live-chat-file-kind">${label}</span>
+          </span>
+        </button>
+      </div>
+    `;
+  },
+
+  // Polling replaces the message nodes every few seconds, so the attachment
+  // gestures live on the list itself and one listener covers every row.
+  bindChatAttachments(container) {
+    if (container.dataset.attachBound === '1') return;
+    container.dataset.attachBound = '1';
+    const holderOf = (target) => target.closest('[data-attachment-url]');
+
+    container.addEventListener('click', (ev) => {
+      if (Date.now() < (this._attachPressAt || 0)) return;
+      const holder = holderOf(ev.target);
+      if (!holder) return;
+      const { attachmentUrl, attachmentName, attachmentPreview } = holder.dataset;
+      if (attachmentPreview) this.openAttachmentPreview(attachmentUrl, attachmentName);
+      else this.downloadAttachment(attachmentUrl, attachmentName);
+    });
+
+    container.addEventListener('contextmenu', (ev) => {
+      const holder = holderOf(ev.target);
+      if (!holder) return;
+      ev.preventDefault();
+      this.showAttachmentMenu(ev.clientX, ev.clientY, holder.dataset);
+    });
+
+    let press = null;
+    const cancelPress = () => { if (press) { clearTimeout(press); press = null; } };
+    container.addEventListener('touchstart', (ev) => {
+      const holder = holderOf(ev.target);
+      const touch = ev.touches[0];
+      if (!holder || !touch) return;
+      cancelPress();
+      press = setTimeout(() => {
+        press = null;
+        this._attachPressAt = Date.now() + 700;
+        this.showAttachmentMenu(touch.clientX, touch.clientY, holder.dataset);
+      }, 500);
+    }, { passive: true });
+    container.addEventListener('touchmove', cancelPress, { passive: true });
+    container.addEventListener('touchend', cancelPress);
+    container.addEventListener('touchcancel', cancelPress);
+  },
+
+  // The forum keeps its own file viewer rather than a new browser tab, so a
+  // shared document never leaves the session and the address bar never
+  // becomes a copyable link to it.
+  openAttachmentPreview(url, name) {
+    this.closeAttachmentPreview();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'live-attach-viewer';
+    overlay.innerHTML = `
+      <div class="live-attach-viewer-box">
+        <div class="live-attach-viewer-head">
+          <span class="live-attach-viewer-name">${esc(name || '')}</span>
+          <button class="live-attach-viewer-close" type="button" aria-label="Close preview">${ICONS.close}</button>
+        </div>
+        <div class="live-attach-viewer-body"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) this.closeAttachmentPreview(); });
+    overlay.querySelector('.live-attach-viewer-close').addEventListener('click', () => this.closeAttachmentPreview());
+    this._attachViewerKey = (ev) => { if (ev.key === 'Escape') this.closeAttachmentPreview(); };
+    document.addEventListener('keydown', this._attachViewerKey);
+
+    renderFileInto(url, overlay.querySelector('.live-attach-viewer-body'));
+  },
+
+  closeAttachmentPreview() {
+    if (this._attachViewerKey) {
+      document.removeEventListener('keydown', this._attachViewerKey);
+      this._attachViewerKey = null;
+    }
+    document.querySelectorAll('.live-attach-viewer').forEach(el => el.remove());
+  },
+
+  // The bucket is another origin, where browsers ignore `download`; the bytes
+  // come back as a blob so the sender's filename is the one that lands.
+  async downloadAttachment(url, name) {
+    try {
+      const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const objectUrl = URL.createObjectURL(await res.blob());
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      if (name) a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+    } catch (err) {
+      console.error('Attachment download failed:', err);
+      appAlert('That file could not be downloaded. Please try again.');
+    }
+  },
+
+  showAttachmentMenu(x, y, data) {
+    const items = [];
+    if (data.attachmentPreview) {
+      items.push({ icon: ICONS.eye, label: 'Preview', action: () => this.openAttachmentPreview(data.attachmentUrl, data.attachmentName) });
+    }
+    items.push({ icon: ICONS.download, label: 'Download', action: () => this.downloadAttachment(data.attachmentUrl, data.attachmentName) });
+
+    this.openStudioMenu(x, y, items);
   },
 
   // ============================================
@@ -2040,6 +2179,7 @@ const liveView = {
 
     this.chatOpen = false;
     this._closeChatOverlay();
+    this.closeAttachmentPreview();
     document.body.classList.remove('live-studio-active');
     document.querySelectorAll('.live-tile-menu-overlay').forEach(o => o.remove());
     const miniTile = document.getElementById('live-minimized-tile');

@@ -47,6 +47,9 @@ export function toggleAudio(msgId, url) {
 // ============================================
 // ATTACHMENT MARKUP & UPLOADS
 // ============================================
+// Must match the `chat` kind in server/src/index.js UPLOAD_KINDS.
+const CHAT_MAX_BYTES = 5 * 1024 * 1024;
+
 // One-line summary of a message, used by the Ping chat list and by the
 // desktop notification body. Attachments have no text, so they name themselves.
 export function previewText(message) {
@@ -85,13 +88,42 @@ export function attachmentHtml(m, instanceName) {
   return `<a href="${m.attachment_url}" target="_blank" class="ping-attachment file"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg> Download File</a>`;
 }
 
+// Which viewer a shared file needs. Mirrors CHAT_KIND_BY_EXT on the server:
+// the Live endpoint re-derives the kind from the R2 key it minted, but Ping
+// and Support store whatever this says.
+function attachmentKind(file) {
+  const mime = String(file.type || '');
+  const ext = String(file.name || '').split('.').pop().toLowerCase();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('audio/')) return 'audio';
+  if (ext === 'pdf' || mime === 'application/pdf') return 'pdf';
+  if (ext === 'docx' || mime.includes('wordprocessingml')) return 'docx';
+  if (ext === 'doc' || mime === 'application/msword') return 'doc';
+  return 'file';
+}
+
+// The server refuses an over-cap or wrong-type chat upload before any bytes
+// leave the browser, so this only moves the same rule one step earlier and
+// names the file the sender picked. Returns the reason, or null when allowed.
+export function chatAttachmentProblem(file) {
+  if (!file) return 'No file selected.';
+  if (file.size > CHAT_MAX_BYTES) {
+    return `Files shared in chat are limited to 5MB. "${file.name}" is ${(file.size / 1048576).toFixed(1)}MB.`;
+  }
+  if (attachmentKind(file) === 'file') {
+    return 'Only photos, videos, PDF and Word files can be shared here.';
+  }
+  return null;
+}
+
+// Resolves with the three fields a chat row needs: where the bytes landed,
+// what the sender called the file, and which viewer it needs.
 export async function uploadAttachment(file) {
+  const problem = chatAttachmentProblem(file);
+  if (problem) throw new Error(problem);
   const url = await uploadFile(file, 'chat');
-  let type = 'file';
-  if (file.type.startsWith('image/')) type = 'image';
-  else if (file.type.startsWith('video/')) type = 'video';
-  else if (file.type === 'application/pdf') type = 'pdf';
-  return { url, type };
+  return { url, name: String(file.name || ''), type: attachmentKind(file) };
 }
 
 export async function uploadAudioNote(blob) {
