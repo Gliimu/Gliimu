@@ -229,13 +229,23 @@ body.live-studio-active .main-content {
   width: 100% !important;
 }
 
+/* !important is required: gliims.css sets mobile .view-container padding with
+   !important, and without beating it the studio sits 16px low and its bottom
+   row is clipped, which makes the whole page scroll. */
 body.live-studio-active .view-container {
-  padding: 0;
+  padding: 0 !important;
   max-width: 100%;
 }
 
 body.live-studio-active .topbar {
   display: none;
+}
+
+/* The router's page header (back arrow + "Live") is dashboard chrome. Left in
+   place it pushes the studio below the fold, so the 100dvh grid overflows and
+   the whole page scrolls. */
+body.live-studio-active .page-header {
+  display: none !important;
 }
 
 .live-studio-container {
@@ -592,28 +602,34 @@ body.live-studio-active .topbar {
 /* ============================================
    CHAT PANEL
    ============================================ */
+/* The forum floats over the video instead of docking to the edge, so the
+   stage keeps its full width behind it. */
 .live-chat-panel {
   position: fixed;
-  right: 0;
-  top: var(--safe-top, 0px);
-  bottom: 0;
-  width: 320px;
-  background: rgba(10, 10, 10, 0.72);
+  right: 16px;
+  top: calc(var(--safe-top, 0px) + 16px);
+  bottom: 16px;
+  width: 340px;
+  background: rgba(10, 10, 10, 0.82);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   z-index: 15;
 }
 
 .live-chat-header {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 .live-chat-header h4 {
   margin: 0;
@@ -638,14 +654,11 @@ body.live-studio-active .topbar {
   color: white;
 }
 
-/* Chat close — centred in the header so it cannot be missed */
+/* Chat close — top-right of the header, the corner people already look for */
 .live-chat-header button.live-chat-close {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 34px;
-  height: 34px;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -1008,9 +1021,10 @@ body.live-studio-active .topbar {
     bottom: 0;
     width: 100%;
     height: min(76vh, 620px);
-    border-left: none;
+    border: none;
     border-top: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 18px 18px 0 0;
+    box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.6);
     background: rgba(10, 10, 10, 0.96);
     padding-bottom: env(safe-area-inset-bottom);
     z-index: 60;
@@ -1093,7 +1107,42 @@ body.live-studio-active .topbar {
   }
 }
 
-/* Share chat picker modal */
+/* Short viewports at any width — the grid already clips the studio, but every
+   pixel of chrome is a pixel taken off the stage and the forum. Geometry of the
+   forum lives in the wide-only block below so the mobile sheet is untouched. */
+@media (max-height: 620px) {
+  .live-session-header {
+    padding-top: calc(6px + var(--safe-top, 0px));
+    padding-bottom: 6px;
+  }
+  .live-session-header h3 {
+    font-size: 14px;
+  }
+  .live-video-area {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .live-participant-rail {
+    gap: 6px;
+  }
+  .live-controls-bar {
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-height: 620px) and (min-width: 769px) {
+  .live-ctrl-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .live-chat-panel {
+    top: calc(8px + var(--safe-top, 0px));
+    right: 8px;
+    bottom: 8px;
+    width: 300px;
+  }
+}
 .share-chat-item {
   display: flex;
   align-items: center;
@@ -1307,13 +1356,6 @@ body.live-studio-active .topbar {
   padding: 3px 6px;
   pointer-events: none;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-.live-ctrl-btn#live-support-btn.stage-like { color: #60a5fa; }
-.live-ctrl-btn#live-support-btn.stage-heart { color: #f472b6; }
-.live-ctrl-btn#live-support-btn.stage-bolt {
-  color: var(--gold, #fbbf24);
-  background: rgba(251, 191, 36, 0.22);
-  box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
 }
 .live-ctrl-btn#live-support-btn.pop {
   animation: live-support-pop 0.28s ease-out;

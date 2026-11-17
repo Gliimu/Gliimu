@@ -678,7 +678,7 @@ const liveView = {
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
           <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
-          ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn stage-like" id="live-support-btn" title="Support the host — G10 per tap" aria-label="Support the host, 10 Gliits per tap"><span class="live-support-ico">${ICONS.like}</span>${this._supportTappedSession === this.activeSession?.id ? '' : '<span class="live-support-cost">G10</span>'}</button>`}
+          ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn" id="live-support-btn" title="Support the host — G10 per tap" aria-label="Support the host, 10 Gliits per tap"><span class="live-support-ico">${ICONS.bolt}</span>${this._supportTappedSession === this.activeSession?.id ? '' : '<span class="live-support-cost">G10</span>'}</button>`}
           ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -1515,16 +1515,12 @@ const liveView = {
     }
   },
 
-  // The database owns the like -> heart -> bolt maths; this only mirrors the
-  // stage onto the support button. The floating reaction itself arrives over
-  // realtime, which reaches the tapper too, so nothing is drawn twice here.
+  // The database owns the like -> heart -> bolt maths and the floating stage
+  // reaction shows that stage. The button itself always shows the bolt, so a
+  // tap only gets the acknowledgement pulse.
   _setReactIcon(emoji) {
     const btn = document.getElementById('live-support-btn');
-    const ico = btn?.querySelector('.live-support-ico');
-    if (!btn || !ico || !ICONS[emoji]) return;
-    ico.innerHTML = ICONS[emoji];
-    btn.classList.remove('stage-like', 'stage-heart', 'stage-bolt');
-    btn.classList.add('stage-' + emoji);
+    if (!btn || !ICONS[emoji]) return;
     btn.classList.remove('pop');
     void btn.offsetWidth;
     btn.classList.add('pop');

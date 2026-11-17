@@ -9,8 +9,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+// CORS_EXTRA_ORIGINS is only for local development (e.g. a dev origin testing
+// uploads against a locally-run server). Render has no such variable, so
+// production behaviour is unchanged.
+const ALLOWED_ORIGINS = [
+  'https://www.gliimu.com',
+  'https://gliimu.com',
+  'https://dashboard.gliimu.com',
+  'https://admin.gliimu.com',
+  ...String(process.env.CORS_EXTRA_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
+];
+
 app.use(cors({
-  origin: ['https://www.gliimu.com', 'https://gliimu.com', 'https://dashboard.gliimu.com', 'https://admin.gliimu.com'],
+  origin: ALLOWED_ORIGINS,
   credentials: true
 }));
 
@@ -683,6 +694,13 @@ function r2S3() {
 
 const MB = 1024 * 1024;
 const MEDIA_TYPES = /^(image|video|audio)\//;
+// A chat attachment is the only member-uploaded file the app opens inside
+// itself, so its type set stays narrow on purpose: no /^text\// (that let an
+// .html file through), no svg (browsers render it, so a shared .svg would run
+// its script from the CDN origin) and no spreadsheets or slide decks, which
+// nothing in the app can preview.
+const CHAT_IMAGE_TYPES = /^image\/(p?jpeg|png|gif|webp|bmp|heic|heif|avif)$/;
+const CHAT_DOC_TYPES = /^application\/(pdf|msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/;
 // Chat and library items have always accepted documents as well as media.
 const DOC_TYPES = /^application\/(pdf|zip|x-zip-compressed|rtf|msword|epub\+zip|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.[\w.+-]+)$/;
 // Desktop and mobile installers. Deliberately narrow: nothing here is a type a
@@ -726,7 +744,11 @@ const UPLOAD_KINDS = {
   avatar:  { prefix: 'avatars/',          maxBytes: 10 * MB,  types: allows(/^image\//) },
   media:   { prefix: 'media/',            maxBytes: 500 * MB, types: allows(MEDIA_TYPES) },
   library: { prefix: 'library/',          maxBytes: 500 * MB, types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
-  chat:    { prefix: 'chat_attachments/', maxBytes: 25 * MB,  types: allows(MEDIA_TYPES, /^text\//, DOC_TYPES) },
+  // 5MB and documents limited to PDF/Word, which is what the Live forum and
+  // Ping can open. Video and audio stay allowed because Ping records voice
+  // notes and sends clips through this same kind — cutting them here would
+  // break a working feature, and a 60-second voice note is nowhere near 5MB.
+  chat:    { prefix: 'chat_attachments/', maxBytes: 5 * MB,  types: allows(CHAT_IMAGE_TYPES, /^(video|audio)\//, CHAT_DOC_TYPES) },
   // Landing page media. Gated on the admin app's role
   // system, not the legacy profiles.is_admin flag; 'super' implies it.
   site:    { prefix: 'site_assets/',      maxBytes: 50 * MB,  types: allows(/^(image|video)\//), adminRole: 'operations' },
@@ -1552,6 +1574,52 @@ app.post('/api/live/kick', async (req, res) => {
 // ==========================================
 // LIVE CHAT — In-session messaging
 // ==========================================
+// Which viewer a shared attachment needs. Keyed on the extension the upload
+// endpoint put into the R2 key, so nothing the client claims can change it.
+const CHAT_KIND_BY_EXT = {
+  jpg: 'image', jpeg: 'image', jpe: 'image', png: 'image', gif: 'image',
+  webp: 'image', bmp: 'image', heic: 'image', heif: 'image', avif: 'image',
+  pdf: 'pdf', docx: 'docx', doc: 'doc',
+  mp4: 'video', m4v: 'video', mov: 'video', webm: 'video',
+  mp3: 'audio', m4a: 'audio', wav: 'audio', ogg: 'audio', oga: 'audio',
+  aac: 'audio', opus: 'audio'
+};
+
+// A presigned key is always <ms>_<8 hex>_<sanitised name>, so the first two
+// segments are fixed and everything after the second underscore is the
+// sender's own filename, underscores included.
+const STORED_NAME_PREFIX = /^\d+_[0-9a-f]{8}_/;
+
+// Turns the attachment fields of a chat request into the three columns to
+// store, or null when they do not describe this caller's own upload. The kind
+// and the fallback name are read back out of the key rather than taken from
+// the body, so a message can never claim to be an image while pointing
+// somewhere else.
+function readChatAttachment(rawUrl, rawName, userId) {
+  if (!R2.publicBase) return null;
+  const url = String(rawUrl || '');
+  const ownPrefix = R2.publicBase + '/chat_attachments/' + userId + '/';
+  if (!url.startsWith(ownPrefix) || url.length > 600) return null;
+
+  const key = url.slice(ownPrefix.length).split('?')[0].split('#')[0];
+  const ext = key.includes('.') ? key.split('.').pop().toLowerCase() : '';
+  const type = CHAT_KIND_BY_EXT[ext];
+  if (!type) return null;
+
+  // Control characters and path separators go; spaces stay, because the point
+  // of keeping a name is that it reads like the file the sender chose.
+  const stored = key.replace(STORED_NAME_PREFIX, '') || key;
+  let given = '';
+  for (const ch of String(rawName || '')) {
+    const code = ch.charCodeAt(0);
+    if (code < 32 || code === 127 || ch === '/' || ch === '\\') continue;
+    given += ch;
+  }
+  given = given.replace(/\s+/g, ' ').trim().slice(0, 120);
+
+  return { url, type, name: given || stored };
+}
+
 // Send a chat message in a live room
 app.post('/api/live/chat', async (req, res) => {
   try {
@@ -1564,8 +1632,19 @@ app.post('/api/live/chat', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    const { roomId, content, attachment_url, attachment_type } = req.body || {};
+    const { roomId, content, attachment_url, attachment_name } = req.body || {};
     if (!roomId || (!content && !attachment_url)) return res.status(400).json({ error: 'Missing roomId or content/attachment.' });
+
+    // An attachment is only accepted when it is a file this same member just
+    // uploaded through /api/upload/presign. The key is minted under
+    // chat_attachments/<their own id>/, so requiring that prefix means a room
+    // message can never point at another member's private object, an outside
+    // host, or a javascript: URL the forum would then hand to a viewer.
+    let attachment = null;
+    if (attachment_url) {
+      attachment = readChatAttachment(attachment_url, attachment_name, authData.user.id);
+      if (!attachment) return res.status(400).json({ error: 'That attachment is not a file you uploaded.' });
+    }
 
     // Verify room exists and is open for conversation (announced or on air)
     const { data: room, error: roomError } = await supabaseAdmin
@@ -1583,8 +1662,9 @@ app.post('/api/live/chat', async (req, res) => {
       room_id: roomId,
       user_id: authData.user.id,
       content: content ? content.slice(0, 1000) : null,
-      attachment_url: attachment_url || null,
-      attachment_type: attachment_type || null
+      attachment_url: attachment ? attachment.url : null,
+      attachment_type: attachment ? attachment.type : null,
+      attachment_name: attachment ? attachment.name : null
     };
     const { data: message, error: insertError } = await supabaseAdmin
       .from('live_chat_messages')

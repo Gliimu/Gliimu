@@ -7,7 +7,7 @@ const routes = {
   '/wallet': () => import('./views/billing.js?v=52').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=11').then(m => m.default),
   '/terms': () => import('./views/terms.js?v=1').then(m => m.default),
-  '/live': () => import('./views/live.js?v=61').then(m => m.default),
+  '/live': () => import('./views/live.js?v=62').then(m => m.default),
   '/publish': () => import('./views/publish.js?v=29').then(m => m.default),
   '/support': () => { window.location.hash = '#/ping'; return Promise.resolve({ title: 'Ping', template: '', init() {}, destroy() {} }); },
   '/profile': () => import('./views/profile.js?v=105').then(m => m.default),
@@ -173,14 +173,9 @@ export async function router() {
   // 1. Intercept Navigation if Live Session is Active
   // Navigating to /live never prompts — the session continues on that page.
   if (path !== '/live' && window.liveInstance && window.liveInstance.isLiveActive && window.liveInstance.isLiveActive()) {
-    // A call mounted inside the reader is torn down by that page on exit, so
-    // navigation from it is never a forced end.
-    if (window.liveInstance.isEmbedded && window.liveInstance.isEmbedded()) {
-      // Fall through — let navigation happen normally
-    } else if (window.liveInstance.isMinimized && window.liveInstance.isMinimized()) {
-      // If minimized, allow navigation without ending the session
-      // Fall through — let navigation happen normally
-    } else {
+    // A minimized session is already out of the way, so it never blocks a page
+    // change. Only a studio that is on screen asks first.
+    if (!(window.liveInstance.isMinimized && window.liveInstance.isMinimized())) {
       if (!await appConfirm("Do you want to leave the live session?", { okText: 'Leave', danger: true })) {
         history.replaceState(null, '', urlFor(previousTarget));
         return;
