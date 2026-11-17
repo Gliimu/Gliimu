@@ -2,7 +2,7 @@ import hubView from './gliims.js?v=132';
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, badgeIcon } from '../store.js?v=3';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=2';
-import { createSearchEngine } from '../search-engine.js?v=2';
+import { createSearchEngine } from '../search-engine.js?v=3';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -15,6 +15,7 @@ function escapeHtml(value) {
 
 const LIVE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"></path></svg>';
 const PUBLISH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+const COMPASS_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>';
 
 const feedView = {
   title: 'XpLoRe',
@@ -352,7 +353,7 @@ feedView.template = `
       <div class="hub-top-band" id="hub-top-band">
         <div class="xplore-tab-row">
           <div class="hub-category-tabs" id="hub-category-tabs" aria-label="XpLoRe sections">
-            <button class="hub-category-tab active" data-category="all">XpLoRe</button>
+            <button class="hub-category-tab active" data-category="all">${COMPASS_ICON}<span>XpLoRe</span></button>
             <button class="hub-category-tab" data-category="collections">Collections</button>
             <button class="hub-category-tab" data-category="saved">Saved</button>
           </div>

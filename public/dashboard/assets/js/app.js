@@ -1,6 +1,6 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=236';
-import { initPullToRefresh } from './pull-to-refresh.js?v=24';
+import { router } from './router.js?v=237';
+import { initPullToRefresh } from './pull-to-refresh.js?v=25';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
@@ -248,8 +248,6 @@ function renderOfflineNotice() {
     </div>`;
 }
 
-const COHORT_CLOSE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"></path></svg>';
-
 function closeCohortModal() {
   document.getElementById('cohort-modal')?.remove();
 }
@@ -267,7 +265,6 @@ async function showCohortModal() {
     backdrop.id = 'cohort-modal';
     backdrop.innerHTML = `
       <section class="cohort-modal" role="dialog" aria-modal="true" aria-labelledby="cohort-modal-title">
-        <button type="button" class="cohort-modal-close" data-cohort-close aria-label="Close cohort">${COHORT_CLOSE_ICON}</button>
         <div class="cohort-modal-head">
           <p class="cohort-modal-kicker">Current cohort</p>
           <h2 class="cohort-modal-title" id="cohort-modal-title">${escapeHtml(cohort.title || '')}</h2>
@@ -278,7 +275,10 @@ async function showCohortModal() {
             ? `<img class="cohort-modal-avatar" src="${escapeHtml(member.avatar_url)}" alt="${escapeHtml(member.full_name || '')}" title="${escapeHtml(member.full_name || '')}">`
             : `<span class="cohort-modal-avatar" role="img" aria-label="${escapeHtml(member.full_name || '')}"></span>`}
         `).join('')}</div>` : ''}
-        <button type="button" class="btn-primary cohort-modal-apply" data-cohort-apply>Apply</button>
+        <div class="cohort-modal-actions">
+          <button type="button" class="btn-secondary cohort-modal-cancel" data-cohort-close>Cancel</button>
+          <button type="button" class="btn-primary cohort-modal-apply" data-cohort-apply>Apply</button>
+        </div>
       </section>`;
     document.body.appendChild(backdrop);
 

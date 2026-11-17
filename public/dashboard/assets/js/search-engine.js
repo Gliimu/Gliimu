@@ -53,7 +53,7 @@ export function createSearchEngine({ feedView, embedded = false, actionsHtml = '
           <div class="search-command-row">
             <div class="search-field">
               <div class="search-box">
-                <span class="search-box-icon">${SEARCH_ICON}</span>
+                <span class="search-box-icon">${SEARCH_ICON}<img class="search-box-mark" src="/icons/icon.png" alt="" aria-hidden="true"></span>
                 <input id="${ids.input}" class="search-input" type="text" autocomplete="off"
                        placeholder="Search gliims, people, collections" aria-label="Search Gliimu"
                        role="combobox" aria-expanded="false" aria-controls="${ids.suggest}"

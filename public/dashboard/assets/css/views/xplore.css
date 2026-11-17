@@ -161,6 +161,12 @@
   .libmerge.hub-layout { padding-top: 0; padding-left: 16px; padding-right: 16px; }
   .xplore-command { padding-top: calc(8px + var(--safe-top)); }
 }
+/* The feed is the last thing on the page, so it must not keep the Hub's 100px
+   bottom slab (gliims.css). On phones that slab stacked on top of the fixed
+   bottom bar's own room and read as a screen of blank under the final card.
+   .view-container's bottom padding is the whole gap now. */
+.view-xplore .libmerge.hub-layout,
+.view-feed .libmerge.hub-layout { padding-bottom: 0; }
 /* True Pinterest masonry: rows are 8px slices and each item spans exactly its
    own height (set by JS), so short tiles pack tight under tall cards instead
    of leaving a row-sized gap. Vertical spacing is baked into each span. */
@@ -745,13 +751,13 @@
 
 .hub-top-band {
   position: sticky;
-  top: 0;
+  /* The safe-area strip above the page is painted by .view-container::before
+     at z-index 900, so a band stuck to top:0 slid under it and lost most of
+     its height on a notched phone. --safe-top is 0 on desktop. */
+  top: var(--safe-top);
   z-index: 150;
   background: var(--bg-tertiary);
   margin: 0 -16px 16px;
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 .hub-top-band[hidden],
 #library-feed[hidden],
@@ -774,6 +780,12 @@
   padding: 0;
   overflow: visible;
 }
+.xplore-tab-row .hub-category-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.xplore-tab-row .hub-category-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
 .xplore-ring {
   display: flex;
   flex: 0 0 auto;
@@ -833,7 +845,6 @@
   box-shadow: var(--shadow-lg);
   color: var(--text-primary);
 }
-.cohort-modal-head { padding-right: 42px; }
 .cohort-modal-kicker {
   margin: 0 0 8px;
   color: var(--brand-primary);
@@ -843,23 +854,6 @@
   text-transform: uppercase;
 }
 .cohort-modal-title { margin: 0; font-size: 25px; line-height: 1.25; }
-.cohort-modal-close {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-.cohort-modal-close:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
 .cohort-modal-description {
   margin: 18px 0 0;
   color: var(--text-secondary);
@@ -877,8 +871,22 @@
   object-fit: cover;
   background: var(--bg-tertiary);
 }
-.cohort-modal-apply { width: 100%; margin-top: 26px; }
+.cohort-modal-actions { display: flex; gap: 10px; margin-top: 26px; }
+/* Both buttons come from the shared .btn-primary / .btn-secondary box so they
+   are the same height by construction; only the pill shape and the fixed
+   Cancel width are added here. */
+.cohort-modal-apply {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: var(--radius-full);
+}
 .cohort-modal-apply:disabled { opacity: .65; cursor: default; }
+.cohort-modal-cancel {
+  flex: 0 0 auto;
+  min-width: 116px;
+  border-radius: var(--radius-full);
+}
+.cohort-modal-cancel:hover { border-color: var(--border-strong); background: var(--surface-hover); }
 
 @media (max-width: 560px) {
   .xplore-actions { gap: 6px; }

@@ -64,11 +64,26 @@
   left: 0;
   height: 100vh;
   width: 64px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border);
+  /* The page behind the rail is already a light grey, so a pale rail had no
+     edge to hold on to. In light mode the rail is a dark slab and everything
+     on it reads in white; dark mode keeps the theme's own surface. */
+  --rail-bg: #2B313B;
+  --rail-line: rgba(255, 255, 255, .14);
+  --rail-hover: rgba(255, 255, 255, .1);
+  --rail-fg: rgba(255, 255, 255, .82);
+  --rail-fg-strong: #FFFFFF;
+  background: var(--rail-bg);
+  border-right: 1px solid var(--rail-line);
   display: flex;
   flex-direction: column;
   z-index: 10000;
+}
+[data-theme="dark"] .sidebar {
+  --rail-bg: var(--bg-secondary);
+  --rail-line: var(--border);
+  --rail-hover: var(--surface-hover);
+  --rail-fg: var(--text-secondary);
+  --rail-fg-strong: var(--text-primary);
 }
 
 .main-content {
@@ -79,7 +94,7 @@
 
 .sidebar-header {
   padding: var(--space-6);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--rail-line);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -119,7 +134,7 @@
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
   line-height: 1;
-  color: var(--text-primary);
+  color: var(--rail-fg-strong);
 }
 
 .nav-section { margin-bottom: var(--space-6); }
@@ -128,7 +143,7 @@
   margin-top: auto;
   margin-bottom: 0;
   padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--rail-line);
 }
 
 .nav-label {
@@ -147,7 +162,7 @@
   align-items: center;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  color: var(--rail-fg);
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   text-decoration: none;
@@ -155,7 +170,7 @@
   transition: all var(--transition-fast);
 }
 
-.nav-item:hover { background: var(--surface-hover); color: var(--text-primary); }
+.nav-item:hover { background: var(--rail-hover); color: var(--rail-fg-strong); }
 .nav-item.active { background: var(--brand-primary-light); color: var(--brand-primary); font-weight: var(--fw-semibold); }
 
 /* Sidebar Icon Alignment */
@@ -173,7 +188,7 @@
   font-family: var(--font-sans);
   text-align: left;
 }
-.nav-item--account.is-open { background: var(--surface-hover); color: var(--text-primary); }
+.nav-item--account.is-open { background: var(--rail-hover); color: var(--rail-fg-strong); }
 
 .nav-avatar {
   position: relative;
@@ -218,7 +233,7 @@
   display: none;
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
-  color: var(--text-muted);
+  color: var(--rail-fg);
   letter-spacing: var(--ls-widest);
   text-transform: uppercase;
   text-align: left;
@@ -232,18 +247,18 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
   text-decoration: none;
-  color: var(--text-secondary);
+  color: var(--rail-fg);
   transition: background var(--transition-fast);
 }
-.rail-person:hover { background: var(--surface-hover); color: var(--text-primary); }
+.rail-person:hover { background: var(--rail-hover); color: var(--rail-fg-strong); }
 
 .rail-person-avatar {
   width: 30px;
   height: 30px;
   border-radius: var(--radius-full);
   object-fit: cover;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
+  background: var(--rail-hover);
+  border: 1px solid var(--rail-line);
   flex-shrink: 0;
 }
 .rail-person-name {
@@ -266,7 +281,7 @@
   text-align: center;
   cursor: pointer;
 }
-.team-up-person[aria-expanded="true"] { background: var(--surface-hover); color: var(--text-primary); }
+.team-up-person[aria-expanded="true"] { background: var(--rail-hover); color: var(--rail-fg-strong); }
 
 .sidebar-account {
   display: flex;
@@ -274,7 +289,7 @@
   flex-shrink: 0;
   margin-top: auto;
   padding: var(--space-2);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--rail-line);
 }
 .sidebar-account .nav-item { margin-bottom: 0; }
 
@@ -293,6 +308,10 @@
   pointer-events: none;
 }
 .unread-dot[hidden] { display: none; }
+
+/* The dot's ring must match whatever it sits on. On the rail that is the dark
+   slab, not the page surface — and the bottom-bar dot keeps its own light ring. */
+.sidebar .unread-dot { border-color: var(--rail-bg); }
 
 /* ============================================
    BOTTOM BAR — three equal tabs, only under 769px
@@ -398,11 +417,17 @@
   gap: 8px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 2px 2px 6px;
 }
+.team-dropup-list::-webkit-scrollbar { display: none; }
 .team-dropup-person {
   flex: 0 0 58px;
+  /* Without this the automatic minimum size of a flex item is its min-content
+     width, so one long unbroken name pushed the whole slot past 58px and the
+     row stopped lining up. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;

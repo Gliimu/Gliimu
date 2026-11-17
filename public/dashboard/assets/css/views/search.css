@@ -54,6 +54,15 @@
 }
 .search-box:focus-within { border-color: var(--border-focus); }
 .search-box-icon { display: flex; flex-shrink: 0; color: var(--text-muted); }
+/* On phones the engine wears the Gliimu plate instead of a magnifier. The
+   artwork ships dark, so light mode inverts it — same treatment as the
+   bottom bar's logo. */
+.search-box-mark { display: none; width: 22px; height: 22px; object-fit: contain; filter: invert(1); }
+[data-theme="dark"] .search-box-mark { filter: none; }
+@media (max-width: 768px) {
+  .search-box-icon svg { display: none; }
+  .search-box-icon .search-box-mark { display: block; }
+}
 .search-input {
   flex: 1;
   min-width: 0;
@@ -263,9 +272,13 @@
 .search-page.search-embedded .search-box {
   height: 44px;
   padding: 0 var(--space-4);
-  border-color: var(--border);
-  box-shadow: var(--shadow-sm);
+  /* The command sits on the page itself, so it carries no outline — including
+     while it has focus, which is when the old ring and shadow were loudest.
+     The 1px stays (transparent) so the box keeps its exact height. */
+  border-color: transparent;
+  box-shadow: none;
 }
+.search-page.search-embedded .search-box:focus-within { border-color: transparent; }
 .search-page.search-embedded .search-input { font-size: 15px; font-weight: 500; }
 .search-page.search-embedded .search-history {
   display: none;
