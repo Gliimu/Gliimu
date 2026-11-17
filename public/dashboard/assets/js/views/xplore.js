@@ -2,7 +2,7 @@ import hubView from './gliims.js?v=132';
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, badgeIcon } from '../store.js?v=3';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=2';
-import { createSearchEngine } from '../search-engine.js?v=3';
+import { createSearchEngine } from '../search-engine.js?v=4';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -339,6 +339,10 @@ const feedView = {
 const search = createSearchEngine({
   feedView,
   embedded: true,
+  collapsible: true,
+  leadingHtml: `<a class="xplore-brand" href="/xplore" aria-label="Gliimu home">
+    <img src="/icons/icon.png" alt="" aria-hidden="true"><span>liimu</span>
+  </a>`,
   actionsHtml: `<nav class="xplore-actions" aria-label="Create and live">
     <a class="xplore-action" href="/live">${LIVE_ICON}<span>Live</span></a>
     <a class="xplore-action xplore-action-primary" href="/publish">${PUBLISH_ICON}<span>Publish</span></a>

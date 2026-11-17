@@ -749,6 +749,53 @@
 }
 .xplore-action-primary:hover { color: var(--brand-text, #fff); filter: brightness(1.05); }
 
+/* The row is the wordmark on the left and the three buttons on the right; the
+   search field only exists between them once it has been opened. */
+.xplore-command .search-command-row { gap: 8px; }
+
+/* The rail's mark at header size: the plate with "liimu" pulled 8.4% of its own
+   width back over the right edge. Here the plate does the opposite of the rail's
+   — the page ground is light in the light theme and the word's ink is the page's
+   own text colour, so an un-inverted plate would swallow the "l" in dark ink on
+   dark artwork. Same rule as the landing hero. */
+.xplore-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  max-width: 96px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: max-width .28s ease, opacity .18s ease;
+}
+.xplore-brand img { width: 26px; height: 26px; display: block; flex-shrink: 0; filter: invert(1); }
+[data-theme="dark"] .xplore-brand img { filter: none; }
+.xplore-brand span {
+  margin-left: calc(26px * -0.084);
+  font-size: 19px;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-tight);
+  line-height: 1;
+  white-space: nowrap;
+}
+.xplore-command .search-page.is-open .xplore-brand,
+.xplore-command .search-page.is-active .xplore-brand { max-width: 0; opacity: 0; }
+
+/* The engine's own button wears the same pill as Live and Publish. */
+.xplore-command .search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.xplore-command .search-toggle:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.xplore-command .search-toggle svg { width: 18px; height: 18px; }
+
 .hub-top-band {
   position: sticky;
   /* The safe-area strip above the page is painted by .view-container::before
@@ -890,8 +937,10 @@
 
 @media (max-width: 560px) {
   .xplore-actions { gap: 6px; }
+  .xplore-command .search-trailing { gap: 6px; }
   .xplore-action { width: 40px; height: 40px; padding: 0; }
   .xplore-action span { display: none; }
+  .xplore-command .search-toggle { width: 40px; height: 40px; }
   .xplore-command .search-box { height: 40px; }
   .xplore-tab-row { gap: 10px; padding: 10px 16px; }
   .cohort-modal-backdrop { padding: 16px; }

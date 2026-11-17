@@ -54,15 +54,6 @@
 }
 .search-box:focus-within { border-color: var(--border-focus); }
 .search-box-icon { display: flex; flex-shrink: 0; color: var(--text-muted); }
-/* On phones the engine wears the Gliimu plate instead of a magnifier. The
-   artwork ships dark, so light mode inverts it — same treatment as the
-   bottom bar's logo. */
-.search-box-mark { display: none; width: 22px; height: 22px; object-fit: contain; filter: invert(1); }
-[data-theme="dark"] .search-box-mark { filter: none; }
-@media (max-width: 768px) {
-  .search-box-icon svg { display: none; }
-  .search-box-icon .search-box-mark { display: block; }
-}
 .search-input {
   flex: 1;
   min-width: 0;
@@ -300,3 +291,46 @@
 .search-page.search-embedded .search-stage:focus-within .search-history:not(:empty) {
   display: grid;
 }
+
+/* ------------------------------- collapsible -------------------------------- */
+/* Hosts that keep the engine behind an icon. The field is not on screen until
+   it is asked for, so the row's two ends hold apart — and because space-between
+   splits the leftover between every pair, the button travels with the host's
+   own actions inside .search-trailing rather than drifting to the middle.
+   max-width is the animated property on purpose: flex-basis cannot interpolate
+   to auto, and a percentage would not interpolate with zero. The host's leading
+   element is what gives the space back when the field opens. */
+.search-page.search-collapsible .search-command-row { justify-content: space-between; }
+.search-page.search-collapsible .search-field {
+  max-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: max-width .28s ease, opacity .16s ease, visibility 0s linear .28s;
+}
+.search-page.search-collapsible.is-open .search-field,
+.search-page.search-collapsible.is-active .search-field {
+  max-width: 100vw;
+  opacity: 1;
+  visibility: visible;
+  transition: max-width .28s ease, opacity .2s ease .08s, visibility 0s;
+}
+.search-trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+button.search-toggle {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.search-toggle span { display: flex; align-items: center; justify-content: center; }
+.search-toggle .search-toggle-close { display: none; }
+.search-page.search-collapsible.is-open .search-toggle .search-toggle-close,
+.search-page.search-collapsible.is-active .search-toggle .search-toggle-close { display: flex; }
+.search-page.search-collapsible.is-open .search-toggle .search-toggle-open,
+.search-page.search-collapsible.is-active .search-toggle .search-toggle-open { display: none; }

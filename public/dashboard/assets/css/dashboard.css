@@ -118,12 +118,20 @@
 
 /* The landing's wordmark: the G plate with "liimu" pulled back over its right
    edge by 8.4% of the plate width, so the two read as one mark. The rail keeps
-   the plate alone; the word only exists in the expanded state. The artwork
-   ships dark, and the light theme inverts it so the overlapping "l" never
-   lands dark-on-dark — same treatment as the landing's hero mark. */
+   the plate alone; the word only exists in the expanded state. Unlike the
+   landing hero, the rail is dark in both themes and its word is always white,
+   so the plate must never invert here: an inverted plate is a white tile, and
+   the white "l" that overlaps it vanished into it. The plate is only a few
+   points off the slab's own value, so the mark is drawn out of the rail by its
+   own outline — the rail's shared hairline is too faint to hold a 32px tile. */
 .brand-logo { display: flex; align-items: center; text-decoration: none; }
-.brand-logo img { width: 32px; height: 32px; display: block; filter: invert(1); }
-[data-theme="dark"] .brand-logo img { filter: none; }
+.brand-logo img {
+  width: 32px;
+  height: 32px;
+  display: block;
+  border-radius: 22%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
 .brand-word {
   position: relative;
   z-index: 1;
@@ -376,19 +384,6 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
-
-.bottom-mark {
-  width: 22px;
-  height: 22px;
-  display: block;
-}
-.bottom-logo {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-  filter: invert(1);
-}
-[data-theme="dark"] .bottom-logo { filter: none; }
 
 .bottom-item .nav-avatar { margin-right: 0; }
 .nav-avatar--sm { width: 22px; height: 22px; }

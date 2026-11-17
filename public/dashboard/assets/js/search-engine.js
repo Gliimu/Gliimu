@@ -35,10 +35,20 @@ function markMatch(text, needle) {
 
 // The standalone Search route and XpLoRe share this engine. The host supplies
 // feed behavior so this module never needs to import the view that embeds it.
-export function createSearchEngine({ feedView, embedded = false, actionsHtml = '', onStateChange = null }) {
+// collapsible hosts show the field only after the search button is used, so
+// they also supply the markup that sits at the row's left while it is closed.
+export function createSearchEngine({
+  feedView,
+  embedded = false,
+  collapsible = false,
+  leadingHtml = '',
+  actionsHtml = '',
+  onStateChange = null
+}) {
   const scope = `search-${++searchEngineCount}`;
   const ids = {
     page: `${scope}-page`,
+    field: `${scope}-field`,
     input: `${scope}-input`,
     suggest: `${scope}-suggest`,
     history: `${scope}-history`,
@@ -48,12 +58,13 @@ export function createSearchEngine({ feedView, embedded = false, actionsHtml = '
 
   return {
     template: `
-      <div class="search-page${embedded ? ' search-embedded' : ''}" id="${ids.page}">
+      <div class="search-page${embedded ? ' search-embedded' : ''}${collapsible ? ' search-collapsible' : ''}" id="${ids.page}">
         <div class="search-stage">
           <div class="search-command-row">
-            <div class="search-field">
+            ${leadingHtml}
+            <div class="search-field" id="${ids.field}">
               <div class="search-box">
-                <span class="search-box-icon">${SEARCH_ICON}<img class="search-box-mark" src="/icons/icon.png" alt="" aria-hidden="true"></span>
+                <span class="search-box-icon">${SEARCH_ICON}</span>
                 <input id="${ids.input}" class="search-input" type="text" autocomplete="off"
                        placeholder="Search gliims, people, collections" aria-label="Search Gliimu"
                        role="combobox" aria-expanded="false" aria-controls="${ids.suggest}"
@@ -62,7 +73,14 @@ export function createSearchEngine({ feedView, embedded = false, actionsHtml = '
               </div>
               <div class="search-suggest" id="${ids.suggest}" role="listbox" hidden></div>
             </div>
-            ${actionsHtml}
+            ${collapsible ? `<div class="search-trailing">
+              <button type="button" class="search-toggle" data-search-toggle
+                      aria-expanded="false" aria-controls="${ids.field}" aria-label="Search">
+                <span class="search-toggle-open">${SEARCH_ICON}</span>
+                <span class="search-toggle-close">${CLOSE_ICON}</span>
+              </button>
+              ${actionsHtml}
+            </div>` : actionsHtml}
           </div>
           <div class="search-history" id="${ids.history}"></div>
         </div>
@@ -76,15 +94,23 @@ export function createSearchEngine({ feedView, embedded = false, actionsHtml = '
       if (!this.page) return;
       this.input = this.page.querySelector(`#${ids.input}`);
       this.body = this.page.querySelector(`#${ids.body}`);
-      this.field = this.page.querySelector('.search-field');
+      this.field = this.page.querySelector(`#${ids.field}`);
       this.suggest = this.page.querySelector(`#${ids.suggest}`);
       this.history = this.page.querySelector(`#${ids.history}`);
+      this.toggle = this.page.querySelector('[data-search-toggle]');
       this.term = '';
       this.requestId = (this.requestId || 0) + 1;
       this.suggestId = (this.suggestId || 0) + 1;
       this.items = [];
       this.active = -1;
       this.disposed = false;
+
+      if (this.toggle) {
+        this.toggle.addEventListener('click', () => {
+          if (this.isOpen() || this.isActive()) this.closeSearch();
+          else this.openSearch();
+        });
+      }
 
       this.input.addEventListener('input', () => {
         this.syncClear();
@@ -211,6 +237,28 @@ export function createSearchEngine({ feedView, embedded = false, actionsHtml = '
       return Boolean(this.page?.classList.contains('is-active'));
     },
 
+    isOpen() {
+      return Boolean(this.page?.classList.contains('is-open'));
+    },
+
+    /* ------------------------------ collapsible ------------------------------ */
+    /* The field is only on screen once it has been asked for. Opening focuses it
+       so a phone keyboard comes up with it; closing throws away the term as well,
+       because a hidden box cannot be the thing still holding the results. */
+
+    openSearch() {
+      this.page.classList.add('is-open');
+      if (this.toggle) this.toggle.setAttribute('aria-expanded', 'true');
+      this.input.focus();
+    },
+
+    closeSearch() {
+      this.page.classList.remove('is-open');
+      if (this.toggle) this.toggle.setAttribute('aria-expanded', 'false');
+      if (this.term || this.input.value) this.setIdle(false);
+      else this.input.blur();
+    },
+
     notifyState() {
       if (onStateChange) onStateChange({ active: this.isActive(), term: this.term });
     },
@@ -232,7 +280,8 @@ export function createSearchEngine({ feedView, embedded = false, actionsHtml = '
       }
       if (event.key === 'Escape') {
         event.preventDefault();
-        this.closeSuggest();
+        if (!this.suggest.hidden) this.closeSuggest();
+        else if (this.toggle) this.closeSearch();
       }
     },
 
