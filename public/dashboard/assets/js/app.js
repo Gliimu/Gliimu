@@ -1,12 +1,12 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=231';
-import { initPullToRefresh } from './pull-to-refresh.js?v=21';
+import { router } from './router.js?v=232';
+import { initPullToRefresh } from './pull-to-refresh.js?v=22';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=6';
-import { initAccountMenu } from './account-menu.js?v=6';
-import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=1';
+import { initAccountMenu } from './account-menu.js?v=7';
+import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=2';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
@@ -234,6 +234,7 @@ function initSidebarAutoClose() {
     if (!toggle) return;
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-label', 'Expand menu');
+    toggle.setAttribute('title', 'Expand menu');
   };
 
   // Navigating from the rail slides it back to icon width

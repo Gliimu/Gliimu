@@ -3,7 +3,7 @@ const routes = {
   '/search': () => import('./views/search.js?v=22').then(m => m.default),
   '/xplore': () => import('./views/xplore.js?v=127').then(m => m.default),
   '/feed': () => import('./views/xplore.js?v=127').then(m => m.default),
-  '/ping': () => import('./views/ping.js?v=72').then(m => m.default),
+  '/ping': () => import('./views/ping.js?v=73').then(m => m.default),
   '/wallet': () => import('./views/billing.js?v=52').then(m => m.default),
   '/settings': () => import('./views/settings.js?v=11').then(m => m.default),
   '/terms': () => import('./views/terms.js?v=1').then(m => m.default),
@@ -19,8 +19,8 @@ const routes = {
 // Routes with no tab of their own borrow another tab's highlight
 const NAV_ALIAS = { '/feed': '/xplore', '/post': '/xplore', '/read': '/xplore', '/collection': '/xplore' };
 
-// Pages outside the logo and Billing navigation open with their own title plus
-// one arrow back. XpLoRe is excluded because its logo line is its header; the
+// Pages outside the main navigation open with their own title plus one arrow
+// back. XpLoRe is excluded because its logo line is its header; the
 // reader and the collection page render their own bar. The old topbar is hidden
 // at both breakpoints, which is why this lives in the router instead.
 const PAGE_TITLES = {

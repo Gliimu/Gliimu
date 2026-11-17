@@ -21,10 +21,8 @@
 }
 @media (max-width: 768px) {
   :root {
-    /* The pill is 48px tall and floats 10px off the bottom, so its top edge sits
-       58px above the edge. Reserve exactly that; the container's own bottom
-       padding then adds the breathing gap instead of doubling up. */
-    --bottom-bar-h: calc(58px + env(safe-area-inset-bottom));
+    /* The 56px centre button plus bar padding floats 10px off the bottom. */
+    --bottom-bar-h: calc(80px + env(safe-area-inset-bottom));
     --pad-x: 8px;
     --pad-top: calc(16px + var(--safe-top));
   }
@@ -83,7 +81,7 @@
   padding: var(--space-6);
   border-bottom: 1px solid var(--border);
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   flex-shrink: 0;
   height: 80px;
@@ -123,8 +121,6 @@
   line-height: 1;
   color: var(--text-primary);
 }
-
-.sidebar-nav { flex: 0; padding: var(--space-4); overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-start; }
 
 .nav-section { margin-bottom: var(--space-6); }
 
@@ -202,17 +198,17 @@
   height: 10px;
 }
 
-/* Team-up avatars (wide screens only) */
+/* Team avatars (wide screens only) */
 .rail-people {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
   padding: var(--space-3) var(--space-2);
-  margin-top: auto;
+  margin-top: 0;
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  flex-shrink: 1;
   min-height: 0;
 }
 .rail-people::-webkit-scrollbar { display: none; }
@@ -223,8 +219,8 @@
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
   color: var(--text-muted);
-  text-transform: uppercase;
   letter-spacing: var(--ls-widest);
+  text-align: center;
   padding: 0 var(--space-2) var(--space-2);
 }
 
@@ -251,11 +247,13 @@
 }
 .rail-person-name {
   display: none;
+  max-width: 100%;
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
   min-width: 0;
 }
 
@@ -264,37 +262,40 @@
   border: 0;
   background: transparent;
   font: inherit;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
 }
 .team-up-person[aria-expanded="true"] { background: var(--surface-hover); color: var(--text-primary); }
 
 .sidebar-account {
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  margin-top: auto;
   padding: var(--space-2);
   border-top: 1px solid var(--border);
 }
 .sidebar-account .nav-item { margin-bottom: 0; }
 
-/* Rail toggle — pinned to the bottom of the sidebar */
 .rail-toggle {
   flex-shrink: 0;
-  width: 100%;
-  height: 44px;
+  align-self: center;
+  width: 32px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 2px;
+  padding: 0;
   background: transparent;
   border: none;
-  border-top: 1px solid var(--border);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .rail-toggle:hover { background: var(--surface-hover); color: var(--text-primary); }
 .rail-toggle svg { flex-shrink: 0; }
-/* The word only fits once the rail is wide enough to hold it */
-.rail-toggle-label { display: none; }
 
 /* Unread indicator — rides the nav row it belongs to (Ping) and the profile
    avatar, which carries alerts on every screen */
@@ -313,36 +314,36 @@
 .unread-dot[hidden] { display: none; }
 
 /* ============================================
-   BOTTOM BAR — a floating pill, the whole navigation under 769px
+   BOTTOM BAR — three overlapping controls under 769px
    ============================================ */
 .bottom-bar {
   display: none;
   position: fixed;
   bottom: calc(10px + env(safe-area-inset-bottom));
-  left: 14px;
-  right: 14px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 9000;
-  /* Translucent so the feed keeps scrolling under it, the way Pinterest's bar
-     reads; the blur keeps the icons legible over whatever passes behind. */
+  width: max-content;
+  max-width: calc(100vw - 28px);
   background: color-mix(in srgb, var(--surface) 84%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
   backdrop-filter: blur(18px) saturate(180%);
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
-  padding: 6px 8px;
+  padding: 6px 10px;
   box-shadow: 0 8px 26px rgba(15, 23, 42, 0.16);
 }
 
 .bottom-item {
   position: relative;
-  flex: 1;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
   min-width: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 6px 2px;
+  padding: 0;
   border: none;
   background: transparent;
   border-radius: var(--radius-full);
@@ -352,33 +353,54 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.bottom-item:active { background: var(--surface-hover); }
+.bottom-item--team,
+.bottom-item--home {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+.bottom-item--team,
+.bottom-item--account { z-index: 1; }
+.bottom-item--home {
+  z-index: 3;
+  flex-basis: 56px;
+  width: 56px;
+  height: 56px;
+  margin: 0 -8px;
+}
+.bottom-item--team:active,
+.bottom-item--home:active { background: var(--surface-hover); }
 .bottom-item.active { color: var(--brand-primary); }
+.bottom-item--home.active { border-color: var(--brand-primary); }
 
-/* The XpLoRe slot carries the Gliimu app icon instead of the compass. The tile is
-   dark, so on the dark bar it needs a hairline ring of its own to stay readable. */
 .bottom-mark {
-  width: 21px;
-  height: 21px;
-  border-radius: 5px;
-  object-fit: cover;
+  width: 20px;
+  height: 20px;
   display: block;
 }
-[data-theme="dark"] .bottom-mark { outline: 1px solid rgba(255,255,255,.22); outline-offset: -1px; }
+.bottom-logo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: invert(1);
+}
+[data-theme="dark"] .bottom-logo { filter: none; }
 
-/* The last slot is your face and it opens the account menu, so it is sized to
-   match the icons around it rather than to look like a profile picture. */
 .bottom-item .nav-avatar { margin-right: 0; }
-.nav-avatar--sm { width: 24px; height: 24px; }
-.bottom-item .nav-avatar .unread-dot { top: -1px; right: -1px; width: 9px; height: 9px; }
-.bottom-label { font-size: 10px; line-height: 1; font-weight: var(--fw-medium); }
+.nav-avatar--sm { width: 32px; height: 32px; }
+.bottom-item--account .nav-avatar {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-full);
+}
+.bottom-item--account.is-open .nav-avatar { border-color: var(--brand-primary); }
+.bottom-item .nav-avatar .unread-dot { top: -3px; right: -3px; width: 9px; height: 9px; }
 .bottom-item.is-open { color: var(--brand-primary); }
 
 .team-dropup {
   position: fixed;
   left: 14px;
   right: 14px;
-  bottom: calc(72px + env(safe-area-inset-bottom));
+  bottom: calc(90px + env(safe-area-inset-bottom));
   z-index: 10040;
   padding: 10px;
   background: var(--surface);
@@ -852,14 +874,15 @@ html { overscroll-behavior-y: none; }
     width: auto;
   }
 
-  .sidebar-header { padding: var(--space-4) 0; justify-content: center; }
+  .sidebar-header { padding: var(--space-4) 3px; justify-content: center; }
+  .rail-toggle { width: 32px; }
   .brand-logo-rect { display: none; }
   .brand-logo-square { display: block; }
-  .sidebar-nav { padding: var(--space-4) var(--space-2); }
   .nav-label, .nav-text { display: none; }
   .nav-item { justify-content: center; padding: var(--space-3) 0; }
   .nav-item svg { margin-right: 0; }
   .nav-avatar { margin-right: 0; }
+  .sidebar-account .nav-item { padding: var(--space-2) 0; }
 
   .rail-person { justify-content: center; padding: var(--space-1) 0; }
   .rail-person-avatar { width: 34px; height: 34px; }
@@ -871,9 +894,9 @@ html { overscroll-behavior-y: none; }
     box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
   }
 
-  body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: flex-start; }
+  body.sidebar-open .sidebar-header { padding: var(--space-6); justify-content: center; }
+  body.sidebar-open .rail-toggle { width: 32px; }
   body.sidebar-open .brand-word { display: inline-block; }
-  body.sidebar-open .sidebar-nav { padding: var(--space-4); }
 
   body.sidebar-open .nav-label,
   body.sidebar-open .nav-text { display: inline; }
@@ -881,13 +904,12 @@ html { overscroll-behavior-y: none; }
   body.sidebar-open .nav-item { justify-content: flex-start; padding: var(--space-3) var(--space-4); }
   body.sidebar-open .nav-item svg { margin-right: 12px; }
   body.sidebar-open .nav-avatar { margin-right: 12px; }
+  body.sidebar-open .sidebar-account .nav-item { justify-content: flex-start; padding: var(--space-2) var(--space-4); }
+  body.sidebar-open .sidebar-account .rail-toggle { align-self: flex-start; margin-left: 13px; }
 
   body.sidebar-open .rail-people-heading { display: block; }
-  body.sidebar-open .rail-person { justify-content: flex-start; padding: var(--space-1) var(--space-2); }
+  body.sidebar-open .rail-person { flex-direction: column; justify-content: center; gap: 4px; padding: var(--space-2); }
   body.sidebar-open .rail-person-name { display: block; }
-
-  body.sidebar-open .rail-toggle { justify-content: flex-start; gap: 10px; padding: 0 var(--space-4); }
-  body.sidebar-open .rail-toggle-label { display: inline; }
 }
 
 /* Mobile (768px and down) — no sidebar at all, the bottom bar is the navigation */
@@ -902,7 +924,7 @@ html { overscroll-behavior-y: none; }
   body.sidebar-open .sidebar { display: none; }
   .sidebar-backdrop { display: none; }
 
-  .bottom-bar { display: flex; align-items: stretch; gap: 2px; }
+  .bottom-bar { display: flex; align-items: center; justify-content: center; gap: 0; }
 
   /* Keep scrolling content clear of the fixed bar */
   body { padding-bottom: var(--bottom-bar-h); }

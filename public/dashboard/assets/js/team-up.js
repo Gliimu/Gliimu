@@ -58,9 +58,9 @@ function avatarHtml(member, className) {
 }
 
 function desktopHtml() {
-  return '<div class="rail-people-heading">Team-up</div>' + state.members.map(member => {
+  return '<div class="rail-people-heading">Team</div>' + state.members.map(member => {
     const name = member.full_name || '';
-    return `<button type="button" class="rail-person team-up-person" data-team-member="${member.member_id}" title="${escapeHtml(name)}" aria-label="Open Team-up actions for ${escapeHtml(name)}">
+    return `<button type="button" class="rail-person team-up-person" data-team-member="${member.member_id}" title="${escapeHtml(name)}" aria-label="Open Team actions for ${escapeHtml(name)}">
       ${avatarHtml(member, 'rail-person-avatar')}
       <span class="rail-person-name">${escapeHtml(name)}</span>
     </button>`;
@@ -68,12 +68,12 @@ function desktopHtml() {
 }
 
 function mobileHtml() {
-  if (state.loading && !state.members.length) return '<p class="team-dropup-empty">Loading Team-up…</p>';
-  if (state.error && !state.members.length) return '<p class="team-dropup-empty">Could not load Team-up. Close and reopen to retry.</p>';
+  if (state.loading && !state.members.length) return '<p class="team-dropup-empty">Loading Team…</p>';
+  if (state.error && !state.members.length) return '<p class="team-dropup-empty">Could not load Team. Close and reopen to retry.</p>';
   if (!state.members.length) return '<p class="team-dropup-empty">Add members from an ordinary chat avatar in Ping.</p>';
   return state.members.map(member => {
     const name = member.full_name || '';
-    return `<button type="button" class="team-dropup-person" data-team-member="${member.member_id}" title="${escapeHtml(name)}" aria-label="Open Team-up actions for ${escapeHtml(name)}">
+    return `<button type="button" class="team-dropup-person" data-team-member="${member.member_id}" title="${escapeHtml(name)}" aria-label="Open Team actions for ${escapeHtml(name)}">
       ${avatarHtml(member, 'team-dropup-avatar')}
       <span class="team-dropup-name">${escapeHtml(name)}</span>
     </button>`;
@@ -145,7 +145,7 @@ function openMemberMenu(trigger, memberId) {
   memberMenu.innerHTML = `
     <button type="button" class="team-member-action" role="menuitem" data-team-action="ping" data-member-id="${memberId}">${PING_ICON}<span>Ping</span></button>
     <button type="button" class="team-member-action" role="menuitem" data-team-action="gliim" data-member-id="${memberId}">${GLIIM_ICON}<span>Gliim</span></button>
-    <button type="button" class="team-member-action team-member-action--danger" role="menuitem" data-team-action="remove" data-member-id="${memberId}">${REMOVE_ICON}<span>Remove from Team-up</span></button>`;
+    <button type="button" class="team-member-action team-member-action--danger" role="menuitem" data-team-action="remove" data-member-id="${memberId}">${REMOVE_ICON}<span>Remove from Team</span></button>`;
   document.body.appendChild(memberMenu);
   trigger.setAttribute('aria-expanded', 'true');
 
@@ -175,7 +175,7 @@ function openDropUp(trigger) {
   dropUpTrigger = trigger;
   dropUp = document.createElement('section');
   dropUp.className = 'team-dropup';
-  dropUp.setAttribute('aria-label', 'Team-up');
+  dropUp.setAttribute('aria-label', 'Team');
   dropUp.innerHTML = '<div class="team-dropup-list"></div>';
   document.body.appendChild(dropUp);
   trigger.setAttribute('aria-expanded', 'true');
@@ -216,7 +216,7 @@ export function refreshTeamUp() {
   }).catch(error => {
     if (request !== state.request) return;
     state.error = error;
-    console.warn('Team-up could not load:', error.message);
+    console.warn('Team could not load:', error.message);
   }).finally(() => {
     if (request !== state.request) return;
     state.loading = false;
@@ -227,7 +227,7 @@ export function refreshTeamUp() {
 export function addToTeamUp(memberId, profile = null, undo = false) {
   if (!memberId || memberId === store.user?.id) return Promise.resolve(false);
   if (isTeamUpMember(memberId) && !undo) {
-    showToast('Already in Team-up');
+    showToast('Already in Team');
     return Promise.resolve(true);
   }
 
@@ -245,7 +245,7 @@ export function addToTeamUp(memberId, profile = null, undo = false) {
   optimisticAdds.set(memberId, optimistic);
   upsertMember(optimistic);
   renderTeamUp();
-  if (!undo) showToast('Added to Team-up');
+  if (!undo) showToast('Added to Team');
 
   return enqueue(memberId, async () => {
     const { data, error } = await supabase.rpc('team_up_add', { p_member_id: memberId });
@@ -255,12 +255,12 @@ export function addToTeamUp(memberId, profile = null, undo = false) {
         state.members = state.members.filter(member => member.member_id !== memberId);
         renderTeamUp();
       }
-      showToast(error?.message || 'Could not add to Team-up');
+      showToast(error?.message || 'Could not add to Team');
       return false;
     }
     await refreshTeamUp();
     optimisticAdds.delete(memberId);
-    if (!undo) showToast('Added to Team-up');
+    if (!undo) showToast('Added to Team');
     return true;
   });
 }
@@ -274,7 +274,7 @@ export function removeFromTeamUp(memberId) {
   optimisticRemoves.add(memberId);
   state.members = state.members.filter(item => item.member_id !== memberId);
   renderTeamUp();
-  showToast('Removed from Team-up', true);
+  showToast('Removed from Team', true);
 
   const promise = enqueue(memberId, async () => {
     const { data, error } = await supabase.rpc('team_up_remove', { p_member_id: memberId });
@@ -282,7 +282,7 @@ export function removeFromTeamUp(memberId) {
     if (error || !data?.ok) {
       upsertMember(member);
       renderTeamUp();
-      showToast(error?.message || 'Could not remove from Team-up');
+      showToast(error?.message || 'Could not remove from Team');
       return false;
     }
     await refreshTeamUp();
@@ -300,7 +300,7 @@ function undoRemoval() {
   toast?.remove();
   toast = null;
   addToTeamUp(pending.member.member_id, pending.member, true).then(added => {
-    if (added) showToast('Restored to Team-up');
+    if (added) showToast('Restored to Team');
   });
 }
 

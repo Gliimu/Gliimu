@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=3';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=6';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import { addToTeamUp, isTeamUpMember } from '../team-up.js?v=1';
+import { addToTeamUp, isTeamUpMember } from '../team-up.js?v=2';
 import supportView from './support.js?v=46';
 
 function escapeHtml(value) {
@@ -640,7 +640,7 @@ export default {
     menu.style.left = `${e.clientX}px`; menu.style.top = `${e.clientY}px`;
     menu.innerHTML = `
       <div class="ctx-item" onclick="document.querySelectorAll('.ctx-menu').forEach(m => m.remove()); window.location.hash='#/profile?u=${userId}';">View Profile</div>
-      <div class="ctx-item" onclick="pingInstance.addToTeamUp('${userId}')">${isTeamUpMember(userId) ? 'In Team-up' : 'Add to Team-up'}</div>
+      <div class="ctx-item" onclick="pingInstance.addToTeamUp('${userId}')">${isTeamUpMember(userId) ? 'In Team' : 'Add to Team'}</div>
       <div class="ctx-item danger" onclick="pingInstance.removeContact('${userId}')">Remove Chat</div>
     `;
     document.body.appendChild(menu);
