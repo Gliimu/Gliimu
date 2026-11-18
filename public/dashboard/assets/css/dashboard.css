@@ -731,9 +731,9 @@ html { overscroll-behavior-y: none; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Full-bleed pages pull themselves up to the viewport edge; with a header
-   above them that negative margin would slide the page under it. */
-.page-header + .profile-layout { margin-top: 0; }
+/* The header hands its 16px bottom margin to the page below; the banner
+   pulls back up exactly that far to sit flush under the header's hairline. */
+.page-header + .profile-layout { margin-top: -16px; }
 
 /* Mobile-only hint shown in the bottom bar on pages with no search/actions */
 .mobile-bar-hint { display: none; }

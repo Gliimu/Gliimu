@@ -91,7 +91,7 @@ export default {
           </div>
           <div class="form-row">
             <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Skills (Comma separated)</label>
+              <label>Skills (Comma separated, up to 3)</label>
               <input type="text" id="settings-skills" class="input">
             </div>
             <div class="form-group" style="flex: 1;">
@@ -254,7 +254,7 @@ export default {
       const updates = {
         full_name: document.getElementById('settings-name').value,
         bio: document.getElementById('settings-bio').value,
-        skills: document.getElementById('settings-skills').value,
+        skills: document.getElementById('settings-skills').value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3).join(', '),
         interests: document.getElementById('settings-interests').value
       };
       const { error } = await supabase.from('profiles').update(updates).eq('id', store.user.id);

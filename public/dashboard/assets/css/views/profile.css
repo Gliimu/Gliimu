@@ -16,182 +16,86 @@
 }
 
 /* ============================================
-   PROFILE HEADER — image banner, overlapping identity band, stats bar
+   PROFILE BANNER — the identity canvas. Name, bio, chips, stats and
+   actions overlay the banner art on a dark scrim; the banner grows with
+   its content and only the gliims feed sits below it.
    ============================================ */
-.profile-header {
-  padding: 0;
-  overflow: visible;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-
 .profile-banner {
   position: relative;
-  height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 280px;
   background: var(--bg-tertiary);
   overflow: hidden;
 }
 
-.profile-banner img {
+.profile-banner > img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
-/* No banner picture: a short neutral strip keeps the avatar overlap rhythm */
+/* No banner picture: the scrim alone carries the identity band */
 .profile-banner.no-image {
-  height: 120px;
+  min-height: 240px;
 }
 
-.profile-identity {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
+.banner-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(8, 10, 16, 0.88) 0%, rgba(8, 10, 16, 0.62) 40%, rgba(8, 10, 16, 0.28) 72%, rgba(8, 10, 16, 0.08) 100%);
+}
+
+.profile-banner.no-image .banner-scrim {
+  background: linear-gradient(to top, rgba(8, 10, 16, 0.94) 0%, rgba(8, 10, 16, 0.55) 100%);
+}
+
+.banner-content {
+  position: relative;
+  z-index: 1;
   max-width: 1500px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 32px;
+  padding: 0 32px 22px;
+  color: #fff;
 }
 
-.profile-identity-text {
-  flex: 1;
-  min-width: 0;
-  padding-top: 14px;
-}
-
-.profile-identity-text h1 {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.4px;
-  line-height: 1.2;
-  margin: 0 0 4px;
+.banner-identity-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profile-identity-bio {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.profile-identity-tags {
-  margin-top: 10px;
-}
-
-.profile-identity-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  padding-top: 14px;
-}
-
-.profile-stats-bar {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  flex-wrap: wrap;
-  padding: 14px 32px 16px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border);
-  max-width: 1500px;
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.profile-stats-bar .profile-details-toggle {
-  margin-left: auto;
-}
-
-.profile-stat {
-  display: flex;
-  flex-direction: column;
-}
-
-.profile-stat .stat-value {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-
-.profile-stat .stat-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  margin-top: 2px;
-}
-
-.profile-details-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 9px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.profile-details-toggle:hover {
-  border-color: var(--brand-primary);
-  color: var(--brand-primary);
-}
-
-.profile-details-toggle svg {
-  transition: transform 0.2s ease;
-}
-
-.profile-details-toggle.open svg {
-  transform: rotate(180deg);
+  align-items: flex-end;
+  gap: 20px;
 }
 
 .profile-avatar-wrap {
   position: relative;
   flex-shrink: 0;
-  /* Half the avatar rides on the banner above */
-  margin-top: -56px;
 }
 
 .profile-avatar-large {
-  width: 112px;
-  height: 112px;
+  width: 104px;
+  height: 104px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid var(--surface);
+  border: 3px solid rgba(255, 255, 255, 0.85);
   display: block;
 }
 
 .profile-avatar-fallback {
-  width: 112px;
-  height: 112px;
+  width: 104px;
+  height: 104px;
   border-radius: 50%;
   background: var(--gradient-primary);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 44px;
+  font-size: 40px;
   font-weight: 800;
-  border: 4px solid var(--surface);
+  border: 3px solid rgba(255, 255, 255, 0.85);
 }
 
 .profile-sub-badge {
@@ -201,7 +105,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 3px solid var(--surface);
+  border: 3px solid rgba(255, 255, 255, 0.85);
   background: var(--brand-primary);
   color: #fff;
   cursor: pointer;
@@ -227,31 +131,160 @@
   background: #64748B;
 }
 
-.profile-ping-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  cursor: pointer;
+.banner-identity-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner-identity-text h1 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+  margin: 0 0 4px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  gap: 8px;
+}
+
+.profile-identity-bio {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.banner-chips {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* One uniform glass chip for skills and interests alike */
+.profile-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  backdrop-filter: blur(4px);
+}
+
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Ping: a labelled primary pill — the clearest action on the banner */
+.profile-ping-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  background: var(--brand-primary);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.2s ease;
 }
 
 .profile-ping-btn:hover {
-  background: var(--brand-primary);
-  color: white;
-  border-color: var(--brand-primary);
-  transform: scale(1.05);
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 
+/* Owner tools ride the scrim as glass icon buttons */
+.banner-actions .profile-filter-btn,
+.banner-actions .profile-gear-btn {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+
+.banner-actions .profile-filter-btn:hover,
+.banner-actions .profile-gear-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.banner-stats-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.banner-stats-row > * + * {
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+  padding-left: 20px;
+}
+
+.banner-stat {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.banner-stat strong {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.profile-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.profile-details-toggle:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.profile-details-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+.profile-details-toggle.open svg {
+  transform: rotate(180deg);
+}
+
+/* Owner-only details: the stats removed from the banner plus streak and
+   QR/share — hidden until "More details" is tapped. */
 .profile-details-panel {
   display: none;
-  padding: 20px 32px 24px;
-  /* Re-center panel content inside the full-bleed header */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 24px;
   max-width: 1500px;
   margin: 0 auto;
   width: 100%;
@@ -263,37 +296,11 @@
 }
 
 /* ============================================
-   TAGS — skill & interest pills (identity band)
-   ============================================ */
-.tag-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.tag-primary {
-  background: var(--brand-primary-light);
-  color: var(--brand-primary);
-}
-
-.tag-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-}
-
-/* ============================================
    STREAK STATS — inside the details accordion
    ============================================ */
 .streak-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
@@ -771,28 +778,28 @@
   }
 
   .profile-banner {
-    height: 160px;
+    min-height: 230px;
   }
 
   .profile-banner.no-image {
-    height: 90px;
+    min-height: 210px;
   }
 
-  .profile-identity {
-    padding: 0 16px;
+  .banner-content {
+    padding: 0 16px 16px;
+  }
+
+  .banner-identity-row {
+    flex-wrap: wrap;
     gap: 14px;
-  }
-
-  .profile-avatar-wrap {
-    margin-top: -40px;
   }
 
   .profile-avatar-large,
   .profile-avatar-fallback {
-    width: 80px;
-    height: 80px;
-    border-width: 3px;
-    font-size: 32px;
+    width: 72px;
+    height: 72px;
+    border-width: 2px;
+    font-size: 28px;
   }
 
   .profile-sub-badge {
@@ -808,26 +815,28 @@
     height: 14px;
   }
 
-  .profile-identity-text {
-    padding-top: 10px;
-  }
-
-  .profile-identity-text h1 {
+  .banner-identity-text h1 {
     font-size: 19px;
   }
 
-  .profile-identity-actions {
-    padding-top: 10px;
+  .profile-chip {
+    padding: 4px 10px;
+    font-size: 12px;
   }
 
-  .profile-stats-bar {
+  .banner-actions {
+    width: 100%;
+  }
+
+  .banner-stats-row {
     margin-top: 14px;
-    padding: 12px 16px;
-    gap: 20px;
+    padding-top: 12px;
+    gap: 8px;
   }
 
-  .profile-stat .stat-value {
-    font-size: 16px;
+  .banner-stats-row > * + * {
+    border-left: none;
+    padding-left: 0;
   }
 
   .profile-details-panel {
@@ -852,7 +861,7 @@
   }
 
   .streak-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 

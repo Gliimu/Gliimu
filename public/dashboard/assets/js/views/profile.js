@@ -195,6 +195,10 @@ export default {
                 <span class="streak-label">Total Gliims</span>
               </div>
               <div class="streak-item">
+                <span class="streak-value">${this._followingCount || 0}</span>
+                <span class="streak-label">Subscribed</span>
+              </div>
+              <div class="streak-item">
                 <span class="streak-value">${this.calculateStreak(this._posts)}</span>
                 <span class="streak-label">Day Streak</span>
               </div>
@@ -322,7 +326,7 @@ export default {
     const chevronDownSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
     const gp = p.total_gp || 0;
     const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
-    const skillList = (p.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+    const skillList = (p.skills || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
     const interestList = (p.interests || '').split(',').map(s => s.trim()).filter(Boolean);
 
     // Grid list first, then card context, then the template — cards must render
@@ -358,70 +362,71 @@ export default {
     const detailsPanel = this.buildDetailsPanel(isMe);
 
     const identityTags = (skillList.length || interestList.length) ? `
-      <div class="tag-group profile-identity-tags">
-        ${skillList.map(s => `<span class="tag tag-primary">${escText(s)}</span>`).join('')}
-        ${interestList.map(i => `<span class="tag tag-secondary">${escText(i)}</span>`).join('')}
+      <div class="banner-chips">
+        ${skillList.map(s => `<span class="profile-chip">${escText(s)}</span>`).join('')}
+        ${interestList.map(i => `<span class="profile-chip">${escText(i)}</span>`).join('')}
       </div>
     ` : '';
 
     container.innerHTML = `
-      <!-- Profile header: image banner, overlapping identity band, stats bar -->
-      <div class="profile-header card">
-        <div class="profile-banner${p.banner_url ? '' : ' no-image'}">
-          ${p.banner_url ? `<img src="${escAttr(p.banner_url)}" alt="">` : ''}
-        </div>
-        <div class="profile-identity">
-          <div class="profile-avatar-wrap">
-            ${p.avatar_url
-              ? `<img src="${escAttr(p.avatar_url)}" alt="${escText(p.full_name || 'Gliimait')}" class="profile-avatar-large">`
-              : `<div class="profile-avatar-fallback">${(p.full_name || 'G').charAt(0).toUpperCase()}</div>`}
-            ${!isMe ? `
-              <button class="profile-sub-badge ${this._isFollowing ? 'subscribed' : ''}" id="subscribe-btn" onclick="profileInstance.toggleFollow()" title="${this._isFollowing ? 'Unsubscribe' : 'Subscribe'}" aria-label="${this._isFollowing ? 'Unsubscribe' : 'Subscribe'}">
-                ${this._isFollowing ? SUB_MINUS_SVG : SUB_PLUS_SVG}
+      <!-- Banner identity: name, bio, chips, stats and actions all overlay
+           the banner art; only the gliims feed sits below the banner. -->
+      <div class="profile-banner${p.banner_url ? '' : ' no-image'}">
+        ${p.banner_url ? `<img src="${escAttr(p.banner_url)}" alt="">` : ''}
+        <div class="banner-scrim"></div>
+        <div class="banner-content">
+          <div class="banner-identity-row">
+            <div class="profile-avatar-wrap">
+              ${p.avatar_url
+                ? `<img src="${escAttr(p.avatar_url)}" alt="${escText(p.full_name || 'Gliimait')}" class="profile-avatar-large">`
+                : `<div class="profile-avatar-fallback">${(p.full_name || 'G').charAt(0).toUpperCase()}</div>`}
+              ${!isMe ? `
+                <button class="profile-sub-badge ${this._isFollowing ? 'subscribed' : ''}" id="subscribe-btn" onclick="profileInstance.toggleFollow()" title="${this._isFollowing ? 'Unsubscribe' : 'Subscribe'}" aria-label="${this._isFollowing ? 'Unsubscribe' : 'Subscribe'}">
+                  ${this._isFollowing ? SUB_MINUS_SVG : SUB_PLUS_SVG}
+                </button>
+              ` : ''}
+            </div>
+            <div class="banner-identity-text">
+              <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
+              ${p.bio ? `<p class="profile-identity-bio">${escText(p.bio)}</p>` : ''}
+              ${identityTags}
+            </div>
+            <div class="banner-actions">
+              ${isMe ? `
+                <div class="profile-filter-wrap">
+                  <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                  </button>
+                  <div class="profile-filter-dropdown" id="profile-filter-dropdown">
+                    <div class="profile-filter-item ${this._projectFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="profileInstance.applyFilter('all')">All Gliims</div>
+                    <div class="profile-filter-item ${this._projectFilter === 'drafts' ? 'active' : ''}" data-filter="drafts" onclick="profileInstance.applyFilter('drafts')">Drafts</div>
+                    <div class="profile-filter-item ${this._projectFilter === 'saved' ? 'active' : ''}" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
+                    <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
+                    <div class="profile-filter-item ${this._projectFilter === 'trash' ? 'active' : ''}" data-filter="trash" onclick="profileInstance.applyFilter('trash')">Trash</div>
+                  </div>
+                </div>
+                <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
+              ` : `
+                <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send a Ping">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  Ping
+                </button>
+              `}
+            </div>
+          </div>
+          <div class="banner-stats-row">
+            <span class="banner-stat"><strong>${gpDisplay}</strong> GP</span>
+            <span class="banner-stat"><strong id="stat-subscribers">${this._followersCount || 0}</strong> Subscribers</span>
+            ${isMe ? `
+              <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
+                More details
+                ${chevronDownSvg}
               </button>
             ` : ''}
           </div>
-          <div class="profile-identity-text">
-            <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
-            ${p.bio ? `<p class="profile-identity-bio">${escText(p.bio)}</p>` : ''}
-            ${identityTags}
-          </div>
-          <div class="profile-identity-actions">
-            ${isMe ? `
-              <div class="profile-filter-wrap">
-                <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-                </button>
-                <div class="profile-filter-dropdown" id="profile-filter-dropdown">
-                  <div class="profile-filter-item ${this._projectFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="profileInstance.applyFilter('all')">All Gliims</div>
-                  <div class="profile-filter-item ${this._projectFilter === 'drafts' ? 'active' : ''}" data-filter="drafts" onclick="profileInstance.applyFilter('drafts')">Drafts</div>
-                  <div class="profile-filter-item ${this._projectFilter === 'saved' ? 'active' : ''}" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
-                  <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
-                  <div class="profile-filter-item ${this._projectFilter === 'trash' ? 'active' : ''}" data-filter="trash" onclick="profileInstance.applyFilter('trash')">Trash</div>
-                </div>
-              </div>
-              <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
-            ` : `
-              <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send message">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-              </button>
-            `}
-          </div>
         </div>
-        <div class="profile-stats-bar">
-          <div class="profile-stat"><span class="stat-value">${gpDisplay}</span><span class="stat-label">${gp >= 10000 ? 'Growth Points' : 'GP Points'}</span></div>
-          <div class="profile-stat"><span class="stat-value">${this._postsCount || 0}</span><span class="stat-label">Gliims</span></div>
-          <div class="profile-stat"><span class="stat-value" id="stat-subscribers">${this._followersCount || 0}</span><span class="stat-label">Subscribers</span></div>
-          <div class="profile-stat"><span class="stat-value">${this._followingCount || 0}</span><span class="stat-label">Subscribed</span></div>
-          ${isMe ? `
-            <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
-              More details
-              ${chevronDownSvg}
-            </button>
-          ` : ''}
-        </div>
-        ${detailsPanel}
       </div>
+      ${detailsPanel}
 
       <!-- Gliims Section -->
       <div class="profile-projects-section">
