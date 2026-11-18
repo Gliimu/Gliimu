@@ -89,15 +89,9 @@ export default {
             <label>Bio</label>
             <textarea id="settings-bio" class="input" rows="3"></textarea>
           </div>
-          <div class="form-row">
-            <div class="form-group" style="flex: 1; margin-right: 12px;">
-              <label>Skills (Comma separated, up to 3)</label>
-              <input type="text" id="settings-skills" class="input">
-            </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Interests (Comma separated)</label>
-              <input type="text" id="settings-interests" class="input">
-            </div>
+          <div class="form-group">
+            <label>Interests (Comma separated)</label>
+            <input type="text" id="settings-interests" class="input">
           </div>
           <button type="submit" class="btn-primary">Save Changes</button>
         </form>
@@ -197,12 +191,11 @@ export default {
     // Fetch Profile Data. Explicit columns (never select('*')) because the
     // profiles.username column is revoked from authenticated; username is
     // shown from the JWT-sourced store.profile.username instead.
-    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url, banner_url').eq('id', store.user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('full_name, bio, interests, avatar_url, banner_url').eq('id', store.user.id).single();
     if (profile) {
       document.getElementById('settings-name').value = profile.full_name || '';
       document.getElementById('settings-username').value = store.profile?.username || '';
       document.getElementById('settings-bio').value = profile.bio || '';
-      document.getElementById('settings-skills').value = profile.skills || '';
       document.getElementById('settings-interests').value = profile.interests || '';
       if (profile.avatar_url) {
         document.getElementById('avatar-preview').src = profile.avatar_url + `?t=${Date.now()}`;
@@ -254,7 +247,6 @@ export default {
       const updates = {
         full_name: document.getElementById('settings-name').value,
         bio: document.getElementById('settings-bio').value,
-        skills: document.getElementById('settings-skills').value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3).join(', '),
         interests: document.getElementById('settings-interests').value
       };
       const { error } = await supabase.from('profiles').update(updates).eq('id', store.user.id);

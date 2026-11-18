@@ -27,7 +27,9 @@
   justify-content: flex-end;
   min-height: 280px;
   background: var(--bg-tertiary);
-  overflow: hidden;
+  /* No overflow:hidden here: the filter dropdown hangs off the stats row at
+     the banner's bottom edge and must be free to paint over the feed below.
+     The banner art and scrim are inset:0, so nothing spills anyway. */
 }
 
 .profile-banner > img {
@@ -55,7 +57,9 @@
 
 .banner-content {
   position: relative;
-  z-index: 1;
+  /* Above every card layer in the feed below (cards carry z-index 1-2), so the
+     filter menu hanging off the stats row is never painted over by a card. */
+  z-index: 10;
   max-width: 1500px;
   margin: 0 auto;
   width: 100%;
@@ -159,13 +163,6 @@
   overflow: hidden;
 }
 
-.banner-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
 /* Ping: an icon-only primary button anchored next to the Subscribers stat */
 .profile-ping-btn {
   display: inline-flex;
@@ -188,16 +185,15 @@
   transform: translateY(-1px);
 }
 
-/* Owner tools ride the scrim as glass icon buttons */
-.banner-actions .profile-filter-btn,
-.banner-actions .profile-gear-btn {
+/* The owner's filter button rides the scrim as a glass icon button, sitting in
+   the stats row right after the Subscribers count. */
+.banner-stats-row .profile-filter-btn {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.32);
   color: #fff;
 }
 
-.banner-actions .profile-filter-btn:hover,
-.banner-actions .profile-gear-btn:hover {
+.banner-stats-row .profile-filter-btn:hover {
   background: rgba(255, 255, 255, 0.26);
   border-color: rgba(255, 255, 255, 0.5);
   color: #fff;
@@ -234,37 +230,8 @@
   color: #fff;
 }
 
-.profile-details-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--font-sans);
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.profile-details-toggle:hover {
-  background: rgba(255, 255, 255, 0.26);
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-.profile-details-toggle svg {
-  transition: transform 0.2s ease;
-}
-
-.profile-details-toggle.open svg {
-  transform: rotate(180deg);
-}
-
 /* Owner-only details: the stats removed from the banner plus streak and
-   QR/share — hidden until "More details" is tapped. */
+   QR/share — hidden until "More details" is tapped from the filter menu. */
 .profile-details-panel {
   display: none;
   background: var(--surface);
@@ -526,8 +493,7 @@
   position: relative;
 }
 
-.profile-filter-btn,
-.profile-gear-btn {
+.profile-filter-btn {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -541,8 +507,7 @@
   transition: all 0.2s;
 }
 
-.profile-filter-btn:hover,
-.profile-gear-btn:hover {
+.profile-filter-btn:hover {
   border-color: var(--brand-primary);
   color: var(--brand-primary);
 }
@@ -587,6 +552,14 @@
 .profile-filter-item.active {
   color: var(--brand-primary);
   background: var(--brand-primary-light);
+  font-weight: 600;
+}
+
+/* "More details" is an action, not a filter, so it is split off the bottom of
+   the menu by a rule and stays neutral until the panel it opens is showing. */
+.profile-filter-item.profile-filter-details {
+  border-top: 1px solid var(--border);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -814,6 +787,12 @@
   .banner-stats-row > * + * {
     border-left: none;
     padding-left: 0;
+  }
+
+  /* The owner's filter button is pinned to the right edge of the stats row, so
+     its menu opens leftward and cannot run past a narrow viewport. */
+  .banner-stats-row > .profile-filter-wrap {
+    margin-left: auto;
   }
 
   .profile-details-panel {

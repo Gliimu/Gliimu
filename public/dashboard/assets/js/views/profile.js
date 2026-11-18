@@ -19,6 +19,7 @@ export default {
   async init() {
     this.allUsers = [];
     this._projectFilter = 'all';
+    this._detailsOpen = false;
     this._isFollowing = false;
 
     // Get user ID from query parameter ?u=<id> for persistence across refresh
@@ -154,7 +155,7 @@ export default {
 
   applyFilter(filter) {
     this._projectFilter = filter;
-    document.querySelectorAll('.profile-filter-item').forEach(el => {
+    document.querySelectorAll('.profile-filter-item[data-filter]').forEach(el => {
       el.classList.toggle('active', el.dataset.filter === filter);
     });
     const dd = document.getElementById('profile-filter-dropdown');
@@ -182,7 +183,7 @@ export default {
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
 
     return `
-      <div class="profile-details-panel" id="profile-details-panel">
+      <div class="profile-details-panel${this._detailsOpen ? ' open' : ''}" id="profile-details-panel">
         <div class="details-acc">
           <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
             <span class="details-acc-title">${boltSvg}Activity Streak</span>
@@ -238,8 +239,9 @@ export default {
   toggleDetails() {
     const panel = document.getElementById('profile-details-panel');
     if (!panel) return;
-    const open = panel.classList.toggle('open');
-    document.getElementById('profile-details-toggle')?.classList.toggle('open', open);
+    this._detailsOpen = panel.classList.toggle('open');
+    document.getElementById('profile-details-toggle')?.classList.toggle('active', this._detailsOpen);
+    document.getElementById('profile-filter-dropdown')?.classList.remove('active');
   },
 
   async toggleFollow() {
@@ -319,11 +321,8 @@ export default {
 
     const p = user;
 
-    const settingsGearSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
-
     const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const escText = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const chevronDownSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
     const gp = p.total_gp || 0;
     const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
 
@@ -381,32 +380,24 @@ export default {
               <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
               ${p.bio ? `<p class="profile-identity-bio">${escText(p.bio)}</p>` : ''}
             </div>
-            ${isMe ? `
-              <div class="banner-actions">
-                <div class="profile-filter-wrap">
-                  <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-                  </button>
-                  <div class="profile-filter-dropdown" id="profile-filter-dropdown">
-                    <div class="profile-filter-item ${this._projectFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="profileInstance.applyFilter('all')">All Gliims</div>
-                    <div class="profile-filter-item ${this._projectFilter === 'drafts' ? 'active' : ''}" data-filter="drafts" onclick="profileInstance.applyFilter('drafts')">Drafts</div>
-                    <div class="profile-filter-item ${this._projectFilter === 'saved' ? 'active' : ''}" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
-                    <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
-                    <div class="profile-filter-item ${this._projectFilter === 'trash' ? 'active' : ''}" data-filter="trash" onclick="profileInstance.applyFilter('trash')">Trash</div>
-                  </div>
-                </div>
-                <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
-              </div>
-            ` : ''}
           </div>
           <div class="banner-stats-row">
             <span class="banner-stat"><strong>${gpDisplay}</strong> GP</span>
             <span class="banner-stat"><strong id="stat-subscribers">${this._followersCount || 0}</strong> Subscribers</span>
             ${isMe ? `
-              <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
-                More details
-                ${chevronDownSvg}
-              </button>
+              <div class="profile-filter-wrap">
+                <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filters and details" aria-label="Filters and details" aria-haspopup="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                </button>
+                <div class="profile-filter-dropdown" id="profile-filter-dropdown">
+                  <div class="profile-filter-item ${this._projectFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="profileInstance.applyFilter('all')">All Gliims</div>
+                  <div class="profile-filter-item ${this._projectFilter === 'drafts' ? 'active' : ''}" data-filter="drafts" onclick="profileInstance.applyFilter('drafts')">Drafts</div>
+                  <div class="profile-filter-item ${this._projectFilter === 'saved' ? 'active' : ''}" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
+                  <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
+                  <div class="profile-filter-item ${this._projectFilter === 'trash' ? 'active' : ''}" data-filter="trash" onclick="profileInstance.applyFilter('trash')">Trash</div>
+                  <div class="profile-filter-item profile-filter-details ${this._detailsOpen ? 'active' : ''}" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">More details</div>
+                </div>
+              </div>
             ` : `
               <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send a Ping" aria-label="Send a Ping">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
