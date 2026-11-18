@@ -475,9 +475,11 @@ async function initApp() {
     }
     // Signed out, so the front door. replace() rather than href: Back should
     // not return to an empty shell of an app the visitor cannot use. The clean
-    // host serves no landing of its own, so visitors go to www.
+    // host serves no landing of its own, so visitors go to www. The query rides
+    // along so a deep link (?onboarding=1) survives the sign-in round trip —
+    // a dropped query here is why the tour force flag used to vanish.
     window.location.replace(window.location.hostname === 'dashboard.gliimu.com'
-      ? 'https://www.gliimu.com/'
+      ? 'https://www.gliimu.com/' + window.location.search
       : '/');
     return;
   }

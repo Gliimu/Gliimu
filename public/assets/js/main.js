@@ -35,7 +35,8 @@ async function initEntrySplash() {
     // replace(), not href: Back should not bounce a member out of the app and
     // into a marketing page they never asked for. The app lives on its own
     // host now; the shared .gliimu.com cookie carries the session across.
-    window.location.replace('https://dashboard.gliimu.com/xplore');
+    // The query rides along so deep links (?onboarding=1) reach the app.
+    window.location.replace('https://dashboard.gliimu.com/xplore' + window.location.search);
     return false;
   }
 
@@ -160,7 +161,7 @@ async function initJoinButtons() {
     // Only the words change — the arrow icon lives beside the label.
     const label = btn.querySelector('span') || btn;
     label.textContent = 'Dashboard';
-    btn.href = 'https://dashboard.gliimu.com/xplore';
+    btn.href = 'https://dashboard.gliimu.com/xplore' + window.location.search;
     // Someone who is already in does not need the sign-in sheet.
     btn.removeAttribute('data-auth-sheet');
   });
@@ -238,7 +239,9 @@ function initAuthSheet() {
   window.addEventListener('message', (e) => {
     if (e.origin !== window.location.origin) return;
     if (e.data === 'gliimu:signed-in') {
-      window.location.replace(`${DASHBOARD}/xplore`);
+      // The query rides along: a visitor who arrived with ?onboarding=1 and
+      // then signed in must still land inside the tour, not on a bare XpLoRe.
+      window.location.replace(`${DASHBOARD}/xplore${window.location.search}`);
       return;
     }
   });
