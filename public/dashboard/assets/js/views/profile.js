@@ -271,11 +271,6 @@ export default {
       btn.setAttribute('aria-label', btn.title);
       btn.innerHTML = this._isFollowing ? SUB_MINUS_SVG : SUB_PLUS_SVG;
 
-      const { count: newCount } = await supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', targetId);
-      this._followersCount = newCount || 0;
-      const stat = document.getElementById('stat-subscribers');
-      if (stat) stat.textContent = this._followersCount;
-
     } catch (err) {
       notify.toast('Could not update your subscription. Please try again.');
       console.error('Subscribe/unsubscribe error:', err);
@@ -295,11 +290,12 @@ export default {
     // Fetch full details + posts + follow status. Explicit columns (never select('*')) because
     // the profiles.username column is revoked from authenticated, and this
     // usually renders ANOTHER member's portfolio — username must never load.
+    // Both followed_users counts are owner-only, so a visitor's page never fetches them.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
       supabase.from('profiles').select('full_name, avatar_url, banner_url, portfolio_image_url, total_gp, bio, verification_badge').eq('id', userId).single(),
       supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, status').eq('user_id', userId).order('created_at', { ascending: false }),
-      supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
-      supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+      isMe ? supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId) : Promise.resolve({ count: 0 }),
+      isMe ? supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId) : Promise.resolve({ count: 0 }),
       isMe ? Promise.resolve({ data: null }) : supabase.from('followed_users').select('*').eq('follower_id', store.user.id).eq('followed_id', userId).maybeSingle()
     ]);
 
@@ -337,17 +333,8 @@ export default {
     } else if (isMe && this._projectFilter === 'saved') {
       gridPosts = await this.fetchSavedGliims();
     } else {
-      gridPosts = posts || [];
-      if (this._projectFilter === 'drafts') {
-        gridPosts = gridPosts.filter(item => item.status === 'draft');
-      } else {
-        gridPosts = gridPosts.filter(item => item.status !== 'draft');
-        if (this._projectFilter === 'tagged') {
-          const myName = store.profile?.full_name || '';
-          const tag = `@${myName}`;
-          gridPosts = gridPosts.filter(item => item.description && item.description.includes(tag));
-        }
-      }
+      gridPosts = (posts || []).filter(item =>
+        this._projectFilter === 'drafts' ? item.status === 'draft' : item.status !== 'draft');
     }
     if (gridPosts) await this.syncCardContext(gridPosts, this._projectFilter === 'saved' ? null : p);
 
@@ -383,7 +370,8 @@ export default {
           </div>
           <div class="banner-stats-row">
             <span class="banner-stat"><strong>${gpDisplay}</strong> GP</span>
-            <span class="banner-stat"><strong id="stat-subscribers">${this._followersCount || 0}</strong> Subscribers</span>
+            <!-- Subscriber counts are owner-only: nobody sees another member's number. -->
+            ${isMe ? `<span class="banner-stat"><strong id="stat-subscribers">${this._followersCount || 0}</strong> Subscribers</span>` : ''}
             ${isMe ? `
               <div class="profile-filter-wrap">
                 <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filters and details" aria-label="Filters and details" aria-haspopup="true">
@@ -393,7 +381,6 @@ export default {
                   <div class="profile-filter-item ${this._projectFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="profileInstance.applyFilter('all')">All Gliims</div>
                   <div class="profile-filter-item ${this._projectFilter === 'drafts' ? 'active' : ''}" data-filter="drafts" onclick="profileInstance.applyFilter('drafts')">Drafts</div>
                   <div class="profile-filter-item ${this._projectFilter === 'saved' ? 'active' : ''}" data-filter="saved" onclick="profileInstance.applyFilter('saved')">Saved Gliims</div>
-                  <div class="profile-filter-item ${this._projectFilter === 'tagged' ? 'active' : ''}" data-filter="tagged" onclick="profileInstance.applyFilter('tagged')">Tagged</div>
                   <div class="profile-filter-item ${this._projectFilter === 'trash' ? 'active' : ''}" data-filter="trash" onclick="profileInstance.applyFilter('trash')">Trash</div>
                   <div class="profile-filter-item profile-filter-details ${this._detailsOpen ? 'active' : ''}" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">More details</div>
                 </div>

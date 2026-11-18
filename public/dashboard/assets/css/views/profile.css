@@ -217,6 +217,7 @@
 .banner-stats-row > .profile-ping-btn {
   border-left: none;
   padding-left: 0;
+  margin-left: 14px;
 }
 
 .banner-stat {
@@ -789,9 +790,10 @@
     padding-left: 0;
   }
 
-  /* The owner's filter button is pinned to the right edge of the stats row, so
-     its menu opens leftward and cannot run past a narrow viewport. */
-  .banner-stats-row > .profile-filter-wrap {
+  /* Both banner controls sit flush right on small screens, so the owner's filter
+     menu opens leftward and the visitor's Ping button holds the same corner. */
+  .banner-stats-row > .profile-filter-wrap,
+  .banner-stats-row > .profile-ping-btn {
     margin-left: auto;
   }
 
