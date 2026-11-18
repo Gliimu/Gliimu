@@ -7,6 +7,7 @@ const TABS = [
   { id: 'landing', label: 'Landing page' },
   { id: 'release', label: 'App release' },
   { id: 'cohorts', label: 'Cohorts' },
+  { id: 'onboarding', label: 'Onboarding tour' },
   { id: 'deleted', label: 'Deleted' }
 ];
 
@@ -96,6 +97,7 @@ export default {
     this.settings = null;
     this.deleted = null;
     this.cohortState = null;
+    this.steps = null;
 
     document.querySelectorAll('.filter-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -121,6 +123,7 @@ export default {
 
     pane.innerHTML = this.tab === 'release' ? this.releaseHtml()
       : this.tab === 'cohorts' ? this.cohortsHtml()
+      : this.tab === 'onboarding' ? this.onboardingHtml()
       : this.tab === 'deleted' ? this.deletedHtml()
       : this.landingHtml();
     this.wire(pane);
@@ -145,6 +148,16 @@ export default {
       if (error) return error.message;
       if (!data || data.ok === false) return rpcError(data);
       this.cohortState = data;
+      return null;
+    }
+
+    if (this.tab === 'onboarding') {
+      if (this.steps) return null;
+      const { data, error } = await supabase.from('onboarding_steps')
+        .select('id, route, title, body, position, is_enabled')
+        .order('position');
+      if (error) return error.message;
+      this.steps = data || [];
       return null;
     }
 
@@ -621,6 +634,87 @@ export default {
   },
 
   // ============================================
+  // TAB 4 — the guided first-run tour
+  // ============================================
+  onboardingHtml() {
+    const steps = this.steps || [];
+    return `
+      <div class="card">
+        <div class="card-head"><div>
+          <div class="card-title">Onboarding tour</div>
+          <div class="card-sub">The walkthrough brand-new members see: one step per page, and OK carries them to that page. Untick a step to drop it from the walk; the order numbers decide the route. One save publishes every change at once.</div>
+        </div></div>
+        <div class="card-sub" style="margin-bottom:4px;">The Billing step tells members their welcome bonus — keep its amount in step with the signup credit on the Finance side (currently G100).</div>
+        ${steps.length ? steps.map(s => `
+          <div class="onboard-step" data-step-id="${escapeHtml(s.id)}" style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span class="mono" style="font-size:13px;">${escapeHtml(s.route)}</span>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+                <input type="checkbox" data-step-enabled${s.is_enabled ? ' checked' : ''}>
+                Shown to new members
+              </label>
+            </div>
+            <div style="${GRID};margin-top:10px;">
+              <div class="form-group">
+                <label>Title</label>
+                <input type="text" class="input" data-step-title maxlength="60" value="${escapeHtml(s.title || '')}" autocomplete="off">
+              </div>
+              <div class="form-group">
+                <label>Walk order</label>
+                <input type="number" class="input" data-step-position min="1" max="99" step="1" value="${Number(s.position || 0)}">
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>What it says</label>
+              <textarea class="input" data-step-body maxlength="300" rows="2">${escapeHtml(s.body || '')}</textarea>
+            </div>
+          </div>`).join('') : empty('No steps yet — run sql/onboarding_steps.sql to create the seven defaults.')}
+        ${steps.length ? `
+          <div class="card-actions" style="margin-left:0;margin-top:16px;">
+            <button class="btn-primary btn-small" data-save-steps>Save all steps</button>
+          </div>` : ''}
+      </div>`;
+  },
+
+  async saveSteps(btn) {
+    const rows = Array.from(document.querySelectorAll('[data-step-id]'));
+    const updates = [];
+    for (const row of rows) {
+      const title = row.querySelector('[data-step-title]')?.value.trim() || '';
+      const body = row.querySelector('[data-step-body]')?.value.trim() || '';
+      const position = Number(row.querySelector('[data-step-position]')?.value || 0);
+      if (!title || !body) {
+        return appAlert('Every step needs a title and a sentence — one of them is blank.');
+      }
+      if (!Number.isInteger(position) || position < 1 || position > 99) {
+        return appAlert(`Walk order must be a whole number from 1 to 99 (step "${title}").`);
+      }
+      updates.push({
+        id: row.dataset.stepId,
+        title,
+        body,
+        position,
+        is_enabled: !!row.querySelector('[data-step-enabled]')?.checked
+      });
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    let failed = null;
+    for (const u of updates) {
+      const { error } = await supabase.from('onboarding_steps').update({
+        title: u.title, body: u.body, position: u.position, is_enabled: u.is_enabled
+      }).eq('id', u.id);
+      if (error) { failed = error.message; break; }
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Save all steps'; }
+    if (failed) return appAlert(`Could not save: ${failed}`);
+
+    this.steps = null;
+    await this.render();
+    return appAlert('Tour saved — the next brand-new member walks the updated pages.');
+  },
+
+  // ============================================
   // Saving
   // ============================================
   collect(fields) {
@@ -763,5 +857,8 @@ export default {
 
     const sweep = pane.querySelector('[data-sweep]');
     if (sweep) sweep.addEventListener('click', () => this.sweepStorage(sweep));
+
+    const saveStepsBtn = pane.querySelector('[data-save-steps]');
+    if (saveStepsBtn) saveStepsBtn.addEventListener('click', () => this.saveSteps(saveStepsBtn));
   }
 };

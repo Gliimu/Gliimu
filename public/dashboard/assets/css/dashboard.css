@@ -826,6 +826,63 @@ html { overscroll-behavior-y: none; }
   .terms-modal-title { font-size: 22px; }
 }
 
+/* Guided first-run tour. The card floats above the page it describes — no
+   scrim, so the member can see and touch the real screen — and it lives on
+   body, outside the #app wipe, so it survives the navigations it performs.
+   Finishing or skipping records a done-flag; any real activity retires the
+   tour for good on its own. */
+.onboard-tour {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--bottom-bar-h) + 14px);
+  z-index: 5900;
+  width: min(480px, calc(100vw - 32px));
+  padding: 22px 24px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+.onboard-kicker {
+  margin: 0 0 6px;
+  color: var(--brand-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.onboard-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+.onboard-body {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.onboard-next { margin-top: 18px; border-radius: var(--radius-full); text-decoration: none; }
+.onboard-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease;
+}
+.onboard-close:hover { color: var(--text-primary); background: var(--surface-hover); }
+
 .theme-toggle-btn {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);

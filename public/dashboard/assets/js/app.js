@@ -355,6 +355,100 @@ async function checkTermsAgreement() {
   return true;
 }
 
+// Guided first-run tour. Brand-new members walk the app page by page: a small
+// card describes the page they are looking at, and OK carries them to the next
+// one. The steps come from onboarding_steps, so Operations writes the words and
+// decides which steps exist; the G100 welcome-bonus line lives in the Billing
+// step. Eligibility is the same three head-counts the old card used — nothing
+// published, nobody followed, no ledger movement — because registrar-created
+// members start with a G100 credit and have still never done anything. The
+// overlay is appended to body, not #app: every mount wipes #app and the tour
+// must outlive the navigations it performs.
+const ONBOARDING_DONE_KEY = 'gliimu_onboarding_completed_at';
+
+function tourNavigate(target) {
+  if (window.location.hostname === 'dashboard.gliimu.com') {
+    history.pushState(null, '', target);
+    router();
+  } else {
+    window.location.hash = '#' + target;
+  }
+}
+
+async function memberIsBrandNew() {
+  if (!store.user?.id) return false;
+  try {
+    const [published, follows, ledger] = await Promise.all([
+      supabase.from('feed_gliims').select('id', { count: 'exact', head: true }).eq('user_id', store.user.id),
+      supabase.from('followed_users').select('followed_id', { count: 'exact', head: true }).eq('follower_id', store.user.id),
+      supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('user_id', store.user.id)
+    ]);
+    if (published.error || follows.error || ledger.error) return false;
+    return published.count === 0 && follows.count === 0 && ledger.count === 0;
+  } catch (e) { return false; }
+}
+
+async function maybeStartTour() {
+  // ?onboarding=1 force-shows the tour so an established account can verify it.
+  const forced = new URLSearchParams(window.gliimRoute?.query() || '').has('onboarding');
+  if (!forced) {
+    if (localStorage.getItem(ONBOARDING_DONE_KEY)) return false;
+    if (!await memberIsBrandNew()) return false;
+  }
+  let steps = null;
+  try {
+    const { data, error } = await supabase.from('onboarding_steps')
+      .select('route, title, body, position')
+      .eq('is_enabled', true)
+      .order('position');
+    if (!error && Array.isArray(data) && data.length) steps = data;
+  } catch (e) { /* the table is not there until onboarding_steps.sql runs */ }
+  if (!steps) return false;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'onboard-tour';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-label', 'Getting started tour');
+  document.body.appendChild(overlay);
+
+  const finish = () => {
+    localStorage.setItem(ONBOARDING_DONE_KEY, new Date().toISOString());
+    overlay.remove();
+  };
+
+  let index = 0;
+  const render = () => {
+    const step = steps[index];
+    const last = index === steps.length - 1;
+    const next = steps[index + 1];
+    overlay.innerHTML = `
+      <button type="button" class="onboard-close" aria-label="Skip the tour">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <p class="onboard-kicker">Welcome to Gliimu &middot; ${index + 1} of ${steps.length}</p>
+      <h2 class="onboard-title">${escapeHtml(step.title)}</h2>
+      <p class="onboard-body">${escapeHtml(step.body)}</p>
+      <button type="button" class="btn-primary onboard-next">${last ? 'Start exploring' : `Next: ${escapeHtml(next.title)}`}</button>`;
+    overlay.querySelector('.onboard-close').addEventListener('click', finish);
+    overlay.querySelector('.onboard-next').addEventListener('click', () => {
+      if (last) {
+        finish();
+        tourNavigate('/xplore');
+        return;
+      }
+      index += 1;
+      tourNavigate(steps[index].route);
+      render();
+    });
+  };
+
+  // A refresh mid-tour can land on any page; the first step always starts its
+  // own walk from XpLoRe so the card never describes the wrong screen.
+  if (window.gliimRoute?.path() !== steps[0].route) tourNavigate(steps[0].route);
+  render();
+  return true;
+}
+
 async function initApp() {
   initPullToRefresh();
   const user = await store.fetchUser();
@@ -428,9 +522,11 @@ async function initApp() {
   window.addEventListener('hashchange', router);
   const initialPath = window.gliimRoute?.path();
   await router();
-  // Legal acceptance outranks the cohort modal: when both are due, the cohort
-  // waits for the next full refresh.
+  // Legal acceptance outranks the tour and the tour outranks the cohort modal:
+  // a brand-new member should meet the pages, not a cohort pitch, on their
+  // first visit — the modal waits for the next full refresh.
   if (await checkTermsAgreement()) return;
+  if (await maybeStartTour()) return;
   if (initialPath === '/xplore' || initialPath === '/feed') showCohortModal();
 }
 
