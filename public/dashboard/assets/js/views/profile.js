@@ -397,9 +397,7 @@ export default {
 
       <!-- Gliims Section -->
       <div class="profile-projects-section">
-        <div class="profile-projects-header">
-          <h2>${this._projectFilter === 'trash' ? 'Trash' : 'Gliims'}</h2>
-        </div>
+        ${this._projectFilter === 'trash' ? `<div class="profile-projects-header"><h2>Trash</h2></div>` : ''}
         <div class="profile-gliims-feed">
           ${this._projectFilter === 'trash'
             ? (trashItems.length ? trashItems.map(item => this.trashRowHtml(item)).join('')
