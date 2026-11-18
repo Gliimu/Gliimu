@@ -58,6 +58,12 @@ function avatarHtml(member, className) {
 }
 
 function desktopHtml() {
+  if (!state.members.length) {
+    let note = 'Add team members from ping';
+    if (state.error) note = 'Could not load Team. Close and reopen to retry.';
+    else if (!state.loaded) note = 'Loading Team…';
+    return '<div class="rail-people-stack"><div class="rail-people-heading">Team</div><p class="rail-empty">' + note + '</p></div>';
+  }
   return '<div class="rail-people-stack"><div class="rail-people-heading">Team</div>' + state.members.map(member => {
     const name = member.full_name || '';
     return `<button type="button" class="rail-person team-up-person" data-team-member="${member.member_id}" title="${escapeHtml(name)}" aria-label="Open Team actions for ${escapeHtml(name)}">

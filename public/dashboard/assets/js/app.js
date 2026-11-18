@@ -6,7 +6,7 @@ import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=7';
 import { initAccountMenu } from './account-menu.js?v=7';
-import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=3';
+import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=4';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER

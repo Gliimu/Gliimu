@@ -63,7 +63,7 @@
   top: 0;
   left: 0;
   height: 100vh;
-  width: 64px;
+  width: 56px;
   /* The page behind the rail is already a light grey, so a pale rail had no
      edge to hold on to. In light mode the rail is a dark slab and everything
      on it reads in white; dark mode keeps the theme's own surface. */
@@ -259,6 +259,16 @@
   text-transform: uppercase;
   text-align: left;
   padding: 0 var(--space-3) var(--space-2);
+}
+
+.rail-empty {
+  display: none;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--rail-fg);
+  text-align: left;
+  padding: 0 var(--space-3);
 }
 
 .rail-person {
@@ -983,18 +993,18 @@ html { overscroll-behavior-y: none; }
    ============================================ */
 
 /* Desktop (769px and up) — an icon rail that opens itself when the pointer
-   arrives on it. There is no toggle button: the rail is either 64px of marks
+   arrives on it. There is no toggle button: the rail is either 56px of marks
    or, while you are on it, a full menu with the team's names. */
 @media (min-width: 769px) {
   .bottom-bar { display: none !important; }
 
   .sidebar {
-    width: 64px;
+    width: 56px;
     transition: width 0.22s ease;
   }
 
   .main-content {
-    margin-left: 64px;
+    margin-left: 56px;
     width: auto;
   }
 
@@ -1011,11 +1021,11 @@ html { overscroll-behavior-y: none; }
   .rail-person-avatar { width: 34px; height: 34px; }
 
   /* The opened rail is painted over the page, not beside it. The content
-     column keeps its 64px gutter, so nothing on screen moves while the rail
+     column keeps its 56px gutter, so nothing on screen moves while the rail
      grows — which is what made the old hover preview fight with the layout. */
   .sidebar:hover,
   .sidebar:focus-within {
-    width: 232px;
+    width: 204px;
     box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
   }
 
@@ -1057,6 +1067,8 @@ html { overscroll-behavior-y: none; }
   .sidebar:focus-within .rail-person-avatar { width: 30px; height: 30px; }
   .sidebar:hover .rail-person-name,
   .sidebar:focus-within .rail-person-name { display: block; }
+  .sidebar:hover .rail-empty,
+  .sidebar:focus-within .rail-empty { display: block; }
 }
 
 /* Mobile (768px and down) — no sidebar at all, the bottom bar is the navigation */
