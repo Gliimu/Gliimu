@@ -99,10 +99,10 @@
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  /* 72px = the desktop header strip it must meet: hub padding 16 + the 44px
-     command pills + 12px under them. The rail's hairline then sits on the
+  /* 52px = the page header beside it (--page-header-h): the back-arrow bar on
+     Publish, Live, Billing and friends. The rail's hairline then sits on the
      same line as the page's own header edge. */
-  height: 72px;
+  height: 52px;
   box-sizing: border-box;
 }
 
