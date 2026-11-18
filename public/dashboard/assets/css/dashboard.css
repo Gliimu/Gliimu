@@ -237,6 +237,16 @@
 .rail-people::-webkit-scrollbar { display: none; }
 .rail-people:empty { display: none; }
 
+/* The rail renders one stack child; its auto margins center the team between
+   the logo and the account avatar, and collapse to 0 when the list outgrows
+   the rail so scrolling still starts at the top. */
+.rail-people-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: auto 0;
+}
+
 .rail-people-heading {
   display: none;
   font-size: var(--fs-xs);

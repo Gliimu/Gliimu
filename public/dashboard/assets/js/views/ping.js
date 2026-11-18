@@ -2,7 +2,7 @@ import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=3';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=7';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
-import { addToTeamUp, isTeamUpMember } from '../team-up.js?v=2';
+import { addToTeamUp, isTeamUpMember } from '../team-up.js?v=3';
 import supportView from './support.js?v=47';
 
 function escapeHtml(value) {

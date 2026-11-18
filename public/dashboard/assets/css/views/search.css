@@ -284,9 +284,9 @@
   overflow-y: auto;
   padding: 6px;
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  /* No border or shadow: the panel opens straight over the sticky tab band,
+     and its old frame painted a phantom edge onto the tabs. */
 }
 .search-page.search-embedded .search-stage:focus-within .search-history:not(:empty) {
   display: grid;

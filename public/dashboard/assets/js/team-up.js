@@ -58,13 +58,13 @@ function avatarHtml(member, className) {
 }
 
 function desktopHtml() {
-  return '<div class="rail-people-heading">Team</div>' + state.members.map(member => {
+  return '<div class="rail-people-stack"><div class="rail-people-heading">Team</div>' + state.members.map(member => {
     const name = member.full_name || '';
     return `<button type="button" class="rail-person team-up-person" data-team-member="${member.member_id}" title="${escapeHtml(name)}" aria-label="Open Team actions for ${escapeHtml(name)}">
       ${avatarHtml(member, 'rail-person-avatar')}
       <span class="rail-person-name">${escapeHtml(name)}</span>
     </button>`;
-  }).join('');
+  }).join('') + '</div>';
 }
 
 function mobileHtml() {

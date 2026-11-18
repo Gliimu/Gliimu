@@ -798,6 +798,21 @@
 .xplore-command .search-toggle:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
 .xplore-command .search-toggle svg { width: 18px; height: 18px; }
 
+/* Desktop keeps the engine on screen: the rail already carries the logo, so the
+   wordmark goes and the field never collapses behind the magnifier. The field
+   rule carries five classes on purpose — it must out-rank the collapsible
+   closed and open states in search.css at any file order. Mobile (≤768px)
+   keeps the icon-opened row. */
+@media (min-width: 769px) {
+  .xplore-page .xplore-brand { display: none; }
+  .xplore-page .xplore-command .search-toggle { display: none; }
+  .xplore-page .xplore-command .search-page.search-collapsible .search-field {
+    max-width: 100vw;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
 .hub-top-band {
   position: sticky;
   /* The safe-area strip above the page is painted by .view-container::before

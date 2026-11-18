@@ -1,12 +1,12 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=239';
-import { initPullToRefresh } from './pull-to-refresh.js?v=26';
+import { router } from './router.js?v=240';
+import { initPullToRefresh } from './pull-to-refresh.js?v=27';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
 import { previewText } from './media.js?v=7';
 import { initAccountMenu } from './account-menu.js?v=7';
-import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=2';
+import { initTeamUp, handleTeamUpMessage } from './team-up.js?v=3';
 
 // ============================================
 // GLOBAL NOTIFICATION MANAGER
