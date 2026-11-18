@@ -768,12 +768,12 @@
   text-decoration: none;
   transition: max-width .28s ease, opacity .18s ease;
 }
-.xplore-brand img { width: 26px; height: 26px; display: block; flex-shrink: 0; filter: invert(1); }
+.xplore-brand img { width: 30px; height: 30px; display: block; flex-shrink: 0; filter: invert(1); }
 [data-theme="dark"] .xplore-brand img { filter: none; }
 .xplore-brand span {
   position: relative;
   z-index: 1;
-  margin-left: calc(26px * -0.084);
+  margin-left: calc(30px * -0.084);
   font-size: 19px;
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
@@ -954,6 +954,10 @@
   border-color: transparent;
 }
 .cohort-modal-cancel:hover { background: var(--surface-hover); }
+/* Opening the modal focus()es the Cancel button, which mobile browsers answer
+   with their default amber focus ring — keep the outline for keyboard use only. */
+.cohort-modal-cancel:focus { outline: none; }
+.cohort-modal-cancel:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 
 @media (max-width: 560px) {
   .xplore-actions { gap: 6px; }

@@ -294,7 +294,7 @@ export default {
     // the profiles.username column is revoked from authenticated, and this
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
-      supabase.from('profiles').select('full_name, avatar_url, banner_url, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
+      supabase.from('profiles').select('full_name, avatar_url, banner_url, portfolio_image_url, total_gp, bio, verification_badge').eq('id', userId).single(),
       supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, status').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
@@ -326,8 +326,6 @@ export default {
     const chevronDownSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
     const gp = p.total_gp || 0;
     const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
-    const skillList = (p.skills || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
-    const interestList = (p.interests || '').split(',').map(s => s.trim()).filter(Boolean);
 
     // Grid list first, then card context, then the template — cards must render
     // with their kinds and comment counts already known.
@@ -361,13 +359,6 @@ export default {
 
     const detailsPanel = this.buildDetailsPanel(isMe);
 
-    const identityTags = (skillList.length || interestList.length) ? `
-      <div class="banner-chips">
-        ${skillList.map(s => `<span class="profile-chip">${escText(s)}</span>`).join('')}
-        ${interestList.map(i => `<span class="profile-chip">${escText(i)}</span>`).join('')}
-      </div>
-    ` : '';
-
     container.innerHTML = `
       <!-- Banner identity: name, bio, chips, stats and actions all overlay
            the banner art; only the gliims feed sits below the banner. -->
@@ -389,10 +380,9 @@ export default {
             <div class="banner-identity-text">
               <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
               ${p.bio ? `<p class="profile-identity-bio">${escText(p.bio)}</p>` : ''}
-              ${identityTags}
             </div>
-            <div class="banner-actions">
-              ${isMe ? `
+            ${isMe ? `
+              <div class="banner-actions">
                 <div class="profile-filter-wrap">
                   <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
@@ -406,13 +396,8 @@ export default {
                   </div>
                 </div>
                 <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
-              ` : `
-                <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send a Ping">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                  Ping
-                </button>
-              `}
-            </div>
+              </div>
+            ` : ''}
           </div>
           <div class="banner-stats-row">
             <span class="banner-stat"><strong>${gpDisplay}</strong> GP</span>
@@ -422,7 +407,11 @@ export default {
                 More details
                 ${chevronDownSvg}
               </button>
-            ` : ''}
+            ` : `
+              <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send a Ping" aria-label="Send a Ping">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              </button>
+            `}
           </div>
         </div>
       </div>

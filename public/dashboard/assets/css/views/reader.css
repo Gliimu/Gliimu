@@ -1043,7 +1043,13 @@
   gap: 10px;
 }
 
+/* The four rail icons must all read at full ink strength: the three <img>
+   glyphs are baked dark (and flip white in dark theme), but the support bolt
+   draws itself with currentColor, which the base .action-btn paints in muted
+   grey — the one washed-out icon in the column. Both rules out-rank gliims.css
+   so the bolt matches the images in light and dark; hover keeps its brand ink. */
 .post-read-bottom .action-btn {
+  color: var(--text-primary);
   flex-direction: column;
   gap: 2px;
   width: 48px;
@@ -1056,6 +1062,7 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
+.post-read-bottom .action-btn:hover { color: var(--brand-primary); }
 
 .post-read-bottom .action-btn span {
   font-size: 11px;
