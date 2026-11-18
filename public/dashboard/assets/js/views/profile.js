@@ -341,7 +341,7 @@ export default {
     const emptyMessage = this._projectFilter === 'saved' ? 'No saved gliims yet.'
       : this._projectFilter === 'drafts' ? 'No drafts found.'
       : this._projectFilter === 'trash' ? 'Your Trash is empty.'
-      : 'No gliims found.';
+      : 'Nothing here yet.';
 
     const detailsPanel = this.buildDetailsPanel(isMe);
 
