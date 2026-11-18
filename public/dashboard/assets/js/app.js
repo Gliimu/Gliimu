@@ -348,9 +348,15 @@ async function checkTermsAgreement() {
   backdrop.querySelector('.terms-modal-read').addEventListener('click', () => {
     window.open('https://www.gliimu.com/terms.html', '_blank', 'noopener');
   });
-  backdrop.querySelector('.terms-modal-agree').addEventListener('click', () => {
-    localStorage.setItem(TERMS_ACCEPTED_KEY, updatedAt);
-    backdrop.remove();
+  // Resolving on the Agree click, not before, so boot continues into the tour
+  // on this same load — a new member's first visit used to end here and the
+  // tour only ever started on the next refresh.
+  await new Promise(resolve => {
+    backdrop.querySelector('.terms-modal-agree').addEventListener('click', () => {
+      localStorage.setItem(TERMS_ACCEPTED_KEY, updatedAt);
+      backdrop.remove();
+      resolve(true);
+    });
   });
   return true;
 }
@@ -364,7 +370,10 @@ async function checkTermsAgreement() {
 // members start with a G100 credit and have still never done anything. The
 // overlay is appended to body, not #app: every mount wipes #app and the tour
 // must outlive the navigations it performs.
-const ONBOARDING_DONE_KEY = 'gliimu_onboarding_completed_at';
+// Completion is remembered per account, not per browser: the old single key
+// meant that once anyone finished (or force-tested) the tour on a device,
+// every later signup on that same browser silently skipped it forever.
+const onboardingDoneKey = () => `gliimu_onboarding_done_${store.user?.id || 'anon'}`;
 
 function tourNavigate(target) {
   if (window.location.hostname === 'dashboard.gliimu.com') {
@@ -392,7 +401,7 @@ async function maybeStartTour() {
   // ?onboarding=1 force-shows the tour so an established account can verify it.
   const forced = new URLSearchParams(window.gliimRoute?.query() || '').has('onboarding');
   if (!forced) {
-    if (localStorage.getItem(ONBOARDING_DONE_KEY)) return false;
+    if (localStorage.getItem(onboardingDoneKey())) return false;
     if (!await memberIsBrandNew()) return false;
   }
   let steps = null;
@@ -412,7 +421,7 @@ async function maybeStartTour() {
   document.body.appendChild(overlay);
 
   const finish = () => {
-    localStorage.setItem(ONBOARDING_DONE_KEY, new Date().toISOString());
+    localStorage.setItem(onboardingDoneKey(), new Date().toISOString());
     overlay.remove();
   };
 
@@ -523,10 +532,11 @@ async function initApp() {
   const initialPath = window.gliimRoute?.path();
   await router();
   // Legal acceptance outranks the tour and the tour outranks the cohort modal:
-  // a brand-new member should meet the pages, not a cohort pitch, on their
-  // first visit — the modal waits for the next full refresh.
-  if (await checkTermsAgreement()) return;
+  // a brand-new member agrees to the terms, then walks the tour on this same
+  // load; the cohort pitch waits for the next full refresh.
+  const termsShown = await checkTermsAgreement();
   if (await maybeStartTour()) return;
+  if (termsShown) return;
   if (initialPath === '/xplore' || initialPath === '/feed') showCohortModal();
 }
 
