@@ -99,7 +99,10 @@
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
-  height: 80px;
+  /* 72px = the desktop header strip it must meet: hub padding 16 + the 44px
+     command pills + 12px under them. The rail's hairline then sits on the
+     same line as the page's own header edge. */
+  height: 72px;
   box-sizing: border-box;
 }
 
@@ -775,6 +778,53 @@ html { overscroll-behavior-y: none; }
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
 .btn-secondary:hover { background: var(--surface-hover); }
+
+/* Terms agreement modal: blocking by design — no dismiss path, the member
+   either reads the terms or agrees. */
+.terms-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, .58);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+.terms-modal {
+  width: min(480px, 100%);
+  padding: 26px;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+}
+.terms-modal-kicker {
+  margin: 0 0 8px;
+  color: var(--brand-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.terms-modal-title { margin: 0; font-size: 25px; line-height: 1.25; }
+.terms-modal-text {
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.terms-modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.terms-modal-actions .btn-primary,
+.terms-modal-actions .btn-secondary { flex: 1 1 auto; min-width: 0; border-radius: var(--radius-full); }
+.terms-modal-actions .btn-secondary { border-color: transparent; }
+
+@media (max-width: 560px) {
+  .terms-modal { padding: 22px; }
+  .terms-modal-title { font-size: 22px; }
+}
 
 .theme-toggle-btn {
   background: var(--bg-tertiary);

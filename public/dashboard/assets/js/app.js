@@ -1,6 +1,6 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=240';
-import { initPullToRefresh } from './pull-to-refresh.js?v=27';
+import { router } from './router.js?v=241';
+import { initPullToRefresh } from './pull-to-refresh.js?v=28';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
 import { notify } from './notify.js?v=33';
@@ -317,6 +317,44 @@ async function showCohortModal() {
   }
 }
 
+// Terms version gate. The server's legal_documents row is the source of truth;
+// the browser remembers which updated_at it agreed to. A fresh storage key on
+// purpose: the old banner key never recorded a real acceptance, so every
+// member sees this modal once after it ships.
+const TERMS_ACCEPTED_KEY = 'gliimu_terms_accepted_at';
+
+async function checkTermsAgreement() {
+  let updatedAt = null;
+  try {
+    const { data, error } = await supabase.from('legal_documents')
+      .select('updated_at').eq('type', 'terms').maybeSingle();
+    if (!error && data?.updated_at) updatedAt = data.updated_at;
+  } catch (e) { /* the fetch failed: skip, the next refresh asks again */ }
+  if (!updatedAt || localStorage.getItem(TERMS_ACCEPTED_KEY) === updatedAt) return false;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'terms-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="terms-modal" role="dialog" aria-modal="true" aria-label="Terms and Policy update">
+      <p class="terms-modal-kicker">Terms and Policy</p>
+      <h2 class="terms-modal-title">We've updated our Terms and Policy</h2>
+      <p class="terms-modal-text">There has been a change to the Terms and Policy. By continuing to use the platform, you agree to the updated Terms and Policy.</p>
+      <div class="terms-modal-actions">
+        <button type="button" class="btn-secondary terms-modal-read">Read the terms</button>
+        <button type="button" class="btn-primary terms-modal-agree">Agree</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('.terms-modal-read').addEventListener('click', () => {
+    window.open('https://www.gliimu.com/terms.html', '_blank', 'noopener');
+  });
+  backdrop.querySelector('.terms-modal-agree').addEventListener('click', () => {
+    localStorage.setItem(TERMS_ACCEPTED_KEY, updatedAt);
+    backdrop.remove();
+  });
+  return true;
+}
+
 async function initApp() {
   initPullToRefresh();
   const user = await store.fetchUser();
@@ -390,6 +428,9 @@ async function initApp() {
   window.addEventListener('hashchange', router);
   const initialPath = window.gliimRoute?.path();
   await router();
+  // Legal acceptance outranks the cohort modal: when both are due, the cohort
+  // waits for the next full refresh.
+  if (await checkTermsAgreement()) return;
   if (initialPath === '/xplore' || initialPath === '/feed') showCohortModal();
 }
 

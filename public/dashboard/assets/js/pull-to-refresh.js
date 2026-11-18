@@ -1,11 +1,5 @@
-// Must match the ?v= that app.js uses for this same import: a second specifier
-// would load a second copy of the router, which remounts without destroying the
-// view the page is actually showing.
-import { refreshCurrentView } from './router.js?v=240';
-
-// Pull down from the very top of the page and the route you are already on
-// remounts, which is what its init() does on arrival — so the feed, the lists
-// and the counters all come back without reloading the document.
+// Pull down from the very top of the page and the whole document reloads, so
+// every module comes back fresh with whatever the server is serving now.
 const THRESHOLD = 72;
 const MAX_TRAVEL = 110;
 const RESISTANCE = 0.5;
@@ -100,10 +94,10 @@ export function initPullToRefresh() {
     indicator.classList.add('ptr--loading');
     indicator.classList.remove('ptr--ready');
     try {
-      await Promise.all([refreshCurrentView(), wait(MIN_SPIN_MS)]);
+      await wait(MIN_SPIN_MS);
     } finally {
-      busy = false;
-      retract();
+      // The reload ends this document; nothing after it gets to run.
+      window.location.reload();
     }
   }
 

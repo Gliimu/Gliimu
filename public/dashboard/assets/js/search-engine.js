@@ -119,6 +119,12 @@ export function createSearchEngine({
       });
       this.input.addEventListener('keydown', event => this.onKeydown(event));
       this.input.addEventListener('focus', () => this.renderHistory());
+      // Clicking the engine while results are on screen goes back to the idle
+      // screen, whose dropdown is the recent-searches list. This is what the
+      // old "New search" button in the results head used to do.
+      this.input.addEventListener('click', () => {
+        if (this.term) this.setIdle(false);
+      });
 
       this.suggest.addEventListener('click', event => {
         const row = event.target.closest('[data-term]');
@@ -143,11 +149,16 @@ export function createSearchEngine({
         }
       });
 
+      /* A browser press on a history row blurs the input without focusing the
+         button, and the embedded panel — revealed by the field's focus — would
+         close mid-press and cancel the click before it lands. Holding focus on
+         the input keeps the panel open for the whole press. */
+      if (embedded) {
+        this.history.addEventListener('mousedown', event => event.preventDefault());
+      }
+
       this._boxClear = () => this.setIdle();
       this.page.querySelector('[data-box-clear]').addEventListener('click', this._boxClear);
-      this.body.addEventListener('click', event => {
-        if (event.target.closest('[data-new-search]')) this.setIdle();
-      });
 
       this._outside = event => {
         if (!this.field.contains(event.target)) this.closeSuggest();
@@ -502,7 +513,6 @@ export function createSearchEngine({
 
       this.body.innerHTML = `<div class="search-results-head">
           <span>${total} result${total === 1 ? '' : 's'} for “${escapeHtml(this.term)}”</span>
-          <button type="button" class="search-results-clear" data-new-search>New search</button>
         </div>${people}${groups}${gliims}`;
       feedView.layoutMasonry(masonryScope);
     },

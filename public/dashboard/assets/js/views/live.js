@@ -375,6 +375,26 @@ const liveView = {
         return false;
       }
 
+      // A kick outlives a refresh: the server holds the verdict, so it is
+      // consulted before anything is restored.
+      try {
+        const { data: { session: authSession } } = await supabase.auth.getSession();
+        const kickCheck = await fetch(`${API_BASE_URL}/api/live/join-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authSession?.access_token}`
+          },
+          body: JSON.stringify({ requestId: sessionId, checkOnly: true })
+        });
+        if (kickCheck.status === 403) {
+          sessionStorage.removeItem('liveSession');
+          return false;
+        }
+      } catch (e) {
+        console.warn('Kick check during session recovery failed:', e);
+      }
+
       // Fetch session details
       const { data: session, error } = await supabase
         .from('live_requests')

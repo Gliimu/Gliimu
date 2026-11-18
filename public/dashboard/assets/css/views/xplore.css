@@ -949,8 +949,11 @@
   flex: 0 0 auto;
   min-width: 116px;
   border-radius: var(--radius-full);
+  /* The frame is .btn-secondary's; it stays only as an invisible spacer so the
+     button keeps its height without showing a border. */
+  border-color: transparent;
 }
-.cohort-modal-cancel:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.cohort-modal-cancel:hover { background: var(--surface-hover); }
 
 @media (max-width: 560px) {
   .xplore-actions { gap: 6px; }
