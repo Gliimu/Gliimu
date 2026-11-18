@@ -650,8 +650,8 @@ const liveView = {
     this.setupSessionRealtime(this.activeSession.id);
     this.startSessionTimer();
 
-    heartbeat.setCurrentPost(null);
-    heartbeat.start();
+    // The studio is not metered: per-minute billing left Live, and a heartbeat
+    // without a post charges the member G3/min for nothing.
   },
 
   renderSessionUI(mountEl) {
@@ -687,10 +687,10 @@ const liveView = {
         <div class="live-controls-bar">
           <button class="live-ctrl-btn" id="live-camera-btn" title="Toggle camera">${ICONS.video}</button>
           <button class="live-ctrl-btn" id="live-mic-btn" title="Toggle mic">${ICONS.mic}</button>
+          <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
           ${mobile
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
-          <button class="live-ctrl-btn" id="live-chat-btn" title="Toggle chat">${ICONS.chat}</button>
           ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn" id="live-support-btn" title="Support the host — G10 per tap" aria-label="Support the host, 10 Gliits per tap"><span class="live-support-ico">${ICONS.bolt}</span>${this._supportTappedSession === this.activeSession?.id ? '' : '<span class="live-support-cost">G10</span>'}</button>`}
           ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
@@ -1359,8 +1359,6 @@ const liveView = {
     this._rebuildTiles();
 
     this.startChatPolling(this.activeSession.id);
-    heartbeat.setCurrentPost(null);
-    heartbeat.start();
   },
 
   _showJoinToast(name) {

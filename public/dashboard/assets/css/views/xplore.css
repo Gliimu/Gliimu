@@ -771,6 +771,8 @@
 .xplore-brand img { width: 26px; height: 26px; display: block; flex-shrink: 0; filter: invert(1); }
 [data-theme="dark"] .xplore-brand img { filter: none; }
 .xplore-brand span {
+  position: relative;
+  z-index: 1;
   margin-left: calc(26px * -0.084);
   font-size: 19px;
   font-weight: var(--fw-bold);
