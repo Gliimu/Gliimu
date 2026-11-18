@@ -70,7 +70,7 @@
   cursor: pointer;
 }
 .xplore-follow-btn.is-following { background: none; color: var(--text-secondary); border-color: var(--border); }
-.xplore-follow-btn.is-following:hover { color: var(--danger, #E5484D); border-color: var(--danger, #E5484D); }
+.xplore-follow-btn.is-following:hover { color: #475569; border-color: #475569; }
 .xplore-follow-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Feed slices: shelf rows of cards and people above the masonry */

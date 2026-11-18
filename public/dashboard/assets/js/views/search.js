@@ -1,4 +1,4 @@
-import feedView from './xplore.js?v=130';
+import feedView from './xplore.js?v=131';
 import { createSearchEngine } from '../search-engine.js?v=6';
 
 const engine = createSearchEngine({ feedView });

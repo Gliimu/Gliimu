@@ -99,10 +99,6 @@ export default {
               <input type="text" id="settings-interests" class="input">
             </div>
           </div>
-          <div class="form-group">
-            <label>Social Link</label>
-            <input type="url" id="settings-social" class="input" placeholder="https://example.com/you">
-          </div>
           <button type="submit" class="btn-primary">Save Changes</button>
         </form>
       </div>
@@ -201,14 +197,13 @@ export default {
     // Fetch Profile Data. Explicit columns (never select('*')) because the
     // profiles.username column is revoked from authenticated; username is
     // shown from the JWT-sourced store.profile.username instead.
-    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url, banner_url, social_link').eq('id', store.user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('full_name, bio, skills, interests, avatar_url, banner_url').eq('id', store.user.id).single();
     if (profile) {
       document.getElementById('settings-name').value = profile.full_name || '';
       document.getElementById('settings-username').value = store.profile?.username || '';
       document.getElementById('settings-bio').value = profile.bio || '';
       document.getElementById('settings-skills').value = profile.skills || '';
       document.getElementById('settings-interests').value = profile.interests || '';
-      document.getElementById('settings-social').value = profile.social_link || '';
       if (profile.avatar_url) {
         document.getElementById('avatar-preview').src = profile.avatar_url + `?t=${Date.now()}`;
       }
@@ -256,14 +251,11 @@ export default {
     // Handle Profile Update
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      let social = document.getElementById('settings-social').value.trim();
-      if (social && !/^https?:\/\//i.test(social)) social = 'https://' + social;
       const updates = {
         full_name: document.getElementById('settings-name').value,
         bio: document.getElementById('settings-bio').value,
         skills: document.getElementById('settings-skills').value,
-        interests: document.getElementById('settings-interests').value,
-        social_link: social
+        interests: document.getElementById('settings-interests').value
       };
       const { error } = await supabase.from('profiles').update(updates).eq('id', store.user.id);
       if (error) alert("Error updating profile.");

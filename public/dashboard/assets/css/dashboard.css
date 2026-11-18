@@ -844,8 +844,8 @@ html { overscroll-behavior-y: none; }
 .onboard-tour {
   position: fixed;
   left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--bottom-bar-h) + 14px);
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 5900;
   width: min(480px, calc(100vw - 32px));
   padding: 22px 24px 24px;

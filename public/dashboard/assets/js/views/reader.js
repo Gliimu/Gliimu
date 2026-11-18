@@ -174,12 +174,12 @@ export default {
         const { error } = await supabase.from('followed_users').delete().eq('follower_id', store.user.id).eq('followed_id', this._authorId);
         if (error) throw error;
         this._isFollowing = false;
-        if (btn) { btn.classList.remove('following'); btn.innerHTML = '+'; btn.title = 'Follow'; }
+        if (btn) { btn.classList.remove('following'); btn.innerHTML = '+'; btn.title = 'Subscribe'; }
       } else {
         const { error } = await supabase.from('followed_users').insert({ follower_id: store.user.id, followed_id: this._authorId });
         if (error) throw error;
         this._isFollowing = true;
-        if (btn) { btn.classList.add('following'); btn.innerHTML = '✓'; btn.title = 'Following'; }
+        if (btn) { btn.classList.add('following'); btn.innerHTML = '−'; btn.title = 'Subscribed'; }
       }
     } catch (err) {
       console.error('Follow error:', err);
@@ -265,7 +265,7 @@ export default {
     const avatar = post.profiles?.avatar_url
       ? `<img src="${post.profiles.avatar_url}" class="${avatarClass}" style="object-fit:cover;">`
       : `<div class="${avatarClass}"></div>`;
-    const followBtnHtml = !isOwner ? `<button class="reader-follow-avatar-btn ${this._isFollowing ? 'following' : ''}" id="reader-follow-btn" onclick="event.stopPropagation(); readInstance.toggleFollow()" title="${this._isFollowing ? 'Following' : 'Follow'}">${this._isFollowing ? '✓' : '+'}</button>` : '';
+    const followBtnHtml = !isOwner ? `<button class="reader-follow-avatar-btn ${this._isFollowing ? 'following' : ''}" id="reader-follow-btn" onclick="event.stopPropagation(); readInstance.toggleFollow()" title="${this._isFollowing ? 'Subscribed' : 'Subscribe'}">${this._isFollowing ? '−' : '+'}</button>` : '';
 
     const likes = interactions.filter(i => i.interaction_type === 'like').length;
     const comments = interactions.filter(i => i.interaction_type === 'comment').length;

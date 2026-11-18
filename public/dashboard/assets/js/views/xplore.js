@@ -81,7 +81,7 @@ const feedView = {
     const isSelf = user.id === store.user?.id;
     const following = this._followedIds?.has(user.id);
     const action = followable && !isSelf
-      ? `<button type="button" class="xplore-follow-btn${following ? ' is-following' : ''}" data-follow="${escapeHtml(user.id)}"${following ? ' title="Unfollow"' : ''}>${following ? 'Following' : 'Follow'}</button>`
+      ? `<button type="button" class="xplore-follow-btn${following ? ' is-following' : ''}" data-follow="${escapeHtml(user.id)}"${following ? ' title="Unsubscribe"' : ''}>${following ? 'Subscribed' : 'Subscribe'}</button>`
       : '';
     return `<div class="xplore-person">
       <a class="xplore-person-id" href="${this.profileHref(user.id)}">
@@ -239,8 +239,8 @@ const feedView = {
       }
       button.disabled = false;
       button.classList.toggle('is-following', !following);
-      button.textContent = following ? 'Follow' : 'Following';
-      button.title = following ? '' : 'Unfollow';
+      button.textContent = following ? 'Subscribe' : 'Subscribed';
+      button.title = following ? '' : 'Unsubscribe';
       window.dispatchEvent(new CustomEvent('gliimu-follow-changed'));
       this.renderRing();
     } catch (error) {

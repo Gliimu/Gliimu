@@ -1111,8 +1111,8 @@
   transform: scale(1.1);
 }
 .reader-follow-avatar-btn.following {
-  background: #10B981;
+  background: #64748B;
 }
 .reader-follow-avatar-btn.following:hover {
-  background: #059669;
+  background: #475569;
 }

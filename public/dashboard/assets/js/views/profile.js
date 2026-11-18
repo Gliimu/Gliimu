@@ -2,8 +2,11 @@ import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { uploadFile } from '../upload.js?v=2';
 import hubView, { gliimKindOf, gliimCoverOf, trashReason } from './gliims.js?v=132';
-import feedView from './xplore.js?v=130';
+import feedView from './xplore.js?v=131';
 import { notify } from '../notify.js?v=33';
+
+const SUB_PLUS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+const SUB_MINUS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
 
 export default {
   title: 'Profile',
@@ -167,11 +170,8 @@ export default {
     if (!wasOpen) item.classList.add('open');
   },
 
-  buildDetailsPanel(p, isMe) {
-    const gp = p.total_gp || 0;
-    const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
-    const skills = p.skills?.split(',').map(s => s.trim()).filter(Boolean) || [];
-    const interests = p.interests?.split(',').map(s => s.trim()).filter(Boolean) || [];
+  buildDetailsPanel(isMe) {
+    if (!isMe) return '';
 
     const boltSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>`;
     const chevronSvg = `<svg class="details-acc-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
@@ -181,90 +181,52 @@ export default {
     const profileUrl = window.gliimAppUrl(`/profile?u=${this.targetUserId}`);
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&ecc=H&margin=6&qzone=1&data=${encodeURIComponent(profileUrl)}`;
 
-    const streakAcc = isMe ? `
-      <div class="details-acc">
-        <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
-          <span class="details-acc-title">${boltSvg}Activity Streak</span>
-          ${chevronSvg}
-        </button>
-        <div class="details-acc-body">
-          <div class="streak-stats">
-            <div class="streak-item">
-              <span class="streak-value">${this._posts.length}</span>
-              <span class="streak-label">Total Gliims</span>
-            </div>
-            <div class="streak-item">
-              <span class="streak-value">${this.calculateStreak(this._posts)}</span>
-              <span class="streak-label">Day Streak</span>
-            </div>
-            <div class="streak-item">
-              <span class="streak-value">${this.getMostActiveDay(this._posts)}</span>
-              <span class="streak-label">Most Active</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    ` : '';
-
-    const shareAcc = isMe ? `
-      <div class="details-acc">
-        <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
-          <span class="details-acc-title">${shareSvg}Profile QR & share</span>
-          ${chevronSvg}
-        </button>
-        <div class="details-acc-body">
-          <div class="details-share-row">
-            <div class="portfolio-qr-img" onclick="profileInstance.openQr()" title="Enlarge QR code">
-              <img class="qr" src="${qrSrc}" alt="Profile QR code">
-              <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
-            </div>
-            <div class="details-share-info">
-              <span class="verify-title">Share your profile</span>
-              <div class="profile-share-row">
-                <span class="profile-share-url">${profileUrl}</span>
-                <button class="profile-share-copy" onclick="profileInstance.copyShareLink()" title="Copy link">${copySvg}</button>
-              </div>
-              <span class="verify-hint">Tap the QR code to enlarge</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    ` : '';
-
     return `
       <div class="profile-details-panel" id="profile-details-panel">
-        <div class="profile-details-stats">
-          <div class="profile-stat">
-            <span class="stat-value">${gpDisplay}</span>
-            <span class="stat-label">${gp >= 10000 ? 'Growth Points' : 'GP Points'}</span>
-          </div>
-          <div class="profile-stat">
-            <span class="stat-value">${this._postsCount || 0}</span>
-            <span class="stat-label">Gliims</span>
-          </div>
-          <div class="profile-stat">
-            <span class="stat-value">${this._followersCount || 0}</span>
-            <span class="stat-label">Followers</span>
-          </div>
-          <div class="profile-stat">
-            <span class="stat-value">${this._followingCount || 0}</span>
-            <span class="stat-label">Following</span>
+        <div class="details-acc">
+          <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
+            <span class="details-acc-title">${boltSvg}Activity Streak</span>
+            ${chevronSvg}
+          </button>
+          <div class="details-acc-body">
+            <div class="streak-stats">
+              <div class="streak-item">
+                <span class="streak-value">${this._posts.length}</span>
+                <span class="streak-label">Total Gliims</span>
+              </div>
+              <div class="streak-item">
+                <span class="streak-value">${this.calculateStreak(this._posts)}</span>
+                <span class="streak-label">Day Streak</span>
+              </div>
+              <div class="streak-item">
+                <span class="streak-value">${this.getMostActiveDay(this._posts)}</span>
+                <span class="streak-label">Most Active</span>
+              </div>
+            </div>
           </div>
         </div>
-        ${skills.length ? `
-          <div class="profile-details-group">
-            <h4>Skills</h4>
-            <div class="tag-group">${skills.map(s => `<span class="tag tag-primary">${s}</span>`).join('')}</div>
+        <div class="details-acc">
+          <button class="details-acc-head" onclick="profileInstance.toggleDetailsAcc(this)">
+            <span class="details-acc-title">${shareSvg}Profile QR & share</span>
+            ${chevronSvg}
+          </button>
+          <div class="details-acc-body">
+            <div class="details-share-row">
+              <div class="portfolio-qr-img" onclick="profileInstance.openQr()" title="Enlarge QR code">
+                <img class="qr" src="${qrSrc}" alt="Profile QR code">
+                <img class="qr-logo" src="/icons/icon.png" alt="Gliimu">
+              </div>
+              <div class="details-share-info">
+                <span class="verify-title">Share your profile</span>
+                <div class="profile-share-row">
+                  <span class="profile-share-url">${profileUrl}</span>
+                  <button class="profile-share-copy" onclick="profileInstance.copyShareLink()" title="Copy link">${copySvg}</button>
+                </div>
+                <span class="verify-hint">Tap the QR code to enlarge</span>
+              </div>
+            </div>
           </div>
-        ` : ''}
-        ${interests.length ? `
-          <div class="profile-details-group">
-            <h4>Interests</h4>
-            <div class="tag-group">${interests.map(i => `<span class="tag tag-secondary">${i}</span>`).join('')}</div>
-          </div>
-        ` : ''}
-        ${streakAcc}
-        ${shareAcc}
+        </div>
       </div>
     `;
   },
@@ -277,7 +239,7 @@ export default {
   },
 
   async toggleFollow() {
-    const btn = document.getElementById('follow-btn');
+    const btn = document.getElementById('subscribe-btn');
     if (!btn) return;
 
     const targetId = this.targetUserId;
@@ -290,30 +252,27 @@ export default {
         const { error } = await supabase.from('followed_users').delete().eq('follower_id', store.user.id).eq('followed_id', targetId);
         if (error) throw error;
         this._isFollowing = false;
-        notify.toast('You have unfollowed this user');
+        notify.toast('Unsubscribed.');
       } else {
         const { error } = await supabase.from('followed_users').insert({ follower_id: store.user.id, followed_id: targetId });
         if (error) throw error;
         this._isFollowing = true;
-        notify.toast('You are now following this user. Their gliims will appear in your XpLoRe feed.');
+        notify.toast('Subscribed. Their new gliims will appear in your XpLoRe feed.');
       }
 
-      // Update button state
-      btn.classList.toggle('following', this._isFollowing);
-      btn.title = this._isFollowing ? 'Unfollow' : 'Follow';
-      btn.innerHTML = this._isFollowing ? `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      ` : `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      `;
+      btn.classList.toggle('subscribed', this._isFollowing);
+      btn.title = this._isFollowing ? 'Unsubscribe' : 'Subscribe';
+      btn.setAttribute('aria-label', btn.title);
+      btn.innerHTML = this._isFollowing ? SUB_MINUS_SVG : SUB_PLUS_SVG;
 
-      // Refresh follower count
       const { count: newCount } = await supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', targetId);
       this._followersCount = newCount || 0;
+      const stat = document.getElementById('stat-subscribers');
+      if (stat) stat.textContent = this._followersCount;
 
     } catch (err) {
-      notify.toast('Could not update follow status. Please try again.');
-      console.error('Follow/unfollow error:', err);
+      notify.toast('Could not update your subscription. Please try again.');
+      console.error('Subscribe/unsubscribe error:', err);
     } finally {
       btn.disabled = false;
     }
@@ -331,7 +290,7 @@ export default {
     // the profiles.username column is revoked from authenticated, and this
     // usually renders ANOTHER member's portfolio — username must never load.
     const [profileResult, postsResult, followerResult, followingResult, followCheckResult] = await Promise.all([
-      supabase.from('profiles').select('full_name, avatar_url, banner_url, social_link, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
+      supabase.from('profiles').select('full_name, avatar_url, banner_url, portfolio_image_url, total_gp, skills, interests, bio, verification_badge').eq('id', userId).single(),
       supabase.from('feed_gliims').select('id, title, category, description, created_at, views, cover_url, cover_color, user_id, status').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('followed_id', userId),
       supabase.from('followed_users').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
@@ -358,16 +317,13 @@ export default {
 
     const settingsGearSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`;
 
-    let socialLink = (p.social_link || '').trim();
-    // Settings prepends https:// on save; older rows may still be schemeless
-    if (socialLink && !/^https?:\/\//i.test(socialLink)) socialLink = 'https://' + socialLink;
-    let socialHost = '';
-    if (socialLink) { try { socialHost = new URL(socialLink).hostname.replace(/^www\./, ''); } catch { socialHost = ''; } }
-    const socialOk = !!socialHost;
     const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const escText = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const globeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`;
     const chevronDownSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    const gp = p.total_gp || 0;
+    const gpDisplay = gp >= 10000 ? 'Maxed out' : gp.toLocaleString();
+    const skillList = (p.skills || '').split(',').map(s => s.trim()).filter(Boolean);
+    const interestList = (p.interests || '').split(',').map(s => s.trim()).filter(Boolean);
 
     // Grid list first, then card context, then the template — cards must render
     // with their kinds and comment counts already known.
@@ -399,33 +355,38 @@ export default {
       : this._projectFilter === 'trash' ? 'Your Trash is empty.'
       : 'No gliims found.';
 
-    const detailsPanel = this.buildDetailsPanel(p, isMe);
+    const detailsPanel = this.buildDetailsPanel(isMe);
+
+    const identityTags = (skillList.length || interestList.length) ? `
+      <div class="tag-group profile-identity-tags">
+        ${skillList.map(s => `<span class="tag tag-primary">${escText(s)}</span>`).join('')}
+        ${interestList.map(i => `<span class="tag tag-secondary">${escText(i)}</span>`).join('')}
+      </div>
+    ` : '';
 
     container.innerHTML = `
-      <!-- Profile Header: banner identity, actions row, inline details panel -->
+      <!-- Profile header: image banner, overlapping identity band, stats bar -->
       <div class="profile-header card">
         <div class="profile-banner${p.banner_url ? '' : ' no-image'}">
           ${p.banner_url ? `<img src="${escAttr(p.banner_url)}" alt="">` : ''}
-          <div class="profile-banner-scrim"></div>
-          <div class="profile-banner-identity">
+        </div>
+        <div class="profile-identity">
+          <div class="profile-avatar-wrap">
             ${p.avatar_url
               ? `<img src="${escAttr(p.avatar_url)}" alt="${escText(p.full_name || 'Gliimait')}" class="profile-avatar-large">`
               : `<div class="profile-avatar-fallback">${(p.full_name || 'G').charAt(0).toUpperCase()}</div>`}
-            <div class="profile-banner-text">
-              <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
-              ${p.bio ? `<p class="profile-banner-bio">${escText(p.bio)}</p>` : ''}
-            </div>
+            ${!isMe ? `
+              <button class="profile-sub-badge ${this._isFollowing ? 'subscribed' : ''}" id="subscribe-btn" onclick="profileInstance.toggleFollow()" title="${this._isFollowing ? 'Unsubscribe' : 'Subscribe'}" aria-label="${this._isFollowing ? 'Unsubscribe' : 'Subscribe'}">
+                ${this._isFollowing ? SUB_MINUS_SVG : SUB_PLUS_SVG}
+              </button>
+            ` : ''}
           </div>
-          ${socialOk ? `
-            <a class="profile-social-chip profile-banner-social" href="${escAttr(socialLink)}" target="_blank" rel="noopener noreferrer nofollow" title="${escAttr(socialLink)}">${globeSvg}<span>${escText(socialHost)}</span></a>
-          ` : ''}
-        </div>
-        <div class="profile-header-actions">
-          <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
-            More details
-            ${chevronDownSvg}
-          </button>
-          <div class="profile-header-actions-right">
+          <div class="profile-identity-text">
+            <h1>${p.full_name || 'Gliimait'}${tierIcon(p.verification_badge)}</h1>
+            ${p.bio ? `<p class="profile-identity-bio">${escText(p.bio)}</p>` : ''}
+            ${identityTags}
+          </div>
+          <div class="profile-identity-actions">
             ${isMe ? `
               <div class="profile-filter-wrap">
                 <button class="profile-filter-btn" onclick="profileInstance.toggleFilterMenu(event)" title="Filter gliims">
@@ -441,18 +402,23 @@ export default {
               </div>
               <button class="profile-gear-btn" title="Settings" onclick="window.location.hash='#/settings'">${settingsGearSvg}</button>
             ` : `
-              <button class="profile-follow-btn ${this._isFollowing ? 'following' : ''}" onclick="profileInstance.toggleFollow()" id="follow-btn" title="${this._isFollowing ? 'Unfollow' : 'Follow'}">
-                ${this._isFollowing ? `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                ` : `
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                `}
-              </button>
               <button type="button" class="profile-ping-btn" onclick="profileInstance.messageUser()" title="Send message">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
               </button>
             `}
           </div>
+        </div>
+        <div class="profile-stats-bar">
+          <div class="profile-stat"><span class="stat-value">${gpDisplay}</span><span class="stat-label">${gp >= 10000 ? 'Growth Points' : 'GP Points'}</span></div>
+          <div class="profile-stat"><span class="stat-value">${this._postsCount || 0}</span><span class="stat-label">Gliims</span></div>
+          <div class="profile-stat"><span class="stat-value" id="stat-subscribers">${this._followersCount || 0}</span><span class="stat-label">Subscribers</span></div>
+          <div class="profile-stat"><span class="stat-value">${this._followingCount || 0}</span><span class="stat-label">Subscribed</span></div>
+          ${isMe ? `
+            <button class="profile-details-toggle" id="profile-details-toggle" onclick="profileInstance.toggleDetails()">
+              More details
+              ${chevronDownSvg}
+            </button>
+          ` : ''}
         </div>
         ${detailsPanel}
       </div>

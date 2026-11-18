@@ -34,6 +34,10 @@ comment on table public.onboarding_steps is
 
 alter table public.onboarding_steps enable row level security;
 
+-- admin_has_role is SECURITY DEFINER: a policy that reads admin_users
+-- directly would die at the grant layer, because admin_users is
+-- RLS-locked with no member grants. See fix_onboarding_steps_admin_policies.sql.
+
 drop policy if exists "Members can read onboarding_steps" on public.onboarding_steps;
 create policy "Members can read onboarding_steps"
   on public.onboarding_steps
@@ -46,46 +50,22 @@ create policy "Admins can insert onboarding_steps"
   on public.onboarding_steps
   for insert
   to authenticated
-  with check (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'ops')
-    )
-  );
+  with check (admin_has_role(auth.uid(), 'ops'));
 
 drop policy if exists "Admins can update onboarding_steps" on public.onboarding_steps;
 create policy "Admins can update onboarding_steps"
   on public.onboarding_steps
   for update
   to authenticated
-  using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'ops')
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'ops')
-    )
-  );
+  using (admin_has_role(auth.uid(), 'ops'))
+  with check (admin_has_role(auth.uid(), 'ops'));
 
 drop policy if exists "Admins can delete onboarding_steps" on public.onboarding_steps;
 create policy "Admins can delete onboarding_steps"
   on public.onboarding_steps
   for delete
   to authenticated
-  using (
-    exists (
-      select 1 from public.admin_users
-      where user_id = auth.uid()
-        and role in ('super', 'ops')
-    )
-  );
+  using (admin_has_role(auth.uid(), 'ops'));
 
 -- ------------------------------------------------------------
 -- 3. SEED — the seven pages, in walk order.
@@ -95,7 +75,7 @@ create policy "Admins can delete onboarding_steps"
 
 insert into public.onboarding_steps (route, title, body, position) values
   ('/xplore', 'XpLoRe',
-   'Your home feed. Everything published on Gliimu lands here — browse gliims, follow creators and save what you love.',
+   'Your home feed. Everything published on Gliimu lands here — browse gliims, subscribe to creators and save what you love.',
    1),
   ('/publish', 'Publish',
    'Your writing studio. Gliims you publish here appear in XpLoRe for everyone to read.',
