@@ -11,10 +11,11 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Members read "tokens"; every identifier, column and RPC still says gliits.
+// Every number on this page is a token amount — the heading says so, so the
+// figures do not repeat the word. Identifiers still say gliits.
 function tokensText(value) {
   const n = Number(value || 0);
-  return `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${Math.abs(n) === 1 ? 'token' : 'tokens'}`;
+  return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 const TX_TYPE_LABELS = {
@@ -171,8 +172,8 @@ export default {
 
     container.innerHTML = `
       <div class="wallet-header-card">
-        <span class="balance-label">Wallet Balance</span>
-        <h1 class="balance-amount">${this.balance.toLocaleString()} <span class="balance-unit">tokens</span></h1>
+        <span class="balance-label">Token Balance</span>
+        <h1 class="balance-amount">${tokensText(this.balance)}</h1>
         <div style="font-size: 13px; opacity: 0.85; margin-bottom: 16px;">Plan: ${escapeHtml(planLabel)}</div>
         <div class="wallet-actions">
           <div class="wallet-action">
@@ -384,16 +385,21 @@ export default {
         <span>${text}</span>
       </li>`;
 
+    const isCurrent = (planType) => currentPlan === planType;
+    // The plan a member already holds has no button — nothing to click — so the
+    // card marks itself with an outline and a corner badge instead.
+    const cardClass = (planType) => `plan-card${isCurrent(planType) ? ' plan-card--current' : ''}`;
+    const badge = (planType) => isCurrent(planType) ? '<span class="plan-current-badge">Current plan</span>' : '';
+
     const btn = (planType, label) => {
-      if (currentPlan === planType) {
-        return `<button class="plan-buy active-plan" disabled>Current Plan</button>`;
-      }
+      if (isCurrent(planType)) return '';
       return `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('${planType}')">${label}</button>`;
     };
 
     return `
       <div class="plan-list">
-        <div class="plan-card">
+        <div class="${cardClass('payngo')}">
+          ${badge('payngo')}
           <span class="plan-name">Pay n' Go</span>
           <div class="plan-price">${price('per_minute_rate_gliits')}/min</div>
           <span class="plan-price-note">deducted from wallet</span>
@@ -405,7 +411,8 @@ export default {
           </ul>
           ${btn('payngo', 'Switch to Pay n\' Go')}
         </div>
-        <div class="plan-card">
+        <div class="${cardClass('monthly')}">
+          ${badge('monthly')}
           <span class="plan-name">Monthly</span>
           <div class="plan-price">${price('plan_monthly_price_gliits')}</div>
           <span class="plan-price-note">per month · unlimited</span>
@@ -417,7 +424,8 @@ export default {
           </ul>
           ${btn('monthly', 'Go Monthly')}
         </div>
-        <div class="plan-card">
+        <div class="${cardClass('yearly')}">
+          ${badge('yearly')}
           <span class="plan-name">Yearly</span>
           <div class="plan-price">${price('plan_yearly_price_gliits')}</div>
           <span class="plan-price-note">per year · unlimited</span>
@@ -1012,7 +1020,7 @@ export default {
     document.getElementById('wallet-withdraw-modal')?.remove();
     await this.fetchData();
     this.render();
-    await appAlert(`${tokensText(amount)} is on its way to your bank account.`);
+    await appAlert('Your payout is on its way to your bank account.');
   },
 
   async cancelPayout(id) {
@@ -1051,7 +1059,7 @@ export default {
       <div class="modal-content">
         <button class="modal-close" id="fund-close-btn">×</button>
         <h2 style="margin-bottom: 6px;">Top Up Wallet</h2>
-        <p class="fund-subtitle">Add tokens to your balance. Minimum ${minTopup} tokens.</p>
+        <p class="fund-subtitle">Add tokens to your balance. Minimum ${tokensText(minTopup)}.</p>
 
         <div class="form-group" style="margin-top: var(--space-4);">
           <label>Amount (tokens)</label>
@@ -1109,7 +1117,7 @@ export default {
     const minTopup = Number(this.config?.min_topup_gliits || 100);
     const amount = parseInt(document.getElementById('topup-amount').value, 10);
     if (!amount || amount < minTopup) {
-      appAlert(`Please enter at least ${minTopup} tokens.`);
+      appAlert(`Please enter at least ${tokensText(minTopup)}.`);
       return null;
     }
     return amount;

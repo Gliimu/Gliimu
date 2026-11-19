@@ -103,7 +103,7 @@ gliimu/
 │   │   │   ├── app.js           # App shell: auth boot, badges, follow rail
 │   │   │   ├── router.js        # Routes, clean-URL shim, back stack
 │   │   │   ├── store.js         # Global state
-│   │   │   ├── heartbeat.js     # Consumption billing ticks (G3/min while open)
+│   │   │   ├── heartbeat.js     # Consumption billing ticks (config tokens/min while open)
 │   │   │   ├── secure-reader.js # Secure full-screen reading overlay, lightbox,
 │   │   │   │                    #   inline document renderer (renderFileInto)
 │   │   │   ├── audiolite-minimizer.js  # Persistent player strip (keeps playing
@@ -166,7 +166,8 @@ re-reads them whenever you need current numbers.
 - `notifications` — one-way alerts behind the Alerts page and the avatar badge
 
 **Money**
-- `gliits_config`, `gliits_plans`, `gliits_topups`, `gliits_usage` — the Gliits ledger
+- `gliits_config`, `gliits_plans`, `gliits_topups`, `gliits_usage` — the token ledger: rates and
+  prices, each member's plan, top-ups (tokens bought with naira) and the per-minute charges
 - `payment_attempts` — bank-transfer top-ups awaiting one-click verification
 - `transactions` — the GP/wallet ledger
 - `referrals` — codes, ledger and vesting
@@ -386,7 +387,8 @@ proxied DNS record automatically on a same-account zone):
 
 **Reader** (`/post?id=…`)
 - Secure reading page: selection/print deterrence, watermark, illustration lightbox
-- Consumption billing: G3 per minute while the post is open (the `heartbeat` module)
+- Consumption billing: the per-minute token rate set in the admin Config tab
+  (`per_minute_rate_gliits`) while the post is open (the `heartbeat` module)
 - Comment and share earn GP (+5 each)
 - Related posts grid matching XpLoRe card parity
 - Minimised audio/video keeps playing across pages (`audiolite-minimizer.js`); billing follows the newly opened post
@@ -397,18 +399,24 @@ proxied DNS record automatically on a same-account zone):
 
 **Live** (`/live`)
 - Session list + host modal; rooms are Daily.co, hosted on the server
-- Studio: stage + participant rail, chat with attachments, hand raises, host mute/kick, support tap (G10, 70/30 split), share to chats
-- No per-minute live billing
+- Studio: stage + participant rail, chat with attachments, hand raises, host mute/kick, support tap (10 tokens, 70/30 split), share to chats
+- Live bills on the same config token rate as the reader (`per_minute_rate_gliits` — one key, so the
+  two can never drift apart). The host is not charged for their own session and earns
+  `creator_rate_per_minute` per viewer-minute up to `creator_cap_per_post_session`.
+  `gliits_live_entry_check()` refuses a join when the wallet cannot pay the first minute.
 
 **Ping** (`/ping`)
 - Member DMs with realtime updates, sounds and desktop notifications
 - The Support thread (member ↔ staff) lives here with CRM handover; `support.js` renders the thread inside Ping
 
 **Billing** (`/wallet` — file `billing.js`)
-- Wallet balance (naira) + Gliits (G) side by side
-- Three plans (Starter / Pro / Elite), Paystack card top-ups, bank-transfer top-ups verified in one click
+- One Token Balance — the number at the top of the page is spendable tokens, not naira
+- Three plans (Pay n' Go / Monthly / Yearly) bought from that balance; the plan you hold gets a
+  border and a "Current plan" badge instead of a button. Paystack card top-ups, bank-transfer
+  top-ups verified in one click
 - User-to-user transfers (password-gated), Earnings tab, referral rewards
-- Withdrawals are processed manually by staff
+- Withdrawals to a bank account: a payout request, held for `withdrawal_hold_hours`, released from
+  the admin payout queue
 
 **Alerts, Search, Profile, Settings, Terms**
 - Alerts: notifications with click-through and mark-read
@@ -421,23 +429,51 @@ proxied DNS record automatically on a same-account zone):
 **CRM** (`/crm`) — members, reports, content review
 **Submissions** (`/submissions`) — every gliim, search + grid, Take down (deletes, purges after 30 days)
 **Operations** (`/operations`) — site content: landing hero/FAQs, contact info, app releases, Community/Arena, Cohorts (+ the XpLoRe strip card), Deleted queue
-**Finance** (`/finance`, `/ledger`, `/revenue`) — Gliits ledger, revenue analytics, adjustments
+**Finance** (`/finance`, `/ledger`, `/revenue`) — token ledger, revenue analytics, adjustments
 **Support** (`/support`) — all-role support desk + staff room
 **Admins** (`/admins`) — role management (super/crm/registrar/operations)
 
 ## Billing System
 
-**Two currencies:**
-- **Wallet balance (₦)** — real money. Top up via Paystack or bank transfer, spend on consumption, withdraw (manual processing) or transfer to other members.
-- **Gliits (G)** — platform currency. G3 per minute while a post is open in the reader. Cannot be purchased with cash; comes from plans and activity.
+**Two ledger currencies, one real one:**
+- **Tokens** (`profiles.wallet_balance`, `numeric(12,2)`) — the only thing a member spends on Gliimu.
+  Read time, Live attendance, plan fees and support taps all move this number. The Billing page
+  labels it "Token Balance"; the `gliits()` helper in both apps formats it.
+- **GP** (`profiles.total_gp`, integer) — activity points earned by engagement, never spent on
+  anything. `gliits_gp_to_gliits()` converts GP into tokens at `gp_to_gliits_threshold` /
+  `gp_to_gliits_ratio`, but no member-facing button calls it today.
+- **Naira (₦)** is not a balance. It only *buys* tokens, at `exchange_rate_naira_to_gliits`
+  (₦10 = 1 token), through Paystack or a staff-verified bank transfer. A top-up row in
+  `gliits_topups` stores both `amount_naira` and `amount_gliits`.
 
-**Plans:** Starter / Pro / Elite — monthly, include wallet credits and platform access.
+**One price for reading:** `gliits_config.per_minute_rate_gliits` is the single key that prices
+both the reader and a Live session, so the two can never drift apart. The admin's Config tab
+(`revenue.js`) is the only place the number lives, and `gliits_rate_guard.sql` refuses a save that
+would break the maths.
+
+**Plans** (`gliits_plans` is the source of truth, read through `effective_tier()`):
+
+| Plan | Config key | What it buys |
+|---|---|---|
+| Pay n' Go | — | nothing prepaid; use is metered at `per_minute_rate_gliits` |
+| Monthly | `plan_monthly_price_gliits` | unlimited use for a month |
+| Yearly | `plan_yearly_price_gliits` | unlimited use for a year |
+
+All three are paid from the token balance, never with a card directly. A lapsed monthly/yearly
+falls back to metered use instead of locking the member out.
 
 **Everyday flows:**
-- Opening content bills G3/min for the consumption session; closing stops the meter
-- Supporting a creator: G100 in the reader, G10 in Live — 70% to the creator, 30% platform, repeatable
-- Daily activity: +10 GP for showing up, −7 GP for a missed day
-- Comments and shares earn +5 GP each
+- Opening a post bills `per_minute_rate_gliits` per minute; closing stops the meter. Nothing open
+  means nothing charged, and a target that has vanished (session ended, post taken down) is not
+  billable either — so a stale tab stops charging.
+- Live bills on the same meter. The host pays nothing for their own session and earns
+  `creator_rate_per_minute` per viewer-minute up to `creator_cap_per_post_session`.
+  `gliits_live_entry_check()` refuses a join when the wallet cannot pay the first minute.
+- Supporting a creator: 100 tokens in the reader, 10 in Live — 70% to the creator, 30% platform,
+  repeatable.
+- GP from engagement (`add_gp`): like someone's gliim → author +3; comment → author +4 and
+  commenter +5; share → author +5 and sharer +5. Live reactions award GP through
+  `sql/live_reactions.sql`.
 
 **Payment Methods:**
 - Paystack (cards, instant)
@@ -448,7 +484,7 @@ proxied DNS record automatically on a same-account zone):
 **Kinds:** books (EPUB/DOCX/PDF rendered client-side), audiolites (audio, sequential chapters), bundles (mixed blocks)
 
 **Features:**
-- G3/min consumption billing scoped to the open post
+- Per-minute token billing scoped to the open post (rate from `gliits_config`)
 - Selection/save/print deterrence + watermark
 - Illustration lightbox, PDF tiles, poll blocks
 - Persistent minimised player (desktop floating card, mobile thumbnail) with equalizer, 3x-height video and drag-to-move

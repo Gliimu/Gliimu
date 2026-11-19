@@ -1,8 +1,11 @@
 import { supabase } from '../config.js';
-import { escapeHtml, timeAgo, badge, empty, avatar, rpcError } from '../ui.js?v=4';
+import { escapeHtml, timeAgo, badge, empty, avatar, rpcError, TIER_LABEL } from '../ui.js?v=4';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const STATUS_TONE = { open: 'error', resolved: 'success', dismissed: 'neutral' };
+// admin_member_lookup returns effective_tier(), i.e. the plan the member holds
+// in gliits_plans — never the legacy profiles.tier column.
+const PLAN_LABEL = { ...TIER_LABEL, wallet: 'No active plan' };
 const TARGET_LABEL = { user: 'Member', post: 'Gliim', library: 'Library item' };
 
 export default {
@@ -105,7 +108,7 @@ export default {
           <dt>Name</dt><dd>${escapeHtml(data.full_name || '—')}</dd>
           <dt>Username</dt><dd>${escapeHtml(data.username || '—')}</dd>
           <dt>GP</dt><dd>${escapeHtml(String(data.total_gp || 0))}</dd>
-          <dt>Tier</dt><dd>${escapeHtml(data.tier || '—')}</dd>
+          <dt>Plan</dt><dd>${escapeHtml(PLAN_LABEL[data.plan] || '—')}</dd>
           <dt>Staff</dt><dd>${data.is_admin ? 'Yes — admin flag set' : 'No'}</dd>
         </dl>`;
     }

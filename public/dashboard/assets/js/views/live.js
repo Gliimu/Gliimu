@@ -324,6 +324,12 @@ const liveView = {
       if (!(await this.goOnAir(request.id))) await this.cancelSession(request.id);
     } catch (error) {
       console.error('Create session error:', error);
+      // Who may host is a database trigger, so its raw Postgres token is
+      // otherwise what lands on the screen.
+      if (/LIVE_REQUIRES_SUBSCRIPTION/.test(error?.message || '')) {
+        appAlert('Your Monthly or Yearly plan has ended, so you cannot host a session. Renew it in Billing, or switch to Pay n\' Go, then try again.');
+        return;
+      }
       appAlert(error.message || 'Your session could not be created.');
     } finally {
       this.creatingSession = false;

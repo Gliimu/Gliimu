@@ -668,7 +668,7 @@ export default {
               <label>What it says</label>
               <textarea class="input" data-step-body maxlength="300" rows="2">${escapeHtml(s.body || '')}</textarea>
             </div>
-          </div>`).join('') : empty('No steps yet — run sql/onboarding_steps.sql to create the seven defaults.')}
+          </div>`).join('') : empty('No steps yet — run sql/onboarding_steps.sql to create the eight defaults.')}
         ${steps.length ? `
           <div class="card-actions" style="margin-left:0;margin-top:16px;">
             <button class="btn-primary btn-small" data-save-steps>Save all steps</button>
