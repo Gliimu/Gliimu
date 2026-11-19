@@ -1,5 +1,5 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=255';
+import { router } from './router.js?v=258';
 import { initPullToRefresh } from './pull-to-refresh.js?v=28';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
@@ -201,24 +201,12 @@ const Presence = {
 };
 
 // ============================================
-// GP ELIGIBILITY — the one-time 100 GP alert. A light
-// poll keeps the cached total current without a reload.
+// GP CACHE — engagement pays GP in the database, so a light poll keeps the
+// cached total current without a reload.
 // ============================================
-const TIER_100_KEY = 'gliimu_tier_100_alerted';
-
-async function checkGpTiers() {
+async function refreshGpCache() {
   const { data: profile } = await supabase.from('profiles').select('total_gp').eq('id', store.user.id).single();
-  if (!profile) return;
-  const prev = store.profile.total_gp || 0;
-  const next = profile.total_gp || 0;
-  store.profile.total_gp = next;
-
-  if (next >= 100 && !localStorage.getItem(TIER_100_KEY)) {
-    localStorage.setItem(TIER_100_KEY, '1');
-    if (prev < 100) {
-      alert('You now have 100 GP! You are now eligible to post contents and request live sessions in Gliimu.');
-    }
-  }
+  if (profile) store.profile.total_gp = profile.total_gp || 0;
 }
 
 function escapeHtml(value) {
@@ -528,7 +516,7 @@ async function initApp() {
   initAccountMenu();
   initTeamUp();
 
-  setInterval(checkGpTiers, 45000);
+  setInterval(refreshGpCache, 45000);
 
   window.addEventListener('hashchange', router);
   const initialPath = window.gliimRoute?.path();

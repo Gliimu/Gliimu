@@ -3,8 +3,8 @@ import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { uploadFile } from '../upload.js?v=2';
 import { renderFileInto } from '../secure-reader.js?v=38';
 import { notify } from '../notify.js?v=33';
-import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=11';
-import { readingGate } from '../heartbeat.js?v=8';
+import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=13';
+import { readingGate } from '../heartbeat.js?v=10';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -2573,8 +2573,8 @@ const hubView = {
     } else {
       const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'like' }).select('*').single();
       if (data) this.allInteractions.push(data);
+      if (data) await supabase.rpc('earn_gp', { p_interaction: data.id });
       if (post && post.user_id !== store.user.id) {
-        await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 3 });
         this.interestSignal(2, post.category);
       }
     }
@@ -2613,11 +2613,10 @@ const hubView = {
       }
       input.value = "";
     }
+    if (data) await supabase.rpc('earn_gp', { p_interaction: data.id });
     if (post && post.user_id !== store.user.id) {
-      await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 4 });
       this.interestSignal(3, post.category);
     }
-    await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 5 });
     if (post) this.notifyMentions(postId, post, text, data?.id);
     if (this.pickedMentions) delete this.pickedMentions[postId];
   },
@@ -2674,9 +2673,7 @@ const hubView = {
   async sharePost(postId, title) {
     const { data } = await supabase.from('feed_interactions').insert({ post_id: postId, user_id: store.user.id, interaction_type: 'share' }).select('*').single();
     if (data && this.allInteractions) this.allInteractions.push(data);
-    const post = this.currentPosts.find(p => p.id === postId);
-    if (post && post.user_id !== store.user.id) await supabase.rpc('add_gp', { target_user_id: post.user_id, points_to_add: 5 });
-    await supabase.rpc('add_gp', { target_user_id: store.user.id, points_to_add: 5 });
+    if (data) await supabase.rpc('earn_gp', { p_interaction: data.id });
 
     this.closeModal();
     this.openReadView(postId);

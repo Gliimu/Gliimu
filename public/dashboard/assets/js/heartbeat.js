@@ -214,25 +214,43 @@ export async function setPlan(planType) {
 }
 
 export async function initTopup(gliitsAmount) {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not signed in');
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in');
 
-    const res = await fetch(`${API_BASE_URL}/api/gliits/topup-init`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      },
-      body: JSON.stringify({
-        gliitsAmount,
-        callbackUrl: window.gliimAppUrl('/wallet')
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Top-up failed');
-    return data;
-  } catch (e) {
-    throw e;
+  const body = JSON.stringify({
+    gliitsAmount,
+    callbackUrl: window.gliimAppUrl('/wallet')
+  });
+
+  // Render answers an empty-bodied 502/503 while the service is still booting —
+  // just after a deploy, or after it has gone to sleep. The failed request is
+  // what wakes it, so one short retry stands between the member and a dead
+  // "Add funds" button.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 4000));
+
+    let res, data;
+    try {
+      res = await fetch(`${API_BASE_URL}/api/gliits/topup-init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body
+      });
+      data = await res.json().catch(() => null);
+    } catch (e) {
+      if (attempt === 0) continue;
+      throw new Error('Could not reach the payment service. Please try again.');
+    }
+
+    if (res.ok && data) return data;
+    if (data && data.error) throw new Error(data.error);
+    if (res.status !== 502 && res.status !== 503) {
+      throw new Error('Could not start the payment. Please try again.');
+    }
   }
+
+  throw new Error('The payment service is waking up. Please try again in a moment.');
 }

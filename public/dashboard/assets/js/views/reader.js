@@ -1,9 +1,9 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { renderFileInto } from '../secure-reader.js?v=38';
-import * as heartbeat from '../heartbeat.js?v=8';
-import { minimizePlaying } from '../audiolite-minimizer.js?v=11';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=137';
+import * as heartbeat from '../heartbeat.js?v=10';
+import { minimizePlaying } from '../audiolite-minimizer.js?v=13';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=139';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)

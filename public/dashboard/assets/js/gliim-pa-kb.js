@@ -1,10 +1,10 @@
 // Gliim P.A. built-in knowledge base.
 //
 // This lets her answer the questions Gliimaits actually ask — navigation,
-// GP tiers, wallet, pricing, Updates, publishing, live, portfolio and
+// GP, wallet, plans, publishing, live, portfolio, cohorts, referrals and
 // core media craft — with no external LLM. The hosted model (server /api/chat)
 // is still tried first when it is funded; this module is the always-available
-// fallback, so the Support page never shows a dead end.
+// fallback, so the Support chat never shows a dead end.
 //
 // Answers are plain markdown. views/support.js escapes everything before it
 // renders, so nothing here can inject markup.
@@ -13,46 +13,58 @@ const ENTRIES = [
   {
     title: 'What Gliim P.A. can do',
     keys: ['help', 'what can you do', 'who are you', 'gliim pa', 'gliim-pa', 'assistant', 'commands', 'what do you do', 'capabilit'],
-    answer: `I am **Gliim P.A.**, your built-in assistant on Gliimu. I live on the **Support** tab, so you always get an answer.
+    answer: `I am **Gliim P.A.**, your built-in assistant on Gliimu. Open the **Support** chat at the top of your **Ping** list and I am there.
 
 I can help with:
-- **Navigating** the dashboard — Hub, Ping, Updates, Support, Billing, Settings
-- **GP and tiers** — what each level unlocks
+- **Navigating** the dashboard — XpLoRe, Publish, Live, Ping, Alerts, Billing, Settings
+- **GP** — how you earn them, and what they are for
 - **Wallet and top-ups** — funding, transfers, withdrawals
-- **Plans and pricing** — Wallet, Use n' Pay, Xtra
-- **The Updates** — leaderboard, contests, cohorts and referrals
+- **Plans and pricing** — what each one charges and where to switch
+- **Cohorts and referrals** — applying for a cohort, and Refer & earn
 - **Publishing** — a gliim, a book, a log or a bundle
-- **Going live** — 1-on-1 sessions, screen share, voice notes
-- Your **portfolio**, and **support**
+- **Going live** — sessions, screen share, voice notes
+- Your **profile and portfolio**, and **support**
 - **Media craft** — b-roll, editing, lighting, audio, pitching clients
 
 Ask me anything above, or tap a suggested chip to get started. If my answer ever misses the mark, press the thumbs-down and a person from Team Gliimu takes over.`
   },
   {
     title: 'Navigating the dashboard',
-    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'billing', 'settings', 'updates', 'support', 'how do i get to', 'section'],
-    answer: `Here is what each tab in the sidebar does:
+    keys: ['navigate', 'where', 'find', 'menu', 'tab', 'tabs', 'sidebar', 'hub', 'ping', 'billing', 'settings', 'updates', 'support', 'how do i get to', 'section', 'alerts', 'xplore', 'publish'],
+    answer: `Gliimu keeps navigation small.
 
-- **Hub** — the community feed. Browse, publish and read gliims from other Gliimaits.
-- **Ping** — your messages. Text, photos, video and voice notes, plus 1-on-1 live sessions.
-- **Updates** — leaderboard, contests, cohorts and referrals, each with its own board.
-- **Support** — me, Gliim P.A., and the Team Gliimu desk behind me.
-- **Billing** — your wallet balance, plans, top-ups and transaction history.
-- **Settings** — your profile, app version and downloads.
+On a **desktop** the slim rail on the left holds three things:
+- The **Gliimu logo** — opens **XpLoRe**, the feed where you browse and read gliims.
+- **Team** — the people you have added to your Team. Tap one to Ping them or open their gliims.
+- **You** — your avatar. Tap it for a menu with **Profile**, **Billing**, **Ping**, **Alerts** and **Settings**.
 
-On a phone the same tabs slide out from the menu button, and the tab bar moves to the bottom of the screen. Tap your avatar to open your public portfolio.`
+On a **phone** the same three sit in the bottom bar: **Team**, **XpLoRe**, **You**.
+
+What each page is for:
+- **XpLoRe** — the feed, with search above it and tabs for **Collections** and **Saved**. The **Live** and **Publish** buttons sit at the top right.
+- **Publish** — the composer for a new gliim.
+- **Live** — sessions you can join, and your own studio when you host.
+- **Ping** — your chats with other Gliimaits, and the **Support** chat at the top of the list.
+- **Alerts** — notices about your account: payments, reading charges, low balance, cohort decisions, replies from the Support desk.
+- **Billing** — your wallet, plans, top-ups and history.
+- **Settings** — your name, bio, banner, app version and sign out.
+- **Profile** — your own page: your gliims, your stats and the QR and share link.`
   },
   {
-    title: 'GP and tiers',
+    title: 'GP (Gliim Points)',
     keys: ['gp', 'gliim points', 'points', 'tier', 'tiers', 'level', 'rank', 'ambassador', 'earn gp', 'how do i level', 'unlock'],
-    answer: `**GP (Gliim Points)** measure how active you are on the platform. They unlock features as you grow:
+    answer: `**GP (Gliim Points)** measure how much you use Gliimu. They are not money, and no feature on Gliimu is locked behind them.
 
-- **50 GP** — publish posts in the Hub
-- **100 GP** — request and host live sessions, and publish content
-- **500 GP** — the support icon appears on your work, and you can price PDFs
-- **5,000 GP** — Ambassador tier, with a distinct avatar border
+You earn GP when your work gets used:
+- **10 GP** to the author the first time someone reads a gliim.
+- **3 GP** to the author when someone likes their gliim.
+- **5 GP** for leaving a comment, plus **4 GP** to the author of the gliim you commented on.
+- **5 GP** for sharing a gliim, plus **5 GP** to its author.
+- **GP** from reacting and supporting inside a live session, and when a friend you referred signs up and their reward vests.
 
-You earn GP by posting, going live, and engaging with the community. Your current GP shows on your profile and under your name in the Hub.`
+What they are for is standing: your **GP** total is the number people see under your name on your profile, and your Billing history records the GP each action brought you. GP are not money and are never mixed up with it — the **Earnings** tab on Billing reports the tokens your work has paid you, separately.
+
+What they no longer do: publishing is open to every member with no GP minimum, hosting a Live session takes neither GP nor a plan, supporting a gliim costs tokens from your wallet, GP cannot be turned into money, and there are no avatar borders or Ambassador tiers.`
   },
   {
     title: 'Wallet, top-ups and transfers',
@@ -69,35 +81,35 @@ Payouts go to the bank account registered against your own name, and a short hol
   },
   {
     title: 'Plans and pricing',
-    keys: ['price', 'pricing', 'cost', 'tuition', 'plan', 'plans', 'subscription', 'monthly', 'pro', "pay n go", 'pay n\' go', 'how much', 'fee', 'fees'],
-    answer: `Gliimu runs three ways to pay, and **Billing** is where you switch:
+    keys: ['price', 'pricing', 'cost', 'tuition', 'plan', 'plans', 'subscription', 'monthly', 'standard', 'pro', 'xtra', "pay n go", 'pay n\' go', 'how much', 'fee', 'fees', 'renew', 'expired', 'per minute', 'unlimited'],
+    answer: `Everything starts from your wallet, which holds tokens. Here is how money actually moves on Gliimu:
 
-- **Pay n' Go** — no subscription. You are charged the platform's per-minute rate from your wallet for every minute you spend reading a Gliim or watching a live session.
-- **Monthly** — one flat charge from your wallet for a month of unlimited reading.
-- **Yearly** — the same idea, priced for a year.
+- **Pay n' Go** is what every account starts on, and it is the card with no plan fee. On it, the platform's per-minute rate comes out of your wallet for every minute you spend reading a gliim or watching a live session — and a wallet that cannot cover one minute will not open either.
+- **A plan is the alternative.** **Billing** lists the plans as cards, and the one you hold is marked as current. Picking one charges its price from your wallet once, and while it is active nothing is taken per minute: you read and watch without your balance moving. When the plan expires you are back on the meter.
+- **Anyone can host.** There is no plan and no GP requirement to press **Host Session**, and the host is never charged for their own session.
+- **Top-ups** — paid in naira through Paystack by card, bank transfer or USSD, and credited at the exchange rate shown on the page.
+- **Earnings** — the **Earnings** tab on Billing shows what your own work has brought you.
 
-The exact figures on your **Billing** page are the live prices, so those are the ones to trust. They change only when the people running Gliimu change them.`
+The exact plan names and figures on your **Billing** page are the live ones, so those are the ones to trust. They change only when the people running Gliimu change them.`
   },
   {
-    title: 'The Updates page',
-    keys: ['updates', 'arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'competition', 'join a contest', 'seats', 'prize', 'rank', 'standing', 'standings', 'referrals', 'refer'],
-    answer: `Your **Updates** tab is where Gliimaits come together. The filter button at the top picks one section at a time, and each section shows the board that matches it:
+    title: 'Cohorts and referrals',
+    keys: ['updates', 'arena', 'community', 'contest', 'contests', 'leaderboard', 'cohort', 'cohorts', 'competition', 'join a cohort', 'seat', 'seats', 'prize', 'rank', 'standing', 'standings', 'referrals', 'refer', 'invite', 'bring a friend'],
+    answer: `There is no **Updates**, **Arena** or contests page any more — the two things people used to look for there now live where you use them:
 
-- **Leaderboard** — the standings of the featured contest. When a new contest opens it becomes the featured one.
-- **Contests** — the three latest contests, each with a board of the GP earned inside that contest window.
-- **Cohorts** — seat-capped groups. Request a seat and the operations team approves you; the board shows GP earned since you were approved.
-- **Referrals** — a board of who has brought the most friends to Gliimu.
+- **Refer & earn** — on **Billing**, tap the refer icon in the page header. You get one link to copy and send. Pending and vested counts, your GP earned and the list of people who joined you are all in that same card.
+- **Cohorts** — seat-capped groups run by the operations team. When a cohort is open, a **Current cohort** card appears the next time you load XpLoRe. Press **Apply** and the Support chat opens with your application already written — send it, and the desk answers you there. You will also see the decision under **Alerts**.
 
-Contest scores update on their own from your activity — no manual scoring. Use the same filter to move between the boards.`
+Contest and leaderboard boards do not exist, so there is nothing to find or rank on. If you were pointed at one of those pages, it has been retired.`
   },
   {
     title: 'Publishing a gliim',
     keys: ['upload', 'post', 'publish', 'gliim', 'gliims', 'bundle', 'book', 'log', 'audiolite', 'media', 'pdf', 'submit', 'content', 'create', 'composer', 'share my work'],
     answer: `To publish a gliim:
 
-1. Open the **Publish** page from the sidebar (the **+** in the mobile bar).
+1. Open **Publish** — the button at the top right of XpLoRe, next to **Live**.
 2. Choose what you are making — a **Book**, a **Log** (a recording: audio or video), or a **Bundle** that mixes text, images, media and documents.
-3. Add your files, a title and a description. PDFs can carry their own price once you reach **500 GP**.
+3. Add your files, a title and a description. A document in a bundle can carry its own price in naira — leave it at zero for free.
 4. Publish — the gliim goes live the moment you publish it, in XpLoRe and on your portfolio. Use **Save as draft** if you want to keep working on it.`
   },
   {
@@ -108,43 +120,46 @@ Contest scores update on their own from your activity — no manual scoring. Use
 - Send text, photos, video, documents and **voice notes** — tap the microphone, talk, and press send.
 - The list shows the newest message from each person under their name, so you can see what came in before you open it.
 - A new message plays a short chime and raises a desktop notification, unless the chat is already open.
-- Anything from a Team Gliimu admin does **not** appear in Ping — staff answers you on the **Support** tab instead, so your conversations with other members stay clean.
+- Anything from a Team Gliimu admin does **not** appear in your chats — the desk answers you in the **Support** chat, the first item in the same list, so your conversations with other members stay clean.
 
-Unread counts show as a badge on the Ping tab and clear the moment you open the chat.`
+Unread counts show as a dot on **Ping** in your account menu and on your avatar, and clear the moment you open the chat.`
   },
   {
     title: 'Going live',
     keys: ['live', 'stream', 'go live', 'session', 'sessions', 'webcam', 'screen share', 'broadcast', 'video call', '1-on-1', 'host'],
-    answer: `Live is one broadcast with a host and as many viewers as turn up, reached from the **Live** action on the **XpLoRe** tab.
+    answer: `Live is one broadcast with a host and as many viewers as turn up, reached from the **Live** action at the top right of **XpLoRe**.
 
-- Tap **Host Session**, give it a title, and go on air. Everyone who is watching sees the session on the Live page.
+- The Live page lists the sessions that are running. **Join Session** puts you into one; **Host Session** starts your own.
+- Your own session appears with **Go on air** — nobody can join until you press it, because the room only exists once you are broadcasting.
+- **Anyone can host.** Neither a plan nor GP is required, and the host pays nothing for their own session.
+- In the studio you can turn your camera on or off, and on a bigger screen share your screen instead (on a phone that button switches between the front and back camera).
 - Sessions carry video, audio and a chat forum, and anyone in the room can share a file into that forum.
 - The host can mute or remove a viewer. A viewer who is removed cannot get back in.
-- Viewers are charged the platform's per-minute rate — the same price that applies to reading a Gliim — straight from their wallet. A wallet that cannot cover one minute will not open the session.
-- The host is never charged for their own session, and earns the creator rate for the minutes it runs, up to a cap per viewer.
+- Viewers on **Pay n' Go** are charged the platform's per-minute rate — the same price that applies to reading a Gliim — straight from their wallet, and a wallet that cannot cover one minute will not open the session. Viewers holding an active plan are not charged.
+- The host is never charged for their own session, and earns the creator rate for the minutes it runs, up to a daily cap for each viewer.
 - Supporting costs **10 tokens** per tap, and the host keeps 70% of it.
 
-Open the Live page and pick a session to join, or host your own.`
+Pick a session on the Live page to join it, or host your own.`
   },
   {
     title: 'Your profile and portfolio',
     keys: ['profile', 'portfolio', 'qr', 'print', 'cv', 'resume', 'projects', 'my page', 'avatar', 'bio'],
-    answer: `Tap your **avatar** (in the sidebar, or the menu on mobile) to open your public portfolio.
+    answer: `Open **You** — your avatar at the bottom of the rail, or the **You** tab on the bottom bar on a phone — and tap **Profile**.
 
-It is laid out like an A4 page and shows:
-- Your name, verified label and GP tier
-- Your **Projects** — the gliims you have published
-- A **QR code** that links straight to the page
+It is built around a banner image and shows:
+- Your name, your bio and — if you have one — the verified tick
+- Your **GP** total, and your **Gliims**, which are the gliims you have published
+- A **QR code** that links straight to the page, and a share link you can copy
 
-Use the print button to export a clean PDF you can share with clients. Your avatar border reflects your tier: a glow at 1,000 GP and the Ambassador styling at 5,000 GP.`
+Your own page also shows your subscriber count and lets you filter between **All Gliims**, **Drafts** and **Saved Gliims**. Nobody else sees those numbers. Change your banner, name and bio under **Settings**.`
   },
   {
     title: 'Support and reporting',
     keys: ['support', 'contact', 'help desk', 'report', 'issue', 'bug', 'problem', 'reach', 'complaint', 'not working', 'broken', 'error', 'talk to a human', 'real person', 'admin'],
-    answer: `The **Support** tab is one thread with two helpers in it.
+    answer: `Support is one chat, and it is the first item in your **Ping** list. The composer there has two chips: **Gliim P.A.** and **Gliimu team**.
 
-- **Ask me first.** Type your question and I answer instantly from what I know about Gliimu and about media work.
-- **Reach a person.** Tap the **Team** chip in the composer and your message goes to the Team Gliimu desk instead of me. Every admin on the desk can read it and reply, you can attach a file or screenshot there, and you get a sound plus a desktop notification when someone answers.
+- **Ask me first.** With **Gliim P.A.** selected, type your question and I answer instantly from what I know about Gliimu and about media work.
+- **Reach a person.** Tap the **Gliimu team** chip and your message goes to the Team Gliimu desk instead of me. Every admin on the desk can read it and reply, you can attach a file or screenshot there, and you get a sound plus a desktop notification when someone answers.
 - **If my answer misses**, press the thumbs-down on it. That hands the question to a human straight away, and I go quiet while they pick it up.
 - **I come back automatically.** After a person replies, I stay out of the way for five minutes and then take the thread over again on my own — nobody has to switch anything back on.
 
@@ -197,7 +212,7 @@ Drop your notes here and tell me the format you want (script, article, carousel 
 5. **Monetisation** — pitching clients, pricing and delivering.
 6. **Capstone** — a complete piece for your portfolio.
 
-Work through them in order, then publish each result in the Hub. Building in public is how the lessons turn into GP, a portfolio and paid work. Check the **Arena** tab for contests and cohorts to practise with.`
+Work through them in order, then publish each result with **Publish** at the top right of XpLoRe. Building in public is how the lessons turn into GP, a portfolio and paid work — other people reading, liking and commenting on your gliims is what pays you GP. Cohorts are where you practise alongside other members: press **Apply** on the **Current cohort** card when it appears on XpLoRe.`
   }
 ];
 
@@ -206,10 +221,10 @@ const GREETING_KEYS = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', '
 const FALLBACK = `I am not sure I caught that, but I can definitely help.
 
 Try asking about:
-- **GP and tiers**, or what each level unlocks
+- **GP**, how you earn them and what they are for
 - **Wallet, top-ups and transfers**
 - **Plans and pricing**
-- **The Updates** — contests, cohorts, leaderboard and referrals
+- **Cohorts and referrals** — applying for a cohort, and Refer & earn
 - **Publishing a gliim** (books, logs, bundles, documents)
 - **Going live** or your **portfolio**
 - **Media craft** — b-roll, editing, lighting, pitching clients
@@ -242,7 +257,7 @@ export function kbAnswer(text) {
   // A bare greeting gets a warm, useful hello rather than the generic guide.
   const words = query.split(' ');
   if (words.length <= 3 && words.some(w => GREETING_KEYS.includes(w))) {
-    return `Hey, I am **Assistant**, your AI helper on Gliimu. Ask me anything about Gliimu — your **courses**, **GP and tiers**, the **wallet**, **publishing**, **going live** or **media craft**. What would you like to do?`;
+    return `Hey, I am **Gliim P.A.**, your helper on Gliimu. Ask me anything about Gliimu — how to get around the dashboard, **GP**, the **wallet**, **plans**, **publishing**, **going live** or **media craft**. What would you like to do?`;
   }
 
   let best = null;

@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store } from '../store.js?v=3';
-import * as heartbeat from '../heartbeat.js?v=8';
+import * as heartbeat from '../heartbeat.js?v=10';
 import { uploadAttachment, chatAttachmentProblem } from '../media.js?v=7';
 import { renderFileInto } from '../secure-reader.js?v=38';
 

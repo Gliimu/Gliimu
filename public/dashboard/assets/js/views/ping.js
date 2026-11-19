@@ -3,7 +3,7 @@ import { store, tierClass } from '../store.js?v=3';
 import { toggleAudio, attachmentHtml, uploadAttachment, createRecorder, previewText } from '../media.js?v=7';
 import { computeUnread, isIncomingDm, markChatRead } from '../readState.js?v=29';
 import { addToTeamUp, isTeamUpMember } from '../team-up.js?v=4';
-import supportView from './support.js?v=50';
+import supportView from './support.js?v=52';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')

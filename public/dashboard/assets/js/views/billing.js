@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=3';
-import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=8';
+import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=10';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
