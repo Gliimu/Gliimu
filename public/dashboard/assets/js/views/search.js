@@ -1,5 +1,5 @@
-import feedView from './xplore.js?v=131';
-import { createSearchEngine } from '../search-engine.js?v=6';
+import feedView from './xplore.js?v=132';
+import { createSearchEngine } from '../search-engine.js?v=7';
 
 const engine = createSearchEngine({ feedView });
 

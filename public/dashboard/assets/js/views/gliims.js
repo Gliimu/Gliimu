@@ -1947,7 +1947,7 @@ const hubView = {
     const postsHtml = filtered.map(post => this.renderPostCard(post)).join('');
     
     if (filtered.length === 0) { 
-      container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">No Gliims found.</p>'; 
+      container.innerHTML = '<p style="text-align: center; width: 100%; padding: 60px 0; color: var(--text-muted);">Nothing here yet.</p>'; 
       return; 
     }
     

@@ -3,7 +3,7 @@ import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { renderFileInto } from '../secure-reader.js?v=38';
 import * as heartbeat from '../heartbeat.js?v=6';
 import { minimizePlaying } from '../audiolite-minimizer.js?v=9';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=132';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=133';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
