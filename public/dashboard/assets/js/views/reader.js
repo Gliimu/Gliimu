@@ -3,7 +3,7 @@ import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { renderFileInto } from '../secure-reader.js?v=38';
 import * as heartbeat from '../heartbeat.js?v=6';
 import { minimizePlaying } from '../audiolite-minimizer.js?v=9';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=134';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=135';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -309,7 +309,7 @@ export default {
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
     const deleteBtnHtml = isOwner ? `
-      <div class="hub-read-menu-item danger" onclick="hubInstance.promptDelete('${post.id}')">${deleteIcon} Move to Trash</div>
+      <div class="hub-read-menu-item danger" onclick="hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete</div>
     ` : '';
 
     const container = document.getElementById('post-read-container');

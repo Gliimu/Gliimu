@@ -21,12 +21,14 @@ function blockSaveMenu(e) {
 }
 
 // gliim_trash / gliim_restore report a machine code instead of a message.
+// Restore has no member-facing surface any more, so the restore-only codes
+// below are kept for completeness; the delete-path ones avoid the word Trash.
 export function trashReason(code) {
-  if (code === 'ALREADY_IN_TRASH') return 'It is already in the Trash.';
+  if (code === 'ALREADY_IN_TRASH') return 'It is already deleted.';
   if (code === 'NOT_IN_TRASH') return 'It is not in the Trash.';
   if (code === 'TOO_LATE') return 'The 30 days are over, so it can no longer be restored.';
   if (code === 'STAFF_ONLY') return 'Only the team that moved it here can put it back.';
-  if (code === 'NOT_ALLOWED') return 'You can only move your own Gliims to the Trash.';
+  if (code === 'NOT_ALLOWED') return 'You can only delete your own Gliims.';
   if (code === 'NOT_FOUND') return 'That Gliim no longer exists.';
   return 'Something went wrong.';
 }
@@ -709,18 +711,18 @@ const hubView = {
 
   async promptDelete(postId) {
     const ok = await appConfirm(
-      'Move this Gliim to the Trash? It disappears from Gliimu straight away and is permanently removed after 30 days.',
-      { okText: 'Move to Trash', danger: true }
+      'Delete this Gliim? It disappears from Gliimu straight away and is permanently removed after 30 days.',
+      { okText: 'Delete', danger: true }
     );
     if (!ok) return;
 
     const { data, error } = await supabase.rpc('gliim_trash', { p_post: postId });
-    if (error) return notify.toast('Could not move it to the Trash. ' + error.message, 5000);
+    if (error) return notify.toast('Could not delete it. ' + error.message, 5000);
     if (!data || data.ok !== true) {
-      return notify.toast('Could not move it to the Trash. ' + trashReason(data && data.code), 5000);
+      return notify.toast('Could not delete it. ' + trashReason(data && data.code), 5000);
     }
 
-    notify.toast('Moved to Trash.', 5000);
+    notify.toast('Deleted.', 5000);
     this.closeModal();
     this.fetchPosts();
     window.profileInstance?.refreshProjects?.();
@@ -2198,9 +2200,9 @@ const hubView = {
     const reportIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
     const deleteIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
 
-    // Trash Button (Only visible if user is the owner)
+    // Delete Button (Only visible if user is the owner)
     const deleteBtnHtml = isOwner ? `
-      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">${deleteIcon} Move to Trash</div>
+      <div class="hub-read-menu-item danger" onclick="event.stopPropagation(); hubInstance.promptDelete('${post.id}')">${deleteIcon} Delete</div>
     ` : '';
 
     const modal = document.createElement('div');

@@ -45,13 +45,13 @@ You retain all rights to content you upload. By uploading to Gliimu, you grant t
 
 For reported or infringing content, Gliimu reserves the right to remove content immediately and terminate accounts. Intellectual property disputes are governed by applicable law.
 
-## 7. Publishing, Moderation & the Recycle Bin
+## 7. Publishing, Moderation & Deletion
 
 - **Instant Publishing**: Content you publish appears publicly as soon as you publish it. Publishing is not pre-approved, but everything remains subject to moderation.
 - **Platform Moderation**: Gliimu may remove content that violates policies, receives valid reports, or is deemed harmful. Removed content is purged from the platform and storage.
-- **Creator Deletion**: When you delete your own content, it is immediately hidden from public discovery and other users and moves to trash, from which it is permanently purged after 30 days. Active consumption sessions are allowed to finish gracefully.
-- **Recycle Bin Purpose**: The Recycle bin exists for investigation purposes, particularly in cases where content may have been deleted to conceal misconduct. Content in the Recycle bin will not be restored without the author's awareness and explicit approval. Administrators may finalize deletion (permanently purge from storage) after investigation.
-- **No Guarantees**: Once content is finalized for deletion, it cannot be recovered. Creators should back up their work before deleting.
+- **Creator Deletion**: When you delete your own content, it is immediately hidden from public discovery and other users, and active consumption sessions are allowed to finish gracefully. Deletion is final for you — Gliimu gives you no restore option in the app. Deleted content is permanently purged from storage 30 days after you delete it.
+- **What Happens in Those 30 Days**: Your deleted content stays in internal storage that only the Gliimu team can access. It is held for investigation purposes, particularly where content may have been deleted to conceal misconduct, and it is never put back into public view without your awareness and explicit approval. The team may also finalize deletion and purge it sooner after an investigation.
+- **No Guarantees**: Once you delete content, you cannot recover it. Creators should back up their work before deleting.
 
 ## 8. Account Security, Recovery Phrase & Account Deletion
 

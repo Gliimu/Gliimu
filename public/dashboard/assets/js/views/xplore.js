@@ -1,8 +1,8 @@
-import hubView from './gliims.js?v=134';
+import hubView from './gliims.js?v=135';
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, badgeIcon } from '../store.js?v=3';
 import { loadCollections, renderCollectionCard } from '../collections.js?v=2';
-import { createSearchEngine } from '../search-engine.js?v=8';
+import { createSearchEngine } from '../search-engine.js?v=9';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
