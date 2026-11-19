@@ -26,37 +26,34 @@
 
 begin;
 
+-- Postgres rejects six SET entries for the same column, so the edits are
+-- chained inside one replace(): each fragment is applied to the previous result.
 update public.legal_documents
    set content = replace(
-        content,
-        '<strong>7. Content Moderation, Deletion &amp; Recycle Bin</strong>',
-        '<strong>7. Content Moderation &amp; Deletion</strong>'
-   ),
-   content = replace(
-        content,
-        'Deleted content moves to a Recycle bin accessible to platform administrators.',
-        'Deletion is final for you — Gliimu gives you no restore option in the app, and the content is permanently purged from storage 30 days after you delete it.'
-   ),
-   content = replace(
-        content,
-        '<strong>Recycle Bin Purpose</strong>: The Recycle bin exists for investigation purposes',
-        '<strong>What Happens in Those 30 Days</strong>: Your deleted content stays in internal storage that only the Gliimu team can access, for investigation purposes'
-   ),
-   content = replace(
-        content,
-        'Content in the Recycle bin will not be restored without the ',
-        'It is never put back into public view without the '
-   ),
-   content = replace(
-        content,
-        'Administrators may finalize deletion (permanently purge from storage) after investigation.',
-        'The team may also finalize deletion and purge it sooner after an investigation.'
-   ),
-   content = replace(
-        content,
-        'Once content is finalized for deletion from the Recycle bin, it cannot be recovered.',
-        'Once you delete content, you cannot recover it.'
-   ),
+         replace(
+           replace(
+             replace(
+               replace(
+                 replace(
+                   content,
+                   '<strong>7. Content Moderation, Deletion &amp; Recycle Bin</strong>',
+                   '<strong>7. Content Moderation &amp; Deletion</strong>'
+                 ),
+                 'Deleted content moves to a Recycle bin accessible to platform administrators.',
+                 'Deletion is final for you — Gliimu gives you no restore option in the app, and the content is permanently purged from storage 30 days after you delete it.'
+               ),
+               '<strong>Recycle Bin Purpose</strong>: The Recycle bin exists for investigation purposes',
+               '<strong>What Happens in Those 30 Days</strong>: Your deleted content stays in internal storage that only the Gliimu team can access, for investigation purposes'
+             ),
+             'Content in the Recycle bin will not be restored without the ',
+             'It is never put back into public view without the '
+           ),
+           'Administrators may finalize deletion (permanently purge from storage) after investigation.',
+           'The team may also finalize deletion and purge it sooner after an investigation.'
+         ),
+         'Once content is finalized for deletion from the Recycle bin, it cannot be recovered.',
+         'Once you delete content, you cannot recover it.'
+       ),
    updated_at = now()
  where type = 'terms'
    and content ~* 'recycle';

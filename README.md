@@ -122,7 +122,7 @@ gliimu/
 │   ├── shared/js/config.js   # Supabase client init (URL + anon key)
 │   ├── index.html            # Landing page
 │   ├── auth.html             # Sign up / sign in
-│   └── TERMS.md              # Terms of Service (mirrors legal_documents in the DB)
+│   └── TERMS.md              # Terms of Service mirror — the legal_documents row is what members actually see
 │
 ├── server/                   # Node.js backend (Render)
 │   └── src/index.js          # Paystack webhook, R2 presigns, Daily.co rooms +
@@ -147,7 +147,7 @@ policies across 34 tables. Figures are as of 2026-11-07; `sql/state.sql`
 re-reads them whenever you need current numbers.
 
 **Content** (the publishing library)
-- `feed_gliims` — every gliim: text, image, media and document posts, drafts included, plus `deleted_at`/`deleted_by`/`deleted_reason` for the Trash
+- `feed_gliims` — every gliim: text, image, media and document posts, drafts included, plus `deleted_at`/`deleted_by`/`deleted_reason` for deletion
 - `feed_gliim_contents` — block bodies, RLS-locked so only the author can read them before publish
 - `feed_interactions` — likes, comments, shares, saves
 - `post_views` — one row per reader per gliim, so views are unique, not raw hits
@@ -189,8 +189,8 @@ re-reads them whenever you need current numbers.
 All tables have RLS enabled. Policies enforce:
 - Users can only read/edit their own data
 - Staff reach content through role-checked RPCs, not broad table grants
-- A gliim in the Trash is invisible to every member-facing policy
-  (`deleted_at is null`) until it is restored or purged
+- A deleted gliim is invisible to every member-facing policy
+  (`deleted_at is null`) until Operations restores it or the 30-day purge clears it
 
 ## Setup Instructions
 
@@ -419,7 +419,7 @@ proxied DNS record automatically on a same-account zone):
 ### Admin Panel (`admin.gliimu.com`)
 
 **CRM** (`/crm`) — members, reports, content review
-**Submissions** (`/submissions`) — every gliim, search + grid, Take down (trash)
+**Submissions** (`/submissions`) — every gliim, search + grid, Take down (deletes, purges after 30 days)
 **Operations** (`/operations`) — site content: landing hero/FAQs, contact info, app releases, Community/Arena, Cohorts (+ the XpLoRe strip card), Deleted queue
 **Finance** (`/finance`, `/ledger`, `/revenue`) — Gliits ledger, revenue analytics, adjustments
 **Support** (`/support`) — all-role support desk + staff room
@@ -452,7 +452,7 @@ proxied DNS record automatically on a same-account zone):
 - Selection/save/print deterrence + watermark
 - Illustration lightbox, PDF tiles, poll blocks
 - Persistent minimised player (desktop floating card, mobile thumbnail) with equalizer, 3x-height video and drag-to-move
-- Comment strip + engagement rail; trash (30-day purge) instead of hard delete
+- Comment strip + engagement rail; Delete purges after 30 days instead of hard-deleting, and gives the member no restore option
 
 ## Referral System
 
@@ -488,7 +488,7 @@ proxied DNS record automatically on a same-account zone):
 - `super` — full access
 - `crm` — member management + content review
 - `registrar` — finance + billing
-- `operations` — site content + cohorts + trash queue
+- `operations` — site content + cohorts + Deleted queue
 
 **Authentication:**
 - Supabase Auth (email/password) + 16-word recovery phrase
@@ -535,7 +535,7 @@ should all read OK. Run the file, then run its self-check in the same paste.
 | Fresh install | `setup_core.sql` | every table, base RLS and grants |
 | Feature | `account_lifecycle.sql`, `admin.sql`, `admin_all_gliims.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql`, `cohorts.sql`, `cohorts_strip.sql` | the live features |
 | Live (sessions) | `live_rooms.sql`, `live_v2.sql`, `live_v3.sql`, `live_on_air.sql`, `live_participants.sql`, `live_chat.sql`, `live_chat_attachments.sql`, `live_kicked_users.sql`, `live_reactions.sql`, `live_support_g10.sql` | stacked over time; the newest wins where they overlap |
-| Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql` | |
+| Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql`, `terms_deletion_final.sql` | `terms_deletion_final.sql` edits the live terms row and re-triggers the boot Terms modal once |
 | Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_premium.sql`, `remove_scroll_position.sql`, `remove_landing_deadbones.sql`, `retire_captain_role.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
 | Archive | `archive_*.sql` | retired definitions, kept for reference. Never run |
 | Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql`, `landing_highlights.sql`, `landing_about.sql`, `app_qr_link.sql` | superseded by the removal scripts above |
