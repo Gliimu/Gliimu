@@ -709,7 +709,7 @@ const hubView = {
 
   async promptDelete(postId) {
     const ok = await appConfirm(
-      'Move this Gliim to the Trash? It disappears from Gliimu straight away and can be restored from your profile for 30 days.',
+      'Move this Gliim to the Trash? It disappears from Gliimu straight away and is permanently removed after 30 days.',
       { okText: 'Move to Trash', danger: true }
     );
     if (!ok) return;
@@ -720,7 +720,7 @@ const hubView = {
       return notify.toast('Could not move it to the Trash. ' + trashReason(data && data.code), 5000);
     }
 
-    notify.toast('Moved to Trash. Restore it within 30 days.', 5000);
+    notify.toast('Moved to Trash.', 5000);
     this.closeModal();
     this.fetchPosts();
     window.profileInstance?.refreshProjects?.();
