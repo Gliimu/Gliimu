@@ -1461,7 +1461,7 @@ body.live-studio-active .page-header {
   animation: live-recording-pulse 1.2s ease-in-out infinite;
 }
 
-/* Support button — one tap = reaction ladder stage + G10 to the host.
+/* Support button — one tap = reaction ladder stage + 10 tokens to the host.
    Gold ring marks it as the money button; the icon inside mirrors the
    like -> heart -> bolt stage the database reports. */
 .live-ctrl-btn#live-support-btn {
@@ -1479,9 +1479,13 @@ body.live-studio-active .page-header {
   justify-content: center;
 }
 .live-support-cost {
+  /* "10 tokens" is a two-word label, so it rides centred over the button
+     instead of hanging off the right edge into the next control. */
   position: absolute;
-  top: -5px;
-  right: -10px;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.03em;

@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, gliits, gp, badge, empty, timeAgo, rpcError, openDrawer, TIER_LABEL } from '../ui.js?v=3';
+import { escapeHtml, gliits, gp, badge, empty, timeAgo, rpcError, openDrawer, TIER_LABEL } from '../ui.js?v=4';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const TOPUP_TONE = { pending: 'warning', success: 'success', failed: 'error' };
@@ -58,7 +58,7 @@ export default {
     body.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead><tr>
-          <th>Member</th><th class="num">Wallet (G)</th><th class="num">GP</th>
+          <th>Member</th><th class="num">Wallet</th><th class="num">GP</th>
           <th>Plan</th><th>Plan expires</th>
         </tr></thead>
         <tbody>${this.members.map(p => `
@@ -181,7 +181,7 @@ export default {
 
       ${section(`Usage (${usage.length} most recent)`, usage.length ? `
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>When</th><th class="num">Charged (G)</th><th class="num">Creator credited (G)</th></tr></thead>
+          <thead><tr><th>When</th><th class="num">Charged</th><th class="num">Creator credited</th></tr></thead>
           <tbody>${usage.slice(0, 15).map(u => `
             <tr>
               <td class="muted small" style="white-space: nowrap;">${escapeHtml(timeAgo(u.minute_at))}</td>

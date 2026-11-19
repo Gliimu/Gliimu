@@ -1,5 +1,5 @@
 import { supabase } from '../config.js';
-import { escapeHtml, naira, gliits, gp, empty, timeAgo, rpcError, TIER_LABEL, TXN_LABEL } from '../ui.js?v=3';
+import { escapeHtml, naira, gliits, gp, empty, timeAgo, rpcError, TIER_LABEL, TXN_LABEL } from '../ui.js?v=4';
 
 function stat(label, value, note) {
   return `
@@ -24,6 +24,12 @@ function barTable(rows, columns) {
         </tr>`).join('')}
       </tbody>
     </table></div>`;
+}
+
+// The pricing row has to be read through the exchange rate, so keep the
+// currency formatter separate from ui.js's naira(), which prints tokens.
+function nairaOf(value) {
+  return `₦${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 export default {
@@ -63,7 +69,7 @@ export default {
 
     const toolbar = `
       <div class="filters">
-        <span class="muted small">Figures are live from the database. All amounts in Gliits (G).</span>
+        <span class="muted small">Figures are live from the database. All amounts in tokens.</span>
         <button class="btn-quiet btn-small" id="refresh-btn" style="margin-left: auto;">Refresh</button>
       </div>`;
 
@@ -95,6 +101,7 @@ export default {
       </div>` : '';
 
     // Current config summary
+    const rate = Number(cfg.exchange_rate || 0);
     const configCard = cfg.per_minute ? `
       <div class="card">
         <div class="card-head">
@@ -102,15 +109,16 @@ export default {
           <div class="card-sub">Live from gliits_config. Change these from the Revenue &amp; Pricing screen.</div></div>
         </div>
         <dl class="kv">
+          <dt>Exchange rate</dt><dd>${nairaOf(rate)} = 1 token</dd>
           <dt>Per-minute charge</dt><dd>${gliits(cfg.per_minute)}/min</dd>
           <dt>Monthly plan</dt><dd>${gliits(cfg.plan_monthly)}/month</dd>
           <dt>Yearly plan</dt><dd>${gliits(cfg.plan_yearly)}/year</dd>
           <dt>Creator rate</dt><dd>${gliits(cfg.creator_rate)}/min (cap ${gliits(cfg.creator_cap)}/post/24h)</dd>
           <dt>Signup credit</dt><dd>${gliits(cfg.signup_credit)}</dd>
           <dt>Min topup</dt><dd>${gliits(cfg.min_topup)}</dd>
-          <dt>Exchange rate</dt><dd>1 Naira = ${cfg.exchange_rate} G</dd>
           <dt>GP conversion</dt><dd>${cfg.gp_threshold} GP = ${gliits(cfg.gp_ratio)}</dd>
           <dt>Idle timeout</dt><dd>${cfg.idle_timeout} min</dd>
+          ${rate > 0 ? `<dt>What members pay</dt><dd>${nairaOf(Number(cfg.per_minute || 0) * rate)}/min · ${nairaOf(Number(cfg.plan_monthly || 0) * rate)} a month · ${nairaOf(Math.ceil(Number(cfg.min_topup || 0) * rate))} for the smallest top-up</dd>` : ''}
           ${cfg.updated_at ? `<dt>Last changed</dt><dd>${escapeHtml(timeAgo(cfg.updated_at))}</dd>` : ''}
         </dl>
       </div>` : '';
@@ -120,12 +128,12 @@ export default {
       <div class="card">
         <div class="card-head">
           <div><div class="card-title">Topup summary</div>
-          <div class="card-sub">All Gliits topups processed through the platform.</div></div>
+          <div class="card-sub">All token topups processed through the platform.</div></div>
         </div>
         ${topups.detail ? `<p class="muted small">${escapeHtml(topups.detail)}</p>` : `
         <dl class="kv">
           <dt>Total topups</dt><dd>${Number(topups.total || 0).toLocaleString()}</dd>
-          <dt>Total Gliits credited</dt><dd>${gliits(topups.total_gliits || 0)}</dd>
+          <dt>Total tokens credited</dt><dd>${gliits(topups.total_gliits || 0)}</dd>
           <dt>Total Naira received</dt><dd>₦${Number(topups.total_naira || 0).toLocaleString()}</dd>
           <dt>Pending verification</dt><dd>${Number(topups.pending || 0).toLocaleString()} (${gliits(topups.pending_gliits || 0)})</dd>
           <dt>Successful</dt><dd>${Number(topups.success || 0).toLocaleString()}</dd>

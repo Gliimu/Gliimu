@@ -1,6 +1,6 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store } from '../store.js?v=3';
-import { getBalance } from '../heartbeat.js?v=6';
+import { getBalance } from '../heartbeat.js?v=8';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -17,9 +17,11 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// Members read this as "100 tokens"; the name stays gliits because every
+// column and RPC behind it still does.
 function gliits(value) {
   const n = Number(value || 0);
-  return `${n < 0 ? '-' : ''}G${Math.abs(n).toLocaleString()}`;
+  return `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${Math.abs(n) === 1 ? 'token' : 'tokens'}`;
 }
 
 const FILTERS = [
@@ -267,7 +269,7 @@ export default {
         id: 'low-balance',
         category: 'system',
         icon: TX_ICONS.low_balance,
-        title: `Low balance: G${this.balance} left`,
+        title: `Low balance: ${gliits(this.balance)} left`,
         subtitle: 'Top up your wallet to keep reading without interruption.',
         amount: 0,
         points: 0,

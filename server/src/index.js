@@ -284,13 +284,14 @@ app.post('/api/paystack/verify', async (req, res) => {
 // ==========================================
 // GLIITS — HEARTBEAT (per-minute usage tracking)
 // ==========================================
-// The client sends a heartbeat every minute while the user is active.
-// For payngo users, this deducts G3 and credits the creator (if viewing a post).
-// For monthly/yearly users, it just logs usage and credits the creator.
+// The client sends a heartbeat every minute while the user is active, naming
+// the one thing they are consuming: the live session they are in, or the
+// gliim they are reading. Both are billed at the same config rate.
+// The meter itself decides what is chargeable — an idle minute, a finished
+// session and a taken-down gliim all cost nothing.
 app.post('/api/gliits/heartbeat', async (req, res) => {
   try {
-    const authHeader = String(req.headers.authorization || '');
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = bearerToken(req);
     if (!token) return res.status(401).json({ error: 'Missing access token.' });
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -298,26 +299,16 @@ app.post('/api/gliits/heartbeat', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session.' });
     }
 
-    const { postId } = req.body || {};
+    const { postId, sessionId } = req.body || {};
     // gliits_heartbeat reads auth.uid() internally, so it must be called with
     // the user's JWT — the service-role client has no user context.
-    const userClient = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-        auth: { persistSession: false, autoRefreshToken: false }
-      }
-    );
-    const { data, error } = await userClient.rpc('gliits_heartbeat', {
-      p_post_id: postId || null
+    const { data, error } = await asUser(token).rpc('gliits_heartbeat', {
+      p_post_id: postId || null,
+      p_session_id: sessionId || null
     });
     if (error) {
       if (error.message === 'INSUFFICIENT_BALANCE') {
         return res.json({ ok: false, code: 'INSUFFICIENT_BALANCE' });
-      }
-      if (error.message === 'NO_ACTIVE_PLAN') {
-        return res.json({ ok: false, code: 'NO_ACTIVE_PLAN' });
       }
       throw error;
     }
@@ -332,7 +323,7 @@ app.post('/api/gliits/heartbeat', async (req, res) => {
 // ==========================================
 // GLIITS — TOP-UP INIT (Paystack checkout)
 // ==========================================
-// Client sends the Gliits amount they want to buy; server calculates the
+// Client sends the token amount they want to buy; server calculates the
 // Naira equivalent using the exchange rate and starts a Paystack transaction.
 app.post('/api/gliits/topup-init', async (req, res) => {
   try {
@@ -355,18 +346,29 @@ app.post('/api/gliits/topup-init', async (req, res) => {
       return res.status(400).json({ error: 'Invalid top-up amount.' });
     }
 
-    const { data: config } = await supabaseAdmin
+    const { data: config, error: configError } = await supabaseAdmin
       .from('gliits_config')
       .select('exchange_rate_naira_to_gliits, min_topup_gliits')
       .eq('id', 1)
       .maybeSingle();
 
-    const minTopup = (config && config.min_topup_gliits) || 100;
+    // Pricing must never fall back to a guess: ₦1 = G1 is a silent 10x
+    // discount at the current rate, so an unreadable config stops the charge.
+    if (configError || !config) {
+      if (configError) console.error('gliits_config read failed:', configError.message);
+      return res.status(503).json({ error: 'Pricing is unavailable right now. Please try again in a moment.' });
+    }
+
+    const minTopup = Number(config.min_topup_gliits) || 100;
     if (amount < minTopup) {
       return res.status(400).json({ error: `Minimum top-up is G${minTopup}.` });
     }
 
-    const rate = (config && config.exchange_rate_naira_to_gliits) || 1;
+    const rate = Number(config.exchange_rate_naira_to_gliits);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      console.error('gliits_config exchange rate is unusable:', config.exchange_rate_naira_to_gliits);
+      return res.status(503).json({ error: 'Pricing is unavailable right now. Please try again in a moment.' });
+    }
     const amountNaira = Math.ceil(amount * rate);
 
     const reference = `GLI-TOP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -405,13 +407,13 @@ const asUser = (token) => createClient(
   }
 );
 
-function payoutBearer(req) {
+function bearerToken(req) {
   const header = String(req.headers.authorization || '');
   return header.startsWith('Bearer ') ? header.slice(7) : null;
 }
 
 async function payoutUser(req) {
-  const token = payoutBearer(req);
+  const token = bearerToken(req);
   if (!token) return null;
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !data || !data.user) return null;
@@ -1496,14 +1498,17 @@ app.post('/api/daily/delete-room', async (req, res) => {
 });
 
 // ==========================================
-// LIVE SESSION — Kick check
+// LIVE SESSION — entry check
 // ==========================================
 
-// Check if user has been kicked from a session
+// Two things stop a member from sitting in a room: the host kicked them out,
+// and an empty wallet. A live session now costs the same per minute as a gliim,
+// so letting a member in with nothing to pay with would be unpaid viewing.
+// The rule itself lives in the database (gliits_live_entry_check); this route
+// only relays it.
 app.post('/api/live/join-session', async (req, res) => {
   try {
-    const authHeader = String(req.headers.authorization || '');
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = bearerToken(req);
     if (!token) return res.status(401).json({ error: 'Missing access token.' });
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -1526,7 +1531,28 @@ app.post('/api/live/join-session', async (req, res) => {
       return res.status(403).json({ error: 'You were kicked out of this session.', kicked: true });
     }
 
-    res.json({ ok: true });
+    // gliits_live_entry_check reads auth.uid(), so it needs the member's JWT.
+    const { data: entry, error: entryError } = await asUser(token)
+      .rpc('gliits_live_entry_check', { p_session_id: requestId });
+
+    if (entryError) {
+      // Never let an unreadable verdict open the door for free.
+      console.error('Live entry check failed:', entryError.message);
+      return res.status(503).json({ error: 'Could not check your balance. Please try again.' });
+    }
+
+    if (entry && entry.allowed !== true && entry.reason === 'INSUFFICIENT_BALANCE') {
+      return res.status(402).json({
+        error: 'Your balance is too low to join this session.',
+        code: 'INSUFFICIENT_BALANCE',
+        rate: entry.rate,
+        balance: entry.balance
+      });
+    }
+
+    // Other "not allowed" verdicts (a room that is not on air, a room that is
+    // gone) are left to the caller, which already reads live_requests.status.
+    res.json({ ok: true, entry: entry || {} });
   } catch (error) {
     console.error('Join session check error:', error);
     res.status(500).json({ error: error.message || 'Internal server error.' });

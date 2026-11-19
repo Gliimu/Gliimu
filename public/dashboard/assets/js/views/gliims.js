@@ -3,7 +3,8 @@ import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { uploadFile } from '../upload.js?v=2';
 import { renderFileInto } from '../secure-reader.js?v=38';
 import { notify } from '../notify.js?v=33';
-import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=9';
+import { trackMedia, minimizePlaying, minimizeNow, closePlayer } from '../audiolite-minimizer.js?v=11';
+import { readingGate } from '../heartbeat.js?v=8';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -291,7 +292,7 @@ const hubView = {
 
     this.setupRealtime();
 
-    // Check balance on XpLoRe page and show G0 modal if needed
+    // Check balance on XpLoRe page and show the empty-wallet modal if needed
     this.checkBalanceAndShowModal();
 
     this.feedPromise = this.fetchPosts()
@@ -301,22 +302,16 @@ const hubView = {
 
   async checkBalanceAndShowModal() {
     if (!store.user || !store.profile) return;
-    try {
-      const { data: balanceData } = await supabase.rpc('gliits_get_balance');
-      if (!balanceData) return;
-      const balance = Number(balanceData.balance || 0);
-      const plan = balanceData.plan;
-      const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
-      if (balance < 3 && !planActive && typeof appAlert === 'function') {
-        setTimeout(() => {
-          appAlert('Your balance is below G3. Top up or activate a plan to continue using the platform.').then(() => {
-            window.location.hash = '#/wallet';
-          });
-        }, 500);
-      }
-    } catch (e) {
-      console.warn('Balance check failed:', e.message);
-    }
+    // One price for a minute of anything, read from the admin's config rather
+    // than assumed here. Pay n' Go is not a paid plan, so it pays.
+    const gate = await readingGate();
+    if (!gate || !gate.blocked) return;
+    setTimeout(() => {
+      if (typeof appAlert !== 'function') return;
+      appAlert(`Your balance is below ${gate.rate} tokens — the price of one minute of reading or a live session. Top up to continue.`).then(() => {
+        window.location.hash = '#/wallet';
+      });
+    }, 500);
   },
 
   async checkPersistedModal() {
@@ -2533,8 +2528,8 @@ const hubView = {
     let acceptPartial = false;
     if (balance < COST) {
       const ok = await appConfirm(
-        `Supporting costs G${COST}, but your wallet holds G${balance}. Send G${balance} instead?`,
-        { okText: `Send G${balance}` }
+        `Supporting costs ${COST} tokens, but your wallet holds ${balance.toLocaleString()} tokens. Send ${balance.toLocaleString()} tokens instead?`,
+        { okText: `Send ${balance.toLocaleString()} tokens` }
       );
       if (!ok) return;
       acceptPartial = true;

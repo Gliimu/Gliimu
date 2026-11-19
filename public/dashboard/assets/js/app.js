@@ -1,5 +1,5 @@
 import { store } from './store.js?v=3';
-import { router } from './router.js?v=250';
+import { router } from './router.js?v=253';
 import { initPullToRefresh } from './pull-to-refresh.js?v=28';
 import { supabase } from '/shared/js/config.js?v=2';
 import { computeUnread, latestIncomingUnread } from './readState.js?v=29';
@@ -364,10 +364,10 @@ async function checkTermsAgreement() {
 // Guided first-run tour. Brand-new members walk the app page by page: a small
 // card describes the page they are looking at, and OK carries them to the next
 // one. The steps come from onboarding_steps, so Operations writes the words and
-// decides which steps exist; the G100 welcome-bonus line lives in the Billing
+// decides which steps exist; the 100-token welcome-bonus line lives in the Billing
 // step. Eligibility is the same three head-counts the old card used — nothing
 // published, nobody followed, no ledger movement — because registrar-created
-// members start with a G100 credit and have still never done anything. The
+// members start with a 100-token credit and have still never done anything. The
 // overlay is appended to body, not #app: every mount wipes #app and the tour
 // must outlive the navigations it performs.
 // Completion is remembered per account, not per browser: the old single key

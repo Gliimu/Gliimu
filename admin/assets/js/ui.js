@@ -9,20 +9,16 @@ export function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-export function money(value) {
-  const n = Number(value || 0);
-  return n > 0 ? `G${n.toLocaleString()}` : 'Free';
-}
-
-// Ledger amounts are signed and zero is meaningful, so they get their own
-// formatter rather than money()'s "Free". Amounts are in Gliits (G).
+// Admins and members read the same currency, so every figure here carries the
+// word "tokens". Zero is meaningful in a ledger, so there is no "Free" branch.
+// The name stays naira() because the columns and RPCs behind it still say gliits.
 export function naira(value) {
   const n = Number(value || 0);
-  return `${n < 0 ? '-' : ''}G${Math.abs(n).toLocaleString()}`;
+  const abs = Math.abs(n);
+  return `${n < 0 ? '-' : ''}${abs.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${abs === 1 ? 'token' : 'tokens'}`;
 }
 
-// Alias for clarity — naira() now formats Gliits, but some views prefer
-// to call it gliits() to make the unit obvious in the code.
+// Alias for clarity — some views call it gliits() to point at the column name.
 export const gliits = naira;
 
 export function gp(value) {
@@ -89,7 +85,7 @@ export function openDrawer({ title, sub = '', body = '', foot = '' }) {
 }
 
 // Shared money/plan vocabulary, kept next to the SQL that writes it.
-// In the Gliits model, plans are payngo/monthly/yearly (not trial/wallet/pro).
+// In the token model, plans are payngo/monthly/yearly (not trial/wallet/pro).
 export const TIER_LABEL = { payngo: "Pay n' Go", monthly: 'Monthly', yearly: 'Yearly' };
 
 export const TXN_LABEL = {
@@ -153,8 +149,8 @@ const RPC_ERRORS = {
   LAST_SUPER: 'There has to be at least one super admin.',
 
   // Payout queue (sql/withdrawals.sql)
-  MISSING_CONFIG: 'The Gliits pricing row is missing, so payout limits cannot be checked. Run sql/setup_core.sql, then sql/withdrawals.sql.',
-  INVALID_AMOUNT: 'Enter a Gliits amount the payout rules allow.',
+  MISSING_CONFIG: 'The token pricing row is missing, so payout limits cannot be checked. Run sql/setup_core.sql, then sql/withdrawals.sql.',
+  INVALID_AMOUNT: 'Enter a token amount the payout rules allow.',
   BELOW_MINIMUM: 'That amount is below the minimum withdrawal.',
   ABOVE_MAXIMUM: 'That amount is above the maximum for one payout.',
   INSUFFICIENT_FUNDS: 'The wallet no longer holds that much.',

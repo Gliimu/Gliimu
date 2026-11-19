@@ -1,5 +1,5 @@
 import { supabase, API_BASE_URL } from '../config.js';
-import { escapeHtml, gliits, badge, empty, timeAgo, rpcError } from '../ui.js?v=3';
+import { escapeHtml, gliits, badge, empty, timeAgo, rpcError } from '../ui.js?v=4';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const TABS = [
@@ -12,22 +12,87 @@ const TABS = [
   { id: 'audit', label: 'Audit log' }
 ];
 
-const CONFIG_FIELDS = [
-  { key: 'exchange_rate_naira_to_gliits', label: 'Exchange rate', step: '1', unit: '₦ per G1', help: 'Naira a user pays for one Glit. 100 means G1 costs ₦100, so G200 tops up at ₦20,000. Default is 1.0 (G1 = ₦1). Higher = more expensive, lower = cheaper. Payouts use the same figure in reverse: a G100 withdrawal sends ₦100 at rate 1, or ₦10,000 at rate 100.' },
-  { key: 'per_minute_rate_gliits', label: 'Per-minute charge', step: '0.5', unit: 'G/min' },
-  { key: 'plan_monthly_price_gliits', label: 'Monthly plan price', step: '100', unit: 'G/month' },
-  { key: 'plan_yearly_price_gliits', label: 'Yearly plan price', step: '100', unit: 'G/year' },
-  { key: 'signup_credit_gliits', label: 'Signup credit', step: '10', unit: 'G' },
-  { key: 'min_topup_gliits', label: 'Minimum topup', step: '10', unit: 'G' },
-  { key: 'min_withdrawal_gliits', label: 'Minimum withdrawal', step: '500', unit: 'G', help: 'The threshold a member must reach before Gliims can leave the platform.' },
-  { key: 'max_withdrawal_gliits', label: 'Maximum withdrawal', step: '1000', unit: 'G per payout', help: 'Ceiling for one payout. It raises the per-request limit, not the member total.' },
-  { key: 'withdrawal_hold_hours', label: 'Top-up hold', step: '1', unit: 'hours', help: 'How long after a top-up a payout can be requested or sent. Anti-fraud window.' },
-  { key: 'creator_rate_per_minute', label: 'Creator rate', step: '0.1', unit: 'G/min' },
-  { key: 'creator_cap_per_post_session', label: 'Creator cap per post/24h', step: '1', unit: 'G' },
-  { key: 'idle_timeout_minutes', label: 'Idle timeout', step: '1', unit: 'min' },
-  { key: 'gp_to_gliits_ratio', label: 'GP→G ratio', step: '1', unit: 'G per conversion' },
-  { key: 'gp_to_gliits_threshold', label: 'GP→G threshold', step: '10', unit: 'GP' }
+const GUARDED_KEYS = [
+  'exchange_rate_naira_to_gliits', 'min_topup_gliits',
+  'min_withdrawal_gliits', 'max_withdrawal_gliits'
 ];
+
+const CONFIG_FIELDS = [
+  { key: 'exchange_rate_naira_to_gliits', label: 'Exchange rate', step: '1', unit: '₦ per token', help: 'The naira one token is worth, and the only bridge between tokens and money. Everything multiplies by this figure in the same direction: at rate 10 a member pays ₦1,000 for 100 tokens, and a 100-token payout sends ₦1,000. Raising it makes the platform dearer and every existing balance worth more.' },
+  { key: 'per_minute_rate_gliits', label: 'Per-minute charge', step: '0.5', unit: 'tokens/min' },
+  { key: 'plan_monthly_price_gliits', label: 'Monthly plan price', step: '100', unit: 'tokens/month' },
+  { key: 'plan_yearly_price_gliits', label: 'Yearly plan price', step: '100', unit: 'tokens/year' },
+  { key: 'signup_credit_gliits', label: 'Signup credit', step: '10', unit: 'tokens' },
+  { key: 'min_topup_gliits', label: 'Minimum topup', step: '10', unit: 'tokens' },
+  { key: 'min_withdrawal_gliits', label: 'Minimum withdrawal', step: '500', unit: 'tokens', help: 'The threshold a member must reach before tokens can leave the platform.' },
+  { key: 'max_withdrawal_gliits', label: 'Maximum withdrawal', step: '1000', unit: 'tokens per payout', help: 'Ceiling for one payout. It raises the per-request limit, not the member total.' },
+  { key: 'withdrawal_hold_hours', label: 'Top-up hold', step: '1', unit: 'hours', help: 'How long after a top-up a payout can be requested or sent. Anti-fraud window.' },
+  { key: 'creator_rate_per_minute', label: 'Creator rate', step: '0.1', unit: 'tokens/min' },
+  { key: 'creator_cap_per_post_session', label: 'Creator cap per post/24h', step: '1', unit: 'tokens' },
+  { key: 'idle_timeout_minutes', label: 'Idle timeout', step: '1', unit: 'min' },
+  { key: 'gp_to_gliits_ratio', label: 'GP→token ratio', step: '1', unit: 'tokens per conversion' },
+  { key: 'gp_to_gliits_threshold', label: 'GP→token threshold', step: '10', unit: 'GP' }
+];
+
+function nairaText(value) {
+  const num = Number(value || 0);
+  return `₦${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+// Every figure the engine can be asked about, converted through the exchange
+// rate with the same rounding the server and the payout RPC actually use.
+function moneyPreview(cfg) {
+  const rate = Number(cfg.exchange_rate_naira_to_gliits || 0);
+  const num = (key) => Number(cfg[key] || 0);
+
+  if (!(rate > 0)) {
+    return `
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">Naira impact</div>
+        <div class="card-sub">The exchange rate has to be above zero before anything here can be worked out.</div></div></div>
+      </div>`;
+  }
+
+  const topup = num('min_topup_gliits');
+  const perMin = num('per_minute_rate_gliits');
+  const monthly = num('plan_monthly_price_gliits');
+  const yearly = num('plan_yearly_price_gliits');
+  const signup = num('signup_credit_gliits');
+  const creator = num('creator_rate_per_minute');
+  const cap = num('creator_cap_per_post_session');
+  const minOut = num('min_withdrawal_gliits');
+  const maxOut = num('max_withdrawal_gliits');
+
+  const rows = [
+    ['One token is worth', `${nairaText(rate)} per token`],
+    ['Smallest top-up', `${gliits(topup)} charges ${nairaText(Math.ceil(topup * rate))}${topup * rate < 100 ? ' — below ₦100, check the card minimum your Paystack account accepts' : ''}`],
+    ['One minute of reading', `${gliits(perMin)} = ${nairaText(perMin * rate)} a minute`],
+    ['Monthly plan', `${gliits(monthly)} = ${nairaText(monthly * rate)}`],
+    ['Yearly plan', `${gliits(yearly)} = ${nairaText(yearly * rate)}`],
+    ['Signup credit', `${gliits(signup)} = ${nairaText(signup * rate)} of free reading`],
+    ['A creator earns', `${gliits(creator)}/min = ${nairaText(creator * rate)} a minute, capped at ${gliits(cap)} (${nairaText(cap * rate)}) per post per 24h`],
+    ['Smallest payout', `${gliits(minOut)} sends ${nairaText(minOut * rate)}`],
+    ['Largest payout', `${gliits(maxOut)} sends ${nairaText(maxOut * rate)}`]
+  ];
+
+  return `
+    <div class="card">
+      <div class="card-head"><div><div class="card-title">Naira impact</div>
+      <div class="card-sub">Worked out live from the boxes below using the engine's own rule: every price multiplies by the exchange rate. A top-up rounds up to the next whole naira; a payout does not.</div></div></div>
+      <dl class="kv">${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`).join('')}</dl>
+    </div>`;
+}
+
+// What the database guard says about a value that has not been saved yet.
+function guardNote(out) {
+  if (!out || typeof out !== 'object') return '';
+  if (out.ok !== true) {
+    return `${badge('Blocked', 'danger')}<div class="muted small" style="margin-top: 4px;">${escapeHtml(out.hint || out.code || 'This value will be rejected.')}</div>`;
+  }
+  const warns = Array.isArray(out.warnings) ? out.warnings : [];
+  if (!warns.length) return badge('Accepted', 'success');
+  return warns.map((w) => `${badge('Saved, but check', 'warning')}<div class="muted small" style="margin-top: 4px;">${escapeHtml(w.hint || '')}</div>`).join('');
+}
 
 export default {
   template: `
@@ -162,7 +227,7 @@ export default {
     return `
       <div class="stat-grid">
         <div class="stat"><div class="stat-label">Paid out to creators</div><div class="stat-value">${gliits(total)}</div>
-          <div class="stat-note">From heartbeat usage — G1.5/min capped at G30/post/24h</div></div>
+          <div class="stat-note">From heartbeat usage — 1.5 tokens/min capped at 30 tokens/post/24h</div></div>
         <div class="stat"><div class="stat-label">Creators earning</div><div class="stat-value">${rows.length}</div></div>
       </div>
       <div class="card">
@@ -203,8 +268,9 @@ export default {
     const cfg = d.config || {};
 
     return `
+      <div id="money-preview">${moneyPreview(cfg)}</div>
       <div class="card">
-        <div class="card-head"><div><div class="card-title">Gliits configuration</div>
+        <div class="card-head"><div><div class="card-title">Token configuration</div>
         <div class="card-sub">Every number that drives the billing engine. Changes apply immediately to the next heartbeat or topup. Every change is written to the audit log.</div></div></div>
         <div class="form-group">
           <label for="config-reason">Reason for the next change (required)</label>
@@ -215,9 +281,10 @@ export default {
             <thead><tr><th>Setting</th><th class="num">Value</th><th>Changed</th><th></th></tr></thead>
             <tbody>${CONFIG_FIELDS.map(f => {
               const val = cfg[f.key];
+              const guarded = GUARDED_KEYS.includes(f.key);
               return `
               <tr data-config="${f.key}">
-                <td>${escapeHtml(f.label)}${f.unit ? `<div class="muted small">${escapeHtml(f.unit)}</div>` : ''}${f.help ? `<div class="muted small" style="margin-top: 4px; font-size: 0.85em;">${escapeHtml(f.help)}</div>` : ''}</td>
+                <td>${escapeHtml(f.label)}${f.unit ? `<div class="muted small">${escapeHtml(f.unit)}</div>` : ''}${f.help ? `<div class="muted small" style="margin-top: 4px; font-size: 0.85em;">${escapeHtml(f.help)}</div>` : ''}${guarded ? `<div data-guard="${f.key}" style="margin-top: 6px;"></div>` : ''}</td>
                 <td class="num"><input type="number" min="0" step="${f.step}" class="input" style="width: 130px; padding: 6px 10px;" data-value="${f.key}" value="${val != null ? Number(val || 0) : 0}"></td>
                 <td class="muted small">${cfg.updated_at ? escapeHtml(timeAgo(cfg.updated_at)) : '—'}</td>
                 <td style="text-align: right;"><button class="btn-quiet btn-small" data-save-config="${f.key}">Save</button></td>
@@ -228,7 +295,50 @@ export default {
       </div>`;
   },
 
+  readForm(pane) {
+    const out = {};
+    CONFIG_FIELDS.forEach((f) => {
+      const el = pane.querySelector(`[data-value="${f.key}"]`);
+      out[f.key] = el ? Number(el.value) : 0;
+    });
+    return out;
+  },
+
+  refreshPreview(pane) {
+    const host = pane.querySelector('#money-preview');
+    if (host) host.innerHTML = moneyPreview(this.readForm(pane));
+  },
+
+  async checkGuard(pane, key) {
+    const el = pane.querySelector(`[data-value="${key}"]`);
+    const slot = pane.querySelector(`[data-guard="${key}"]`);
+    if (!el || !slot) return;
+    const value = Number(el.value);
+    if (!Number.isFinite(value)) { slot.innerHTML = ''; return; }
+
+    const { data, error } = await supabase.rpc('gliits_config_guard', { p_key: key, p_value: value });
+    if (Number(el.value) !== value) return;
+    slot.innerHTML = error ? '' : guardNote(data);
+  },
+
   wireConfig(pane) {
+    let previewTimer = null;
+    let guardTimer = null;
+
+    pane.querySelectorAll('[data-value]').forEach((input) => {
+      input.addEventListener('input', () => {
+        const key = input.dataset.value;
+        clearTimeout(previewTimer);
+        previewTimer = setTimeout(() => this.refreshPreview(pane), 120);
+
+        if (!GUARDED_KEYS.includes(key)) return;
+        clearTimeout(guardTimer);
+        guardTimer = setTimeout(() => {
+          if (pane.isConnected) this.checkGuard(pane, key);
+        }, 420);
+      });
+    });
+
     pane.querySelectorAll('[data-save-config]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const key = btn.dataset.saveConfig;
@@ -253,7 +363,12 @@ export default {
         await this.render();
         const again = document.getElementById('config-reason');
         if (again) again.value = typed;
-        await appAlert(`${field.label} is now ${value} (was ${data.previous}).`);
+
+        const warns = Array.isArray(data.warnings) ? data.warnings : [];
+        const message = `${field.label} is now ${value} (was ${data.previous}).`;
+        await appAlert(warns.length
+          ? `${message}\n\nThe pricing guard added a note:\n${warns.map(w => w.hint).join('\n')}`
+          : message);
       });
     });
   },
@@ -308,13 +423,13 @@ export default {
 
         ${shown.length ? `
           <div class="table-wrap"><table class="table">
-            <thead><tr><th>Asked</th><th>Member</th><th class="num">Gliits</th><th>Bank account</th><th>State</th><th></th></tr></thead>
+            <thead><tr><th>Asked</th><th>Member</th><th class="num">Tokens</th><th>Bank account</th><th>State</th><th></th></tr></thead>
             <tbody>${shown.map(r => this.payoutRowHtml(r)).join('')}</tbody>
           </table></div>` : empty(filter === 'open' ? 'Nothing waiting — every payout has been settled.' : 'Nothing in this view.')}
       </div>
 
       ${totals.failed ? `<div class="card"><div class="card-head"><div><div class="card-title">Failed at the bank</div>
-        <div class="card-sub">${Number(totals.failed)} transfer${Number(totals.failed) === 1 ? '' : 's'} came back. The Gliims went back to the wallet on their own.</div></div></div></div>` : ''}`;
+        <div class="card-sub">${Number(totals.failed)} transfer${Number(totals.failed) === 1 ? '' : 's'} came back. The tokens went back to the wallet on their own.</div></div></div></div>` : ''}`;
   },
 
   payoutRowHtml(r) {

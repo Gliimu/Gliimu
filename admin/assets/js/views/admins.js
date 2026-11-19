@@ -1,6 +1,6 @@
 import { supabase } from '../config.js';
 import { ROLE_LABELS } from '../store.js';
-import { escapeHtml, timeAgo, badge, empty, avatar, rpcError } from '../ui.js?v=3';
+import { escapeHtml, timeAgo, badge, empty, avatar, rpcError } from '../ui.js?v=4';
 import { appAlert, appConfirm } from '../dialog.js';
 
 const ROLES = Object.keys(ROLE_LABELS);

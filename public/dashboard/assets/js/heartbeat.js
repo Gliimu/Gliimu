@@ -4,10 +4,17 @@ import { store } from './store.js?v=3';
 let heartbeatInterval = null;
 let lastActivity = Date.now();
 let currentPostId = null;
+let currentSessionId = null;
 let isPaused = false;
-const IDLE_TIMEOUT = 3 * 60 * 1000;
+let meterFailures = 0;
 const HEARTBEAT_INTERVAL = 60 * 1000;
-const LOW_BALANCE_THRESHOLD = 12;
+// The price and the idle window belong to the admin's Config tab, so they are
+// read from gliits_get_config instead of being baked in here. This is only the
+// shape the meter takes before that read lands.
+const FALLBACK_IDLE_MINUTES = 3;
+const LOW_BALANCE_MINUTES = 4;
+let idleMinutes = FALLBACK_IDLE_MINUTES;
+let pricePerMinute = null;
 
 const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
 
@@ -18,9 +25,18 @@ function onActivity() {
   }
 }
 
+async function loadPricing() {
+  const cfg = await getConfig();
+  if (!cfg) return;
+  const rate = Number(cfg.per_minute_rate_gliits);
+  if (Number.isFinite(rate) && rate > 0) pricePerMinute = rate;
+  const idle = Number(cfg.idle_timeout_minutes);
+  if (Number.isFinite(idle) && idle > 0) idleMinutes = idle;
+}
+
 async function sendHeartbeat() {
   if (!store.user || !store.user.id) return;
-  if (Date.now() - lastActivity > IDLE_TIMEOUT) {
+  if (Date.now() - lastActivity > idleMinutes * 60 * 1000) {
     isPaused = true;
     return;
   }
@@ -29,25 +45,36 @@ async function sendHeartbeat() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
+    // One beat bills one thing, and the room outranks the page — the same
+    // priority the meter uses. Sending both ids would be ambiguous.
+    const target = currentSessionId
+      ? { sessionId: currentSessionId }
+      : { postId: currentPostId };
+
     const res = await fetch(`${API_BASE_URL}/api/gliits/heartbeat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ postId: currentPostId })
+      body: JSON.stringify(target)
     });
 
-    const data = await res.json();
-    if (!res.ok) return;
+    const data = await res.json().catch(() => null);
 
-    if (data.balance !== undefined && store.profile) {
-      store.profile.wallet_balance = data.balance;
+    // A beat that never reached the meter is not a free minute — the next one
+    // tries again, so the unpaid minutes cannot pile up invisibly. Silence
+    // here used to mean "reading costs nothing" forever.
+    if (!res.ok || !data) {
+      meterFailures += 1;
+      console.error(`Heartbeat not billed (${res.status}) after ${meterFailures}: ${(data && data.error) || 'no response'}`);
+      return;
     }
+    meterFailures = 0;
 
     if (data.ok === false) {
-      if (data.code === 'INSUFFICIENT_BALANCE' || data.code === 'NO_ACTIVE_PLAN') {
-        // Stop heartbeat and redirect to XpLoRe where the G0 modal will show
+      if (data.code === 'INSUFFICIENT_BALANCE') {
+        // Stop heartbeat and redirect to XpLoRe where the empty-wallet modal will show
         stop();
         const here = window.gliimRoute
           ? window.gliimRoute.path()
@@ -59,12 +86,27 @@ async function sendHeartbeat() {
       return;
     }
 
-    if (typeof data.balance === 'number' && data.balance <= LOW_BALANCE_THRESHOLD && data.balance > 0) {
-      showLowBalanceWarning(data.balance);
+    if (typeof data.balance === 'number') {
+      if (store.profile) store.profile.wallet_balance = data.balance;
+      warnIfBalanceLow(data);
     }
   } catch (e) {
     console.warn('Heartbeat error:', e.message);
   }
+}
+
+// Only a per-minute payer is warned: a plan holder does not run their balance
+// down by reading, and a host is earning rather than spending. The cost shown
+// is the one the meter just took, so the admin's Config tab is the only source
+// of the figure; the config read is the fallback for a minute that charged
+// nothing yet (their own gliim, or a beat between two charged ones).
+function warnIfBalanceLow(beat) {
+  if (beat.metered !== true) return;
+  const charged = Number(beat.charged);
+  const cost = charged > 0 ? charged : pricePerMinute;
+  const balance = Number(beat.balance);
+  if (!cost || !(balance > 0) || balance > cost * LOW_BALANCE_MINUTES) return;
+  showLowBalanceWarning(balance, cost);
 }
 
 function showBillingNotice(msg) {
@@ -81,14 +123,11 @@ function showBillingNotice(msg) {
   }, 500);
 }
 
-function showLowBalanceWarning(balance) {
-  showBillingNotice(balance !== undefined
-    ? `Your balance is low: G${balance}. Top up to keep using the platform.`
-    : 'Your balance has reached G0. Top up to continue using the platform.');
-}
-
-function showPlanNotice() {
-  showBillingNotice('Your plan is not active. Pick a plan on the Wallet page to keep using the platform.');
+function showLowBalanceWarning(balance, cost) {
+  const price = cost == null
+    ? ''
+    : ` Gliims and live sessions cost ${cost} tokens a minute.`;
+  showBillingNotice(`Your balance is low: ${Number(balance).toLocaleString()} tokens.${price} Top up to keep using the platform.`);
 }
 
 export function start() {
@@ -98,6 +137,7 @@ export function start() {
   lastActivity = Date.now();
   isPaused = false;
 
+  loadPricing();
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
 }
@@ -112,6 +152,10 @@ export function stop() {
 
 export function setCurrentPost(postId) {
   currentPostId = postId || null;
+}
+
+export function setSession(sessionId) {
+  currentSessionId = sessionId || null;
 }
 
 export async function getBalance() {
@@ -134,6 +178,23 @@ export async function getConfig() {
     console.warn('gliits_get_config error:', e.message);
     return null;
   }
+}
+
+// Whether this member pays by the minute, and what a minute costs right now.
+// Pay n' Go, no plan at all, and a lapsed plan are all metered — a plan row by
+// itself is not permission to read for free. Null means the price or the
+// balance could not be read, so the caller must not block on a guess.
+export async function readingGate() {
+  const [balanceData, cfg] = await Promise.all([getBalance(), getConfig()]);
+  const rate = Number(cfg && cfg.per_minute_rate_gliits);
+  if (!balanceData || !Number.isFinite(rate) || rate <= 0) return null;
+
+  const plan = balanceData.plan;
+  const paidPlan = Boolean(plan && plan.plan_type && plan.plan_type !== 'payngo'
+    && (!plan.expires_at || new Date(plan.expires_at) > new Date()));
+  const balance = Number(balanceData.balance || 0);
+
+  return { rate, balance, metered: !paidPlan, blocked: !paidPlan && balance < rate };
 }
 
 export async function setPlan(planType) {

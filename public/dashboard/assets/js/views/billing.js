@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store, tierClass } from '../store.js?v=3';
-import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=6';
+import { getBalance, getConfig, setPlan, initTopup } from '../heartbeat.js?v=8';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -9,6 +9,12 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Members read "tokens"; every identifier, column and RPC still says gliits.
+function tokensText(value) {
+  const n = Number(value || 0);
+  return `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${Math.abs(n) === 1 ? 'token' : 'tokens'}`;
 }
 
 const TX_TYPE_LABELS = {
@@ -166,7 +172,7 @@ export default {
     container.innerHTML = `
       <div class="wallet-header-card">
         <span class="balance-label">Wallet Balance</span>
-        <h1 class="balance-amount">G${this.balance.toLocaleString()}</h1>
+        <h1 class="balance-amount">${this.balance.toLocaleString()} <span class="balance-unit">tokens</span></h1>
         <div style="font-size: 13px; opacity: 0.85; margin-bottom: 16px;">Plan: ${escapeHtml(planLabel)}</div>
         <div class="wallet-actions">
           <div class="wallet-action">
@@ -176,7 +182,7 @@ export default {
             <span class="wallet-action-label">Fund</span>
           </div>
           <div class="wallet-action">
-            <button class="icon-btn-light" title="Send Gliits to another member" onclick="walletInstance.openTransferModal()">
+            <button class="icon-btn-light" title="Send tokens to another member" onclick="walletInstance.openTransferModal()">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="10.49"></line><line x1="15.41" y1="14.51" x2="8.59" y2="11.49"></line></svg>
             </button>
             <span class="wallet-action-label">Share</span>
@@ -305,7 +311,7 @@ export default {
                 <span class="txn-date">${Number(p.minutes || 0).toLocaleString()} min read</span>
               </div>
               <div class="txn-right">
-                <span class="txn-amount amount-positive">+G${Number(p.earned || 0).toLocaleString()}</span>
+                <span class="txn-amount amount-positive">+${tokensText(Number(p.earned || 0))}</span>
               </div>
             </div>
           `).join('')}
@@ -318,7 +324,7 @@ export default {
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"></circle><path d="M18.09 10.37A6 6 0 1 1 10.34 18"></path><path d="M7 6h1v4"></path><path d="m16.71 13.88.7.71-2.82 2.82"></path></svg>
           </div>
           <div class="stat-info">
-            <span class="stat-value">G${totalG.toLocaleString()}</span>
+            <span class="stat-value">${tokensText(totalG)}</span>
             <span class="stat-label">Creator earnings</span>
           </div>
         </div>
@@ -336,9 +342,9 @@ export default {
       </div>
       <div class="card" style="margin-top: 16px;">
         <div class="sub-details">
-          <div class="sub-row"><span>Last 30 days</span><strong>G${last30.toLocaleString()}</strong></div>
+          <div class="sub-row"><span>Last 30 days</span><strong>${tokensText(last30)}</strong></div>
           <div class="sub-row"><span>GP earned</span><strong>${gpEarned.toLocaleString()} GP</strong></div>
-          <div class="sub-row"><span>Creator support received</span><strong>G${supportReceived.toLocaleString()}</strong></div>
+          <div class="sub-row"><span>Creator support received</span><strong>${tokensText(supportReceived)}</strong></div>
           <div class="sub-row"><span>Referral GP earned</span><strong>${referralGp.toLocaleString()} GP</strong></div>
         </div>
       </div>
@@ -364,9 +370,13 @@ export default {
 
   renderPlans() {
     const currentPlan = this.plan?.plan_type || 'payngo';
-    const monthlyPrice = Number(this.config?.plan_monthly_price_gliits || 3600);
-    const yearlyPrice = Number(this.config?.plan_yearly_price_gliits || 32400);
-    const perMin = Number(this.config?.per_minute_rate_gliits || 3);
+    // Every number here is the price the database actually charges, so none of
+    // them is guessed. An unreadable config shows a dash, not a figure nobody
+    // set in the Config tab.
+    const price = (key) => {
+      const n = Number(this.config?.[key]);
+      return Number.isFinite(n) && n > 0 ? tokensText(n) : '—';
+    };
 
     const check = (text) => `
       <li class="plan-feature">
@@ -385,7 +395,7 @@ export default {
       <div class="plan-list">
         <div class="plan-card">
           <span class="plan-name">Pay n' Go</span>
-          <div class="plan-price">G${perMin}/min</div>
+          <div class="plan-price">${price('per_minute_rate_gliits')}/min</div>
           <span class="plan-price-note">deducted from wallet</span>
           <ul class="plan-features">
             ${check('Full platform access')}
@@ -397,7 +407,7 @@ export default {
         </div>
         <div class="plan-card">
           <span class="plan-name">Monthly</span>
-          <div class="plan-price">G${monthlyPrice.toLocaleString()}</div>
+          <div class="plan-price">${price('plan_monthly_price_gliits')}</div>
           <span class="plan-price-note">per month · unlimited</span>
           <ul class="plan-features">
             ${check('Unlimited usage')}
@@ -409,7 +419,7 @@ export default {
         </div>
         <div class="plan-card">
           <span class="plan-name">Yearly</span>
-          <div class="plan-price">G${yearlyPrice.toLocaleString()}</div>
+          <div class="plan-price">${price('plan_yearly_price_gliits')}</div>
           <span class="plan-price-note">per year · unlimited</span>
           <ul class="plan-features">
             ${check('Unlimited usage')}
@@ -469,7 +479,7 @@ export default {
     const pointsHtml = !isPurePoints && tx.points && tx.points > 0 ? `<span class="txn-points">+${tx.points} GP</span>` : '';
     const amountHtml = isPurePoints
       ? `<span class="txn-amount amount-positive">+${tx.points} GP</span>`
-      : `<span class="txn-amount ${amountClass}">${amountPrefix}G${Math.abs(tx.amount).toLocaleString()}</span>`;
+      : `<span class="txn-amount ${amountClass}">${amountPrefix}${tokensText(Math.abs(tx.amount))}</span>`;
 
     return `
       <div class="txn-item">
@@ -503,16 +513,26 @@ export default {
   // ============================================
   async activatePlan(planType) {
     const labels = { payngo: "Pay n' Go", monthly: 'Monthly', yearly: 'Yearly' };
+    // The confirm dialog has to quote what gliits_set_plan will actually take,
+    // so every figure comes from the admin's Config tab. When the config
+    // cannot be read the copy says nothing about money rather than guessing.
+    const priceOf = (key) => {
+      const n = Number(this.config?.[key]);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
     const prices = {
-      monthly: Number(this.config?.plan_monthly_price_gliits || 3600),
-      yearly: Number(this.config?.plan_yearly_price_gliits || 32400)
+      payngo: priceOf('per_minute_rate_gliits'),
+      monthly: priceOf('plan_monthly_price_gliits'),
+      yearly: priceOf('plan_yearly_price_gliits')
     };
 
     let confirmMsg = '';
     if (planType === 'payngo') {
-      confirmMsg = "Switch to Pay n' Go?\n\nYou'll be charged G3 per minute of usage from your wallet balance. No subscription fee.";
+      const cost = prices.payngo === null ? 'a per-minute rate' : `${tokensText(prices.payngo)} per minute`;
+      confirmMsg = `Switch to Pay n' Go?\n\nYou'll be charged ${cost} of usage from your wallet balance. No subscription fee.`;
     } else {
-      confirmMsg = `Switch to ${labels[planType]} for G${prices[planType].toLocaleString()}?\n\nUnlimited usage for ${planType === 'monthly' ? '1 month' : '1 year'}. Paid from your wallet balance.`;
+      const cost = prices[planType] === null ? '' : ` for ${tokensText(prices[planType])}`;
+      confirmMsg = `Switch to ${labels[planType]}${cost}?\n\nUnlimited usage for ${planType === 'monthly' ? '1 month' : '1 year'}. Paid from your wallet balance.`;
     }
 
     const ok = await appConfirm(confirmMsg, { okText: 'Switch' });
@@ -522,8 +542,10 @@ export default {
     if (error) {
       const msg = error.message || '';
       if (msg.includes('INSUFFICIENT_BALANCE')) {
-        const short = (prices[planType] || 0) - this.balance;
-        await appAlert(`You need G${short.toLocaleString()} more in your wallet. Top up and try again.`);
+        const short = prices[planType] === null ? null : prices[planType] - this.balance;
+        await appAlert(short > 0
+          ? `You need ${tokensText(short)} more in your wallet. Top up and try again.`
+          : 'You do not have enough tokens in your wallet for this plan. Top up and try again.');
         this.openTopUpModal();
         return;
       }
@@ -559,7 +581,7 @@ export default {
         </div>
 
         <div class="form-group" style="margin-top: var(--space-4);">
-          <label>Amount (G)</label>
+          <label>Amount (tokens)</label>
           <input type="number" id="transfer-amount" class="input" placeholder="e.g. 100" min="1">
         </div>
 
@@ -637,7 +659,7 @@ export default {
     if (!amount || amount <= 0) return appAlert("Enter a valid amount.");
 
     const name = this.transferTarget.full_name || 'this user';
-    const password = await appPrompt(`To send G${amount.toLocaleString()} to ${name}, please enter your password:`, { inputType: 'password', okText: 'Send' });
+    const password = await appPrompt(`To send ${tokensText(amount)} to ${name}, please enter your password:`, { inputType: 'password', okText: 'Send' });
     if (password === null) return;
     if (!password) return appAlert('Please enter your password.');
 
@@ -666,7 +688,7 @@ export default {
     }
 
     modal.remove();
-    await appAlert(`G${amount.toLocaleString()} sent to ${name}.`);
+    await appAlert(`${tokensText(amount)} sent to ${name}.`);
     await this.fetchData();
     this.render();
   },
@@ -838,7 +860,7 @@ export default {
 
     return `
       <div class="form-group" style="margin-top: var(--space-4);">
-        <label>Amount (G)</label>
+        <label>Amount (tokens)</label>
         <input type="number" id="withdraw-amount" class="input" min="${min}" max="${max}" step="1"
                placeholder="e.g. ${min}" value="${prefill}">
         <div id="withdraw-naira" class="fund-subtitle" style="margin-top: 6px;"></div>
@@ -850,7 +872,7 @@ export default {
       </div>
       <button class="btn-primary" id="withdraw-send-btn" style="width: 100%; margin-top: var(--space-4);" disabled>Withdraw</button>
       <p class="fund-subtitle" style="margin-top: 10px;">
-        Balance G${this.balance.toLocaleString()} · G${min.toLocaleString()} to G${max.toLocaleString()} a time ·
+        Balance ${tokensText(this.balance)} · ${tokensText(min)} to ${tokensText(max)} a time ·
         one payout a day${hold ? ` · Gliims bought in the last ${hold} hours are held back` : ''}
       </p>
     `;
@@ -860,7 +882,7 @@ export default {
     const sent = row.status === 'processing';
     return `
       <div style="margin-top: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4);">
-        <div style="font-weight: var(--fw-semibold);">G${Number(row.amount_gliits).toLocaleString()} on its way</div>
+        <div style="font-weight: var(--fw-semibold);">${tokensText(Number(row.amount_gliits))} on its way</div>
         <p class="fund-subtitle" style="margin-top: 4px;">
           ${sent
             ? 'The bank has the transfer now. It clears into your account without any action from you.'
@@ -886,16 +908,18 @@ export default {
     if (!amount || !send) return;
 
     const naira = body.querySelector('#withdraw-naira');
-    const rate = Number(this.config?.exchange_rate_naira_to_gliits || 1) || 1;
+    const rawRate = Number(this.config?.exchange_rate_naira_to_gliits);
+    const rate = Number.isFinite(rawRate) && rawRate > 0 ? rawRate : 0;
     const min = Number(this.config?.min_withdrawal_gliits || 0);
     const max = Number(this.config?.max_withdrawal_gliits || 0);
 
     const sync = () => {
       const value = parseInt(amount.value, 10);
       if (!(value > 0)) { naira.textContent = ''; send.disabled = true; return; }
-      if (min && value < min) { naira.textContent = `The smallest payout is G${min.toLocaleString()}.`; send.disabled = true; return; }
-      if (max && value > max) { naira.textContent = `The largest payout at one time is G${max.toLocaleString()}.`; send.disabled = true; return; }
-      if (value > this.balance) { naira.textContent = `Your wallet holds G${this.balance.toLocaleString()}.`; send.disabled = true; return; }
+      if (min && value < min) { naira.textContent = `The smallest payout is ${tokensText(min)}.`; send.disabled = true; return; }
+      if (max && value > max) { naira.textContent = `The largest payout at one time is ${tokensText(max)}.`; send.disabled = true; return; }
+      if (value > this.balance) { naira.textContent = `Your wallet holds ${tokensText(this.balance)}.`; send.disabled = true; return; }
+      if (!rate) { naira.textContent = 'The payout rate is unavailable right now. Try again in a moment.'; send.disabled = true; return; }
       naira.textContent = `= ₦${(value * rate).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} into your account.`;
       send.disabled = false;
     };
@@ -988,11 +1012,11 @@ export default {
     document.getElementById('wallet-withdraw-modal')?.remove();
     await this.fetchData();
     this.render();
-    await appAlert(`G${amount.toLocaleString()} is on its way to your bank account.`);
+    await appAlert(`${tokensText(amount)} is on its way to your bank account.`);
   },
 
   async cancelPayout(id) {
-    const ok = await appConfirm('Cancel this payout? The Gliims go straight back to your wallet.', {
+    const ok = await appConfirm('Cancel this payout? The tokens go straight back to your wallet.', {
       okText: 'Cancel payout',
       danger: true
     });
@@ -1016,7 +1040,9 @@ export default {
     if (document.getElementById('wallet-fund-modal')) return;
 
     const minTopup = Number(this.config?.min_topup_gliits || 100);
-    const exchangeRate = Number(this.config?.exchange_rate_naira_to_gliits || 1.0);
+    // A guessed rate would promise the member a price the server will not charge.
+    const rawRate = Number(this.config?.exchange_rate_naira_to_gliits);
+    const exchangeRate = Number.isFinite(rawRate) && rawRate > 0 ? rawRate : 0;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -1025,10 +1051,10 @@ export default {
       <div class="modal-content">
         <button class="modal-close" id="fund-close-btn">×</button>
         <h2 style="margin-bottom: 6px;">Top Up Wallet</h2>
-        <p class="fund-subtitle">Add Gliits (G) to your balance. Minimum G${minTopup}.</p>
+        <p class="fund-subtitle">Add tokens to your balance. Minimum ${minTopup} tokens.</p>
 
         <div class="form-group" style="margin-top: var(--space-4);">
-          <label>Amount (G)</label>
+          <label>Amount (tokens)</label>
           <input type="number" id="topup-amount" class="input" placeholder="e.g. 500" min="${minTopup}">
           <div id="naira-equivalent" class="muted small" style="margin-top: 6px; font-size: 0.9em;"></div>
         </div>
@@ -1056,12 +1082,17 @@ export default {
         return;
       }
       if (amount < minTopup) {
-        nairaDisplay.textContent = `Minimum top-up is G${minTopup}.`;
+        nairaDisplay.textContent = `Minimum top-up is ${tokensText(minTopup)}.`;
         payBtn.disabled = true;
         return;
       }
+      if (!exchangeRate) {
+        nairaDisplay.textContent = 'The naira price comes from the current rate and is shown by Paystack at checkout.';
+        payBtn.disabled = false;
+        return;
+      }
       const naira = amount * exchangeRate;
-      nairaDisplay.textContent = `= ₦${naira.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (at ₦${exchangeRate} = G1)`;
+      nairaDisplay.textContent = `= ₦${naira.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (at ₦${exchangeRate} = 1 token)`;
       payBtn.disabled = false;
     });
 
@@ -1078,7 +1109,7 @@ export default {
     const minTopup = Number(this.config?.min_topup_gliits || 100);
     const amount = parseInt(document.getElementById('topup-amount').value, 10);
     if (!amount || amount < minTopup) {
-      appAlert(`Please enter a valid amount (min G${minTopup}).`);
+      appAlert(`Please enter at least ${minTopup} tokens.`);
       return null;
     }
     return amount;

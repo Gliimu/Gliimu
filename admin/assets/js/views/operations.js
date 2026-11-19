@@ -1,5 +1,5 @@
 import { supabase, API_BASE_URL } from '../config.js';
-import { escapeHtml, empty, rpcError } from '../ui.js?v=3';
+import { escapeHtml, empty, rpcError } from '../ui.js?v=4';
 import { appAlert, appConfirm } from '../dialog.js';
 import { uploadFile } from '../upload.js';
 
@@ -644,7 +644,7 @@ export default {
           <div class="card-title">Onboarding tour</div>
           <div class="card-sub">The walkthrough brand-new members see: one step per page, and OK carries them to that page. Untick a step to drop it from the walk; the order numbers decide the route. One save publishes every change at once.</div>
         </div></div>
-        <div class="card-sub" style="margin-bottom:4px;">The Billing step tells members their welcome bonus — keep its amount in step with the signup credit on the Finance side (currently G100).</div>
+        <div class="card-sub" style="margin-bottom:4px;">The Billing step tells members their welcome bonus — keep its amount in step with the signup credit on the Finance side (currently 100 tokens).</div>
         ${steps.length ? steps.map(s => `
           <div class="onboard-step" data-step-id="${escapeHtml(s.id)}" style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:14px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">

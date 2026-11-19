@@ -1,9 +1,9 @@
 import { supabase } from '/shared/js/config.js?v=2';
 import { store, tierClass, tierIcon } from '../store.js?v=3';
 import { renderFileInto } from '../secure-reader.js?v=38';
-import * as heartbeat from '../heartbeat.js?v=6';
-import { minimizePlaying } from '../audiolite-minimizer.js?v=9';
-import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=135';
+import * as heartbeat from '../heartbeat.js?v=8';
+import { minimizePlaying } from '../audiolite-minimizer.js?v=11';
+import hubView, { gliimKindOf, gliimCoverOf, isMediaBlock, mediaIsVideo, hasAudioPlayer, isPdfBlock, pdfItemsOf, pdfTilesHtml, parseHashtags } from './gliims.js?v=137';
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -101,20 +101,19 @@ export default {
       .eq('post_id', postId).maybeSingle();
     post.blocks = contentRow?.blocks || null;
 
-    const { data: balanceData } = await supabase.rpc('gliits_get_balance');
-    if (balanceData) {
-      const balance = Number(balanceData.balance || 0);
-      const plan = balanceData.plan;
-      const planActive = plan && plan.plan_type && (!plan.expires_at || new Date(plan.expires_at) > new Date());
-      if (balance < 3 && !planActive) {
-        window.location.hash = '#/xplore';
-        setTimeout(() => {
-          if (typeof appAlert === 'function') {
-            appAlert('Your balance is below G3. Top up or activate a plan to continue reading.');
-          }
-        }, 100);
-        return;
-      }
+    // Reading costs one minute of tokens up front, at the price the admin set.
+    // Pay n' Go is not a paid plan, so it pays like a member with no plan at
+    // all. A null gate means the price or the balance could not be read — the
+    // meter in the database still decides, so this page must not guess.
+    const gate = await heartbeat.readingGate();
+    if (gate && gate.blocked) {
+      window.location.hash = '#/xplore';
+      setTimeout(() => {
+        if (typeof appAlert === 'function') {
+          appAlert(`Your balance is below ${gate.rate} tokens — one minute of reading. Top up to continue.`);
+        }
+      }, 100);
+      return;
     }
 
     const viewedKey = `gliimu_viewed_${postId}`;

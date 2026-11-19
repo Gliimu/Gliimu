@@ -60,9 +60,9 @@ You earn GP by posting, going live, and engaging with the community. Your curren
     answer: `Your **Billing** tab holds your wallet.
 
 - **Top up** — tap the add-fund button and pay by card, bank transfer or USSD through Paystack. The wallet is credited as soon as the payment succeeds.
-- **Balance** — your live naira balance shows at the top of Billing.
-- **Share** — send Gliits to another Gliimait. For security you must confirm with your password.
-- **Withdraw** — move your Gliits into your own bank account once your balance reaches the minimum shown on the Withdraw screen.
+- **Balance** — your live token balance shows at the top of Billing.
+- **Share** — send tokens to another Gliimait. For security you must confirm with your password.
+- **Withdraw** — move your tokens into your own bank account once your balance reaches the minimum shown on the Withdraw screen.
 - **History** — every top-up, purchase, share and payout is listed with its status.
 
 Payouts go to the bank account registered against your own name, and a short hold applies after a top-up before money can leave.`
@@ -70,13 +70,13 @@ Payouts go to the bank account registered against your own name, and a short hol
   {
     title: 'Plans and pricing',
     keys: ['price', 'pricing', 'cost', 'tuition', 'plan', 'plans', 'subscription', 'monthly', 'pro', "pay n go", 'pay n\' go', 'how much', 'fee', 'fees'],
-    answer: `Gliimu runs three ways to pay:
+    answer: `Gliimu runs three ways to pay, and **Billing** is where you switch:
 
-- **Wallet** — no subscription. You pay from your wallet for what you use.
-- **Use n' Pay** — ₦10,000 for the first month. After that you're billed based on your actual usage.
-- **Xtra** — a flat ₦99,900 per year. Unlimited everything, no per-open charges.
+- **Pay n' Go** — no subscription. You are charged the platform's per-minute rate from your wallet for every minute you spend reading a Gliim or watching a live session.
+- **Monthly** — one flat charge from your wallet for a month of unlimited reading.
+- **Yearly** — the same idea, priced for a year.
 
-Open **Billing** to see the current plan cards and pick the one that fits you.`
+The exact figures on your **Billing** page are the live prices, so those are the ones to trust. They change only when the people running Gliimu change them.`
   },
   {
     title: 'The Updates page',
@@ -115,14 +115,16 @@ Unread counts show as a badge on the Ping tab and clear the moment you open the 
   {
     title: 'Going live',
     keys: ['live', 'stream', 'go live', 'session', 'sessions', 'webcam', 'screen share', 'broadcast', 'video call', '1-on-1', 'host'],
-    answer: `Live sessions are **1-on-1** video calls, reached from the **Ping** tab.
+    answer: `Live is one broadcast with a host and as many viewers as turn up, reached from the **Live** action on the **XpLoRe** tab.
 
-- You need **100 GP** to request or host a live session.
-- Both people can toggle their camera, share their screen and take a screenshot.
-- Sessions have a view cap and expire after a few views, so make them count.
-- You earn **1 GP per minute** while live.
+- Tap **Host Session**, give it a title, and go on air. Everyone who is watching sees the session on the Live page.
+- Sessions carry video, audio and a chat forum, and anyone in the room can share a file into that forum.
+- The host can mute or remove a viewer. A viewer who is removed cannot get back in.
+- Viewers are charged the platform's per-minute rate — the same price that applies to reading a Gliim — straight from their wallet. A wallet that cannot cover one minute will not open the session.
+- The host is never charged for their own session, and earns the creator rate for the minutes it runs, up to a cap per viewer.
+- Supporting costs **10 tokens** per tap, and the host keeps 70% of it.
 
-Open Ping, pick the Gliimait you want to meet, and start the session. While you are live, your other sessions are locked so you can focus on the one in front of you.`
+Open the Live page and pick a session to join, or host your own.`
   },
   {
     title: 'Your profile and portfolio',

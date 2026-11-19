@@ -1,6 +1,6 @@
 import { supabase, API_BASE_URL } from '/shared/js/config.js?v=2';
 import { store } from '../store.js?v=3';
-import * as heartbeat from '../heartbeat.js?v=6';
+import * as heartbeat from '../heartbeat.js?v=8';
 import { uploadAttachment, chatAttachmentProblem } from '../media.js?v=7';
 import { renderFileInto } from '../secure-reader.js?v=38';
 
@@ -387,7 +387,9 @@ const liveView = {
           },
           body: JSON.stringify({ requestId: sessionId, checkOnly: true })
         });
-        if (kickCheck.status === 403) {
+        // 403 = kicked, 402 = the wallet can no longer cover a minute. Neither
+        // gets restored into the room.
+        if (kickCheck.status === 403 || kickCheck.status === 402) {
           sessionStorage.removeItem('liveSession');
           return false;
         }
@@ -451,6 +453,7 @@ const liveView = {
     this.participantsMap.clear();
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
+    heartbeat.setSession(null);
   },
 
   // ============================================
@@ -560,10 +563,32 @@ const liveView = {
       if (kickCheck.status === 403) {
         const errData = await kickCheck.json().catch(() => ({}));
         if (errData.kicked) {
-          alert('You were kicked out of this session.');
+          appAlert('You were kicked out of this session.');
           this.joiningSession = false;
           return;
         }
+      }
+
+      // 402 comes from the same check: a wallet that cannot cover one minute of
+      // the session does not get in. The check knows the price, so the member
+      // is told what a minute costs instead of a bare "too low".
+      if (kickCheck.status === 402) {
+        const errData = await kickCheck.json().catch(() => ({}));
+        const rate = Number(errData.rate);
+        appAlert(Number.isFinite(rate) && rate > 0
+          ? `A live session costs ${rate} tokens a minute and your balance cannot cover it. Top up to join.`
+          : (errData.error || 'Your balance is too low to join this session.'))
+          .then(() => {
+            window.location.hash = '#/wallet';
+          });
+        this.joiningSession = false;
+        return;
+      }
+
+      if (!kickCheck.ok) {
+        appAlert('Could not check your balance. Please try again.');
+        this.joiningSession = false;
+        return;
       }
 
       const { data: request, error } = await supabase
@@ -670,8 +695,11 @@ const liveView = {
     this.setupSessionRealtime(this.activeSession.id);
     this.startSessionTimer();
 
-    // The studio is not metered: per-minute billing left Live, and a heartbeat
-    // without a post charges the member G3/min for nothing.
+    // The room is what the member is consuming, so it is what the meter bills,
+    // at the same price per minute as a gliim. The host is exempt in the
+    // database — running your own session is not a purchase.
+    heartbeat.setSession(this.activeSession.id);
+    heartbeat.start();
   },
 
   renderSessionUI(mountEl) {
@@ -711,7 +739,7 @@ const liveView = {
           ${mobile
             ? `<button class="live-ctrl-btn" id="live-flip-btn" title="Switch camera">${ICONS.flip}</button>`
             : `<button class="live-ctrl-btn" id="live-screen-btn" title="Share screen">${ICONS.screen}</button>`}
-          ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn" id="live-support-btn" title="Support the host — G10 per tap" aria-label="Support the host, 10 Gliits per tap"><span class="live-support-ico">${ICONS.bolt}</span>${this._supportTappedSession === this.activeSession?.id ? '' : '<span class="live-support-cost">G10</span>'}</button>`}
+          ${isHost ? '' : `<button class="live-ctrl-btn live-support-btn" id="live-support-btn" title="Support the host — 10 tokens per tap" aria-label="Support the host, 10 tokens per tap"><span class="live-support-ico">${ICONS.bolt}</span>${this._supportTappedSession === this.activeSession?.id ? '' : '<span class="live-support-cost">10 tokens</span>'}</button>`}
           ${isHost ? `<button class="live-ctrl-btn" id="live-share-btn" title="Share session">${ICONS.share}</button>` : ''}
           <button class="live-ctrl-btn" id="live-minimize-btn" title="Minimize">${ICONS.minimize}</button>
           <button class="live-ctrl-btn danger" id="live-leave-btn" title="${isHost ? 'End session' : 'Leave'}">${ICONS.close}</button>
@@ -1472,9 +1500,9 @@ const liveView = {
   },
 
   // One tap does both halves of the old like button and support button: the
-  // reaction ladder (like -> heart -> bolt, GP at each bolt) and G10 to the
-  // host, 70/30. The 350ms floor matches the server's reaction throttle so a
-  // tap that would not advance the ladder never spends Gliits either.
+  // reaction ladder (like -> heart -> bolt, GP at each bolt) and 10 tokens to
+  // the host, 70/30. The 350ms floor matches the server's reaction throttle so a
+  // tap that would not advance the ladder never spends tokens either.
   async tapSupport() {
     if (!this.activeSession || this.sessionRole === 'host') return;
     if (this._supportBusy) return;
@@ -1487,13 +1515,13 @@ const liveView = {
     let partial = false;
 
     if (balance <= 0) {
-      appAlert(`Supporting costs G${COST} per tap and your wallet is empty. Top up from Billing.`);
+      appAlert(`Supporting costs ${COST} tokens per tap and your wallet is empty. Top up from Billing.`);
       return;
     }
     if (balance < COST) {
       const ok = await appConfirm(
-        `Your wallet is low - it holds G${balance}. Supporting this session costs G${COST}. Send the G${balance} you have instead? The host keeps 70% of it.`,
-        { okText: `Send G${balance}` }
+        `Your wallet is low - it holds ${balance.toLocaleString()} tokens. Supporting this session costs ${COST} tokens. Send the ${balance.toLocaleString()} you have instead? The host keeps 70% of it.`,
+        { okText: `Send ${balance.toLocaleString()} tokens` }
       );
       if (!ok) return;
       partial = true;
@@ -1526,7 +1554,7 @@ const liveView = {
       }
 
       this._setReactIcon(data.emoji);
-      // The G10 hint is a first-tap affordance; once a tap lands the button
+      // The cost hint is a first-tap affordance; once a tap lands the button
       // carries only the stage icon, and re-renders keep the badge gone.
       this._supportTappedSession = this.activeSession.id;
       btn?.querySelector('.live-support-cost')?.remove();
@@ -2211,6 +2239,7 @@ const liveView = {
     this.minimized = false;
     heartbeat.stop();
     heartbeat.setCurrentPost(null);
+    heartbeat.setSession(null);
 
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
