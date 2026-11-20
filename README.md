@@ -411,8 +411,8 @@ proxied DNS record automatically on a same-account zone):
 
 **Billing** (`/wallet` — file `billing.js`)
 - One Token Balance — the number at the top of the page is spendable tokens, not naira
-- Three plans (Pay n' Go / Monthly / Yearly) bought from that balance; the plan you hold gets a
-  border and a "Current plan" badge instead of a button. Paystack card top-ups, bank-transfer
+- One plan (Pay n' Go) held from that balance; the plan you hold gets a border and a "Current
+  plan" badge instead of a button. Paystack card top-ups, bank-transfer
   top-ups verified in one click
 - User-to-user transfers (password-gated), Earnings tab, referral rewards
 - Withdrawals to a bank account: a payout request, held for `withdrawal_hold_hours`, released from
@@ -440,8 +440,8 @@ proxied DNS record automatically on a same-account zone):
   Read time, Live attendance, plan fees and support taps all move this number. The Billing page
   labels it "Token Balance"; the `gliits()` helper in both apps formats it.
 - **GP** (`profiles.total_gp`, integer) — activity points earned by engagement, never spent on
-  anything. `gliits_gp_to_gliits()` converts GP into tokens at `gp_to_gliits_threshold` /
-  `gp_to_gliits_ratio`, but no member-facing button calls it today.
+  anything. `gliits_gp_to_gliits()` still exists but members cannot call it: GP is not convertible
+  into tokens any more.
 - **Naira (₦)** is not a balance. It only *buys* tokens, at `exchange_rate_naira_to_gliits`
   (₦10 = 1 token), through Paystack or a staff-verified bank transfer. A top-up row in
   `gliits_topups` stores both `amount_naira` and `amount_gliits`.
@@ -451,22 +451,23 @@ both the reader and a Live session, so the two can never drift apart. The admin'
 (`revenue.js`) is the only place the number lives, and `gliits_rate_guard.sql` refuses a save that
 would break the maths.
 
-**Plans** (`gliits_plans` is the source of truth, read through `effective_tier()`):
+**Plans** (`gliits_plans` is the source of truth, metered by `expires_at`, never by plan name):
 
 | Plan | Config key | What it buys |
 |---|---|---|
 | Pay n' Go | — | nothing prepaid; use is metered at `per_minute_rate_gliits` |
-| Monthly | `plan_monthly_price_gliits` | unlimited use for a month |
-| Yearly | `plan_yearly_price_gliits` | unlimited use for a year |
 
-All three are paid from the token balance, never with a card directly. A lapsed monthly/yearly
-falls back to metered use instead of locking the member out.
+The older paid plans (Monthly, Yearly, Standard) are retired and cannot be bought. Members still
+inside paid time from one keep it until `expires_at`; the meter then starts and no credit is
+earned against it. `gliits_set_plan` accepts `payngo` only.
 
 **Everyday flows:**
 - Opening a post bills `per_minute_rate_gliits` per minute; closing stops the meter. Nothing open
   means nothing charged, and a target that has vanished (session ended, post taken down) is not
   billable either — so a stale tab stops charging.
-- Live bills on the same meter. The host pays nothing for their own session and earns
+- Live bills on the same meter, and only when a viewer is actually charged. Going on air costs the
+  host `live_host_fee_gliits` once per session (`start_live_session` takes it under an advisory
+  lock, so a second call is free); the host is never metered for their own room and earns
   `creator_rate_per_minute` per viewer-minute up to `creator_cap_per_post_session`.
   `gliits_live_entry_check()` refuses a join when the wallet cannot pay the first minute.
 - Supporting a creator: 100 tokens in the reader, 10 in Live — 70% to the creator, 30% platform,
@@ -569,12 +570,12 @@ should all read OK. Run the file, then run its self-check in the same paste.
 | Kind | Files | Notes |
 |------|-------|-------|
 | Fresh install | `setup_core.sql` | every table, base RLS and grants |
-| Feature | `account_lifecycle.sql`, `admin.sql`, `admin_all_gliims.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `daily_gp.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql`, `cohorts.sql`, `cohorts_strip.sql` | the live features |
-| Live (sessions) | `live_rooms.sql`, `live_v2.sql`, `live_v3.sql`, `live_on_air.sql`, `live_participants.sql`, `live_chat.sql`, `live_chat_attachments.sql`, `live_kicked_users.sql`, `live_reactions.sql`, `live_support_g10.sql` | stacked over time; the newest wins where they overlap |
-| Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql`, `terms_deletion_final.sql` | `terms_deletion_final.sql` edits the live terms row and re-triggers the boot Terms modal once |
+| Feature | `account_lifecycle.sql`, `admin.sql`, `admin_all_gliims.sql`, `support.sql`, `unify_support.sql`, `registrar.sql`, `gliits_billing.sql`, `gliits_rate_guard.sql`, `plan_lineup.sql`, `referrals.sql`, `community.sql`, `collections_sponsors.sql`, `notifications.sql`, `content_trash.sql`, `instant_publish.sql`, `verification_badges.sql`, `xploring_unread.sql`, `follow_users.sql`, `contact.sql`, `profile_banner_social.sql`, `audiolite_timestamps.sql`, `media_block.sql`, `polls.sql`, `cohorts.sql`, `cohorts_strip.sql` | the live features |
+| Live (sessions) | `live_rooms.sql`, `live_v2.sql`, `live_v3.sql`, `live_on_air.sql`, `live_participants.sql`, `live_chat.sql`, `live_chat_attachments.sql`, `live_kicked_users.sql`, `live_reactions.sql`, `live_support_g10.sql`, `live_metering.sql`, `live_hosting_plan_gate.sql` | stacked over time; the newest wins where they overlap. `live_hosting_plan_gate.sql` is superseded by `plan_lineup.sql` and must not be re-run as a feature |
+| Fixes | `fix_bump_post_views.sql`, `fix_referral_summary.sql`, `fix_live_page.sql`, `terms_deletion_final.sql`, `terms_metered_lineup.sql` | `terms_deletion_final.sql` and `terms_metered_lineup.sql` edit the live terms row and re-trigger the boot Terms modal once |
 | Removals | `remove_featuring.sql`, `remove_live_gliims.sql`, `remove_live_billing.sql`, `remove_ping_calls.sql`, `remove_premium.sql`, `remove_scroll_position.sql`, `remove_landing_deadbones.sql`, `retire_captain_role.sql`, `cleanup_dead_tables.sql`, `cleanup_dead_billing.sql`, `drop_dead_library.sql` | destructive — run the archive query in the header first |
 | Archive | `archive_*.sql` | retired definitions, kept for reference. Never run |
-| Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql`, `landing_highlights.sql`, `landing_about.sql`, `app_qr_link.sql` | superseded by the removal scripts above |
+| Retired | `ping_calls.sql`, `live_gliim.sql`, `live_billing.sql`, `approval_flow.sql`, `landing_highlights.sql`, `landing_about.sql`, `app_qr_link.sql`, `daily_gp.sql` | superseded by the removal scripts above. `daily_gp.sql` is dead: `claim_daily_gp()` is dropped by `cleanup_dead_billing.sql`, and daily GP no longer exists |
 | Diagnostic | `state.sql` | read-only: answers "what is installed right now" |
 
 Run `state.sql` before any script that drops something.

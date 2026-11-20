@@ -64,7 +64,7 @@ You earn GP when your work gets used:
 
 What they are for is standing: your **GP** total is the number people see under your name on your profile, and your Billing history records the GP each action brought you. GP are not money and are never mixed up with it — the **Earnings** tab on Billing reports the tokens your work has paid you, separately.
 
-What they no longer do: publishing is open to every member with no GP minimum, hosting a Live session takes neither GP nor a plan, supporting a gliim costs tokens from your wallet, GP cannot be turned into money, and there are no avatar borders or Ambassador tiers.`
+What they no longer do: publishing is open to every member with no GP minimum, hosting a Live session takes neither GP nor a plan (it costs a small token fee taken once when you go on air), supporting a gliim costs tokens from your wallet, GP cannot be turned into money, and there are no avatar borders or Ambassador tiers.`
   },
   {
     title: 'Wallet, top-ups and transfers',
@@ -81,16 +81,17 @@ Payouts go to the bank account registered against your own name, and a short hol
   },
   {
     title: 'Plans and pricing',
-    keys: ['price', 'pricing', 'cost', 'tuition', 'plan', 'plans', 'subscription', 'monthly', 'standard', 'pro', 'xtra', "pay n go", 'pay n\' go', 'how much', 'fee', 'fees', 'renew', 'expired', 'per minute', 'unlimited'],
+    keys: ['price', 'pricing', 'cost', 'tuition', 'plan', 'plans', 'subscription', 'monthly', 'yearly', 'standard', 'pro', 'xtra', "pay n go", 'pay n\' go', 'how much', 'fee', 'fees', 'renew', 'expired', 'per minute', 'unlimited', 'host fee', 'hosting cost'],
     answer: `Everything starts from your wallet, which holds tokens. Here is how money actually moves on Gliimu:
 
-- **Pay n' Go** is what every account starts on, and it is the card with no plan fee. On it, the platform's per-minute rate comes out of your wallet for every minute you spend reading a gliim or watching a live session — and a wallet that cannot cover one minute will not open either.
-- **A plan is the alternative.** **Billing** lists the plans as cards, and the one you hold is marked as current. Picking one charges its price from your wallet once, and while it is active nothing is taken per minute: you read and watch without your balance moving. When the plan expires you are back on the meter.
-- **Anyone can host.** There is no plan and no GP requirement to press **Host Session**, and the host is never charged for their own session.
+- **Pay n' Go** is the plan every account is on, and it carries no subscription fee. The older paid plans — Monthly, Yearly and Standard — have been retired, so nobody buys a plan any more.
+- **Usage is metered.** The platform's per-minute rate comes out of your wallet for every minute you spend reading a gliim or watching a live session, and a wallet that cannot cover one minute will not open either. There is no unlimited option.
+- **Hosting is charged once per session**, when you go on air, at the small fee shown in the host window. It keeps the live rooms free of throwaway sessions. Anyone can host — no plan and no GP requirement.
+- **You earn from your room.** Viewers pay the per-minute rate while they watch, and a share of what they pay is credited to you as the creator.
 - **Top-ups** — paid in naira through Paystack by card, bank transfer or USSD, and credited at the exchange rate shown on the page.
 - **Earnings** — the **Earnings** tab on Billing shows what your own work has brought you.
 
-The exact plan names and figures on your **Billing** page are the live ones, so those are the ones to trust. They change only when the people running Gliimu change them.`
+The exact rate and fee figures on your **Billing** page are the live ones, so those are the ones to trust. They change only when the people running Gliimu change them.`
   },
   {
     title: 'Cohorts and referrals',
@@ -131,12 +132,12 @@ Unread counts show as a dot on **Ping** in your account menu and on your avatar,
 
 - The Live page lists the sessions that are running. **Join Session** puts you into one; **Host Session** starts your own.
 - Your own session appears with **Go on air** — nobody can join until you press it, because the room only exists once you are broadcasting.
-- **Anyone can host.** Neither a plan nor GP is required, and the host pays nothing for their own session.
+- **Anyone can host.** Neither a plan nor GP is required.
 - In the studio you can turn your camera on or off, and on a bigger screen share your screen instead (on a phone that button switches between the front and back camera).
 - Sessions carry video, audio and a chat forum, and anyone in the room can share a file into that forum.
 - The host can mute or remove a viewer. A viewer who is removed cannot get back in.
-- Viewers on **Pay n' Go** are charged the platform's per-minute rate — the same price that applies to reading a Gliim — straight from their wallet, and a wallet that cannot cover one minute will not open the session. Viewers holding an active plan are not charged.
-- The host is never charged for their own session, and earns the creator rate for the minutes it runs, up to a daily cap for each viewer.
+- Every viewer pays the platform's per-minute rate — the same price that applies to reading a gliim — straight from their wallet, and a wallet that cannot cover one minute will not open the session. No plan watches for free.
+- Going on air costs the host a one-token fee, taken once per session to keep throwaway rooms out. The host is not charged by the minute for their own room, and earns the creator rate for the minutes their viewers actually paid for.
 - Supporting costs **10 tokens** per tap, and the host keeps 70% of it.
 
 Pick a session on the Live page to join it, or host your own.`

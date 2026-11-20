@@ -1,4 +1,11 @@
 -- ============================================================
+--  PARTLY SUPERSEDED by sql/plan_lineup.sql (2026-11-19): the guard still
+--  runs, but plan_monthly_price_gliits and plan_yearly_price_gliits are now
+--  dead keys — only per_minute_rate_gliits and the new
+--  live_host_fee_gliits gate money. Re-read the guard body before typing a
+--  price you cannot find on the billing page.
+-- ============================================================
+-- ============================================================
 --  Gliits pricing guard — sql/gliits_rate_guard.sql
 --
 --  WHY THIS EXISTS

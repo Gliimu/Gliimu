@@ -43,6 +43,21 @@ const CHAT_KIND_LABELS = {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// start_live_session takes the hosting fee out of gliits_config, so this quotes
+// that figure rather than a number copied from a spec. A config read that
+// returns nothing leaves it null and the copy says "a token fee": the fee is
+// only ever raised as INSUFFICIENT_BALANCE when it is above zero.
+let hostFee = null;
+
+async function readHostFee() {
+  const n = Number((await heartbeat.getConfig())?.live_host_fee_gliits);
+  hostFee = Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function hostFeeText() {
+  return hostFee === null ? 'a token fee' : `${hostFee} token${hostFee === 1 ? '' : 's'}`;
+}
+
 function initialsAvatar(name) {
   const n = String(name || '?').trim();
   const parts = n.split(/\s+/);
@@ -154,6 +169,7 @@ const liveView = {
 
   async init() {
     this._exposeInstance();
+    if (hostFee === null) await readHostFee();
 
     // If returning to Live page with an active minimized session, restore directly
     if (this.activeSession && this.minimized) {
@@ -275,8 +291,9 @@ const liveView = {
     landing.innerHTML = html;
   },
 
-  openHostModal() {
+  async openHostModal() {
     if (document.getElementById('live-host-modal')) return;
+    if (hostFee === null) await readHostFee();
 
     const modal = document.createElement('div');
     modal.id = 'live-host-modal';
@@ -293,6 +310,7 @@ const liveView = {
           <label>Description (optional)</label>
           <textarea id="live-host-desc" class="input" rows="3" maxlength="200" placeholder="What will you cover?"></textarea>
         </div>
+        <p class="live-host-fee-note">Going on air takes ${hostFeeText()} from your wallet, once per session.</p>
         <button class="btn-primary live-host-submit" onclick="liveInstance.createSession()">Create Session</button>
       </div>
     `;
@@ -324,12 +342,6 @@ const liveView = {
       if (!(await this.goOnAir(request.id))) await this.cancelSession(request.id);
     } catch (error) {
       console.error('Create session error:', error);
-      // Who may host is a database trigger, so its raw Postgres token is
-      // otherwise what lands on the screen.
-      if (/LIVE_REQUIRES_SUBSCRIPTION/.test(error?.message || '')) {
-        appAlert('Your Monthly or Yearly plan has ended, so you cannot host a session. Renew it in Billing, or switch to Pay n\' Go, then try again.');
-        return;
-      }
       appAlert(error.message || 'Your session could not be created.');
     } finally {
       this.creatingSession = false;
@@ -542,7 +554,11 @@ const liveView = {
       return true;
     } catch (err) {
       console.error('Go on air failed:', err);
-      appAlert(err.message || 'Your session could not start.');
+      if (/INSUFFICIENT_BALANCE/.test(err?.message || '')) {
+        appAlert(`Going on air costs ${hostFeeText()} from your wallet, and it is not enough. Top up in Billing, then try again.`);
+      } else {
+        appAlert(err.message || 'Your session could not start.');
+      }
       return false;
     } finally {
       this.goingOnAir = false;

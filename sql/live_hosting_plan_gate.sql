@@ -1,4 +1,12 @@
 -- ============================================================
+--  SUPERSEDED by sql/plan_lineup.sql (2026-11-19) — do not re-run this
+--  as a live feature. Anyone may host: enforce_live_subscription no longer
+--  blocks a member, and the host instead pays a one-token session fee
+--  (gliits_config.live_host_fee_gliits). The effective_tier() reader below
+--  is kept only so the admin panel can still show a retired plan name to
+--  the members grandfathered onto it.
+-- ============================================================
+-- ============================================================
 --  Who may host a live session is decided by the table the money
 --  actually moves in — sql/live_hosting_plan_gate.sql
 --

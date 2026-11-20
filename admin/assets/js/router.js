@@ -17,7 +17,7 @@ const routes = {
   '/support': { role: STAFF, title: 'Support Desk', load: () => import('./views/support.js?v=10').then(m => m.default) },
   '/admin-room': { role: STAFF, title: 'Admins Room', load: () => import('./views/admin-room.js?v=10').then(m => m.default) },
   '/finance': { role: 'registrar', title: 'Finance', load: () => import('./views/finance.js?v=5').then(m => m.default) },
-  '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=6').then(m => m.default) },
+  '/revenue': { role: 'registrar', title: 'Revenue & Config', load: () => import('./views/revenue.js?v=7').then(m => m.default) },
   '/operations': { role: 'operations', title: 'Site Content', load: () => import('./views/operations.js?v=24').then(m => m.default) },
   '/members': { role: 'operations', title: 'Members', load: () => import('./views/operations-members.js?v=22').then(m => m.default) },
   '/admins': { role: 'super', title: 'Admins', load: () => import('./views/admins.js?v=3').then(m => m.default) }

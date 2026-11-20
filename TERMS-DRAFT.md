@@ -18,26 +18,26 @@ You agree to maintain professional, respectful, and ethical conduct. Gliimu rese
 
 Gliimu periodically hosts cohorts, contests, and other structured programs. Programs may be highlighted on the platform's discovery pages. By participating, you agree to follow the specific rules, guidelines, and code of conduct for each program. Program rules are provided at the time of enrollment and take precedence over general platform policies for the duration of the program. Violations may result in removal from the program, forfeiture of any program-related benefits, and/or account suspension. Program schedules, formats, and availability are subject to change without prior notice.
 
-## 4. Wallet, Gliits & Consumption Model
+## 4. Wallet, Tokens & Consumption Model
 
-Gliimu operates on a wallet and an activity currency:
+Gliimu operates on a token wallet and an activity currency:
 
-- **Wallet Balance (Real Money)**: Your wallet balance is denominated in Naira (₦) and represents real money. You can top up through the payment channels offered at checkout and receive funds from other users. Wallet balance is withdrawable to bank accounts or transferable to other users on the platform.
-- **Gliits (G)**: Gliits are the platform's consumption currency. Reading published content is billed per minute (currently G3 per minute), and certain actions — such as sending support to a creator — carry fixed Gliits costs. [TO CONFIRM: how members acquire Gliits — plan benefits, wallet conversion, activity only? State the actual mechanic here.]
-- **Daily Activity**: Members who return daily receive a small Gliits bonus (currently +10). Missing two consecutive days applies a small deduction (currently −7). Bonuses and deductions are platform incentives, not wages, and may change.
-- **Subscription Plans**: Gliimu may offer subscription plans (currently [TO CONFIRM: plan names, e.g. Pay n' Go / Monthly / Pro]). Plan benefits are described at the point of purchase.
-- **Per-Minute Charges**: When you open a publication, audiolite, or bundle, billing starts at the posted rate for as long as the content remains open, and billing follows whichever item you have open. Closing the content stops billing. Reopening starts a new billed session.
-- **Support Contributions**: You may send support to any creator (currently G100 per tap; G10 per tap in live sessions). 70% of each contribution goes to the creator and 30% to Gliimu. Support is repeatable and voluntary.
+- **Wallet Balance (Tokens)**: Your wallet balance is a number of tokens, not naira. Naira only buys tokens, at the rate shown at the point of purchase. You receive tokens the same way you receive any other credit on the platform: a top-up, a transfer from another member, or your own earnings. Consumption charges are deducted from this balance. It is withdrawable to a bank account or transferable to other users on the platform.
+- **GP (standing)**: GP is a credibility metric that appears under your name. You earn it when members engage with your work. It does not gate publishing, it unlocks no feature, and it cannot be turned into tokens or money.
+- **One Plan, Metered**: Gliimu runs one plan, Pay n' Go. There is no subscription fee and nothing to renew: usage is metered against your token balance at the rate shown on the Billing page. The paid tiers that came before it — Starter, Pro, Elite, Monthly, Yearly and Standard — have been retired and can no longer be bought. A member still inside paid time bought under a retired tier keeps that time; the meter starts when it runs out.
+- **Per-Minute Charges**: When you open content (a book, audiolite, or bundle) or join a live session, tokens are deducted from your balance for each minute it stays open, at the single rate the platform sets. The charge follows whichever item you have open. Closing it stops the charge and opening it again starts a new one; while nothing is open, nothing is charged. A balance that cannot cover the first minute will not open the item or the session.
+- **Live Hosting Fee**: Hosting a live session costs the host a one-token fee, taken once when they go on air. A host is not charged by the minute for their own session.
+- **Support Contributions**: You may send support to any creator (currently 100 tokens per tap in the reader; 10 per tap in live sessions). 70% of each contribution goes to the creator and 30% to Gliimu. Support is repeatable and voluntary.
 - **No Permanent Ownership**: You are renting access to content, not buying it. Content may be removed by the creator or platform at any time.
-- **Refunds**: All payments are final and non-refundable. Gliits consumed and charges already accrued are not refundable, even if content is later removed. Gliimu retains discretion to issue refunds in exceptional cases of verifiable platform failure.
+- **Refunds**: All payments are final and non-refundable. Tokens consumed and charges already accrued are not refundable, even if content is later removed. Gliimu retains discretion to issue refunds in exceptional cases of verifiable platform failure.
 
 ## 5. Creator Revenue & Withdrawals
 
-Creators earn wallet balance when members consume their content or send them support:
+Creators earn tokens when members consume their content, and GP when members engage with it:
 
-- **Earnings**: The creator's portion of consumption revenue and support contributions (70% of every support tap) is credited to the creator's wallet balance as real money.
-- **Revenue Share**: Support contributions are split 70% creator / 30% platform. The consumption revenue share is [TO CONFIRM: the creator % of per-minute reading revenue] and may change with notice.
-- **Withdrawals**: Withdrawal requests are reviewed and processed manually by the Gliimu team; processing times may vary and are shown at the point of request. You are responsible for any third-party payment gateway fees or tax liabilities.
+- **Earnings**: A creator is paid only for minutes a viewer actually paid for, so a minute nobody was billed for earns nothing. The creator's portion of support contributions (70% of every support tap) is credited to the creator's token balance.
+- **Revenue Share**: Support contributions are split 70% creator / 30% platform. Consumption revenue is paid as a per-viewer-minute creator rate set by the platform against the same per-minute charge members pay, capped per viewer per session, and may change with notice. [TO CONFIRM: publish the exact creator rate and cap on the Billing page so members and creators read the same two numbers the platform charges by.]
+- **Withdrawals**: A withdrawal is held for a short anti-fraud window and then reviewed and released by the Gliimu team, so processing times vary and the wait shown at the point of request applies. You are responsible for any third-party payment gateway fees or tax liabilities.
 
 ## 6. Intellectual Property & Content Rights
 

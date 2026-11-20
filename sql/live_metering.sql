@@ -1,4 +1,10 @@
 -- ============================================================
+--  EXTENDED by sql/plan_lineup.sql (2026-11-19): viewer per-minute billing
+--  and the 1.50 creator rate below still stand, but the host is no longer
+--  free — going on air now costs gliits_config.live_host_fee_gliits tokens,
+--  taken once per session. Run plan_lineup.sql after this one.
+-- ============================================================
+-- ============================================================
 --  Live sessions bill like gliims, and a creator is paid exactly
 --  1.50 tokens a minute — sql/live_metering.sql
 --

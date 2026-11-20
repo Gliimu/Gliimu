@@ -19,9 +19,8 @@ const GUARDED_KEYS = [
 
 const CONFIG_FIELDS = [
   { key: 'exchange_rate_naira_to_gliits', label: 'Exchange rate', step: '1', unit: '₦ per token', help: 'The naira one token is worth, and the only bridge between tokens and money. Everything multiplies by this figure in the same direction: at rate 10 a member pays ₦1,000 for 100 tokens, and a 100-token payout sends ₦1,000. Raising it makes the platform dearer and every existing balance worth more.' },
-  { key: 'per_minute_rate_gliits', label: 'Per-minute charge', step: '0.5', unit: 'tokens/min' },
-  { key: 'plan_monthly_price_gliits', label: 'Monthly plan price', step: '100', unit: 'tokens/month' },
-  { key: 'plan_yearly_price_gliits', label: 'Yearly plan price', step: '100', unit: 'tokens/year' },
+  { key: 'per_minute_rate_gliits', label: 'Per-minute charge', step: '0.5', unit: 'tokens/min', help: 'The one price every member pays by the minute, for reading and for watching a live session alike. No plan exempts anybody from it.' },
+  { key: 'live_host_fee_gliits', label: 'Live hosting fee', step: '1', unit: 'tokens/session', help: 'Taken from the host once, when they go on air. It keeps throwaway rooms out; a host is never charged by the minute for their own session.' },
   { key: 'signup_credit_gliits', label: 'Signup credit', step: '10', unit: 'tokens' },
   { key: 'min_topup_gliits', label: 'Minimum topup', step: '10', unit: 'tokens' },
   { key: 'min_withdrawal_gliits', label: 'Minimum withdrawal', step: '500', unit: 'tokens', help: 'The threshold a member must reach before tokens can leave the platform.' },
@@ -29,9 +28,7 @@ const CONFIG_FIELDS = [
   { key: 'withdrawal_hold_hours', label: 'Top-up hold', step: '1', unit: 'hours', help: 'How long after a top-up a payout can be requested or sent. Anti-fraud window.' },
   { key: 'creator_rate_per_minute', label: 'Creator rate', step: '0.1', unit: 'tokens/min' },
   { key: 'creator_cap_per_post_session', label: 'Creator cap per post/24h', step: '1', unit: 'tokens' },
-  { key: 'idle_timeout_minutes', label: 'Idle timeout', step: '1', unit: 'min' },
-  { key: 'gp_to_gliits_ratio', label: 'GP→token ratio', step: '1', unit: 'tokens per conversion' },
-  { key: 'gp_to_gliits_threshold', label: 'GP→token threshold', step: '10', unit: 'GP' }
+  { key: 'idle_timeout_minutes', label: 'Idle timeout', step: '1', unit: 'min' }
 ];
 
 function nairaText(value) {
@@ -55,8 +52,7 @@ function moneyPreview(cfg) {
 
   const topup = num('min_topup_gliits');
   const perMin = num('per_minute_rate_gliits');
-  const monthly = num('plan_monthly_price_gliits');
-  const yearly = num('plan_yearly_price_gliits');
+  const hostFee = num('live_host_fee_gliits');
   const signup = num('signup_credit_gliits');
   const creator = num('creator_rate_per_minute');
   const cap = num('creator_cap_per_post_session');
@@ -67,8 +63,7 @@ function moneyPreview(cfg) {
     ['One token is worth', `${nairaText(rate)} per token`],
     ['Smallest top-up', `${gliits(topup)} charges ${nairaText(Math.ceil(topup * rate))}${topup * rate < 100 ? ' — below ₦100, check the card minimum your Paystack account accepts' : ''}`],
     ['One minute of reading', `${gliits(perMin)} = ${nairaText(perMin * rate)} a minute`],
-    ['Monthly plan', `${gliits(monthly)} = ${nairaText(monthly * rate)}`],
-    ['Yearly plan', `${gliits(yearly)} = ${nairaText(yearly * rate)}`],
+    ['Hosting a live session', hostFee > 0 ? `${gliits(hostFee)} once per session = ${nairaText(hostFee * rate)}` : 'Nothing — the fee is set to zero'],
     ['Signup credit', `${gliits(signup)} = ${nairaText(signup * rate)} of free reading`],
     ['A creator earns', `${gliits(creator)}/min = ${nairaText(creator * rate)} a minute, capped at ${gliits(cap)} (${nairaText(cap * rate)}) per post per 24h`],
     ['Smallest payout', `${gliits(minOut)} sends ${nairaText(minOut * rate)}`],

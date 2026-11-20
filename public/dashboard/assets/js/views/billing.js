@@ -24,6 +24,7 @@ const TX_TYPE_LABELS = {
   live_support: 'Live support',
   live_entry: 'Live session entry',
   live_session: 'Live session',
+  live_host_fee: 'Hosted a live session',
   subscription: 'Subscription',
   transfer_out: 'Transfer out',
   transfer_in: 'Transfer in',
@@ -65,10 +66,11 @@ const PAYOUT_ERRORS = {
   CANNOT_CANCEL: 'That payout is already with the bank.'
 };
 
+// Monthly only labels members who were already inside paid time when the paid
+// plans were retired; nobody can buy it any more.
 const PLAN_LABELS = {
   payngo: "Pay n' Go",
-  monthly: 'Monthly',
-  yearly: 'Yearly'
+  monthly: 'Monthly'
 };
 
 export default {
@@ -87,7 +89,7 @@ export default {
       toggleFilterMenu: () => this.toggleFilterMenu(),
       selectTransferUser: (id) => this.selectTransferUser(id),
       clearTransferUser: () => this.clearTransferUser(),
-      activatePlan: (type) => this.activatePlan(type),
+      activatePlan: () => this.activatePlan(),
       openReferralModal: () => this.openReferralModal(),
       copyReferralLink: (link) => this.copyReferralLink(link)
     };
@@ -238,34 +240,36 @@ export default {
     const fmt = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
     const daysLeft = (d) => d ? Math.max(0, Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)) : 0;
 
-    let planDetail = '';
-    if (planType !== 'payngo' && expiresAt) {
-      planDetail = `
-        <div class="sub-row"><span>Active until</span><strong>${fmt(expiresAt)} (${daysLeft(expiresAt)} days)</strong></div>
-        <div class="sub-row"><span>Billing</span><strong>Unlimited usage</strong></div>
-      `;
-    }
+    // Every plan on the lineup is metered, so the config rate is the only price
+    // this page can print. When the config cannot be read the copy says
+    // "the per-minute rate" rather than inventing a figure.
+    const rate = Number(this.config?.per_minute_rate_gliits);
+    const meteredAt = Number.isFinite(rate) && rate > 0 ? `${tokensText(rate)} per minute` : 'the per-minute rate';
 
-    let planMessage = '';
-    if (planType === 'payngo') {
-      planMessage = `<p class="plan-upgrade-hint">Get the best deal with <a href="#" onclick="window.walletInstance.switchTab('plans'); return false;">unlimited plans</a></p>`;
-    } else if (planType === 'monthly') {
-      planMessage = `<p class="plan-upgrade-hint">Annual plan helps you <a href="#" onclick="window.walletInstance.switchTab('plans'); return false;">SAVE MORE!!!</a></p>`;
-    } else if (planType === 'yearly') {
-      planMessage = `<p class="plan-upgrade-hint plan-upgrade-congrats">Congratulations, you have the best value</p>`;
+    // A member who still holds paid time from a retired plan is not charged for
+    // usage until it runs out — that is exactly what the meter checks.
+    const insidePaidTime = Boolean(expiresAt) && new Date(expiresAt).getTime() > Date.now();
+
+    let planDetail = `
+      <div class="sub-row"><span>Billing</span><strong>${meteredAt}, from your wallet</strong></div>
+    `;
+    if (insidePaidTime) {
+      planDetail = `
+        <div class="sub-row"><span>Usage is not charged until</span><strong>${fmt(expiresAt)} (${daysLeft(expiresAt)} days)</strong></div>
+        <div class="sub-row"><span>After that</span><strong>${meteredAt}, from your wallet</strong></div>
+      `;
     }
 
     return `
       <div class="card sub-card">
         <div class="sub-header">
-          <h3>${escapeHtml(planLabel)} Plan</h3>
+          <h3>${escapeHtml(planLabel)}</h3>
           <span class="sub-badge active">Active</span>
         </div>
         <div class="sub-details">
           ${planDetail}
         </div>
       </div>
-      ${planMessage}
       <div class="card stat-card" style="margin-top: 16px;">
         <div class="stat-row">
           <div class="stat-icon-wrap bg-brand">
@@ -391,12 +395,22 @@ export default {
     const cardClass = (planType) => `plan-card${isCurrent(planType) ? ' plan-card--current' : ''}`;
     const badge = (planType) => isCurrent(planType) ? '<span class="plan-current-badge">Current plan</span>' : '';
 
-    const btn = (planType, label) => {
-      if (isCurrent(planType)) return '';
-      return `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan('${planType}')">${label}</button>`;
+    // Members still inside paid time from a retired plan keep it: the database
+    // refuses to shorten it, so the button would only offer a rejected click.
+    const expiresAt = this.plan?.expires_at;
+    const insidePaidTime = Boolean(expiresAt) && new Date(expiresAt).getTime() > Date.now();
+
+    const btn = () => {
+      if (isCurrent('payngo') || insidePaidTime) return '';
+      return `<button class="plan-buy btn-primary" onclick="walletInstance.activatePlan()">Switch to Pay n' Go</button>`;
     };
 
+    const gateNote = (!isCurrent('payngo') && insidePaidTime)
+      ? `<p class="plan-upgrade-hint">Your paid time runs out on ${new Date(expiresAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}. Pay n' Go starts there on its own.</p>`
+      : '';
+
     return `
+      ${gateNote}
       <div class="plan-list">
         <div class="${cardClass('payngo')}">
           ${badge('payngo')}
@@ -409,33 +423,7 @@ export default {
             ${check('No commitment')}
             ${check('Top up anytime')}
           </ul>
-          ${btn('payngo', 'Switch to Pay n\' Go')}
-        </div>
-        <div class="${cardClass('monthly')}">
-          ${badge('monthly')}
-          <span class="plan-name">Monthly</span>
-          <div class="plan-price">${price('plan_monthly_price_gliits')}</div>
-          <span class="plan-price-note">per month · unlimited</span>
-          <ul class="plan-features">
-            ${check('Unlimited usage')}
-            ${check('No per-minute charges')}
-            ${check('All content accessible')}
-            ${check('Cancel anytime')}
-          </ul>
-          ${btn('monthly', 'Go Monthly')}
-        </div>
-        <div class="${cardClass('yearly')}">
-          ${badge('yearly')}
-          <span class="plan-name">Yearly</span>
-          <div class="plan-price">${price('plan_yearly_price_gliits')}</div>
-          <span class="plan-price-note">per year · unlimited</span>
-          <ul class="plan-features">
-            ${check('Unlimited usage')}
-            ${check('Best value')}
-            ${check('All content accessible')}
-            ${check('12 months covered')}
-          </ul>
-          ${btn('yearly', 'Go Yearly')}
+          ${btn()}
         </div>
       </div>
     `;
@@ -463,7 +451,7 @@ export default {
       icon = `<div class="txn-icon bg-brand"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>`;
     } else if (tx.type === 'support' || tx.type === 'live_support') {
       icon = `<div class="txn-icon bg-gold"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div>`;
-    } else if (tx.type === 'live_entry' || tx.type === 'live_session') {
+    } else if (tx.type === 'live_entry' || tx.type === 'live_session' || tx.type === 'live_host_fee') {
       icon = `<div class="txn-icon bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div>`;
     } else if (tx.type === 'subscription') {
       icon = `<div class="txn-icon bg-gold"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>`;
@@ -519,48 +507,29 @@ export default {
   // ============================================
   // PLANS
   // ============================================
-  async activatePlan(planType) {
-    const labels = { payngo: "Pay n' Go", monthly: 'Monthly', yearly: 'Yearly' };
-    // The confirm dialog has to quote what gliits_set_plan will actually take,
-    // so every figure comes from the admin's Config tab. When the config
-    // cannot be read the copy says nothing about money rather than guessing.
-    const priceOf = (key) => {
-      const n = Number(this.config?.[key]);
-      return Number.isFinite(n) && n > 0 ? n : null;
-    };
-    const prices = {
-      payngo: priceOf('per_minute_rate_gliits'),
-      monthly: priceOf('plan_monthly_price_gliits'),
-      yearly: priceOf('plan_yearly_price_gliits')
-    };
+  async activatePlan() {
+    // Pay n' Go costs nothing to move onto, so the confirm dialog only has to
+    // quote the metering rate — which the database reads from the admin's
+    // Config tab. An unreadable config says nothing about money.
+    const rate = Number(this.config?.per_minute_rate_gliits);
+    const cost = Number.isFinite(rate) && rate > 0 ? `${tokensText(rate)} per minute` : 'a per-minute rate';
 
-    let confirmMsg = '';
-    if (planType === 'payngo') {
-      const cost = prices.payngo === null ? 'a per-minute rate' : `${tokensText(prices.payngo)} per minute`;
-      confirmMsg = `Switch to Pay n' Go?\n\nYou'll be charged ${cost} of usage from your wallet balance. No subscription fee.`;
-    } else {
-      const cost = prices[planType] === null ? '' : ` for ${tokensText(prices[planType])}`;
-      confirmMsg = `Switch to ${labels[planType]}${cost}?\n\nUnlimited usage for ${planType === 'monthly' ? '1 month' : '1 year'}. Paid from your wallet balance.`;
-    }
-
-    const ok = await appConfirm(confirmMsg, { okText: 'Switch' });
+    const ok = await appConfirm(
+      `Switch to Pay n' Go?\n\nYou'll be charged ${cost} of usage from your wallet balance. No subscription fee.`,
+      { okText: 'Switch' }
+    );
     if (!ok) return;
 
-    const { data, error } = await setPlan(planType);
+    const { data, error } = await setPlan('payngo');
     if (error) {
       const msg = error.message || '';
-      if (msg.includes('INSUFFICIENT_BALANCE')) {
-        const short = prices[planType] === null ? null : prices[planType] - this.balance;
-        await appAlert(short > 0
-          ? `You need ${tokensText(short)} more in your wallet. Top up and try again.`
-          : 'You do not have enough tokens in your wallet for this plan. Top up and try again.');
-        this.openTopUpModal();
-        return;
+      if (msg.includes('PLAN_PERIOD_ACTIVE')) {
+        return appAlert('Your current plan still has paid time left. Pay n\' Go starts on its own when that ends.');
       }
       return appAlert('Could not switch plan: ' + msg);
     }
 
-    await appAlert(`You're now on ${labels[planType]}!`);
+    await appAlert("You're now on Pay n' Go!");
     await this.fetchData();
     this.render();
   },

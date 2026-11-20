@@ -159,6 +159,11 @@
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
+.live-host-fee-note {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
 #live-host-modal .live-host-submit {
   width: 100%;
   display: inline-flex;
