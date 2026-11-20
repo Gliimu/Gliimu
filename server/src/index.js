@@ -50,7 +50,16 @@ app.post('/api/paystack/webhook', express.raw({ type: '*/*' }), async (req, res)
       const userId = tx.metadata && tx.metadata.user_id;
       const amountNaira = Math.round((tx.amount || 0) / 100);
 
-      if (tx.metadata && tx.metadata.kind === 'gliits_topup' && userId) {
+      if (tx.metadata && tx.metadata.kind === 'xtra_topup' && tx.reference) {
+        // Paid naira comes from the verified charge, never from metadata.
+        const result = await creditXtraPot(tx.reference, amountNaira);
+        console.log('Paystack webhook xtra topup:', tx.reference, JSON.stringify(result));
+        if (result.reason === 'retry') return res.status(500).json({ error: 'Pot not credited yet.' });
+        // Only the arrival that actually filled the pot gets to tell the payer.
+        if (result.credited && userId) {
+          await sendAiNotice(userId, `Xtra pot credited with G${Number(result.gliits).toLocaleString()}.`);
+        }
+      } else if (tx.metadata && tx.metadata.kind === 'gliits_topup' && userId) {
         const gliitsAmount = tx.metadata.gliits_amount || amountNaira;
         const result = await creditTopupOnce(userId, gliitsAmount, tx.reference);
         console.log('Paystack webhook gliits topup:', tx.reference, JSON.stringify(result));
@@ -59,7 +68,10 @@ app.post('/api/paystack/webhook', express.raw({ type: '*/*' }), async (req, res)
         if (result.credited) {
           await sendAiNotice(userId, `Wallet credited with G${Number(gliitsAmount).toLocaleString()}. Happy browsing!`);
         }
-      } else if (userId && amountNaira >= 100 && tx.reference) {
+      } else if (userId && amountNaira >= 100 && tx.reference
+                 && (!tx.metadata || !tx.metadata.kind)) {
+        // Only the old kind-less /api/paystack/init requests land here, so a
+        // pot payment can never be mistaken for a personal wallet credit.
         const result = await creditTopupOnce(userId, amountNaira, tx.reference);
         console.log('Paystack webhook credit:', tx.reference, JSON.stringify(result));
         if (result.reason === 'retry') return res.status(500).json({ error: 'Credit not applied yet.' });
@@ -138,6 +150,38 @@ async function creditTopupOnce(userId, amountGliits, reference) {
     return { credited: false, reason: permanent ? 'rejected' : 'retry' };
   }
   return data || { credited: false, reason: 'retry' };
+}
+
+// The same exactly-once claim, for an Xtra pot instead of a wallet.
+//
+// xtra_credit_payment locks the reference, compares what Paystack says was
+// paid against the naira figure the database wrote when the checkout was
+// priced, and fills the pot once. So the only amount this server ever sends
+// is the one taken from the verified charge itself — never a client number.
+//
+// Both arrivals (the redirect verify and the webhook) call this. Only the one
+// that actually credits gets credited; the other is told it is a duplicate.
+// The plan flip runs only after a real credit, so a failed payment never
+// switches anyone onto a pot that has no money in it.
+async function creditXtraPot(reference, paidNaira) {
+  const { data, error } = await supabaseAdmin.rpc('xtra_credit_payment', {
+    p_reference: reference,
+    p_paid_naira: Math.round(Number(paidNaira) || 0)
+  });
+  if (error) {
+    console.error('xtra_credit_payment rejected:', reference, error.message);
+    const permanent = /INVALID_REFERENCE/.test(error.message || '');
+    return { credited: false, reason: permanent ? 'rejected' : 'retry' };
+  }
+  const result = data || { credited: false, reason: 'retry' };
+
+  if (result.credited && result.group_id) {
+    const { error: flipError } = await supabaseAdmin.rpc('xtra_flip_members', {
+      p_group_id: result.group_id
+    });
+    if (flipError) console.error('xtra_flip_members failed:', reference, flipError.message);
+  }
+  return result;
 }
 
 // Billing notices land in each user's Gliim-PA thread.
@@ -248,6 +292,19 @@ app.post('/api/paystack/verify', async (req, res) => {
 
     const userId = tx.metadata && tx.metadata.user_id;
     const amountNaira = Math.round((tx.amount || 0) / 100);
+
+    if (tx.metadata && tx.metadata.kind === 'xtra_topup') {
+      const result = await creditXtraPot(tx.reference || reference, amountNaira);
+      if (result.reason === 'retry') {
+        return res.json({ credited: false, reason: 'retry' });
+      }
+      return res.json({
+        credited: !!result.credited,
+        gliits: result.gliits ?? null,
+        pool_balance: result.pool_balance ?? null,
+        reason: result.credited ? null : (result.reason || 'not_credited')
+      });
+    }
 
     if (tx.metadata && tx.metadata.kind === 'gliits_topup' && userId) {
       const gliitsAmount = tx.metadata.gliits_amount || amountNaira;
@@ -385,6 +442,84 @@ app.post('/api/gliits/topup-init', async (req, res) => {
     res.json({ authorization_url: init.authorization_url, reference: init.reference, amountNaira, gliitsAmount: amount });
   } catch (error) {
     console.error('Topup init error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ==========================================
+// XTRA — POT FUNDING (Paystack checkout)
+// ==========================================
+// One member pays for a group. The client names only the group and how many
+// seats to buy; xtra_payment_intent turns that into tokens and naira from
+// gliits_config and writes the pending row, so the figure charged is the
+// figure the database recorded and nothing a browser can edit.
+app.post('/api/xtra/topup-init', async (req, res) => {
+  try {
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      return res.status(500).json({ error: 'Paystack is not configured yet.' });
+    }
+
+    const token = bearerToken(req);
+    if (!token) return res.status(401).json({ error: 'Missing access token.' });
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData || !authData.user || !authData.user.email) {
+      return res.status(401).json({ error: 'Invalid or expired session.' });
+    }
+    const userId = authData.user.id;
+
+    const { groupId, seats, callbackUrl } = req.body || {};
+    if (!groupId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(groupId))) {
+      return res.status(400).json({ error: 'Unknown group.' });
+    }
+    const seatCount = Math.round(Number(seats));
+    if (!Number.isFinite(seatCount) || seatCount < 1 || seatCount > 1000) {
+      return res.status(400).json({ error: 'Invalid seat count.' });
+    }
+
+    const reference = `GLI-XTR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const { data: intent, error: intentError } = await supabaseAdmin.rpc('xtra_payment_intent', {
+      p_group_id: String(groupId),
+      p_payer_id: userId,
+      p_seats: seatCount,
+      p_reference: reference
+    });
+    if (intentError) {
+      console.error('xtra_payment_intent rejected:', reference, intentError.message);
+      if (/GROUP_NOT_FOUND|NOT_GROUP_OWNER/.test(intentError.message || '')) {
+        return res.status(403).json({ error: 'That group is not yours to fund.' });
+      }
+      if (/NO_CONFIG/.test(intentError.message || '')) {
+        return res.status(503).json({ error: 'Pricing is unavailable right now. Please try again in a moment.' });
+      }
+      return res.status(400).json({ error: 'Could not price that pot.' });
+    }
+    const amountNaira = Math.round(Number(intent && intent.naira_amount));
+    const gliitsAmount = Math.round(Number(intent && intent.gliits_amount));
+    if (!Number.isFinite(amountNaira) || amountNaira < 1 || !Number.isFinite(gliitsAmount) || gliitsAmount < 1) {
+      console.error('xtra_payment_intent returned an unusable price:', reference, JSON.stringify(intent));
+      return res.status(503).json({ error: 'Pricing is unavailable right now. Please try again in a moment.' });
+    }
+
+    const init = await initPaystackTransaction({
+      email: authData.user.email,
+      amountNaira,
+      reference,
+      callbackUrl: typeof callbackUrl === 'string' && /^https?:\/\//.test(callbackUrl) ? callbackUrl : `${APP_URL}/dashboard/#/wallet`,
+      metadata: { kind: 'xtra_topup', user_id: userId, group_id: String(groupId), seats: seatCount }
+    });
+    if (!init.ok) return res.status(502).json({ error: 'Paystack could not start the checkout.' });
+
+    res.json({
+      authorization_url: init.authorization_url,
+      reference,
+      amountNaira,
+      gliitsAmount,
+      seats: seatCount
+    });
+  } catch (error) {
+    console.error('Xtra topup init error:', error);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

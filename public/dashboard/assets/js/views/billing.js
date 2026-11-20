@@ -30,8 +30,6 @@ const TX_TYPE_LABELS = {
   transfer_in: 'Transfer in',
   topup: 'Wallet top-up',
   reward: 'GP reward',
-  bill_payment: 'Bill payment',
-  refund: 'Refund',
   withdrawal: 'Payout to bank',
   withdrawal_refund: 'Payout returned',
   adjustment: 'Adjustment'
@@ -55,7 +53,7 @@ const PAYOUT_ERRORS = {
   NEED_BANK_VERIFICATION: 'Your bank account still needs confirming with the bank.',
   PAYOUT_IN_FLIGHT: 'A payout is already on its way to your account.',
   ONE_PER_DAY: 'One payout a day. Please try again tomorrow.',
-  RECENT_TOPUP: 'Gliims you bought very recently are still on hold.',
+  RECENT_TOPUP: 'Tokens you bought very recently are still on hold.',
   BAD_NAME: 'Set the full name on your bank account in Settings first.',
   BAD_PHONE: 'Enter a valid phone number.',
   BAD_ACCOUNT: 'Enter the 10-digit account number.',
@@ -305,6 +303,14 @@ export default {
     const referralGp = Number(this.referralSummary?.gp_earned || 0);
     const topPosts = Array.isArray(e.top_posts) ? e.top_posts : [];
 
+    // The two rules the platform actually bills creators by, read from the same
+    // config row the heartbeat charges from. An unreadable config prints a dash
+    // rather than the SQL default, so nothing here promises a rate nobody set.
+    const figure = (key) => {
+      const n = Number(this.config?.[key]);
+      return Number.isFinite(n) && n > 0 ? tokensText(n) : '—';
+    };
+
     const postsHtml = topPosts.length === 0
       ? '<p style="color: var(--text-muted); text-align: center; padding: 24px 0;">No creator earnings yet.</p>'
       : `<div class="txn-list">
@@ -343,6 +349,13 @@ export default {
             <span class="stat-value">${minutes.toLocaleString()}</span>
             <span class="stat-label">Minutes read on your content</span>
           </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 16px;">
+        <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 8px;">How you are paid</h3>
+        <div class="sub-details">
+          <div class="sub-row"><span>For each minute a member spends on your content</span><strong>${figure('creator_rate_per_minute')}</strong></div>
+          <div class="sub-row"><span>Cap per member, per item, per day</span><strong>${figure('creator_cap_per_post_session')}</strong></div>
         </div>
       </div>
       <div class="card" style="margin-top: 16px;">
@@ -459,6 +472,12 @@ export default {
       icon = `<div class="txn-icon bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></div>`;
     } else if (tx.type === 'transfer_in') {
       icon = `<div class="txn-icon bg-success"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></div>`;
+    } else if (tx.type === 'withdrawal') {
+      icon = `<div class="txn-icon bg-error"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01"></path><path d="M18 12h.01"></path></svg></div>`;
+    } else if (tx.type === 'withdrawal_refund') {
+      icon = `<div class="txn-icon bg-success"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg></div>`;
+    } else if (tx.type === 'adjustment') {
+      icon = `<div class="txn-icon bg-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></div>`;
     } else {
       icon = `<div class="txn-icon bg-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg></div>`;
     }
@@ -687,7 +706,7 @@ export default {
       <div class="modal-content">
         <button class="modal-close" id="withdraw-close-btn">×</button>
         <h2 style="margin-bottom: 6px;">Withdraw to your bank</h2>
-        <p class="fund-subtitle">Gliims leave the platform as naira, into an account held in your own name.</p>
+        <p class="fund-subtitle">Tokens leave the platform as naira, into an account held in your own name.</p>
         <div id="withdraw-body">
           <p class="fund-subtitle" style="margin-top: var(--space-4);">Checking your bank details…</p>
         </div>
@@ -850,7 +869,7 @@ export default {
       <button class="btn-primary" id="withdraw-send-btn" style="width: 100%; margin-top: var(--space-4);" disabled>Withdraw</button>
       <p class="fund-subtitle" style="margin-top: 10px;">
         Balance ${tokensText(this.balance)} · ${tokensText(min)} to ${tokensText(max)} a time ·
-        one payout a day${hold ? ` · Gliims bought in the last ${hold} hours are held back` : ''}
+        one payout a day${hold ? ` · Tokens bought in the last ${hold} hours are held back` : ''}
       </p>
     `;
   },
@@ -1007,7 +1026,7 @@ export default {
     document.getElementById('wallet-withdraw-modal')?.remove();
     await this.fetchData();
     this.render();
-    await appAlert('Cancelled — the Gliims are back in your wallet.');
+    await appAlert('Cancelled — the tokens are back in your wallet.');
   },
 
   // ============================================
@@ -1130,9 +1149,9 @@ export default {
       const data = await res.json();
 
       if (data.credited) {
-        const unit = data.gliits ? 'G' : 'G';
-        const amt = data.gliits || data.amount || 0;
-        await appAlert(`Wallet funded! ${unit}${Number(amt).toLocaleString()} has been added to your balance.`);
+        // `amount` is the figure the database actually credited, already in
+        // tokens; the separate `gliits` key only ever duplicated it.
+        await appAlert(`Wallet funded! ${tokensText(data.amount || 0)} added to your balance.`);
         await this.fetchData();
         this.render();
         return;

@@ -1,6 +1,6 @@
 # Gliimu Terms of Service
 
-> DRAFT FOR REVIEW — not live anywhere. Bracketed [TO CONFIRM] markers need your numbers before this ships.
+> Human-readable sibling of the live Terms. Members read the single `public.legal_documents` row with `type = 'terms'`, not this file — changing wording here changes nothing until a guarded SQL script updates that row. No `[TO CONFIRM]` markers remain.
 
 Last Updated: November 2026
 
@@ -36,7 +36,7 @@ Gliimu operates on a token wallet and an activity currency:
 Creators earn tokens when members consume their content, and GP when members engage with it:
 
 - **Earnings**: A creator is paid only for minutes a viewer actually paid for, so a minute nobody was billed for earns nothing. The creator's portion of support contributions (70% of every support tap) is credited to the creator's token balance.
-- **Revenue Share**: Support contributions are split 70% creator / 30% platform. Consumption revenue is paid as a per-viewer-minute creator rate set by the platform against the same per-minute charge members pay, capped per viewer per session, and may change with notice. [TO CONFIRM: publish the exact creator rate and cap on the Billing page so members and creators read the same two numbers the platform charges by.]
+- **Revenue Share**: Support contributions are split 70% creator / 30% platform. Consumption revenue is paid as a per-minute creator rate set by the platform against the same per-minute charge members pay, capped per member, per item, per day. Both figures are shown on the Billing page, under "How you are paid", so the rate you are paid by is the same number the platform charges members by. Either figure may change with notice.
 - **Withdrawals**: A withdrawal is held for a short anti-fraud window and then reviewed and released by the Gliimu team, so processing times vary and the wait shown at the point of request applies. You are responsible for any third-party payment gateway fees or tax liabilities.
 
 ## 6. Intellectual Property & Content Rights
